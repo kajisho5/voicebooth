@@ -539,13 +539,15 @@ juce::File UiSession::projectFolderFor (const juce::String& songName)
                .getChildFile ("VoiceBooth").getChildFile ("Projects").getChildFile (name);
 }
 
-void UiSession::exportTracks (const std::vector<project::TrackType>& types)
+void UiSession::exportTracks (const std::vector<project::TrackType>& types, int bitDepth)
 {
     if (s.exporting || s.project.lengthSamples <= 0 || s.projectFolder == juce::File() || types.empty())
         return;
 
     // 裏のスレッドで書く（曲の長さぶん読む・書くので、画面を止めない）。プロジェクトは値で渡す
-    const auto project = s.project;
+    auto project = s.project;
+    if (bitDepth == 16 || bitDepth == 24 || bitDepth == 32)
+        project.bitDepthExport = bitDepth;   // この書き出しだけ（録音形式は変えない）
     const auto folder = s.projectFolder;
     const auto dest = folder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d"));
     const auto song = s.songName;

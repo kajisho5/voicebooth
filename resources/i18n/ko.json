@@ -49,6 +49,7 @@
   "export.done": "파일 {0}개를 내보냈습니다: {1}",
   "export.failed": "내보내지 못했습니다: {0}",
   "export.format": "FORMAT",
+  "export.format.dither": "(TPDF 디더. 무음 구간은 그대로 무음)",
   "export.format.value": "{0} kHz · {1} · 모노 · 0:00부터 · 노멀라이즈 없음",
   "export.micro": "EXPORT",
   "export.mockToast": "UI 목업이므로 파일은 쓰지 않습니다(Phase B에서 구현)",

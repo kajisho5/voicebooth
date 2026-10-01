@@ -11,7 +11,8 @@ namespace
 
 ExportDialog::ExportDialog (UiSession& u)
     : DialogPanel (tr ("export.title"), tr ("export.micro")), SessionView (u),
-      packMode ({ tr ("export.pack.files"), tr ("export.pack.zip") }, u->mode == project::Mode::easy ? 0 : 1)
+      packMode ({ tr ("export.pack.files"), tr ("export.pack.zip") }, u->mode == project::Mode::easy ? 0 : 1),
+      bitKeys ({ "16bit", "24bit", "32bit float" }, u->project.bitDepthExport >= 32 ? 2 : (u->project.bitDepthExport <= 16 ? 0 : 1))
 {
     const auto& s = state();
     using project::TrackType;
@@ -64,6 +65,11 @@ ExportDialog::ExportDialog (UiSession& u)
     packMode.onChange = [this] (int) { repaint(); };
     addChildComponent (packMode);
 
+    // ビット数（既定は録音形式。依頼先が 16bit を指定する時など）。16bit はディザー付き
+    bitKeys.setFont (mono (11.0f));
+    bitKeys.onChange = [this] (int) { repaint(); };
+    addAndMakeVisible (bitKeys);
+
     addFooterKey (tr ("export.do"), KeyRole::primary, [this] { if (onExport) onExport(); });
     addFooterKey (tr ("common.cancel"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
 
@@ -81,7 +87,8 @@ void ExportDialog::layoutBody (juce::Rectangle<int> r)
     }
 
     r.removeFromTop (14);
-    formatArea = r.removeFromTop (24);
+    formatArea = r.removeFromTop (28);
+    bitKeys.setBounds (formatArea.removeFromRight (juce::jmin (formatArea.getWidth() / 2, bitKeys.idealWidth())).withSizeKeepingCentre (bitKeys.idealWidth(), 26));
     r.removeFromTop (12);
 
     packArea = r.removeFromTop (34);
@@ -158,7 +165,11 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         paint::microLabel (g, f.removeFromLeft (80.0f), tr ("export.format"), colours::textMute);
         g.setColour (colours::text);
         g.setFont (sans (12.0f));
-        g.drawText (tr ("export.format.value", formatKhz (s.sampleRate()), formatBits (s.project.bitDepthExport)), f, juce::Justification::centredLeft, true);
+        const auto bits = selectedBitDepth();
+        auto text = tr ("export.format.value", formatKhz (s.sampleRate()), formatBits (bits));
+        if (bits == 16)
+            text << "  " << tr ("export.format.dither");
+        g.drawText (text, f, juce::Justification::centredLeft, true);
     }
 
     // 書き出し方
@@ -229,6 +240,16 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
                                 + juce::File::getSeparatorString()
                         : "Projects/" + s.songName + "/export_20261001/";
         g.drawText (dest, d, juce::Justification::centredLeft, true);
+    }
+}
+
+int ExportDialog::selectedBitDepth() const
+{
+    switch (bitKeys.getSelected())
+    {
+        case 0:  return 16;
+        case 2:  return 32;
+        default: return 24;
     }
 }
 

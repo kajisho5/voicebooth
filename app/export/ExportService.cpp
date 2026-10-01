@@ -140,12 +140,13 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         }
         std::unique_ptr<juce::OutputStream> stream (fileStream.release());
         juce::WavAudioFormat wav;
-        // 24bit PCM か 32bit float（プロジェクトの録音形式）
+        // 16bit / 24bit PCM か 32bit float（project.bitDepthExport）
         const bool asFloat = project.bitDepthExport >= 32;
+        const int bits = asFloat ? 32 : (project.bitDepthExport <= 16 ? 16 : 24);
         using Format = juce::AudioFormatWriterOptions::SampleFormat;
         writer = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate ((double) rate)
                                                                               .withNumChannels (1)
-                                                                              .withBitsPerSample (asFloat ? 32 : 24)
+                                                                              .withBitsPerSample (bits)
                                                                               .withSampleFormat (asFloat ? Format::floatingPoint
                                                                                                          : Format::integral));
         if (writer == nullptr)
@@ -160,6 +161,19 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
     juce::AudioBuffer<float> out (1, block), take (1, block);   // 読む範囲はこのブロックの中だけ
     float peak = 0.0f;
     bool ok = true;
+
+    // 16bit は TPDF ディザー（±1 LSB の三角分布）を掛けてから丸める。録っていない所（ちょうど 0）には掛けない
+    // （無音はデジタルの無音のまま）。乱数の種は固定（同じ素材なら毎回同じファイル）
+    const bool dither16 = project.bitDepthExport <= 16;
+    juce::Random dither (0x5eed);
+    constexpr float lsb16 = 1.0f / 32768.0f;
+
+    // 整数の形式は自分で「いちばん近い値」に丸めて渡す。JUCE の float → int32 → int16 / int24 は最後が切り捨て
+    // （右シフト）で、0.5 LSB の偏り（ごく小さい直流）が出るため。値は 32bit の上詰め（16bit なら × 65536）
+    const bool asInt = project.bitDepthExport < 32;
+    const double intScale = dither16 ? 32768.0 : 8388608.0;
+    const int intMax = dither16 ? 32767 : 8388607, intShift = dither16 ? 65536 : 256;
+    std::vector<int> ints (asInt ? (size_t) block : 0);
 
     for (int64 a = 0; a < length && ok; a += block)
     {
@@ -184,8 +198,22 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         }
 
         peak = juce::jmax (peak, out.getMagnitude (0, 0, n));
-        const float* channels[] = { o };
-        ok = writer->writeFromFloatArrays (channels, 1, n);
+        if (dither16)
+            for (int i = 0; i < n; ++i)
+                if (! juce::exactlyEqual (o[i], 0.0f))
+                    o[i] += (dither.nextFloat() - dither.nextFloat()) * lsb16;
+        if (asInt)
+        {
+            for (int i = 0; i < n; ++i)
+                ints[(size_t) i] = juce::jlimit (-intMax - 1, intMax, juce::roundToInt ((double) o[i] * intScale)) * intShift;
+            const int* channels[] = { ints.data(), nullptr };
+            ok = writer->write (channels, n);
+        }
+        else
+        {
+            const float* channels[] = { o };
+            ok = writer->writeFromFloatArrays (channels, 1, n);
+        }
         if (ok && options.progress)
             ok = options.progress ((float) (a + n) / (float) length);
     }

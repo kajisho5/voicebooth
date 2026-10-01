@@ -49,6 +49,7 @@
   "export.done": "Exported {0} file(s): {1}",
   "export.failed": "Couldn't export: {0}",
   "export.format": "FORMAT",
+  "export.format.dither": "(TPDF dither; silence stays silent)",
   "export.format.value": "{0} kHz · {1} · mono · from 0:00 · not normalized",
   "export.micro": "EXPORT",
   "export.mockToast": "UI mock: nothing is written yet (Phase B)",

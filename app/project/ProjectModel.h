@@ -63,7 +63,7 @@ struct Project
 {
     juce::String songPath;
     int   sampleRate     = 48000;    // 時間軸の SR。既定は元曲。録音の SR を選んだらそれ（伴奏をそろえる。勝手には変えない）
-    int   bitDepthExport = 24;       // 24（PCM）か 32（float）。録音形式で選ぶ
+    int   bitDepthExport = 24;       // 24（PCM）か 32（float）。録音形式で選ぶ。書き出しダイアログで 16（ディザー付き）にもできる
     int64 lengthSamples  = 0;
     int   keyOriginal    = 0;
     double tempoOriginal = 120.0;
