@@ -809,6 +809,26 @@ Rubber Band（商用配布時はライセンス確認）。代替は事前に DE
   CI で両方入っていることを `lipo` で確かめ、Intel 側のテストも Rosetta 2 で回す（実機の Intel Mac での確認は別途）
 - 未署名でも開発ビルドは動くようにする
 
+試す人向けの未署名インストーラー（2026-10-01 実装。`packaging/`、CI `.github/workflows/build.yml`）：
+
+- CI（PR と手動実行）で、テストが通った後に作って Actions の成果物に置く（7 日。ダウンロードは GitHub が zip に包む）。従来のビルドフォルダの zip（`VoiceBooth-Windows` / `VoiceBooth-macOS`）も残す
+  - Win：`VoiceBooth-<版>-win-x64-setup.exe`（Inno Setup 6.5.2 以上、`packaging/windows/VoiceBooth.iss`）。
+    既定はユーザーごとのインストール（管理者権限なし、`%LOCALAPPDATA%\Programs\VoiceBooth`）。`/ALLUSERS` で全ユーザー（Program Files）。
+    スタートメニュー、デスクトップは任意。日本語 / 英語（Windows の表示言語で選ぶ）。ライセンス画面に AGPL の全文。アンインストールはユーザーのデータ（設定・テイク・モデル）を消さない。
+    AppId `{E17D5960-64DF-4D1A-832E-C8DC4510D36B}` は変えない（上書き更新・アンインストールの目印）。`.vbooth` の関連付けは B14（.iss に TODO）。
+    CI の Windows ビルドは C++ ランタイムを静的リンク（`-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`）して、VC++ 再頒布パッケージの無い PC でも起動するようにする
+  - Mac：`VoiceBooth-<版>-mac-universal.dmg`（`packaging/macos/make_dmg.sh`、macOS 標準の hdiutil などだけ）。
+    VoiceBooth.app と Applications へのリンクを brand の背景（660x400、アイコンは (165,200) / (495,200)）に並べる。
+    並びは Finder（AppleScript）が書くので、Finder を操作できない環境では背景・位置なしの素の DMG にして警告を出す（中身は同じ）。
+    app は ad-hoc 署名（`codesign -s -`。Apple シリコンで「壊れている」と出さないため）。公証はしていない
+  - 版は CMake の `PROJECT_VERSION`（`build/CMakeCache.txt` の `CMAKE_PROJECT_VERSION`）
+- 未署名なので、初回だけ OS の確認を越える必要がある（試す人への案内）：
+  - Win：SmartScreen の「Windows によって PC が保護されました」→「詳細情報」→「実行」
+  - Mac：開こうとすると「開発元を検証できません」/「Apple は検証できませんでした」と出る。macOS 14 までは Finder で app を右クリック（control クリック）→「開く」→「開く」。
+    macOS 15 以降は一度開こうとした後、システム設定 →「プライバシーとセキュリティ」→ 下の「このまま開く」→ パスワード。
+    どちらもだめな時は `xattr -dr com.apple.quarantine /Applications/VoiceBooth.app`
+- 署名・公証（主体は 19 で未決）が決まったら、同じ所で署名してから配る
+
 #### 11.6.1 動作環境（暫定。2026-10-01）
 
 README・配布ページ・アプリの設定画面に出す。数値は暫定で、B8（リアルタイムピッチ）と B16（分離）で実測して確定する。

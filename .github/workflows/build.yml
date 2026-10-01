@@ -1,7 +1,8 @@
 name: build
 
 # Win / Mac でビルドとテストが通ること、翻訳表がそろっていること、
-# 音声デバイスを開かない UI_MOCK ビルドも通ること（Linux）を確認する
+# 音声デバイスを開かない UI_MOCK ビルドも通ること（Linux）を確認する。
+# テストが通ったら、試す人向けに未署名のインストーラー（Win: setup.exe / Mac: DMG）も作る（DESIGN 11.6）
 on:
   pull_request:
   workflow_dispatch:
@@ -29,8 +30,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -49,10 +51,77 @@ jobs:
           arch -x86_64 /usr/bin/true 2>/dev/null || sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
           arch -x86_64 "$TESTS"
 
+      # ビルドしたフォルダそのもの（従来どおり）
       - uses: actions/upload-artifact@v4
         with:
           name: VoiceBooth-${{ runner.os }}
           path: build/VoiceBooth_artefacts/Release
+          retention-days: 7
+
+      # ---- 未署名インストーラー（DESIGN 11.6）。ここまでのテストが通った時だけ ----
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          v=$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' build/CMakeCache.txt | head -1 | tr -d '\r')
+          if [ -z "$v" ]; then echo "::error::CMAKE_PROJECT_VERSION not found in build/CMakeCache.txt"; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "version: $v"
+
+      # Inno Setup 6.5.2 以上（PNG のウィザード画像）。ランナーに入っていて新しければそれを使い、無い・古い時だけ choco で入れる
+      - name: Install Inno Setup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $need = [version]'6.5.2'
+          function Find-Iscc {
+            foreach ($p in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
+              if (Test-Path $p) {
+                $vi = (Get-Item $p).VersionInfo
+                return @{ Path = $p; Version = [version]::new($vi.FileMajorPart, $vi.FileMinorPart, $vi.FileBuildPart) }
+              }
+            }
+            return $null
+          }
+          $found = Find-Iscc
+          if ($found -and $found.Version -ge $need) {
+            Write-Host "Inno Setup already on the runner: $($found.Path) ($($found.Version))"
+          } else {
+            Write-Host "Inno Setup missing or older than $need ($($found.Version)); installing via choco"
+            choco upgrade innosetup -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "choco failed ($LASTEXITCODE)" }
+            $found = Find-Iscc
+            if (-not $found -or $found.Version -lt $need) { throw "Inno Setup $need+ not available after install" }
+            Write-Host "Installed: $($found.Path) ($($found.Version))"
+          }
+
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        id: win_setup
+        shell: pwsh
+        run: ./packaging/windows/build_installer.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      - name: Build DMG (macOS)
+        if: runner.os == 'macOS'
+        id: mac_dmg
+        run: packaging/macos/make_dmg.sh --version "${{ steps.version.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: VoiceBooth-${{ steps.version.outputs.version }}-win-x64-setup
+          path: ${{ steps.win_setup.outputs.setup }}
+          if-no-files-found: error
+          compression-level: 0   # setup.exe は圧縮済み
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: VoiceBooth-${{ steps.version.outputs.version }}-mac-universal
+          path: ${{ steps.mac_dmg.outputs.dmg }}
+          if-no-files-found: error
+          compression-level: 0   # DMG は圧縮済み
           retention-days: 7
 
   # 音声デバイスを一切開かないビルド（DESIGN 11.1 / 14）が壊れていないこと。テストも Linux で回す
