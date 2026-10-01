@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 
-# macOS: arm64 優先（ユニバーサルは P2 以降）。project() より前に置くこと。
+# macOS：Apple シリコンと Intel の両方で動くユニバーサル版（2026-10-01 決定。DESIGN 11.6）。
+# 最低は macOS 11 Big Sur。project() より前に置くこと（Mac 以外では使われない）。
+# 片方だけ作る時は -DCMAKE_OSX_ARCHITECTURES=arm64 のように上書きする
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
+set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 
 project(VoiceBooth VERSION 0.1.0 LANGUAGES C CXX)
 
