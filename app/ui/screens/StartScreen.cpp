@@ -26,22 +26,23 @@ namespace
         return {};
     }
 
-    struct Step { const char* key; float progress; bool failed; };
-    const Step steps[] = {
-        { "analyze.step.format",     1.0f,  false },
-        { "analyze.step.separation", 0.62f, false },
-        { "analyze.step.pitch",      0.0f,  false },
-        { "analyze.step.tempo",      1.0f,  false },
-        { "analyze.step.lyrics",     0.0f,  false },
-        { "analyze.step.range",      0.0f,  false },
+    /** 解析の項目（DESIGN 7.1）。B1 で本物なのは最初の 1 つ（形式・長さ・SR・チャンネル＋波形） */
+    const char* const stepKeys[] = {
+        "analyze.step.format",
+        "analyze.step.separation",
+        "analyze.step.pitch",
+        "analyze.step.tempo",
+        "analyze.step.lyrics",
+        "analyze.step.range",
     };
 }
 
-StartScreen::StartScreen (UiSession& u, bool isAnalyzing, bool isFirstRun)
-    : SessionView (u), analyzing (isAnalyzing), firstRun (isFirstRun),
+StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
+    : SessionView (u), loader (l), firstRun (isFirstRun),
       openFolder (tr ("start.openProject")),
       continueKey (tr ("analyze.continue")),
-      cancelKey (tr ("common.cancel"))
+      cancelKey (tr ("common.cancel")),
+      anotherKey (tr ("analyze.chooseAnother"))
 {
     const char* keys[] = { "start.first.sing", "start.first.deliver", "start.first.detail" };
     const project::Mode modes[] = { project::Mode::easy, project::Mode::standard, project::Mode::pro };
@@ -60,25 +61,123 @@ StartScreen::StartScreen (UiSession& u, bool isAnalyzing, bool isFirstRun)
     continueKey.withLed (colours::signal).withToggle (false);
     continueKey.setToggleState (true, juce::dontSendNotification);
     continueKey.onClick = [this] { if (onDone) onDone(); };
-    cancelKey.onClick = [this] { analyzing = false; resized(); repaint(); };
+    cancelKey.onClick = [this] { loader.cancel(); setPhase (Phase::home); };
+    anotherKey.withIcon (Icon::folder);
+    anotherKey.onClick = [this] { setPhase (Phase::home); chooseFile(); };
     addChildComponent (continueKey);
     addChildComponent (cancelKey);
+    addChildComponent (anotherKey);
+}
+
+StartScreen::~StartScreen()
+{
+    // 画面を閉じたら読み込みも止める（結果を受け取る相手がいなくなるため）
+    if (phase == Phase::loading)
+        loader.cancel();
+}
+
+void StartScreen::setPhase (Phase p)
+{
+    phase = p;
+    if (phase == Phase::loading) startTimerHz (30);
+    else                         stopTimer();
+    resized();
+    repaint();
+}
+
+void StartScreen::chooseFile()
+{
+    chooser = std::make_unique<juce::FileChooser> (tr ("start.chooser.title"),
+                                                   juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+                                                   audio::songWildcard());
+    juce::Component::SafePointer<StartScreen> safe (this);
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [safe] (const juce::FileChooser& fc)
+                          {
+                              const auto f = fc.getResult();
+                              if (safe != nullptr && f != juce::File())
+                                  safe->openFile (f);
+                          });
+}
+
+void StartScreen::openFile (const juce::File& f)
+{
+    file = f;
+    info = {};
+    error = audio::LoadResult::Error::none;
+
+    if (! audio::hasSongExtension (f))
+    {
+        setPhase (Phase::failed);   // 拡張子で弾く（中身を読む前に分かるもの）
+        return;
+    }
+
+    setPhase (Phase::loading);
+    juce::Component::SafePointer<StartScreen> safe (this);
+    loader.start (f, [safe] (audio::LoadResult r)
+    {
+        if (safe != nullptr)
+            safe->loadFinished (std::move (r));
+    });
+}
+
+void StartScreen::loadFinished (audio::LoadResult r)
+{
+    info = r.info;
+    error = r.error;
+
+    if (! r.ok())
+    {
+        setPhase (Phase::failed);
+        return;
+    }
+
+    // 曲を差し替える（後ろのメイン画面もこの時点で実波形になる）
+    session.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview);
+    setPhase (Phase::loaded);
+}
+
+//==============================================================================
+bool StartScreen::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    return phase != Phase::loading && files.size() > 0;
+}
+
+void StartScreen::fileDragEnter (const juce::StringArray&, int, int)
+{
+    dragHover = true;
+    repaint();
+}
+
+void StartScreen::fileDragExit (const juce::StringArray&)
+{
+    dragHover = false;
+    repaint();
+}
+
+void StartScreen::filesDropped (const juce::StringArray& files, int, int)
+{
+    dragHover = false;
+    openFile (juce::File (files[0]));   // 複数なら先頭だけ
 }
 
 void StartScreen::resized()
 {
     panel = getLocalBounds().withSizeKeepingCentre (juce::jmin (1080, getWidth() - 80), juce::jmin (700, getHeight() - 80));
 
-    for (auto* k : firstRunKeys) k->setVisible (! analyzing && firstRun);   // 最初の 1 回だけ（DESIGN 2）
-    openFolder.setVisible (! analyzing);
-    continueKey.setVisible (analyzing);
-    cancelKey.setVisible (analyzing);
+    const bool home = phase == Phase::home;
+    for (auto* k : firstRunKeys) k->setVisible (home && firstRun);   // 最初の 1 回だけ（DESIGN 2）
+    openFolder.setVisible (home);
+    continueKey.setVisible (phase == Phase::loaded);
+    cancelKey.setVisible (phase == Phase::loading);
+    anotherKey.setVisible (phase == Phase::loaded || phase == Phase::failed);
 
-    if (analyzing)
+    if (! home)
     {
         auto f = panel.reduced (40, 0).removeFromBottom (80);
-        for (auto* k : { &continueKey, &cancelKey })
+        for (auto* k : { &continueKey, &cancelKey, &anotherKey })
         {
+            if (! k->isVisible()) continue;
             k->setSize (10, 36);
             const auto w = juce::jmax (110, k->idealWidth());
             k->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 36));
@@ -122,13 +221,11 @@ void StartScreen::resized()
 
 void StartScreen::mouseUp (const juce::MouseEvent& e)
 {
-    if (analyzing) return;
+    if (phase != Phase::home) return;
 
     if (dropArea.contains (e.getPosition()))
     {
-        analyzing = true;   // モック：曲を選んだつもりで解析画面へ
-        resized();
-        repaint();
+        chooseFile();
         return;
     }
 
@@ -152,8 +249,8 @@ void StartScreen::paint (juce::Graphics& g)
     g.setFont (sans (13.0f));
     g.drawText (tr ("app.tagline"), head.removeFromTop (24.0f), juce::Justification::topLeft, false);
 
-    if (analyzing) paintAnalyzing (g);
-    else           paintHome (g);
+    if (phase == Phase::home) paintHome (g);
+    else                      paintAnalyzing (g);
 }
 
 void StartScreen::paintHome (juce::Graphics& g)
@@ -162,12 +259,18 @@ void StartScreen::paintHome (juce::Graphics& g)
     {
         const auto r = dropArea.toFloat();
         paint::inset (g, r, 6.0f);
+        const bool hot = dragHover || dropArea.contains (getMouseXYRelative());
+        if (dragHover)
+        {
+            g.setColour (colours::signal.withAlpha (0.06f));
+            g.fillRoundedRectangle (r.reduced (10.0f), 6.0f);
+        }
         const float dashes[] = { 6.0f, 5.0f };
         juce::Path border;
         border.addRoundedRectangle (r.reduced (10.0f), 6.0f);
         juce::Path dashed;
-        juce::PathStrokeType (1.2f).createDashedStroke (dashed, border, dashes, 2);
-        g.setColour (colours::lineHi);
+        juce::PathStrokeType (dragHover ? 1.6f : 1.2f).createDashedStroke (dashed, border, dashes, 2);
+        g.setColour (dragHover ? colours::signal : (hot ? colours::textMute : colours::lineHi));
         g.fillPath (dashed);
 
         auto c = r.reduced (40.0f);
@@ -236,53 +339,107 @@ void StartScreen::paintHome (juce::Graphics& g)
     }
 }
 
+juce::String StartScreen::songInfoLine() const
+{
+    // 例：WAV  48 kHz  24bit  ステレオ  3:45（単位・形式名は翻訳しない）
+    const auto sr = juce::roundToInt (info.sampleRate);
+    const auto ch = info.numChannels == 1 ? tr ("analyze.mono")
+                  : info.numChannels == 2 ? tr ("analyze.stereo")
+                                          : juce::String (info.numChannels) + " ch";
+    juce::StringArray parts { info.extension().toUpperCase(), formatKhz (sr) + " kHz" };
+    // ビット数は非圧縮・可逆だけ（mp3 / ogg などの値は意味がない）
+    const bool pcm = juce::StringArray { "wav", "aif", "aiff", "flac" }.contains (info.extension());
+    if (pcm && info.bitsPerSample > 0)
+        parts.add (juce::String (info.bitsPerSample) + "bit" + (info.floatingPoint ? " float" : ""));
+    parts.add (ch);
+    parts.add (formatTime (info.lengthSamples, juce::jmax (1, sr), true));
+    return parts.joinIntoString ("   ");
+}
+
+juce::String StartScreen::errorText() const
+{
+    const auto name = file.getFileName();
+    if (error == audio::LoadResult::Error::none)
+        return tr ("load.error.notSong", name);   // 拡張子で弾いた
+    if (error == audio::LoadResult::Error::cancelled)
+        return tr ("load.error.cancelled");
+    return tr (audio::errorKey (error), name);
+}
+
 void StartScreen::paintAnalyzing (juce::Graphics& g)
 {
     auto r = panel.reduced (40, 0).withTrimmedTop (120).withTrimmedBottom (100);
+    const auto name = file.getFileNameWithoutExtension();
 
     g.setColour (colours::text);
-    g.setFont (sans (18.0f, Weight::semibold));
-    g.drawText (tr ("analyze.title", state().songName), r.removeFromTop (30), juce::Justification::centredLeft, true);
+    g.setFont (sansFor (name, 18.0f, Weight::semibold));
+    const auto title = phase == Phase::failed ? tr ("analyze.titleFailed", file.getFileName())
+                     : phase == Phase::loaded ? tr ("analyze.titleDone", name)
+                                              : tr ("analyze.title", name);
+    g.drawText (title, r.removeFromTop (30), juce::Justification::centredLeft, true);
     g.setColour (colours::textDim);
     g.setFont (sans (12.5f));
     g.drawText (tr ("analyze.sub"), r.removeFromTop (24), juce::Justification::centredLeft, true);
     r.removeFromTop (20);
 
-    for (auto& st : steps)
+    for (size_t i = 0; i < std::size (stepKeys); ++i)
     {
         auto row = r.removeFromTop (46).toFloat();
         r.removeFromTop (6);
 
-        const bool done = st.progress >= 1.0f;
-        const bool running = st.progress > 0.0f && ! done;
-        const auto c = done ? colours::signal : (running ? colours::warn : colours::textMute);
+        // 1 行目だけ本物。ほかは SKIP（このバージョンでは解析しない）
+        const bool real = i == 0;
+        const bool failed = real && phase == Phase::failed;
+        const bool done = real && phase == Phase::loaded;
+        const bool running = real && phase == Phase::loading;
+        const auto progress = done ? 1.0f : (running ? loader.getProgress() : 0.0f);
+        const auto c = failed ? colours::bad : (done ? colours::signal : (running ? colours::warn : colours::textMute));
 
-        paint::led (g, { row.getX() + 6.0f, row.getCentreY() }, 3.2f, c, done || running);
+        paint::led (g, { row.getX() + 6.0f, row.getCentreY() }, 3.2f, c, real);
         row.removeFromLeft (22.0f);
 
         auto label = row.removeFromLeft (row.getWidth() * 0.42f);
-        g.setColour (done || running ? colours::text : colours::textDim);
+        g.setColour (real ? colours::text : colours::textDim);
         g.setFont (sans (13.0f, Weight::medium));
-        g.drawText (tr (st.key), label, juce::Justification::centredLeft, true);
+        g.drawText (tr (stepKeys[i]), label, juce::Justification::centredLeft, true);
 
         auto status = row.removeFromRight (120.0f);
         g.setColour (c);
         g.setFont (mono (11.0f, Weight::medium));
-        g.drawText (done ? tr ("analyze.done") : (running ? juce::String (juce::roundToInt (st.progress * 100.0f)) + "%" : tr ("analyze.waiting")),
-                    status, juce::Justification::centredRight, false);
+        const auto statusText = ! real ? tr ("analyze.skip")
+                              : failed ? tr ("analyze.failed")
+                              : done   ? tr ("analyze.done")
+                                       : juce::String (juce::roundToInt (progress * 100.0f)) + "%";
+        g.drawText (statusText, status, juce::Justification::centredRight, false);
 
         auto bar = row.reduced (16.0f, 0.0f).withSizeKeepingCentre (row.getWidth() - 32.0f, 6.0f);
+        if (! real)
+        {
+            paint::hline (g, std::round (bar.getCentreY()), bar.getX(), bar.getRight(), colours::line.withAlpha (0.6f));
+            continue;
+        }
+
+        // 終わったら棒の代わりに結果（形式・SR・長さ）か、失敗の理由
+        if (done || failed)
+        {
+            g.setColour (failed ? colours::bad : colours::textDim);
+            const auto text = failed ? errorText() : songInfoLine();
+            g.setFont (failed ? sansFor (text, 12.0f) : mono (11.5f, Weight::medium));
+            g.drawFittedText (text, row.reduced (16.0f, 0.0f).toNearestInt(), juce::Justification::centredLeft, 2, 0.9f);
+            continue;
+        }
+
         paint::inset (g, bar, 3.0f);
-        if (st.progress > 0.0f)
+        if (progress > 0.0f)
         {
             g.setColour (c);
-            g.fillRoundedRectangle (bar.withWidth (bar.getWidth() * st.progress), 3.0f);
+            g.fillRoundedRectangle (bar.withWidth (bar.getWidth() * progress), 3.0f);
         }
     }
 
     r.removeFromTop (8);
     g.setColour (colours::textMute);
     g.setFont (sans (11.5f));
-    g.drawFittedText (tr ("analyze.note"), r.removeFromTop (36), juce::Justification::topLeft, 2, 1.0f);
+    g.drawFittedText (tr ("analyze.skipNote") + "\n" + tr ("analyze.note"), r.removeFromTop (40), juce::Justification::topLeft, 3, 1.0f);
 }
 } // namespace vb

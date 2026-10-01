@@ -21,6 +21,12 @@ struct TimeMap
     }
 };
 
+/** サンプリングレートの kHz 表示。44100 → "44.1"、48000 → "48" */
+inline juce::String formatKhz (int sampleRate)
+{
+    return sampleRate % 1000 == 0 ? juce::String (sampleRate / 1000) : juce::String (sampleRate / 1000.0, 1);
+}
+
 /** m:ss / m:ss.mmm（表示専用。内部はサンプルが真実） */
 inline juce::String formatTime (int64 samples, int sampleRate, bool withMillis)
 {

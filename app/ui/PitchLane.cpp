@@ -164,6 +164,14 @@ void PitchLane::paint (juce::Graphics& g)
             drawMainGhost (g, m);
         drawReference (g, m);
         drawMine (g, m);
+
+        // 開いたばかりの曲：お手本ピッチはまだない（B9 で解析）
+        if (s.refPitch.empty())
+        {
+            g.setColour (colours::textMute);
+            g.setFont (sans (13.0f));
+            g.drawText (tr ("pitch.notAnalyzed"), plot.reduced (24.0f), juce::Justification::centred, false);
+        }
         lane::drawPlayhead (g, s, m, plot);
         drawCurrent (g, m);
     }
@@ -401,8 +409,8 @@ void PitchLane::drawFooter (juce::Graphics& g)
         label (tr ("pitch.legend.mainGhost"), colours::textDim);
     }
 
-    // 入りタイミング（標準以上）/ 解析（プロ）— ダミー値
-    if (! analysisArea.isEmpty())
+    // 入りタイミング（標準以上）/ 解析（プロ）— ダミー値。歌っていない（自分のピッチが無い）曲では出さない
+    if (! analysisArea.isEmpty() && ! s.myPitch.empty())
     {
         auto a = analysisArea.toFloat();
         auto chip = [&] (const juce::String& name, const juce::String& value, juce::Colour c)

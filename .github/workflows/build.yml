@@ -1,6 +1,6 @@
 name: build
 
-# Win / Mac でビルドが通ること、翻訳表がそろっていることを確認する（Phase A: UI_MOCK のみ）
+# Win / Mac でビルドとテストが通ること、翻訳表がそろっていることを確認する（UI_MOCK：音声デバイスは開かない）
 on:
   pull_request:
   workflow_dispatch:
@@ -28,6 +28,9 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
 
       - uses: actions/upload-artifact@v4
         with:

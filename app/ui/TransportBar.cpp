@@ -33,9 +33,7 @@ void OverviewSeek::paint (juce::Graphics& g)
     for (float px = in.getX(); px < in.getRight(); px += 2.0f)
     {
         const auto s0 = map.sampleAt (px), s1 = map.sampleAt (px + 2.0f);
-        float a = 0.0f;
-        for (int k = 0; k < 4; ++k)
-            a = juce::jmax (a, dummy::backingAmplitude (s, s0 + (s1 - s0) * k / 4));
+        const auto a = juce::jmin (1.0f, dummy::backingPeak (s, s0, s1));
 
         const auto h = juce::jmax (1.0f, a * in.getHeight());
         g.setColour (px < playX ? colours::text.withAlpha (0.55f) : colours::textMute.withAlpha (0.55f));
@@ -131,9 +129,16 @@ void TransportBar::onSessionChanged (juce::uint32 changes)
     if (changes & change::playhead)
     {
         time.setValue (formatTime (s.playhead, s.sampleRate(), true), "/ " + formatTime (s.project.lengthSamples, s.sampleRate(), false));
-        const auto beatLen = (int64) std::llround (60.0 / s.bpm() * s.sampleRate());
-        const auto beats = s.playhead / beatLen;
-        beat.setValue (juce::String (beats / s.beatsPerBar + 1) + "." + juce::String (beats % s.beatsPerBar + 1));
+        if (s.tempoKnown)
+        {
+            const auto beatLen = (int64) std::llround (60.0 / s.bpm() * s.sampleRate());
+            const auto beats = s.playhead / beatLen;
+            beat.setValue (juce::String (beats / s.beatsPerBar + 1) + "." + juce::String (beats % s.beatsPerBar + 1));
+        }
+        else
+        {
+            beat.setValue ("-.-");   // テンポ推定前
+        }
     }
 
     if (changes & change::range)

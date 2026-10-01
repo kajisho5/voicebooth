@@ -2,6 +2,7 @@
 
 #include "Theme.h"
 #include "project/ProjectModel.h"
+#include "audio/WaveformOverview.h"
 
 /*  見た目フェーズ専用の固定ダミー（DESIGN 20）
     UI はこのヘッダ経由でのみダミーデータを読む。結線時（Phase B）に差し替える。
@@ -40,6 +41,11 @@ struct Session
 {
     project::Project project;
     juce::String songName;
+
+    // 開いた曲（B1）。無ければダミーの概形を描く
+    std::shared_ptr<const audio::WaveformOverview> backingWave;
+    bool tempoKnown = true;                // 解析前（テンポ推定前）の曲は false → 拍ではなく秒で目盛る
+    bool keyKnown = true;
 
     // 輸送
     int64 playhead = 0;
@@ -99,8 +105,17 @@ struct Session
 
 Session makeSession();
 
+/** 開いた曲で作り直した状態（テイク・歌詞・お手本ピッチは空。解析はまだ）
+    表示の好み（モード・許容幅など）と入力（B3 まではダミー）は prev から引き継ぐ */
+Session makeSongSession (const Session& prev, const juce::String& name, const juce::String& path,
+                         int sampleRate, int64 lengthSamples,
+                         std::shared_ptr<const audio::WaveformOverview>);
+
 /** オフボ概形の振幅 0..1（決定的） */
 float backingAmplitude (const Session&, int64 sample);
+
+/** オフボの [start, end) の最大振幅 0..1。開いた曲があれば実波形、無ければダミー */
+float backingPeak (const Session&, int64 start, int64 end);
 
 /** ボーカル概形の振幅 0..1。1 を超えるとクリップ扱い */
 float vocalAmplitude (const Session&, TrackType, int64 sample);

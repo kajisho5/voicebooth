@@ -52,6 +52,9 @@ TopBar::TopBar (UiSession& u, Actions& a)
 
 void TopBar::onSessionChanged (juce::uint32 changes)
 {
+    if (changes & change::song)
+        repaint (songArea);   // 曲名・長さ・SR
+
     if ((changes & (change::transport | change::mode)) == 0)
         return;
 
@@ -125,11 +128,13 @@ void TopBar::paint (juce::Graphics& g)
         g.drawText (s.songName, r.removeFromLeft (tw + 2.0f), juce::Justification::centredLeft, true);
 
         r.removeFromLeft (14.0f);
+        // 44.1 kHz は小数で（44 と出さない）。キーとテンポは解析前なら「-」
+        const auto sr = s.sampleRate();
         const auto meta = tr ("topbar.meta",
-                              s.sampleRate() / 1000,
-                              formatTime (s.project.lengthSamples, s.sampleRate(), false),
-                              s.project.keyOriginal,
-                              juce::roundToInt (s.bpm()));
+                              formatKhz (sr),
+                              formatTime (s.project.lengthSamples, sr, false),
+                              s.keyKnown ? juce::String (s.project.keyOriginal) : juce::String ("-"),
+                              s.tempoKnown ? juce::String (juce::roundToInt (s.bpm())) : juce::String ("-"));
         g.setColour (colours::textMute);
         g.setFont (mono (11.0f));
         g.drawText (meta, r, juce::Justification::centredLeft, true);

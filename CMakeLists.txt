@@ -10,13 +10,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ---------------------------------------------------------------------------
-# Phase A: 見た目だけ。音声デバイスを一切開かないビルド（DESIGN 11.1 UI_MOCK=1）
+# 音声デバイスを一切開かないビルド（DESIGN 11.1 UI_MOCK=1）
+#   B1（曲ファイルを読んで波形を出す）まではこれで足りる。デバイスは B2 / B3 で結線する
 # ---------------------------------------------------------------------------
-option(VOICEBOOTH_UI_MOCK "UI only build. Never opens audio devices (Phase A)" ON)
+option(VOICEBOOTH_UI_MOCK "Never opens audio devices (Phase A / B1)" ON)
+option(VOICEBOOTH_TESTS "Build VoiceBoothTests (ctest)" ON)
 
 if(NOT VOICEBOOTH_UI_MOCK)
     message(FATAL_ERROR
-        "Phase B（結線）は未実装です。-DVOICEBOOTH_UI_MOCK=ON でビルドしてください。")
+        "音声デバイスの結線（B2 以降）は未実装です。-DVOICEBOOTH_UI_MOCK=ON でビルドしてください。")
 endif()
 
 # ---------------------------------------------------------------------------
@@ -83,9 +85,15 @@ juce_add_gui_app(VoiceBooth
     MICROPHONE_PERMISSION_ENABLED TRUE
     MICROPHONE_PERMISSION_TEXT "VoiceBooth はボーカル録音のためにマイクを使用します。")
 
+# 音声ファイルの読み込み（UI に依存しない。テストからも使う）
+set(VOICEBOOTH_AUDIO_SOURCES
+    app/audio/WaveformOverview.cpp
+    app/audio/SongLoader.cpp)
+
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
     app/i18n/I18n.cpp
+    ${VOICEBOOTH_AUDIO_SOURCES}
     # テーマ
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
@@ -134,13 +142,46 @@ if(MSVC)
     target_compile_options(VoiceBooth PRIVATE /utf-8)
 endif()
 
-# UI_MOCK では juce_audio_* をリンクしない（音声デバイスを開けない構成にする）
+# UI_MOCK では juce_audio_devices をリンクしない（音声デバイスを開けない構成にする）
+#   juce_audio_formats はファイルを読むだけ（B1）。mp3 は OS の読み手を使い、
+#   JUCE 内蔵の MP3 デコーダ（JUCE_USE_MP3AUDIOFORMAT）は有効にしない
 target_link_libraries(VoiceBooth
     PRIVATE
         VoiceBoothFonts
         VoiceBoothI18n
         juce::juce_gui_basics
+        juce::juce_audio_formats
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# ---------------------------------------------------------------------------
+# テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
+# ---------------------------------------------------------------------------
+if(VOICEBOOTH_TESTS)
+    enable_testing()
+    juce_add_console_app(VoiceBoothTests PRODUCT_NAME "VoiceBoothTests")
+    target_sources(VoiceBoothTests PRIVATE
+        tests/TestMain.cpp
+        tests/WaveformOverviewTests.cpp
+        tests/SongLoaderTests.cpp
+        ${VOICEBOOTH_AUDIO_SOURCES})
+    target_include_directories(VoiceBoothTests PRIVATE app)
+    target_compile_definitions(VoiceBoothTests PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_MODAL_LOOPS_PERMITTED=1)   # 非同期の通知をテストで回すため
+    if(MSVC)
+        target_compile_options(VoiceBoothTests PRIVATE /utf-8)
+    endif()
+    target_link_libraries(VoiceBoothTests
+        PRIVATE
+            juce::juce_audio_formats
+            juce::juce_events
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+    add_test(NAME VoiceBoothTests COMMAND VoiceBoothTests)
+endif()

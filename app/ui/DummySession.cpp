@@ -225,6 +225,74 @@ Session makeSession()
     return s;
 }
 
+Session makeSongSession (const Session& prev, const juce::String& name, const juce::String& path,
+                         int sampleRate, int64 lengthSamples,
+                         std::shared_ptr<const audio::WaveformOverview> wave)
+{
+    Session s;
+    s.songName = name;
+    s.backingWave = std::move (wave);
+    s.tempoKnown = false;
+    s.keyKnown = false;
+
+    auto& p = s.project;
+    p.songPath      = path;
+    p.sampleRate    = sampleRate;
+    p.lengthSamples = lengthSamples;
+    p.modeLast      = prev.mode;
+    p.tracks = { { TrackType::backing, {}, {} }, { TrackType::guide, {}, {} },
+                 { TrackType::main, {}, {} },    { TrackType::doubleTrack, {}, {} },
+                 { TrackType::harm1, {}, {} },   { TrackType::harm2, {}, {} } };
+
+    s.trackUi = {
+        { TrackType::main,        true,  false, false, 0.80f, 1 },
+        { TrackType::doubleTrack, false, false, false, 0.55f, 2 },
+        { TrackType::harm1,       false, false, false, 0.60f, 3 },
+        { TrackType::harm2,       false, false, false, 0.60f, 4 },
+    };
+
+    // 頭から 30 秒を表示（短い曲は全体）
+    s.viewStart = 0;
+    s.viewEnd = juce::jmax ((int64) 1, juce::jmin (lengthSamples, s.sec (30.0)));
+
+    // 表示の好み
+    s.mode                = prev.mode;
+    s.octaveAlign         = prev.octaveAlign;
+    s.fullRange           = prev.fullRange;
+    s.lowMidi             = prev.lowMidi;
+    s.highMidi            = prev.highMidi;
+    s.pitchToleranceCents = prev.pitchToleranceCents;
+    s.countInBars         = prev.countInBars;
+    s.clickOn             = prev.clickOn;
+    s.loopOn              = prev.loopOn;
+    s.offVocalGain        = prev.offVocalGain;
+    s.mainGain            = prev.mainGain;
+    s.harmonyGain         = prev.harmonyGain;
+    s.monitorGain         = prev.monitorGain;
+    s.monitorReverb       = prev.monitorReverb;
+
+    // 入力（B3 で実デバイスにつなぐまではダミーのまま）
+    s.inputDevice     = prev.inputDevice;
+    s.driver          = prev.driver;
+    s.bufferSize      = prev.bufferSize;
+    s.inputPeakDb     = prev.inputPeakDb;
+    s.inputRmsDb      = prev.inputRmsDb;
+    s.inputPeakHoldDb = prev.inputPeakHoldDb;
+    s.latencySamples  = prev.latencySamples;
+    return s;
+}
+
+float backingPeak (const Session& s, int64 start, int64 end)
+{
+    if (s.backingWave != nullptr)
+        return s.backingWave->getPeak (start, end).magnitude();
+
+    float a = 0.0f;
+    for (int k = 0; k < 4; ++k)
+        a = juce::jmax (a, backingAmplitude (s, start + (end - start) * k / 4));
+    return a;
+}
+
 float backingAmplitude (const Session& s, int64 sample)
 {
     const auto t = s.toSec (sample);

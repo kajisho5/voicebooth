@@ -9,7 +9,8 @@
 /*  起動オプション（開発・スクリーンショット用）
       --gallery              部品ギャラリー
       --lang=ja|en|ko|zh-Hans|zh-Hant   表示言語（保存された設定より優先）
-      --screen=<name>        start / analyzing / setup / setup2 / setup3 / export / settings / confirm-rec
+      --screen=<name>        start / setup / setup2 / setup3 / export / settings / confirm-rec
+      --open=<path>          その曲を開く（起動画面で読み込み → 波形。B1）
       --mode=easy|standard|pro
       --track=main|double|harm1
       --rec                  録音中の見た目で開く
@@ -66,9 +67,14 @@ public:
     void rebuild()
     {
         auto* content = new MainComponent (session, hooks);
-        setName (tr ("app.name") + juce::String::fromUTF8 (" \xe2\x80\x94 ") + session->songName);
+        updateTitle();
         setContentOwned (content, false);
         focusContent();
+    }
+
+    void updateTitle()
+    {
+        setName (tr ("app.name") + juce::String::fromUTF8 (" \xe2\x80\x94 ") + session->songName);
     }
 
     /** ショートカットを受けられるようにする（表示されてから） */
@@ -131,7 +137,8 @@ public:
         properties.setStorageParameters (opts);
         auto* stored = properties.getUserSettings();
 
-        const auto args = juce::StringArray::fromTokens (commandLine, true);
+        juce::ignoreUnused (commandLine);
+        const auto args = getCommandLineParameterArray();   // 空白を含むパスも 1 つの引数のまま
 
         // 言語：起動オプション > 保存した設定 > OS の表示言語
         auto lang = i18n::fromSystem();
@@ -170,13 +177,15 @@ public:
         o.track = argValue (args, "track");
         o.recording = args.contains ("--rec");
         o.playing = args.contains ("--play");
+        if (const auto path = argValue (args, "open"); path.isNotEmpty())
+            o.open = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         if (auto* m = window->main())
             m->applyLaunchOptions (o);
 
         // 初回起動：言語を選ぶ → モードの質問
         const bool firstRun = args.contains ("--first-run")
                            || (! stored->getBoolValue ("firstRunDone", false) && ! args.contains ("--no-first-run"));
-        if (firstRun && o.screen.isEmpty())
+        if (firstRun && o.screen.isEmpty() && o.open == juce::File())
             if (auto* m = window->main())
                 m->openWelcome();
     }
@@ -200,7 +209,12 @@ private:
     /** モードが変わったら覚えておく（次回もそのモードで開く） */
     void sessionChanged (juce::uint32 changes) override
     {
-        if ((changes & change::mode) == 0 || session == nullptr) return;
+        if (session == nullptr) return;
+
+        if ((changes & change::song) && window != nullptr)
+            window->updateTitle();
+
+        if ((changes & change::mode) == 0) return;
         settings()->setValue ("mode", modeKey (session->get().mode));
         settings()->saveIfNeeded();
     }
