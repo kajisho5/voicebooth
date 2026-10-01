@@ -11,7 +11,7 @@
 ## 現在の状態：Phase B1（曲を開いて実波形）— 手動確認待ち
 
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
-- **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3・m4a は Win・Mac の OS 標準デコーダ）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
+- **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
 - **日本語 / English / 한국어 / 简体中文 / 繁體中文**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
 - **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_devices` をリンクしない構成）。再生・録音はまだ見た目だけで音は出ない（B2 以降）
 
@@ -87,7 +87,8 @@ docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
 app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（Phase B で音声エンジンにつなぐ）
-app/audio/            曲の読み込み（SongLoader）と波形の概形（WaveformOverview）
+app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）と波形の概形（WaveformOverview）
+third_party/minimp3/  mp3 デコーダ（CC0。出典とコミットは README）
 tests/                VoiceBoothTests（ctest）
 app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定
 app/ui/Theme.*        色トークン・書体・描画の基本（キーキャップ / 表示窓 / LED）

@@ -12,8 +12,8 @@
       - 読むだけ。音声デバイスは開かない、再生しない（B2）
       - 内部 wav（float32）への変換・プロジェクトへのコピーは B14 で行う
       - 対応形式は OS の読み手しだい（wav / aiff / flac / ogg は全 OS。
-        mp3 / m4a は Win（Media Foundation）と Mac（Core Audio）。
-        読み手の一式は registerSongFormats()（MediaFoundationFormat.h） */
+        mp3 は全 OS で同梱の minimp3（頭の位置を OS で変えない）、
+        m4a は Win（Media Foundation）と Mac（Core Audio）。読み手の一式は registerSongFormats() */
 
 namespace vb::audio
 {
@@ -48,6 +48,10 @@ const char* errorKey (LoadResult::Error);
 const juce::StringArray& songExtensions();
 bool hasSongExtension (const juce::File&);
 juce::String songWildcard();   // "*.wav;*.flac;..."
+
+/** 曲を開くための読み手一式。先に登録したものが優先：
+    minimp3（mp3）→ Media Foundation（Windows の m4a / aac）→ JUCE 標準（wav / aiff / flac / ogg、Mac は Core Audio） */
+void registerSongFormats (juce::AudioFormatManager&);
 
 /** 同期で読む（テスト・スレッド本体から使う）
     progress は 0..1 を受け取り、false を返すと中止 */

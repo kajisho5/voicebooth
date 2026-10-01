@@ -858,13 +858,14 @@ Phase A だけやれ。音声デバイスは開くな。
 - コードサイン / 公証の主体
 - 有料か無料か（設計には影響させない）
 - ~~m4a（AAC）の Windows 対応~~ → 対応する（2026-10-01 決定）。JUCE 標準の読み手は Windows で m4a を読めないため、OS 標準の Media Foundation で読む（app/audio/MediaFoundationFormat）。N エディションは Media Feature Pack が要る
-- JUCE 内蔵の MP3 デコーダ（`JUCE_USE_MP3AUDIOFORMAT`）は特許・権利の免責が付くため無効のまま。mp3 は OS の読み手に任せる
-- mp3 / m4a の頭のずれ（エンコーダ遅延・詰め物の扱い）：デコーダによって長さと頭の位置が変わる。
-  実曲 3 本で確認（2026-10-01、実験ビルドの JUCE 内蔵デコーダ）：ffmpeg（gapless 処理あり）より 33〜52 ms 長い。
-  CI 計測（tests/data/burst.*、基準は ffmpeg / WAV：88200 サンプル・バースト 22051 サンプル目）：
-  Mac（Core Audio）は mp3 / m4a とも長さ・頭のずれ 0。Windows は Windows Media の mp3 が長さ +2910・頭 +1729、
-  Media Foundation の m4a が長さ一致・頭 +1024。Windows Media の mp3 は途中から読むと位置がさらに約 2000 ずれたため、
-  Windows の mp3 も Media Foundation で読む（位置は頭から数える）。OS で頭が数十 ms 違うことは残る。
+- ~~mp3 / m4a の頭のずれ（エンコーダ遅延・詰め物の扱い）~~ → 解決（2026-10-01）。OS で頭の位置を変えない：
+  - mp3：全 OS で同梱の minimp3（CC0、third_party/minimp3）。LAME / Xing タグで頭と尻を切る（ffmpeg と同じ規約）。
+    JUCE 内蔵の MP3 デコーダ（`JUCE_USE_MP3AUDIOFORMAT`）は使わない。開けない mp3 だけ OS の読み手に回す
+  - m4a：Mac は Core Audio（自前で切る）。Windows は Media Foundation が MP4 の指示を無視するので、
+    edit list（無ければ iTunes の iTunSMPB）を読んで頭の詰め物を飛ばす（app/audio/Mp4Gapless）
+  - 計測（tests/data/burst.*、基準は ffmpeg：88200 サンプル・バースト 22051 サンプル目）：
+    対策前は Win の mp3（Windows Media）が長さ +2910・頭 +1729、Win の m4a が頭 +1024、Mac は 0。
+    実曲 mp3 3 本（手元のみ）で minimp3 と ffmpeg の長さがサンプル単位で一致・波形の差は最大 4e-6
   納品 WAV とオフボの頭を合わせる（14）ため、B2〜B14 で「読み込み時に内部 WAV へ変換し、それを唯一の時間軸にする」（7.1）か、gapless 情報を読んで切るかを決める
 
 仮決めしてよいもの:

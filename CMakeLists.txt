@@ -89,7 +89,9 @@ juce_add_gui_app(VoiceBooth
 set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/WaveformOverview.cpp
     app/audio/SongLoader.cpp
-    app/audio/MediaFoundationFormat.cpp)
+    app/audio/MediaFoundationFormat.cpp
+    app/audio/Mp3Format.cpp
+    app/audio/Mp4Gapless.cpp)
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
@@ -144,7 +146,7 @@ if(MSVC)
 endif()
 
 # UI_MOCK では juce_audio_devices をリンクしない（音声デバイスを開けない構成にする）
-#   juce_audio_formats はファイルを読むだけ（B1）。mp3 は OS の読み手を使い、
+#   juce_audio_formats はファイルを読むだけ（B1）。mp3 は同梱の minimp3（CC0、third_party/minimp3）で読み、
 #   JUCE 内蔵の MP3 デコーダ（JUCE_USE_MP3AUDIOFORMAT）は有効にしない
 target_link_libraries(VoiceBooth
     PRIVATE

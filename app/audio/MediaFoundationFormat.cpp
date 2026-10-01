@@ -1,4 +1,5 @@
 #include "MediaFoundationFormat.h"
+#include "Mp4Gapless.h"
 
 #if JUCE_WINDOWS
  #ifndef NOMINMAX
@@ -74,6 +75,9 @@ namespace
             const auto channels = (int) numChannels;
             if (channels <= 0)
                 return false;
+
+            // 以下の位置は「頭からデコードした数」。頭の詰め物の分だけ先を読む
+            startSampleInFile += skip;
 
             // 後ろへ戻るときは頭から読み直す（先へ進むときは読み進めて捨てる）
             if (startSampleInFile < pendingStart)
@@ -160,6 +164,19 @@ namespace
                 lengthInSamples = (juce::int64) std::llround ((double) duration.uhVal.QuadPart * sampleRate / hundredNs);
             PropVariantClear (&duration);
 
+            // AAC の頭の詰め物：Media Foundation は MP4 の指示（edit list / iTunSMPB）を無視して出すので、ここで飛ばす
+            if (! file.hasFileExtension ("mp3"))
+                if (auto stream = file.createInputStream())
+                {
+                    const auto g = readMp4Gapless (*stream, sampleRate);
+                    if (g.found)
+                    {
+                        skip = juce::jmax ((juce::int64) 0, g.priming);
+                        if (g.validSamples > 0)
+                            lengthInSamples = g.validSamples;
+                    }
+                }
+
             return lengthInSamples > 0;
         }
 
@@ -217,6 +234,7 @@ namespace
         bool mfStarted = false, opened = false;
         Com<IMFSourceReader> reader;
 
+        juce::int64 skip = 0;             // 頭で飛ばすサンプル数（AAC の詰め物）
         std::vector<float> pending;       // インターリーブ
         juce::int64 pendingStart = 0;     // pending の先頭のサンプル位置
         bool ended = false;
@@ -224,7 +242,7 @@ namespace
 }
 
 MediaFoundationAudioFormat::MediaFoundationAudioFormat()
-    : juce::AudioFormat ("Media Foundation", juce::StringArray { ".m4a", ".mp4", ".aac", ".mp3" })
+    : juce::AudioFormat ("Media Foundation", juce::StringArray { ".m4a", ".mp4", ".aac", ".mp3" })   // mp3 は minimp3 で開けないときの予備
 {
 }
 
@@ -249,14 +267,4 @@ juce::AudioFormatReader* MediaFoundationAudioFormat::createReaderFor (juce::Inpu
 }
 #endif
 
-void registerSongFormats (juce::AudioFormatManager& formats)
-{
-   #if JUCE_WINDOWS
-    // 先に登録した読み手が優先される。mp3 も Media Foundation で読む：
-    // JUCE 標準の Windows Media の読み手は、頭から順に読んだときと途中から読んだときで
-    // 位置が約 2000 サンプル食い違った（CI で計測、2026-10-01）。開けなければ Windows Media に回る
-    formats.registerFormat (new MediaFoundationAudioFormat(), false);
-   #endif
-    formats.registerBasicFormats();
-}
 } // namespace vb::audio
