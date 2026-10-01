@@ -1,5 +1,6 @@
 #include "SongLoader.h"
 #include "MediaFoundationFormat.h"
+#include "Mp3Format.h"
 
 namespace vb::audio
 {
@@ -34,6 +35,15 @@ juce::String songWildcard()
     for (auto& e : songExtensions())
         w.add ("*." + e);
     return w.joinIntoString (";");
+}
+
+void registerSongFormats (juce::AudioFormatManager& formats)
+{
+    formats.registerFormat (new Mp3AudioFormat(), false);
+   #if JUCE_WINDOWS
+    formats.registerFormat (new MediaFoundationAudioFormat(), false);
+   #endif
+    formats.registerBasicFormats();
 }
 
 LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
