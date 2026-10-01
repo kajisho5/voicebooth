@@ -401,9 +401,10 @@ void MainComponent::openExport()
     {
         // 曲を開いていれば本当に書き出す（B5：個別のフル尺 Dry）。見本（UI_MOCK・デモ）は書かない
         const auto chosen = d->selectedTracks();
+        const auto bits = d->selectedBitDepth();
         const bool real = state().backingWave != nullptr;
         overlay.close();   // d はここで消える
-        if (real) session.exportTracks (chosen);
+        if (real) session.exportTracks (chosen, bits);
         else      showToast (tr ("export.mockToast"));
     };
     overlay.show (std::move (dlg), true);

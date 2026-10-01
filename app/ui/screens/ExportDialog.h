@@ -17,6 +17,9 @@ public:
     /** 書き出すトラック（チェックが入っていて、録ってあるボーカル）。確認用ミックスは B15 */
     std::vector<project::TrackType> selectedTracks() const;
 
+    /** 書き出すビット数（16 / 24 / 32 = float）。既定は録音形式と同じ */
+    int selectedBitDepth() const;
+
 protected:
     void layoutBody (juce::Rectangle<int>) override;
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
@@ -38,6 +41,7 @@ private:
     std::vector<FileRow> rows;
     juce::OwnedArray<KeyButton> checks;
     SegmentedKeys packMode;
+    SegmentedKeys bitKeys;   // 16bit（ディザー）/ 24bit / 32bit float
     juce::Rectangle<int> listArea, packArea, previewArea, formatArea, destArea;
 };
 } // namespace vb

@@ -7,6 +7,7 @@ namespace vb
 namespace
 {
     using project::int64;
+    constexpr float twoPiF = 6.2831853f;
 
     juce::File tempFolder (const juce::String& name)
     {
@@ -410,6 +411,55 @@ public:
             const auto w24 = readWav (out24);
             expectEquals (w24.bits, 24);
             expect (! w24.isFloat);
+            dir.deleteRecursively();
+        }
+
+        beginTest ("export: 16-bit with TPDF dither; unrecorded silence stays exactly 0; same file every time");
+        {
+            auto dir = tempFolder ("exp16");
+            project::Project p;
+            p.sampleRate = 44100;
+            p.bitDepthExport = 16;
+            p.lengthSamples = 100000;
+            project::Track t;
+            auto t1 = take ("take1", 20000, 60000);
+            std::vector<float> v (40000);
+            for (size_t i = 0; i < v.size(); ++i) v[i] = 0.3f * (float) std::sin (twoPiF * 440.0f * (float) i / 44100.0f) + 0.001f;
+            writeWav (dir.getChildFile (t1.path), 44100, v, true);
+            project::applyTake (t, t1);
+            p.tracks.push_back (t);
+
+            const auto out = dir.getChildFile ("v16.wav");
+            expect (exporter::ExportService::exportTrackDry (p, project::TrackType::main, dir, out).ok);
+            const auto w = readWav (out);
+            expectEquals (w.bits, 16);
+            expect (! w.isFloat);
+            expectEquals ((int64) w.samples.size(), (int64) 100000);
+
+            // 無音の所はデジタルの 0 のまま（ディザーを掛けない）
+            float silent = 0.0f;
+            for (int i = 0; i < 20000; ++i) silent = std::max (silent, std::abs (w.samples[(size_t) i]));
+            for (int i = 60000; i < 100000; ++i) silent = std::max (silent, std::abs (w.samples[(size_t) i]));
+            expectEquals (silent, 0.0f);
+
+            // 声の所は元の値から ±2 LSB 以内（丸め＋ディザー）、誤差の平均はほぼ 0（偏らない）
+            double worst = 0.0, sum = 0.0;
+            for (int i = 0; i < 40000; ++i)
+            {
+                const auto e = (double) w.samples[(size_t) (20000 + i)] - (double) v[(size_t) i];
+                worst = std::max (worst, std::abs (e));
+                sum += e;
+            }
+            expectLessThan (worst, 2.0 / 32768.0 + 1.0e-9);
+            expectLessThan (std::abs (sum / 40000.0), 0.05 / 32768.0);
+
+            // 同じ素材なら毎回同じファイル
+            const auto again = dir.getChildFile ("v16b.wav");
+            expect (exporter::ExportService::exportTrackDry (p, project::TrackType::main, dir, again).ok);
+            juce::MemoryBlock a, b;
+            out.loadFileAsData (a);
+            again.loadFileAsData (b);
+            expect (a == b);
             dir.deleteRecursively();
         }
 
