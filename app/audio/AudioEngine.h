@@ -5,8 +5,8 @@
 #include <memory>
 
 /*  音声エンジンの境界（DESIGN 7）
-    UI はこのインターフェース越しにだけ音声へ触る。B2 で再生（オフボ）、B3 でデバイス列挙と入力メーターを結線。
-    入力は 1 ch（モノラル）を開いてメーターに使うだけ。モニター（入力 → 出力）は B4、録音は B5。
+    UI はこのインターフェース越しにだけ音声へ触る。B2 で再生（オフボ）、B3 でデバイス列挙と入力メーター、
+    B4 で自分の声のモニター（入力 → 出力。リバーブはモニターだけ）を結線。録音は B5。
 
     ルール（DESIGN 17）
       - オーディオスレッドでメモリ確保・ファイル I/O・長いロック待ちをしない
@@ -102,6 +102,11 @@ public:
 
     // モニター（オフボ）。fader は 0..1（0.75 = 0 dB）
     virtual void setBackingLevel (float fader, bool muted) = 0;
+
+    // 自分の声のモニター（B4）。fader は 0..1（0.75 = 0 dB）。止まっていても入力があれば鳴る
+    virtual void setSelfMonitor (float /*fader*/, bool /*muted*/) {}
+    // モニターリバーブの返り（0..1、0.75 = 0 dB の送り）。耳だけで、録音には入らない（DESIGN 4.7 / 14）
+    virtual void setMonitorReverb (float /*fader*/) {}
 
     virtual OutputStatus getOutputStatus() const = 0;
 

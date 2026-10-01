@@ -15,6 +15,26 @@ bool looksLikeBluetooth (const juce::String& deviceName)
     return tokens.contains ("bt");
 }
 
+bool looksLikeSpeakers (const juce::String& deviceName)
+{
+    const auto n = deviceName.toLowerCase();
+    // 非 ASCII の語は UTF-8 から読む（ナローの文字列リテラルは処理系で壊れる）
+    static const juce::StringArray headphones { "headphone", "headset", "earphone", "earbud", "airpods",
+                                                juce::String::fromUTF8 ("ヘッドホン"), juce::String::fromUTF8 ("ヘッドフォン"),
+                                                juce::String::fromUTF8 ("イヤホン"), juce::String::fromUTF8 ("耳机"),
+                                                juce::String::fromUTF8 ("耳機"), juce::String::fromUTF8 ("헤드폰") };
+    static const juce::StringArray speakers { "speaker", juce::String::fromUTF8 ("スピーカー"), juce::String::fromUTF8 ("扬声器"),
+                                              juce::String::fromUTF8 ("揚聲器"), juce::String::fromUTF8 ("喇叭"),
+                                              juce::String::fromUTF8 ("스피커") };
+    for (auto& w : headphones)
+        if (n.contains (w))
+            return false;
+    for (auto& w : speakers)
+        if (n.contains (w))
+            return true;
+    return false;
+}
+
 int resolveInputChannel (int wanted, int available)
 {
     if (available <= 0)
