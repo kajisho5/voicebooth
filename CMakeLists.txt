@@ -88,7 +88,8 @@ juce_add_gui_app(VoiceBooth
 # 音声ファイルの読み込み（UI に依存しない。テストからも使う）
 set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/WaveformOverview.cpp
-    app/audio/SongLoader.cpp)
+    app/audio/SongLoader.cpp
+    app/audio/MediaFoundationFormat.cpp)
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
@@ -156,6 +157,11 @@ target_link_libraries(VoiceBooth
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
+# Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
+if(WIN32)
+    target_link_libraries(VoiceBooth PRIVATE mfplat mfreadwrite mfuuid ole32)
+endif()
+
 # ---------------------------------------------------------------------------
 # テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
 # ---------------------------------------------------------------------------
@@ -184,5 +190,8 @@ if(VOICEBOOTH_TESTS)
         PUBLIC
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
+    if(WIN32)
+        target_link_libraries(VoiceBoothTests PRIVATE mfplat mfreadwrite mfuuid ole32)
+    endif()
     add_test(NAME VoiceBoothTests COMMAND VoiceBoothTests)
 endif()

@@ -1,4 +1,5 @@
 #include "audio/SongLoader.h"
+#include "audio/MediaFoundationFormat.h"
 
 namespace vb::audio
 {
@@ -33,9 +34,11 @@ namespace
         juce::ignoreUnused (ext);
         return true;
        #elif JUCE_WINDOWS
-        if (ext != "mp3") return false;
-        juce::DynamicLibrary wm;
-        return wm.open ("wmvcore.dll");
+        // mp3：Windows Media（wmvcore.dll）、m4a：Media Foundation と AAC デコーダ（msauddecmft.dll）
+        juce::DynamicLibrary lib;
+        if (ext == "mp3") return lib.open ("wmvcore.dll");
+        if (ext == "m4a") return lib.open ("msauddecmft.dll") && juce::DynamicLibrary().open ("mfreadwrite.dll");
+        return false;
        #else
         juce::ignoreUnused (ext);
         return false;
@@ -75,7 +78,7 @@ public:
         dir.createDirectory();
 
         juce::AudioFormatManager formats;
-        formats.registerBasicFormats();
+        registerSongFormats (formats);
 
         beginTest ("WAV: exact length / rate / channels / bits, peak position");
         {
@@ -143,21 +146,21 @@ public:
             // tests/data/make_fixtures.sh：88200 サンプル、22050 サンプル目から 1 kHz のバースト
             //   ffmpeg で 22051 サンプル目に |x| > 0.05（基準）。差がデコーダの頭のずれ
             const juce::File data (VOICEBOOTH_TEST_DATA_DIR);
-            for (auto name : { "burst.mp3", "burst.m4a" })
+            for (auto fixture : { "burst.mp3", "burst.m4a" })
             {
-                const auto f = data.getChildFile (name);
+                const auto f = data.getChildFile (fixture);
                 expect (f.existsAsFile(), f.getFullPathName());
                 const auto ext = f.getFileExtension().substring (1);
                 const auto r = loadSong (f, formats);
 
                 if (! expectCompressedSupport (ext))
                 {
-                    logMessage (juce::String ("  ") + name + ": not supported on this system (expected) -> " + errorKey (r.error));
-                    expect (r.error == LoadResult::Error::unsupported, name);
+                    logMessage (juce::String ("  ") + fixture + ": not supported on this system (expected) -> " + errorKey (r.error));
+                    expect (r.error == LoadResult::Error::unsupported, fixture);
                     continue;
                 }
 
-                expect (r.ok(), juce::String (name) + ": " + errorKey (r.error));
+                expect (r.ok(), juce::String (fixture) + ": " + errorKey (r.error));
                 if (! r.ok()) continue;
 
                 expectEquals (r.info.sampleRate, 44100.0);
@@ -168,11 +171,26 @@ public:
 
                 std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (f));
                 const auto onset = firstAbove (*reader, 0.05f);
-                logMessage (juce::String ("  ") + name + " via " + r.info.formatName
+                logMessage (juce::String ("  ") + fixture + " via " + r.info.formatName
                             + ": length " + juce::String (r.info.lengthSamples) + " (wav 88200)"
                             + ", onset " + juce::String (onset) + " (ffmpeg 22051, offset "
                             + juce::String (onset - 22051) + " samples)");
                 expect (onset >= 0 && std::abs (onset - 22051) <= 2400, juce::String (onset));
+
+                // 途中から読む・後ろに戻って読む（再生のシークで使う経路）。頭から読んだときと同じ位置にバーストが出ること
+                {
+                    std::unique_ptr<juce::AudioFormatReader> r2 (formats.createReaderFor (f));
+                    juce::AudioBuffer<float> later (2, 4096), back (2, 4096);
+                    r2->read (&later, 0, 4096, 60000, true, true);            // 先へ（無音のはず）
+                    r2->read (&back, 0, 4096, onset - 1000, true, true);      // 戻る：1000 サンプル目にバースト
+                    expectLessThan (later.getMagnitude (0, 4096), 0.02f);
+                    int found = -1;
+                    for (int i = 0; i < 4096 && found < 0; ++i)
+                        if (std::abs (back.getSample (0, i)) > 0.05f || std::abs (back.getSample (1, i)) > 0.05f)
+                            found = i;
+                    logMessage (juce::String ("  ") + fixture + " seek back: burst at +" + juce::String (found) + " (expected +1000)");
+                    expect (std::abs (found - 1000) <= 2, juce::String (found));
+                }
             }
         }
 

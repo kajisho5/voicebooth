@@ -1,4 +1,5 @@
 #include "SongLoader.h"
+#include "MediaFoundationFormat.h"
 
 namespace vb::audio
 {
@@ -99,7 +100,7 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
 //==============================================================================
 SongLoader::SongLoader() : juce::Thread ("VoiceBooth song loader")
 {
-    formats.registerBasicFormats();
+    registerSongFormats (formats);
 }
 
 SongLoader::~SongLoader()
