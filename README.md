@@ -1,3 +1,5 @@
+![VoiceBooth](brand/out/marketing/readme-banner.png)
+
 # VoiceBooth
 
 歌ってみた専用の超小型ボーカルDAW。万能DAWではない。
@@ -96,6 +98,10 @@ python3 tools/check_i18n.py
 
 言語を足す時は `app/i18n/I18n.cpp` の `available()` に 1 行、JSON を 1 枚、`CMakeLists.txt` の埋め込みに 1 行（DESIGN 10.1）。
 韓国語・中国語は OS の標準フォントで表示する（Linux で確認する場合は `fonts-noto-cjk` を入れる）。
+
+## ブランド素材
+
+アプリアイコン・ロゴ・SNS 画像・インストーラー画像は [`brand/`](brand/README.md)（`python3 brand/build_brand.py` で再生成）。
 
 ## ライセンス上の注意（未決事項に関係）
 
