@@ -4,6 +4,7 @@
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
 #include "screens/WelcomeScreen.h"
+#include "screens/UpdateDialog.h"
 
 namespace vb
 {
@@ -25,6 +26,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
         addAndMakeVisible (c);
     addChildComponent (overlay);
     overlay.onClosed = [this] { if (isShowing()) grabKeyboardFocus(); };
+    status.onUpdateClicked = [this] { openUpdate(); };
 
     setWantsKeyboardFocus (true);
     setSize (defaultWidth, defaultHeight);
@@ -69,6 +71,15 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
+
+    // DESIGN 11.7 のモック（通信しない）
+    if (o.screen.startsWith ("update"))  session.setUpdateAvailable ("0.2.0");
+    if (o.screen == "update")             openUpdate();
+    using Stage = ModelDownloadDialog::Stage;
+    if (o.screen == "model-download")     openModelDownload ((int) Stage::confirm, true);
+    if (o.screen == "model-downloading")  openModelDownload ((int) Stage::downloading, false);
+    if (o.screen == "model-done")         openModelDownload ((int) Stage::done, false);
+    if (o.screen == "model-failed")       openModelDownload ((int) Stage::failed, false);
 }
 
 //==============================================================================
@@ -362,5 +373,27 @@ void MainComponent::openSettings()
     };
     dlg->onLanguage = [this] (i18n::Language l) { if (hooks.changeLanguage) hooks.changeLanguage (l, ReopenScreen::settings); };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openUpdate()
+{
+    auto dlg = std::make_unique<UpdateDialog>();
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onInstall = [this] { overlay.close(); showToast (tr ("update.title")); };   // モック：何もしない
+    dlg->onSkip = [this] { overlay.close(); session.setUpdateAvailable ({}); };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openModelDownload (int stage, bool animate)
+{
+    auto dlg = std::make_unique<ModelDownloadDialog> ((ModelDownloadDialog::Stage) stage, animate);
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onStage = [safe] (ModelDownloadDialog::Stage next)
+    {
+        // 開き直す（呼び出し元のダイアログを消すので次のメッセージで）
+        juce::MessageManager::callAsync ([safe, next] { if (safe != nullptr) safe->openModelDownload ((int) next, true); });
+    };
+    overlay.show (std::move (dlg), false);
 }
 } // namespace vb

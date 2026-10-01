@@ -14,6 +14,11 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseUp (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+
+    /** 「新しいバージョン」の知らせを押した */
+    std::function<void()> onUpdateClicked;
 
     static constexpr int height = 28;
 
@@ -22,5 +27,6 @@ private:
 
     LedMeter mini { LedMeter::Style::compact };
     juce::Rectangle<int> meterArea;
+    juce::Rectangle<float> updateChip;   // paint で決まる
 };
 } // namespace vb

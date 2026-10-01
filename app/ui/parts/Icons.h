@@ -13,7 +13,8 @@ enum class Icon
     loop, rangeIn, rangeOut, close,
     metronome, gear, mic, headphones, edit, compare, lock,
     chevronDown, chevronRight, minus, plus,
-    exportFile, folder, note, check, warning, globe
+    exportFile, folder, note, check, warning, globe,
+    download, shield
 };
 
 juce::Path makeIcon (Icon, juce::Rectangle<float> area);

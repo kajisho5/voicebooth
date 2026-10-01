@@ -1,4 +1,5 @@
 #include "StatusBar.h"
+#include "parts/Icons.h"
 
 namespace vb
 {
@@ -6,6 +7,18 @@ StatusBar::StatusBar (UiSession& u) : SessionView (u)
 {
     mini.setLevels (u->inputPeakDb, u->inputRmsDb, u->inputPeakHoldDb, false);
     addAndMakeVisible (mini);
+}
+
+void StatusBar::mouseUp (const juce::MouseEvent& e)
+{
+    if (updateChip.contains (e.position) && onUpdateClicked)
+        onUpdateClicked();
+}
+
+void StatusBar::mouseMove (const juce::MouseEvent& e)
+{
+    setMouseCursor (updateChip.contains (e.position) ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+    repaint();
 }
 
 void StatusBar::resized()
@@ -64,6 +77,25 @@ void StatusBar::paint (juce::Graphics& g)
         g.drawText (txt, box.withTrimmedLeft (15.0f), juce::Justification::centredLeft, false);
         r.removeFromRight (8.0f);
     };
+
+    // 新しいバージョン（押すと詳細。DESIGN 11.7）
+    updateChip = {};
+    if (s.updateVersion.isNotEmpty())
+    {
+        const auto txt = tr ("update.notice", s.updateVersion);
+        const auto uf = sans (11.0f, Weight::semibold);
+        const auto w = textWidth (uf, txt) + 34.0f;
+        updateChip = r.removeFromRight (w).withSizeKeepingCentre (w, 20.0f);
+        r.removeFromRight (8.0f);
+        const bool hover = updateChip.contains (getMouseXYRelative().toFloat());
+        g.setColour (colours::signal.withAlpha (hover ? 0.28f : 0.16f));
+        g.fillRoundedRectangle (updateChip, 3.0f);
+        auto inner = updateChip;
+        drawIcon (g, Icon::download, inner.removeFromLeft (24.0f).withSizeKeepingCentre (12.0f, 12.0f), colours::signal);
+        g.setColour (colours::signal);
+        g.setFont (uf);
+        g.drawText (txt, inner, juce::Justification::centredLeft, false);
+    }
 
     if (! s.engineAttached)
     {

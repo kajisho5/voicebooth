@@ -85,6 +85,9 @@ public:
     void setMute (int index, bool);
     void setSolo (int index, bool);
 
+    /** 新しいバージョンの知らせ（ステータスバー）。空で消す */
+    void setUpdateAvailable (const juce::String& version) { s.updateVersion = version; notify (change::device); }
+
     // --- モニター（B2：オフボだけ音が出る） ---------------------------------
     void setBackingLevel (float fader);   // 0..1（0.75 = 0 dB）
     void setBackingMuted (bool);

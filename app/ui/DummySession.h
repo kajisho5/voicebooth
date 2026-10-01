@@ -80,6 +80,9 @@ struct Session
     audio::OutputStatus output;
     bool engineAttached = false;
 
+    // 新しいバージョンの知らせ（DESIGN 11.7。今はモックのみ。空なら出さない）
+    juce::String updateVersion;
+
     // 入力
     juce::String inputDevice, driver;
     int bufferSize = 256;

@@ -283,6 +283,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.latencySamples  = prev.latencySamples;
     s.output          = prev.output;
     s.engineAttached  = prev.engineAttached;
+    s.updateVersion   = prev.updateVersion;
     return s;
 }
 
