@@ -196,6 +196,59 @@ namespace
             case Icon::chevronDown:
                 return outline (polyline ({ { 6.5f, 9.5f }, { 12.0f, 15.0f }, { 17.5f, 9.5f } }));
 
+            case Icon::chevronRight:
+                return outline (polyline ({ { 9.5f, 6.5f }, { 15.0f, 12.0f }, { 9.5f, 17.5f } }));
+
+            case Icon::exportFile:
+            {
+                auto e = polyline ({ { 4.5f, 14.0f }, { 4.5f, 19.5f }, { 19.5f, 19.5f }, { 19.5f, 14.0f } });
+                e.startNewSubPath (12.0f, 15.0f);
+                e.lineTo (12.0f, 4.5f);
+                e.startNewSubPath (7.5f, 9.0f);
+                e.lineTo (12.0f, 4.5f);
+                e.lineTo (16.5f, 9.0f);
+                return outline (e, 1.9f);
+            }
+
+            case Icon::folder:
+            {
+                auto f = polyline ({ { 3.5f, 6.5f }, { 9.5f, 6.5f }, { 11.5f, 8.5f }, { 20.5f, 8.5f }, { 20.5f, 18.5f }, { 3.5f, 18.5f } });
+                f.closeSubPath();
+                return outline (f, 1.8f);
+            }
+
+            case Icon::note:
+            {
+                p.addEllipse (5.0f, 14.5f, 6.5f, 5.0f);
+                p.addEllipse (13.5f, 12.5f, 6.5f, 5.0f);
+                auto st = polyline ({ { 10.6f, 16.5f }, { 10.6f, 6.0f }, { 19.1f, 4.0f }, { 19.1f, 14.5f } });
+                p.addPath (outline (st, 1.8f));
+                return p;
+            }
+
+            case Icon::check:
+                return outline (polyline ({ { 5.0f, 12.5f }, { 10.0f, 17.5f }, { 19.0f, 7.0f } }), 2.2f);
+
+            case Icon::warning:
+            {
+                juce::Path t;
+                t.addTriangle (12.0f, 3.5f, 21.0f, 19.5f, 3.0f, 19.5f);
+                p = outline (rounded (t, 1.5f), 1.8f);
+                p.addRoundedRectangle (11.0f, 9.0f, 2.0f, 5.5f, 1.0f);
+                p.addEllipse (11.0f, 15.5f, 2.0f, 2.0f);
+                return p;
+            }
+
+            case Icon::globe:
+            {
+                juce::Path gl;
+                gl.addEllipse (3.5f, 3.5f, 17.0f, 17.0f);
+                gl.addEllipse (8.0f, 3.5f, 8.0f, 17.0f);
+                gl.startNewSubPath (3.5f, 12.0f);
+                gl.lineTo (20.5f, 12.0f);
+                return outline (gl, 1.6f);
+            }
+
             case Icon::minus:
                 return outline (polyline ({ { 6.0f, 12.0f }, { 18.0f, 12.0f } }));
 

@@ -54,7 +54,7 @@ void TallyLamp::paint (juce::Graphics& g)
         g.fillRoundedRectangle (b, 4.0f);
         g.setColour (colours::text);
         g.setFont (f);
-        g.drawText ("REC", b, juce::Justification::centred, false);
+        g.drawText (tr ("tally.rec"), b, juce::Justification::centred, false);
         return;
     }
 
@@ -66,6 +66,6 @@ void TallyLamp::paint (juce::Graphics& g)
 
     g.setColour (play ? colours::text : colours::textDim);
     g.setFont (f);
-    g.drawText (play ? "PLAY" : "STANDBY", b.withTrimmedLeft (24.0f), juce::Justification::centredLeft, false);
+    g.drawText (play ? tr ("tally.play") : tr ("tally.standby"), b.withTrimmedLeft (24.0f), juce::Justification::centredLeft, false);
 }
 } // namespace vb

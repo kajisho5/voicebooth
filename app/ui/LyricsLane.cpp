@@ -2,10 +2,11 @@
 
 namespace vb
 {
-LyricsLane::LyricsLane (const dummy::Session& s) : session (s)
+LyricsLane::LyricsLane (UiSession& u) : SessionView (u)
 {
+    editButton.setButtonText (tr ("lyrics.pad"));
     editButton.withIcon (Icon::edit).withFont (sans (11.5f, Weight::medium));
-    editButton.setTooltip (jp ("歌詞を貼り付け・修正"));
+    editButton.setTooltip (tr ("lyrics.pad.tooltip"));
     addAndMakeVisible (editButton);
 }
 
@@ -13,28 +14,29 @@ void LyricsLane::resized()
 {
     auto r = getLocalBounds();
     r.removeFromLeft (metrics::gutter);
-    auto right = r.removeFromRight (140).reduced (metrics::pad, 0);
     editButton.setSize (10, 28);
     const auto w = editButton.idealWidth();
-    editButton.setBounds (right.removeFromRight (w).withSizeKeepingCentre (w, 28));
+    auto right = r.removeFromRight (w + metrics::pad * 2).reduced (metrics::pad, 0);
+    editButton.setBounds (right.withSizeKeepingCentre (w, 28));
     textArea = r.withTrimmedLeft (22);
 }
 
 void LyricsLane::paint (juce::Graphics& g)
 {
+    const auto& s = state();
     g.fillAll (colours::bg0);
     paint::hline (g, (float) getHeight() - 1.0f, 0.0f, (float) getWidth());
     paint::microLabel (g, getLocalBounds().withWidth (metrics::gutter).toFloat().withTrimmedLeft ((float) metrics::pad),
-                       "LYRIC", colours::textMute);
+                       tr ("label.lyric"), colours::textMute);
 
-    const auto* cur = session.lyricAt (session.playhead);
-    const auto* next = session.lyricAfter (session.playhead);
+    const auto* cur = s.lyricAt (s.playhead);
+    const auto* next = s.lyricAfter (s.playhead);
 
-    if (cur == nullptr && next == nullptr)
+    if (s.project.lyrics.empty())
     {
         g.setColour (colours::textMute);
         g.setFont (sans (13.0f));
-        g.drawText (jp ("歌詞なし ― 歌詞パッドから貼り付けできます"), textArea, juce::Justification::centredLeft, false);
+        g.drawText (tr ("lyrics.empty"), textArea, juce::Justification::centredLeft, false);
         return;
     }
 
@@ -43,35 +45,46 @@ void LyricsLane::paint (juce::Graphics& g)
     if (cur != nullptr)
     {
         const auto f = sans (22.0f, Weight::semibold);
-        const auto w = textWidth (f, cur->text);
+        const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (f, cur->text));
         const auto line = r.removeFromLeft (w + 2.0f).withSizeKeepingCentre (w + 2.0f, 30.0f).translated (0.0f, -3.0f);
 
-        const auto progress = juce::jlimit (0.0f, 1.0f, (float) (session.playhead - cur->startSample)
+        const auto progress = juce::jlimit (0.0f, 1.0f, (float) (s.playhead - cur->startSample)
                                                           / (float) (cur->endSample - cur->startSample));
         const auto split = line.getX() + line.getWidth() * progress;
+        const auto sung = s.isRecording ? colours::rec : colours::signal;
 
         g.setFont (f);
         g.setColour (colours::text);
-        g.drawText (cur->text, line, juce::Justification::centredLeft, false);
+        g.drawText (cur->text, line, juce::Justification::centredLeft, true);
         {
             juce::Graphics::ScopedSaveState save (g);
             g.reduceClipRegion (line.withRight (split).getSmallestIntegerContainer());
-            g.setColour (colours::signal);
-            g.drawText (cur->text, line, juce::Justification::centredLeft, false);
+            g.setColour (sung);
+            g.drawText (cur->text, line, juce::Justification::centredLeft, true);
         }
 
-        // 進み具合（下線）
         const auto uy = line.getBottom() + 3.0f;
         paint::hline (g, uy, line.getX(), line.getRight(), colours::line);
-        g.setColour (colours::signal);
+        g.setColour (sung);
         g.fillRect (juce::Rectangle<float> (line.getX(), uy - 0.5f, split - line.getX(), 2.0f));
 
         r.removeFromLeft (36.0f);
     }
+    else if (next != nullptr)
+    {
+        // フレーズの合間：次を大きめに待たせる
+        g.setColour (colours::textDim);
+        g.setFont (sans (18.0f, Weight::medium));
+        const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (sans (18.0f, Weight::medium), next->text));
+        g.drawText (next->text, r.removeFromLeft (w + 2.0f), juce::Justification::centredLeft, true);
+        r.removeFromLeft (36.0f);
+        next = s.lyricAfter (next->startSample);
+    }
 
     if (next != nullptr)
     {
-        paint::microLabel (g, r.removeFromLeft (38.0f), "NEXT", colours::textMute);
+        const auto lw = textWidth (mono (9.5f, Weight::medium, 0.12f), tr ("label.next")) + 10.0f;
+        paint::microLabel (g, r.removeFromLeft (lw), tr ("label.next"), colours::textMute);
         g.setColour (colours::textDim);
         g.setFont (sans (15.0f));
         g.drawText (next->text, r, juce::Justification::centredLeft, true);

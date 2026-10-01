@@ -52,6 +52,14 @@ juce_add_binary_data(VoiceBoothFonts
         resources/fonts/IBMPlexMono-Medium.ttf
         resources/fonts/IBMPlexMono-SemiBold.ttf)
 
+# 翻訳表（DESIGN 10。tools/check_i18n.py で検査）
+juce_add_binary_data(VoiceBoothI18n
+    HEADER_NAME VoiceBoothI18n.h
+    NAMESPACE   VoiceBoothI18n
+    SOURCES
+        resources/i18n/ja.json
+        resources/i18n/en.json)
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
@@ -65,6 +73,7 @@ juce_add_gui_app(VoiceBooth
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
+    app/i18n/I18n.cpp
     # テーマ
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
@@ -76,9 +85,12 @@ target_sources(VoiceBooth PRIVATE
     app/ui/parts/LedMeter.cpp
     app/ui/parts/Readout.cpp
     app/ui/Gallery.cpp
-    # 画面
+    # 状態
     app/ui/DummySession.cpp
+    app/ui/UiSession.cpp
+    # 画面
     app/ui/LaneCommon.cpp
+    app/ui/Overlay.cpp
     app/ui/TopBar.cpp
     app/ui/TransportBar.cpp
     app/ui/PitchLane.cpp
@@ -87,7 +99,12 @@ target_sources(VoiceBooth PRIVATE
     app/ui/TrackTabs.cpp
     app/ui/Rack.cpp
     app/ui/StatusBar.cpp
-    app/ui/MainComponent.cpp)
+    app/ui/MainComponent.cpp
+    # ダイアログ / 起動画面
+    app/ui/screens/StartScreen.cpp
+    app/ui/screens/SetupWizard.cpp
+    app/ui/screens/ExportDialog.cpp
+    app/ui/screens/SettingsDialog.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 
@@ -107,6 +124,7 @@ endif()
 target_link_libraries(VoiceBooth
     PRIVATE
         VoiceBoothFonts
+        VoiceBoothI18n
         juce::juce_gui_basics
     PUBLIC
         juce::juce_recommended_config_flags
