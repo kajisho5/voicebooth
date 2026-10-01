@@ -48,7 +48,7 @@ public:
 
     void setBackingLevel (float fader, bool muted) override;
     void setSelfMonitor (float fader, bool muted) override;
-    juce::String startRecording (const juce::File&) override;
+    juce::String startRecording (const juce::File&, bool floatSamples) override;
     RecordedTake stopRecording() override;
     bool isRecording() const override      { return recorder.isActive(); }
     bool recordingEnded() const override   { return recorder.hasEnded(); }
@@ -107,6 +107,7 @@ private:
     std::atomic<juce::int64> callbacks { 0 };               // オーディオスレッドが数える（止まったら増えない）
     juce::int64 lastCallbacks = 0;
     juce::uint32 lastProgressMs = 0;
+    juce::uint32 graceUntilMs = 0;   // 開き直した直後（SR・機器の切り替え）は、音の処理が戻るまで止まり扱いしない
     bool stalled = false;
     std::function<void (bool)> onDeviceChange;
 

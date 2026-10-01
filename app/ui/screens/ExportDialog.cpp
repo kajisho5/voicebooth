@@ -23,7 +23,7 @@ ExportDialog::ExportDialog (UiSession& u)
         if (! session.isTrackVisible (t)) return;
         const auto* tr_ = s.project.findTrack (t);
         const bool recorded = tr_ != nullptr && ! tr_->comp.empty();
-        FileRow row { t, exporter::ExportService::dryFileName (s.songName, t), recorded, clip && recorded, recorded ? peak : "" };
+        FileRow row { t, exporter::ExportService::dryFileName (s.songName, t), recorded, clip && recorded, recorded ? peak : "", {}, false };
         if (real && recorded)
         {
             // 採用区間に使っているテイクの最大値とクリップ（ノーマライズしないので、そのまま書き出される値）
@@ -46,7 +46,7 @@ ExportDialog::ExportDialog (UiSession& u)
     add (TrackType::doubleTrack, false, "-4.8");
     add (TrackType::harm1, false, "");
     add (TrackType::harm2, false, "");
-    FileRow refmix { TrackType::backing, s.songName + "_refmix.wav", ! real, false, real ? "" : "-1.2" };
+    FileRow refmix { TrackType::backing, s.songName + "_refmix.wav", ! real, false, real ? "" : "-1.2", {}, false };
     refmix.later = real;   // 確認用ミックスは納品パックと一緒（B15）
     rows.push_back (refmix);
 
@@ -158,7 +158,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         paint::microLabel (g, f.removeFromLeft (80.0f), tr ("export.format"), colours::textMute);
         g.setColour (colours::text);
         g.setFont (sans (12.0f));
-        g.drawText (tr ("export.format.value", formatKhz (s.sampleRate()), s.project.bitDepthExport), f, juce::Justification::centredLeft, true);
+        g.drawText (tr ("export.format.value", formatKhz (s.sampleRate()), formatBits (s.project.bitDepthExport)), f, juce::Justification::centredLeft, true);
     }
 
     // 書き出し方

@@ -97,6 +97,7 @@ juce::String PlaybackEngine::applySetup (juce::AudioDeviceManager::AudioDeviceSe
 
     lastSnapshot = takeSnapshot();
     lastProgressMs = juce::Time::getMillisecondCounter();   // 開き直した直後は止まり扱いしない
+    graceUntilMs = lastProgressMs + 5000;                    // SR の切り替えは機器によって数秒かかる
     stalled = false;
     return error;
 }
@@ -200,7 +201,7 @@ void PlaybackEngine::setMonitorReverb (float fader)
     monitor.setReverb (PlaybackCore::faderToGain (fader));
 }
 
-juce::String PlaybackEngine::startRecording (const juce::File& file)
+juce::String PlaybackEngine::startRecording (const juce::File& file, bool floatSamples)
 {
     auto* d = manager.getCurrentAudioDevice();
     if (d == nullptr || ! d->isPlaying() || stalled)
@@ -210,7 +211,7 @@ juce::String PlaybackEngine::startRecording (const juce::File& file)
     // 曲と SR が違う（試聴用に変換している）時は録らない。書き出しは元曲の SR のまま（DESIGN 6.5 / 13）
     if (songRate <= 0.0 || std::abs (d->getCurrentSampleRate() - songRate) >= 0.5)
         return "sample rate";
-    return recorder.begin (file, d->getCurrentSampleRate());
+    return recorder.begin (file, d->getCurrentSampleRate(), floatSamples);
 }
 
 RecordedTake PlaybackEngine::stopRecording()
@@ -425,6 +426,8 @@ void PlaybackEngine::timerCallback()
     // 開いていたのに、ドライバが止まった・1.5 秒コールバックが来ない → 止まった（抜けた・サウンドサーバーが落ちた）
     auto* d = manager.getCurrentAudioDevice();
     const bool running = d != nullptr && d->isPlaying();
+    if (now < graceUntilMs && running)
+        return;   // 開き直した直後：コールバックが戻るのを待つ
     if (! stalled && lastSnapshot.open && (! running || now - lastProgressMs > 1500))
     {
         stalled = true;

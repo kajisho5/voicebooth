@@ -133,9 +133,9 @@ public:
     /** デバイスが外から変わった（抜けた・OS で切り替えた）。メッセージスレッドで呼ばれる。lost = 使っていた機器が外れた */
     virtual void setDeviceChangeCallback (std::function<void (bool lost)>) {}
 
-    // 録音（B5）。素の声（モニターより前）を file に 24bit モノラルで書く。始まるのは次に曲が鳴ったブロックから。
+    // 録音（B5）。素の声（モニターより前）を file にモノラルで書く（24bit か 32bit float）。始まるのは次に曲が鳴ったブロックから。
     // 曲が止まった・終わったら recordingEnded() が true になる（stopRecording() を呼ぶ合図）。戻り値は失敗の理由
-    virtual juce::String startRecording (const juce::File&) { return "not supported"; }
+    virtual juce::String startRecording (const juce::File&, bool /*floatSamples*/ = false) { return "not supported"; }
     virtual RecordedTake stopRecording() { return {}; }
     virtual bool isRecording() const { return false; }
     virtual bool recordingEnded() const { return false; }

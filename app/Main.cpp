@@ -199,6 +199,9 @@ public:
         session->attachEngine (engine.get());
        #endif
 
+        // 録音形式（SR：0 = 曲に合わせる、ビット数：24 / 32bit float）
+        session->setRecordFormat (stored->getDoubleValue ("recordRate", 0.0), stored->getBoolValue ("recordFloat", false));
+
         // 最後に使ったモード
         const auto savedMode = stored->getValue ("mode");
         if (savedMode == "easy")     session->setMode (project::Mode::easy);
@@ -265,6 +268,13 @@ private:
                 settings()->saveIfNeeded();
             }
        #endif
+
+        if (changes & change::recordFormat)
+        {
+            settings()->setValue ("recordRate", session->get().recordRate);
+            settings()->setValue ("recordFloat", session->get().recordFloat);
+            settings()->saveIfNeeded();
+        }
 
         if ((changes & change::mode) == 0) return;
         settings()->setValue ("mode", modeKey (session->get().mode));

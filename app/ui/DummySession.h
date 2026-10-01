@@ -86,6 +86,17 @@ struct Session
     audio::OutputStatus output;
     bool engineAttached = false;
 
+    // 録音形式（2026-10-01：機器が対応すれば 44.1〜384 kHz、24bit / 32bit float。DESIGN 6.5）
+    double recordRate = 0.0;              // 0 = 曲に合わせる。違う値なら伴奏をこの SR にそろえ、時間軸もこの SR
+    bool recordFloat = false;             // 32bit float（false = 24bit PCM）
+    int songRate = 0;                     // 曲ファイルの SR（project.sampleRate は時間軸）
+    std::shared_ptr<const audio::SongAudio> songOriginal;   // そろえ直す時の元の伴奏
+    bool conforming = false;              // 伴奏の SR をそろえている途中（録音できない）
+    int songSerial = 0;                   // 曲を開くたびに増える（裏の作業が古い曲に戻ってこないように）
+
+    /** いまの録音形式で録る SR（曲に合わせる時は曲の SR） */
+    int targetRate() const { return recordRate > 0.0 ? juce::roundToInt (recordRate) : songRate; }
+
     // 録音（B5）。テイクは曲ごとの作業フォルダに置く（.vbooth の保存は B14）
     juce::File projectFolder;
     juce::String recordingTake, recordingPath;          // 録音中のテイク（"take3"、フォルダ相対のパス）
