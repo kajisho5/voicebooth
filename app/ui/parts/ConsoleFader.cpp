@@ -12,6 +12,7 @@ ConsoleFader::ConsoleFader (double value, juce::Colour line)
     setDoubleClickReturnValue (true, value);
     setSliderSnapsToMousePosition (false);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
+    setWantsKeyboardFocus (false);
 }
 
 void ConsoleFader::paint (juce::Graphics& g)
@@ -93,8 +94,8 @@ ChannelStrip::ChannelStrip (const juce::String& n, double value, float meterLeve
 
     mute.withLatch (colours::warn).withFont (mono (10.5f, Weight::semibold));
     solo.withLatch (colours::signal).withFont (mono (10.5f, Weight::semibold));
-    mute.setTooltip (jp ("ミュート"));
-    solo.setTooltip (jp ("ソロ"));
+    mute.setTooltip (tr ("monitor.mute"));
+    solo.setTooltip (tr ("monitor.solo"));
     addChildComponent (mute);
     addChildComponent (solo);
     mute.setVisible (ms);

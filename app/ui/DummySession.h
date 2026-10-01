@@ -31,7 +31,6 @@ struct PitchPoint
 struct TrackUi
 {
     TrackType type;
-    juce::String name;
     bool armed = false, mute = false, solo = false;
     float monitorGain = 0.75f;
     int hotkey = 0;             // 1–4
@@ -44,10 +43,11 @@ struct Session
 
     // 輸送
     int64 playhead = 0;
-    int64 rangeIn = 0, rangeOut = 0;
+    int64 rangeIn = 0, rangeOut = 0;      // 範囲なしは rangeOut <= rangeIn
     bool loopOn = true;
-    bool isPlaying = true;
+    bool isPlaying = false;
     bool isRecording = false;
+    int64 recordStart = 0;                // 今回の録音を始めた位置（見た目用）
     int countInBars = 1;
     bool clickOn = false;
     int beatsPerBar = 4;
@@ -55,6 +55,7 @@ struct Session
     // 表示（ピッチ・波形で共有）
     int64 viewStart = 0, viewEnd = 0;
     bool octaveAlign = true;
+    bool octaveUp = false;                // 自分の声を 1 オクターブ上げて重ねる
     bool fullRange = false;
     int lowMidi = 48, highMidi = 84;      // C3–C6
     float pitchToleranceCents = 30.0f;    // 緑の範囲（設定 20/30/50、既定 30）。黄は ±50 まで
@@ -86,6 +87,12 @@ struct Session
     double bpm() const { return project.tempoOriginal; }
 
     const TrackUi& currentTrack() const { return trackUi[(size_t) selectedTrack]; }
+    bool hasRange() const { return rangeOut > rangeIn; }
+    bool isHarmonySelected() const
+    {
+        const auto t = currentTrack().type;
+        return t == TrackType::harm1 || t == TrackType::harm2;
+    }
     const project::LyricLine* lyricAt (int64 sample) const;
     const project::LyricLine* lyricAfter (int64 sample) const;
 };
@@ -102,4 +109,7 @@ float vocalAmplitude (const Session&, TrackType, int64 sample);
 bool isRecorded (const Session&, TrackType, int64 sample);
 
 juce::String noteName (float midi);
+
+/** 現在位置の自分のピッチ（無ければ nullptr） */
+const PitchPoint* myPitchAt (const Session&, int64 sample);
 } // namespace vb::dummy

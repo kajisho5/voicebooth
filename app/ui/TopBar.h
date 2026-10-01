@@ -1,6 +1,7 @@
 #pragma once
 
-#include "DummySession.h"
+#include "UiSession.h"
+#include "Actions.h"
 #include "Timeline.h"
 #include "parts/KeyButton.h"
 #include "parts/Readout.h"
@@ -10,23 +11,26 @@ namespace vb
 /** ブースのロゴマーク（窓＋カプセル＋タリー） */
 void drawBoothMark (juce::Graphics&, juce::Rectangle<float>, bool recording);
 
-/** DESIGN 4.1 トップバー：ロゴ / 曲名 / モード / 入力デバイス / タリー / 設定 */
-class TopBar : public juce::Component
+/** DESIGN 4.1 トップバー：ロゴ / 曲名 / モード / 入力デバイス / タリー / 書き出し / 設定 */
+class TopBar : public juce::Component, private SessionView
 {
 public:
-    explicit TopBar (const dummy::Session&);
+    TopBar (UiSession&, Actions&);
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseUp (const juce::MouseEvent&) override;
 
     static constexpr int height = 52;
 
 private:
-    const dummy::Session& session;
+    void onSessionChanged (juce::uint32) override;
+
+    Actions& actions;
     SegmentedKeys mode;
-    KeyButton device;
+    KeyButton device { {}, KeyButton::Kind::ghost };
     TallyLamp tally;
-    KeyButton settings;
+    KeyButton exportKey, settings;
 
     juce::Rectangle<int> logoArea, songArea, modeLabelArea;
 };

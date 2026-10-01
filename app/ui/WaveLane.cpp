@@ -1,5 +1,4 @@
 #include "WaveLane.h"
-#include "LaneCommon.h"
 
 namespace vb
 {
@@ -8,59 +7,126 @@ namespace
     constexpr float topPad = 6.0f;
     constexpr float compH = 18.0f;
     constexpr float bigH = 56.0f;
+    constexpr float easyH = 40.0f;
     constexpr float thinH = 14.0f;
     constexpr float gap = 4.0f;
 }
 
-WaveLane::WaveLane (const dummy::Session& s) : session (s) {}
+juce::String trackName (project::TrackType t)
+{
+    using project::TrackType;
+    switch (t)
+    {
+        case TrackType::backing:     return tr ("track.backing");
+        case TrackType::guide:       return tr ("track.guide");
+        case TrackType::main:        return tr ("track.main");
+        case TrackType::doubleTrack: return tr ("track.double");
+        case TrackType::harm1:       return tr ("track.harm1");
+        case TrackType::harm2:       return tr ("track.harm2");
+    }
+    return {};
+}
+
+int WaveLane::preferredHeight (project::Mode m)
+{
+    switch (m)
+    {
+        case project::Mode::easy:     return 86;    // 最小（Main とオフボ）
+        case project::Mode::standard: return 142;
+        case project::Mode::pro:      return 160;   // Harm 2 の行が増える
+    }
+    return 142;
+}
+
+WaveLane::WaveLane (UiSession& u) : SessionView (u)
+{
+    setMouseCursor (juce::MouseCursor::IBeamCursor);
+}
+
+TimeMap WaveLane::map() const
+{
+    return lane::makeMap (state(), plot());
+}
 
 std::vector<WaveLane::Row> WaveLane::layoutRows() const
 {
+    const auto& s = state();
+    const bool easy = s.mode == project::Mode::easy;
     std::vector<Row> rows;
-    auto r = getLocalBounds().toFloat().withTrimmedLeft ((float) metrics::gutter);
-    r.removeFromTop (topPad + compH + 2.0f);
+    auto r = plot();
+    r.removeFromTop (topPad + (easy ? 0.0f : compH + 2.0f));
 
-    const auto& cur = session.currentTrack();
-    rows.push_back ({ cur.type, cur.name, r.removeFromTop (bigH), true });
+    const auto& cur = s.currentTrack();
+    rows.push_back ({ cur.type, s.selectedTrack, r.removeFromTop (easy ? easyH : bigH), true });
     r.removeFromTop (gap + 2.0f);
 
-    for (auto& t : session.trackUi)
+    for (size_t i = 0; i < s.trackUi.size(); ++i)
     {
-        if (t.type == cur.type)
+        const auto& t = s.trackUi[i];
+        if ((int) i == s.selectedTrack || ! session.isTrackVisible (t.type))
             continue;
-        if (t.type == project::TrackType::harm2 && session.mode != project::Mode::pro)
-            continue;   // Harm 2 はプロのみ表示（データは消さない）
 
-        rows.push_back ({ t.type, t.name, r.removeFromTop (thinH), false });
+        rows.push_back ({ t.type, (int) i, r.removeFromTop (thinH), false });
         r.removeFromTop (gap);
     }
 
-    rows.push_back ({ project::TrackType::backing, jp ("オフボ"), r.removeFromTop (thinH), false });
+    rows.push_back ({ project::TrackType::backing, -1, r.removeFromTop (thinH), false });
     return rows;
 }
 
+//==============================================================================
+void WaveLane::mouseDown (const juce::MouseEvent& e)
+{
+    if (e.x < metrics::gutter) return;
+    gesture.down (session, map(), e.position.x);
+}
+
+void WaveLane::mouseDrag (const juce::MouseEvent& e)
+{
+    if (e.getMouseDownX() < metrics::gutter) return;
+    gesture.drag (session, map(), e.position.x);
+}
+
+void WaveLane::mouseUp (const juce::MouseEvent& e)
+{
+    // ガターの細い行（トラック名）をクリック → そのトラックを選択
+    if (e.getMouseDownX() < metrics::gutter)
+    {
+        for (auto& row : layoutRows())
+            if (! row.current && row.trackIndex >= 0
+                && juce::isPositiveAndBelow (e.position.y - (row.area.getY() - gap * 0.5f), row.area.getHeight() + gap))
+                session.selectTrack (row.trackIndex);
+        return;
+    }
+    gesture.up (session, map(), e.position.x);
+}
+
+//==============================================================================
 void WaveLane::paint (juce::Graphics& g)
 {
+    const auto& s = state();
     const auto bounds = getLocalBounds().toFloat();
-    const auto plot = bounds.withTrimmedLeft ((float) metrics::gutter);
-    const auto map = lane::makeMap (session, plot);
+    const auto pl = plot();
+    const auto m = map();
     const auto rows = layoutRows();
 
     g.setColour (colours::bgDeep);
-    g.fillRect (plot);
+    g.fillRect (pl);
 
     {
         juce::Graphics::ScopedSaveState save (g);
-        g.reduceClipRegion (plot.getSmallestIntegerContainer());
+        g.reduceClipRegion (pl.getSmallestIntegerContainer());
 
-        lane::drawTimeGrid (g, session, map, plot);
-        lane::drawRange (g, session, map, plot);
-        drawCompBar (g, map, plot.withTop (plot.getY() + topPad).withHeight (compH), rows.front().type);
+        lane::drawTimeGrid (g, s, m, pl);
+        lane::drawRange (g, s, m, pl);
+        if (s.mode != project::Mode::easy)
+            drawCompBar (g, m, pl.withTop (pl.getY() + topPad).withHeight (compH), rows.front().type);
 
         for (auto& row : rows)
-            drawWave (g, map, row);
+            drawWave (g, m, row);
 
-        lane::drawPlayhead (g, session, map, plot);
+        drawRecording (g, m, rows.front());
+        lane::drawPlayhead (g, s, m, pl);
     }
 
     // ガター（トラック名）
@@ -70,43 +136,54 @@ void WaveLane::paint (juce::Graphics& g)
     paint::vline (g, gut.getRight() - 1.0f, gut.getY(), gut.getBottom());
     paint::hline (g, bounds.getBottom() - 1.0f, 0.0f, bounds.getRight());
 
-    paint::microLabel (g, juce::Rectangle<float> (gut.getX() + (float) metrics::pad, plot.getY() + topPad, gut.getWidth(), compH),
-                       "TAKE", colours::textMute);
+    if (s.mode != project::Mode::easy)
+        paint::microLabel (g, juce::Rectangle<float> (gut.getX() + (float) metrics::pad, pl.getY() + topPad, gut.getWidth(), compH),
+                           tr ("label.take"), colours::textMute);
 
     for (auto& row : rows)
     {
-        auto label = juce::Rectangle<float> (gut.getX() + (float) metrics::pad, row.area.getY(), gut.getWidth() - (float) metrics::pad - 8.0f, row.area.getHeight());
+        auto label = juce::Rectangle<float> (gut.getX() + (float) metrics::pad, row.area.getY(),
+                                             gut.getWidth() - (float) metrics::pad - 6.0f, row.area.getHeight());
+        const auto name = trackName (row.type);
 
         if (row.current)
         {
             g.setColour (colours::text);
             g.setFont (sans (13.0f, Weight::semibold));
-            g.drawText (row.name, label.removeFromTop (row.area.getHeight() * 0.5f), juce::Justification::bottomLeft, false);
+            g.drawFittedText (name, label.removeFromTop (row.area.getHeight() * 0.5f).toNearestInt(), juce::Justification::bottomLeft, 1, 0.8f);
 
-            if (session.currentTrack().armed)
+            if (row.trackIndex >= 0 && s.trackUi[(size_t) row.trackIndex].armed)
             {
                 paint::led (g, { label.getX() + 3.0f, label.getY() + 9.0f }, 2.6f, colours::rec, true);
-                paint::microLabel (g, label.withTrimmedLeft (10.0f).withHeight (18.0f), "ARM", colours::rec);
+                paint::microLabel (g, label.withTrimmedLeft (10.0f).withHeight (18.0f), tr ("label.arm"), colours::rec);
             }
         }
         else
         {
             g.setColour (colours::textDim);
             g.setFont (sans (10.5f));
-            g.drawText (row.name, label, juce::Justification::centredLeft, false);
+            g.drawFittedText (name, label.toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
         }
     }
 }
 
-void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& map, juce::Rectangle<float> bar, project::TrackType type)
+void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& m, juce::Rectangle<float> bar, project::TrackType type)
 {
-    const auto* track = session.project.findTrack (type);
+    const auto* track = state().project.findTrack (type);
     if (track == nullptr)
         return;
 
+    if (track->comp.empty())
+    {
+        g.setColour (colours::textMute);
+        g.setFont (sans (10.5f));
+        g.drawText (tr ("wave.noTake"), bar.withTrimmedLeft (8.0f), juce::Justification::centredLeft, false);
+        return;
+    }
+
     for (auto& c : track->comp)
     {
-        const auto x0 = map.x (c.startSample), x1 = map.x (c.endSample);
+        const auto x0 = m.x (c.startSample), x1 = m.x (c.endSample);
         if (x1 < bar.getX() || x0 > bar.getRight())
             continue;
 
@@ -131,19 +208,21 @@ void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& map, juce::Rectang
         if (clipped)
         {
             label.removeFromLeft (textWidth (lf, name) + 10.0f);
-            const auto tag = label.removeFromLeft (44.0f).reduced (0.0f, 3.0f);
+            const auto tf = mono (9.5f, Weight::semibold, 0.08f);
+            const auto tw = textWidth (tf, tr ("wave.clip")) + 14.0f;
+            const auto tag = label.removeFromLeft (tw).reduced (0.0f, 3.0f);
             g.setColour (colours::bad);
             g.fillRoundedRectangle (tag, 2.0f);
             g.setColour (colours::bgDeep);
-            g.setFont (mono (9.5f, Weight::semibold, 0.08f));
-            g.drawText ("CLIP", tag, juce::Justification::centred, false);
+            g.setFont (tf);
+            g.drawText (tr ("wave.clip"), tag, juce::Justification::centred, false);
         }
     }
 
     // つなぎ目（クロスフェード）
     for (size_t i = 1; i < track->comp.size(); ++i)
     {
-        const auto x = map.x (track->comp[i].startSample);
+        const auto x = m.x (track->comp[i].startSample);
         if (x < bar.getX() || x > bar.getRight())
             continue;
 
@@ -155,8 +234,9 @@ void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& map, juce::Rectang
     }
 }
 
-void WaveLane::drawWave (juce::Graphics& g, const TimeMap& map, const Row& row)
+void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)
 {
+    const auto& s = state();
     const auto a = row.area;
     const auto cy = a.getCentreY();
     const bool backing = row.type == project::TrackType::backing;
@@ -165,23 +245,22 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& map, const Row& row)
     float runStart = -1.0f;
     for (float px = a.getX(); px <= a.getRight(); px += 1.0f)
     {
-        const bool recorded = px < a.getRight() && dummy::isRecorded (session, row.type, map.sampleAt (px));
+        const bool recorded = px < a.getRight() && dummy::isRecorded (s, row.type, m.sampleAt (px));
         if (! recorded && runStart < 0.0f) runStart = px;
         if ((recorded || px >= a.getRight()) && runStart >= 0.0f)
         {
             const auto hatch = juce::Rectangle<float> (runStart, a.getY(), px - runStart, a.getHeight());
             lane::drawHatch (g, hatch, colours::line.withAlpha (0.9f));
-            if (hatch.getWidth() > 120.0f && ! row.current)
+            if (hatch.getWidth() > 120.0f)
             {
                 g.setColour (colours::textMute);
-                g.setFont (sans (10.0f));
-                g.drawText (jp ("未録音"), hatch.reduced (8.0f, 0.0f), juce::Justification::centredLeft, false);
+                g.setFont (sans (row.current ? 12.0f : 10.0f));
+                g.drawText (tr ("wave.unrecorded"), hatch.reduced (8.0f, 0.0f), juce::Justification::centredLeft, false);
             }
             runStart = -1.0f;
         }
     }
 
-    // 中心線
     paint::hline (g, std::round (cy), a.getX(), a.getRight(), colours::line.withAlpha (0.5f));
 
     const auto base = backing ? colours::textMute.withAlpha (0.55f)
@@ -190,13 +269,13 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& map, const Row& row)
     float clipX = -1.0f;
     for (float px = a.getX(); px < a.getRight(); px += 1.0f)
     {
-        const auto s0 = map.sampleAt (px), s1 = map.sampleAt (px + 1.0f);
+        const auto s0 = m.sampleAt (px), s1 = m.sampleAt (px + 1.0f);
         float amp = 0.0f;
         for (int k = 0; k < 6; ++k)
         {
             const auto smp = s0 + (s1 - s0) * k / 6;
-            amp = juce::jmax (amp, backing ? dummy::backingAmplitude (session, smp)
-                                           : dummy::vocalAmplitude (session, row.type, smp));
+            amp = juce::jmax (amp, backing ? dummy::backingAmplitude (s, smp)
+                                           : dummy::vocalAmplitude (s, row.type, smp));
         }
         if (amp <= 0.0f)
             continue;
@@ -210,7 +289,6 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& map, const Row& row)
             clipX = px;
     }
 
-    // クリップ位置の目印（画面全体は赤くしない）
     if (clipX >= 0.0f)
     {
         juce::Path tri;
@@ -218,5 +296,25 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& map, const Row& row)
         g.setColour (colours::bad);
         g.fillPath (tri);
     }
+}
+
+void WaveLane::drawRecording (juce::Graphics& g, const TimeMap& m, const Row& row)
+{
+    const auto& s = state();
+    if (! s.isRecording || s.playhead <= s.recordStart)
+        return;
+
+    // 今回の録音（新しいテイク）を現在トラックの上に重ねて見せる
+    const auto x0 = juce::jmax (row.area.getX(), m.x (s.recordStart));
+    const auto x1 = juce::jmin (row.area.getRight(), m.x (s.playhead));
+    if (x1 <= x0)
+        return;
+
+    const auto r = juce::Rectangle<float> (x0, row.area.getY(), x1 - x0, row.area.getHeight());
+    g.setColour (colours::rec.withAlpha (0.12f));
+    g.fillRect (r);
+    g.setColour (colours::rec);
+    g.fillRect (r.withHeight (2.0f));
+    paint::microLabel (g, r.withHeight (16.0f).translated (6.0f, 3.0f), tr ("wave.newTake"), colours::rec);
 }
 } // namespace vb

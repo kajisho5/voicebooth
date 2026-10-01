@@ -1,15 +1,15 @@
 #pragma once
 
-#include "DummySession.h"
+#include "UiSession.h"
 #include "parts/LedMeter.h"
 
 namespace vb
 {
 /** 最下段：入力 / レイテンシ / 録音先 / 書き出し形式 / ドライバ / UI MOCK 表示 */
-class StatusBar : public juce::Component
+class StatusBar : public juce::Component, private SessionView
 {
 public:
-    explicit StatusBar (const dummy::Session&);
+    explicit StatusBar (UiSession&);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -17,7 +17,8 @@ public:
     static constexpr int height = 28;
 
 private:
-    const dummy::Session& session;
+    void onSessionChanged (juce::uint32 c) override { if (c & (change::transport | change::practice | change::mode)) repaint(); }
+
     LedMeter mini { LedMeter::Style::compact };
     juce::Rectangle<int> meterArea;
 };

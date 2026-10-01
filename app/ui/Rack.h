@@ -1,6 +1,7 @@
 #pragma once
 
-#include "DummySession.h"
+#include "UiSession.h"
+#include "Actions.h"
 #include "Timeline.h"
 #include "parts/KeyButton.h"
 #include "parts/Encoder.h"
@@ -31,61 +32,74 @@ private:
 };
 
 //==============================================================================
-class InputModule : public RackModule
+class InputModule : public RackModule, private SessionView
 {
 public:
-    explicit InputModule (const dummy::Session&);
+    InputModule (UiSession&, Actions&);
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    const dummy::Session& session;
+    void onSessionChanged (juce::uint32 c) override { if (c & change::mode) { resized(); repaint(); } }
+
+    Actions& actions;
     LedMeter meter;
+    KeyButton buffer { {}, KeyButton::Kind::ghost };
     juce::Rectangle<int> deviceArea, readoutArea;
 };
 
-class PracticeModule : public RackModule
+class PracticeModule : public RackModule, private SessionView
 {
 public:
-    explicit PracticeModule (const dummy::Session&);
+    PracticeModule (UiSession&, Actions&);
     void resized() override;
 
 private:
+    void onSessionChanged (juce::uint32) override;
+
+    Actions& actions;
     EncoderBlock tempo, key;
+    bool syncing = false;
 };
 
-class MonitorModule : public RackModule
+class MonitorModule : public RackModule, private SessionView
 {
 public:
-    explicit MonitorModule (const dummy::Session&);
+    explicit MonitorModule (UiSession&);
     void resized() override;
 
 private:
+    void onSessionChanged (juce::uint32 c) override { if (c & change::mode) resized(); }
+
     juce::OwnedArray<ChannelStrip> strips;
+    ChannelStrip* harmStrip = nullptr;
 };
 
-class RecordModule : public RackModule
+class RecordModule : public RackModule, private SessionView
 {
 public:
-    explicit RecordModule (const dummy::Session&);
+    explicit RecordModule (UiSession&);
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    const dummy::Session& session;
+    void onSessionChanged (juce::uint32) override;
+
     SegmentedKeys recMode;
     juce::Rectangle<int> targetArea, lockArea;
 };
 
 //==============================================================================
-class Rack : public juce::Component
+class Rack : public juce::Component, private SessionView
 {
 public:
-    explicit Rack (const dummy::Session&);
+    Rack (UiSession&, Actions&);
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
+    void onSessionChanged (juce::uint32 c) override { if (c & change::transport) repaint(); }
+
     InputModule input;
     PracticeModule practice;
     MonitorModule monitor;

@@ -27,6 +27,9 @@ public:
     /** ラッチ式（M / S 等の小さなキー）：オンで沈み、文字が点灯色になる */
     KeyButton& withLatch (juce::Colour litColour);
 
+    /** ショートカットで押された時の見た目（一瞬沈む） */
+    void flash();
+
     /** ギャラリー用：状態を固定して描く */
     void setPreview (std::optional<KeyState> s) { preview = s; repaint(); }
 
@@ -40,6 +43,7 @@ private:
     std::optional<juce::Colour> ledColour, iconColour, latchColour;
     juce::Font labelFont;
     std::optional<KeyState> preview;
+    bool flashing = false;
 };
 
 //==============================================================================

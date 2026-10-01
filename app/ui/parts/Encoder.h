@@ -31,6 +31,7 @@ public:
                   bool bipolar = false, juce::Colour ledColour = colours::signal);
 
     Encoder& encoder() { return enc; }
+    std::function<void (double)> onChange;
     void setCaption (const juce::String& c) { caption = c; repaint(); }
     void setLocked (bool l) { locked = l; repaint(); }
 

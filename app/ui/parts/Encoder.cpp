@@ -21,6 +21,7 @@ Encoder::Encoder (double min, double max, double value, double step, bool bi, ju
     setRotaryParameters (startAngle + juce::MathConstants<float>::twoPi, endAngle + juce::MathConstants<float>::twoPi, true);
     setMouseDragSensitivity (220);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
+    setWantsKeyboardFocus (false);
 }
 
 void Encoder::paint (juce::Graphics& g)
@@ -93,7 +94,7 @@ EncoderBlock::EncoderBlock (const juce::String& l, double min, double max, doubl
                             bool bipolar, juce::Colour led)
     : label (l), unit (u), format (std::move (fmt)), enc (min, max, value, step, bipolar, led)
 {
-    enc.onValueChange = [this] { repaint(); };
+    enc.onValueChange = [this] { repaint(); if (onChange) onChange (enc.getValue()); };
     addAndMakeVisible (enc);
 }
 

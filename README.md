@@ -8,13 +8,19 @@
 
 ## 現在の状態：Phase A（見た目だけ）
 
-- A1 設計書配置 / A2 JUCE アプリ起動 / A3 メイン画面（ダミーデータ）まで
-- **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_*` をリンクしない構成）
-- 再生・録音ボタンは見た目のトグルのみ。音は出ない
+- A1–A7 実装済み：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
+- **日本語 / English**（設定から即時切り替え。DESIGN 10.1）
+- **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_*` をリンクしない構成）。再生・録音は見た目だけで音は出ない
 
-![メイン画面](docs/screenshots/main.png)
+![メイン画面](docs/screenshots/main-ja.png)
+
+| 録音中 | English | 書き出し |
+|---|---|---|
+| ![](docs/screenshots/recording.png) | ![](docs/screenshots/main-en.png) | ![](docs/screenshots/export.png) |
 
 見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）。機能の参考にした TakyuPractice とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。
+
+起動オプション（`--lang=en` `--mode=pro` `--screen=export` など）は [`docs/UI_STATES.md`](docs/UI_STATES.md)。
 
 部品ギャラリー（全部品を状態ごとに表示。開発用）: `VoiceBooth --gallery`
 
@@ -59,7 +65,10 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 ```text
 docs/DESIGN.md        仕様（唯一の正）
 docs/UI_STATES.md     画面状態一覧
-app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800、--gallery）
+app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
+app/i18n/             多言語対応 tr("key")
+app/ui/UiSession.*    画面の状態と変更通知（Phase B で音声エンジンにつなぐ）
+app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定
 app/ui/Theme.*        色トークン・書体・描画の基本（キーキャップ / 表示窓 / LED）
 app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFader / LedMeter / Readout / TallyLamp / Icons
 app/ui/Gallery.*      部品ギャラリー
@@ -69,7 +78,19 @@ app/audio/            音声エンジンのインターフェースのみ（中�
 app/project/          データモデル（形のみ）+ project.example.json
 app/export/           ExportService スタブ
 resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
+resources/i18n/       翻訳表 ja.json / en.json
+tools/check_i18n.py   翻訳表と直書きの検査（CI でも実行）
 ```
+
+## 多言語対応
+
+画面の文字は必ず `tr("key")` で引き、`resources/i18n/ja.json` と `en.json` の両方にキーを足す。
+
+```bash
+python3 tools/check_i18n.py
+```
+
+言語を足す時は `app/i18n/I18n.cpp` の `available()` に 1 行と JSON を 1 枚（DESIGN 10.1）。
 
 ## ライセンス上の注意（未決事項に関係）
 
