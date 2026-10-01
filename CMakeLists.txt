@@ -125,7 +125,8 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/SetupWizard.cpp
     app/ui/screens/ExportDialog.cpp
     app/ui/screens/SettingsDialog.cpp
-    app/ui/screens/WelcomeScreen.cpp)
+    app/ui/screens/WelcomeScreen.cpp
+    app/ui/screens/UpdateDialog.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 

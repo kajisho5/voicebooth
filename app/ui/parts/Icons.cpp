@@ -210,6 +210,32 @@ namespace
                 return outline (e, 1.9f);
             }
 
+            case Icon::download:   // exportFile の向きを逆に（受け皿へ下向き）
+            {
+                auto d = polyline ({ { 4.5f, 14.0f }, { 4.5f, 19.5f }, { 19.5f, 19.5f }, { 19.5f, 14.0f } });
+                d.startNewSubPath (12.0f, 4.5f);
+                d.lineTo (12.0f, 15.0f);
+                d.startNewSubPath (7.5f, 10.5f);
+                d.lineTo (12.0f, 15.0f);
+                d.lineTo (16.5f, 10.5f);
+                return outline (d, 1.9f);
+            }
+
+            case Icon::shield:     // 署名の確認
+            {
+                juce::Path sh;
+                sh.startNewSubPath (12.0f, 3.5f);
+                sh.lineTo (19.5f, 6.5f);
+                sh.lineTo (19.0f, 12.5f);
+                sh.quadraticTo (18.0f, 17.5f, 12.0f, 20.5f);
+                sh.quadraticTo (6.0f, 17.5f, 5.0f, 12.5f);
+                sh.lineTo (4.5f, 6.5f);
+                sh.closeSubPath();
+                p = outline (sh, 1.8f);
+                p.addPath (outline (polyline ({ { 8.8f, 12.0f }, { 11.2f, 14.4f }, { 15.4f, 9.6f } }), 1.8f));
+                return p;
+            }
+
             case Icon::folder:
             {
                 auto f = polyline ({ { 3.5f, 6.5f }, { 9.5f, 6.5f }, { 11.5f, 8.5f }, { 20.5f, 8.5f }, { 20.5f, 18.5f }, { 3.5f, 18.5f } });
