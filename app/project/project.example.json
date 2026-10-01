@@ -5,8 +5,8 @@
   "sr": 48000,
   "bit_depth_export": 24,
   "length_samples": 6528000,
-  "key_original": 0,
-  "tempo_original": 120.0,
+  "key_original": { "tonic": 9, "mode": "minor", "source": "manual", "confidence": 1.0 },
+  "tempo": { "bpm": 128.0, "time_signature": "4/4", "downbeat_sample": 59520, "beats": [], "source": "manual", "confidence": 1.0 },
   "cache_dir": "cache",
   "mode_last": "standard",
   "input_profile_id": "usb-audio-interface-in1",
@@ -37,8 +37,23 @@
     },
     { "type": "harm1", "takes": [], "comp": [] }
   ],
-  "markers": [ { "sample": 2304000, "name": "サビ" } ],
-  "lyrics": [
-    { "start_sample": 1704000, "end_sample": 1968000, "text": "同じ穴の無地 投げ所" }
-  ]
+  "sections": [
+    { "start_sample": 59520,   "kind": "intro",  "source": "manual" },
+    { "start_sample": 419520,  "kind": "verseA", "source": "manual", "heading": 0 },
+    { "start_sample": 1139520, "kind": "chorus", "source": "manual", "heading": 1 },
+    { "start_sample": 1859520, "kind": "custom", "name": "ラップ", "source": "manual" },
+    { "start_sample": 2304000, "kind": "chorus", "source": "auto" }
+  ],
+  "lyrics": {
+    "source_file_name": "lyrics.txt",
+    "encoding": "Shift_JIS",
+    "sections_from_headings": true,
+    "headings": [ { "name": "Aメロ", "first_line": 0 }, { "name": "サビ", "first_line": 2 } ],
+    "lines": [
+      { "text": "夜の窓に灯りがともる",       "start_sample": 419520,  "block": 0, "heading": 0, "source": "manual" },
+      { "text": "遠い駅の名前を数える",       "start_sample": 599520,  "block": 0, "heading": 0, "source": "manual" },
+      { "text": "ほどけた糸をたぐりよせて",   "start_sample": 1139520, "block": 1, "heading": 1, "source": "manual" },
+      { "text": "まだ知らない朝へ走る",                                "block": 1, "heading": 1 }
+    ]
+  }
 }

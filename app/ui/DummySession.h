@@ -46,8 +46,6 @@ struct Session
 
     // 開いた曲（B1）。無ければダミーの概形を描く
     std::shared_ptr<const audio::WaveformOverview> backingWave;
-    bool tempoKnown = true;                // 解析前（テンポ推定前）の曲は false → 拍ではなく秒で目盛る
-    bool keyKnown = true;
 
     // 輸送
     int64 playhead = 0;
@@ -58,7 +56,6 @@ struct Session
     int64 recordStart = 0;                // 今回の録音を始めた位置（見た目用）
     int countInBars = 1;
     bool clickOn = false;
-    int beatsPerBar = 4;
 
     // 表示（ピッチ・波形で共有）
     int64 viewStart = 0, viewEnd = 0;
@@ -125,6 +122,11 @@ struct Session
     /** 実際の入力を表示しているか（エンジンがあり、入力が開いている） */
     bool inputLive() const { return engineAttached && input.open; }
 
+    // 曲の情報（B4b。値そのものは project の tempo / key / sections / lyrics。ここは画面の状態だけ）
+    int selectedSection = -1;       // ルーラーで選んだ区間（Delete で消す）
+    int lyricCursor = 0;            // 時刻の無い歌詞の今の行（↑ ↓ で手送り）／タップで合わせる時に次に叩く行
+    bool lyricSyncing = false;      // 「タップで合わせる」の最中（Enter で行の歌い出し）
+
     std::vector<TrackUi> trackUi;   // タブに出すボーカルトラック
     int selectedTrack = 0;          // trackUi の添字
 
@@ -135,7 +137,12 @@ struct Session
     int sampleRate() const { return project.sampleRate; }
     int64 sec (double s) const { return (int64) std::llround (s * project.sampleRate); }
     double toSec (int64 samples) const { return (double) samples / project.sampleRate; }
-    double bpm() const { return project.tempoOriginal; }
+    double bpm() const { return project.tempo.bpm; }
+    /** テンポが分かっているか（分からなければ目盛りは秒、BAR.BEAT は「-.-」） */
+    bool tempoKnown() const { return project.tempo.known(); }
+    bool keyKnown() const { return project.key.known(); }
+    int beatsPerBar() const { return project.tempo.signature.beatsPerBar(); }
+    song::BarBeat barBeatAt (int64 sample) const { return song::barBeatAt (project.tempo, sample, sampleRate()); }
 
     const TrackUi& currentTrack() const { return trackUi[(size_t) selectedTrack]; }
     bool hasRange() const { return rangeOut > rangeIn; }
@@ -144,8 +151,8 @@ struct Session
         const auto t = currentTrack().type;
         return t == TrackType::harm1 || t == TrackType::harm2;
     }
-    const project::LyricLine* lyricAt (int64 sample) const;
-    const project::LyricLine* lyricAfter (int64 sample) const;
+    const song::Line* lyricAt (int64 sample) const;
+    const song::Line* lyricAfter (int64 sample) const;
 };
 
 Session makeSession();

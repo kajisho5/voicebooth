@@ -24,6 +24,7 @@ namespace change
         song      = 1 << 8,   // 曲を開いた（全部が変わる）
         device    = 1 << 9,   // 出力 / 入力デバイスの状態・一覧
         meter     = 1 << 10,  // 入力メーターの値（30 Hz）
+        songInfo  = 1 << 12,  // 曲の情報：テンポ・拍子・キー・区間・歌詞（B4b。DESIGN 7.5）
         takes     = 1 << 20,  // テイク・採用区間・テイクの波形が変わった（B5）
         notice    = 1 << 21,  // 知らせ（トースト）を出す（noticeText / noticeSerial）
         recordFormat = 1 << 22,  // 録音形式（SR・ビット数）が変わった
@@ -147,6 +148,40 @@ public:
     /** そのモードで見せるトラックか（DESIGN 2） */
     bool isTrackVisible (project::TrackType) const;
 
+    // --- 曲の情報（B4b。DESIGN 7.5）。手で入れた・触った値は「確定」（解析をやり直しても上書きしない） ---
+    // 実装は UiSessionSong.cpp。音声の処理には触れない（位置はオフボのサンプル）
+    void setBpm (double bpm);                  // 0 で「分からない」に戻す（目盛りは秒へ）
+    /** タップテンポ（T）。叩いた時刻（秒）。4 回目から BPM を確定して返す。まだなら 0 */
+    double tapTempo (double nowSeconds);
+    int tapCount() const { return tapper.count(); }
+    void doubleBpm();
+    void halveBpm();
+    void setTimeSignature (song::TimeSignature);
+    void setDownbeat (int64 sample);           // 1 小節目の頭
+    void setDownbeatAtPlayhead();
+    void shiftDownbeat (int beats);            // 目盛り全体を拍単位でずらす
+    void setSongKey (int tonic, bool minor);   // tonic -1 = 分からない
+
+    /** 区間の頭を打つ。テンポが分かっていれば小節線に吸い付く（snap = false で吸い付かない）。入った番号を返す */
+    int addSection (int64 sample, const juce::String& kind, const juce::String& name = {}, bool snap = true);
+    int addSectionAtPlayhead (bool snap = true);
+    void renameSection (int index, const juce::String& kind, const juce::String& name = {});
+    int moveSection (int index, int64 sample, bool snap = true);
+    void removeSection (int index);
+    void selectSection (int index);            // -1 で選ばない
+    void goToSection (int index);              // 「サビへ」
+    void loopSection (int index);              // 「この区間をループ」：範囲を区間に合わせてループ
+
+    /** 歌詞を差し替える（見出し・サビの候補を区間にするかは lyrics.sectionsFromHeadings） */
+    void setLyrics (song::Lyrics);
+    void clearLyrics();
+    /** 「タップで合わせる」：再生しながら各行の歌い出しで tapLyric（Enter） */
+    void setLyricSyncing (bool);
+    /** 次の行の歌い出しを今の位置に。全部の行が済んだら合わせ終わり（false を返す） */
+    bool tapLyric();
+    void undoLyricTap();                       // 1 行戻す（その行の時刻を外す）
+    void stepLyric (int delta);                // 今の行を手で送る（↑ ↓）
+
 private:
     void notify (juce::uint32 changes);
     void keepPlayheadInView();
@@ -164,7 +199,10 @@ private:
     void deviceChanged (bool lost);
     juce::String afterDeviceSelect (juce::String error);
 
+    void songInfoChanged (juce::uint32 also = 0);
+
     dummy::Session s;
+    song::TapTempo tapper;
     audio::AudioEngine* engine = nullptr;
     double sinceStatus = 0.0;
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか

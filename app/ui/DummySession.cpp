@@ -105,20 +105,16 @@ namespace
     }
 }
 
-const project::LyricLine* Session::lyricAt (int64 sample) const
+const song::Line* Session::lyricAt (int64 sample) const
 {
-    for (auto& l : project.lyrics)
-        if (sample >= l.startSample && sample < l.endSample)
-            return &l;
-    return nullptr;
+    const auto i = song::lineAt (project.lyrics, sample);
+    return i >= 0 ? &project.lyrics.lines[(size_t) i] : nullptr;
 }
 
-const project::LyricLine* Session::lyricAfter (int64 sample) const
+const song::Line* Session::lyricAfter (int64 sample) const
 {
-    for (auto& l : project.lyrics)
-        if (l.startSample > sample)
-            return &l;
-    return nullptr;
+    const auto i = song::nextTimedLineAfter (project.lyrics, sample);
+    return i >= 0 ? &project.lyrics.lines[(size_t) i] : nullptr;
 }
 
 Session makeSession()
@@ -130,8 +126,12 @@ Session makeSession()
     p.songPath       = "audio/Demo_song.wav";
     p.sampleRate     = 48000;
     p.lengthSamples  = s.sec (136.0);          // 2:16
-    p.tempoOriginal  = 120.0;
-    p.keyOriginal    = 0;
+    // 見た目フェーズのダミー：解析で取れた（推定の）テンポ・キー
+    p.tempo.bpm        = 120.0;
+    p.tempo.source     = song::Source::estimated;
+    p.tempo.confidence = 0.8f;
+    p.key.tonic        = 0;
+    p.key.source       = song::Source::estimated;
     p.modeLast       = project::Mode::standard;
     p.inputProfileId = "usb-audio-interface-in1";
 
@@ -183,7 +183,14 @@ Session makeSession()
     project::Track harm2 { TrackType::harm2, {}, {} };
 
     p.tracks = { backing, guide, main, dbl, harm1, harm2 };
-    p.markers = { { s.sec (48.0), {}, project::MarkerKind::chorus } };
+    // 区間（解析の推定。サビだけ名前が付く。DESIGN 7.5.2）
+    {
+        song::Section chorus;
+        chorus.startSample = s.sec (48.0);
+        chorus.kind = song::kind::chorus;
+        chorus.source = song::Source::estimated;
+        p.sections = { chorus };
+    }
 
     s.trackUi = {
         { TrackType::main,        true,  false, false, 0.80f, 1 },
@@ -194,7 +201,13 @@ Session makeSession()
     s.selectedTrack = 0;
 
     for (auto& l : lyricDefs)
-        p.lyrics.push_back ({ s.sec (l.t0), s.sec (l.t1), utf8 (l.text) });
+    {
+        song::Line line;
+        line.text = utf8 (l.text);
+        line.startSample = s.sec (l.t0);
+        line.endSample = s.sec (l.t1);
+        p.lyrics.lines.push_back (line);
+    }
 
     for (auto& n : melody)
         s.refNotes.push_back ({ s.sec (n.t), s.sec (n.t + n.len), n.midi, n.vib, n.cons });
@@ -231,9 +244,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
 {
     Session s;
     s.songName = name;
-    s.backingWave = std::move (wave);
-    s.tempoKnown = false;
-    s.keyKnown = false;
+    s.backingWave = std::move (wave);   // テンポ・キー・区間・歌詞は空（解析前。B4b で手入力、B9b で推定）
 
     auto& p = s.project;
     p.songPath      = path;
@@ -319,7 +330,8 @@ float backingRms (const Session& s, int64 start, int64 end)
 float backingAmplitude (const Session& s, int64 sample)
 {
     const auto t = s.toSec (sample);
-    const auto beat = std::fmod (t, 60.0 / s.bpm()) / (60.0 / s.bpm());
+    const auto bpm = s.tempoKnown() ? s.bpm() : 120.0;
+    const auto beat = std::fmod (t, 60.0 / bpm) / (60.0 / bpm);
     const auto pulse = (float) std::exp (-beat * 6.0);
     const auto wobble = 0.85f + 0.15f * (float) std::sin (twoPi * 1.3 * t);
     const auto grain = 0.88f + 0.12f * (float) std::abs (std::sin (twoPi * 23.0 * t) * std::cos (twoPi * 4.1 * t));

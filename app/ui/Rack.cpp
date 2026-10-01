@@ -164,7 +164,7 @@ PracticeModule::PracticeModule (UiSession& u, Actions& a)
 
 void PracticeModule::onSessionChanged (juce::uint32 changes)
 {
-    if ((changes & (change::practice | change::transport)) == 0)
+    if ((changes & (change::practice | change::transport | change::songInfo)) == 0)
         return;
 
     const auto& s = state();
@@ -172,11 +172,11 @@ void PracticeModule::onSessionChanged (juce::uint32 changes)
     tempo.encoder().setValue (s.tempoPercent, juce::dontSendNotification);
     key.encoder().setValue (s.keyShift, juce::dontSendNotification);
 
-    if (! s.tempoKnown)
-        tempo.setCaption (tr ("practice.tempo.unknown"));   // テンポ推定前は BPM を出さない
+    if (! s.tempoKnown())
+        tempo.setCaption (tr ("practice.tempo.unknown"));   // テンポが分からない間は BPM を出さない
     else
-        tempo.setCaption (s.tempoPercent == 100 ? tr ("practice.tempo.original", juce::roundToInt (s.bpm()))
-                                                : tr ("practice.tempo.bpm", juce::roundToInt (s.bpm() * s.tempoPercent / 100.0)));
+        tempo.setCaption (s.tempoPercent == 100 ? tr ("practice.tempo.original", song::formatBpm (s.bpm()))
+                                                : tr ("practice.tempo.bpm", song::formatBpm (s.bpm() * s.tempoPercent / 100.0)));
     key.setCaption (s.keyShift == 0 ? tr ("practice.key.original") : tr ("practice.key.shifted"));
 
     const bool lock = session.deliveryLocked();

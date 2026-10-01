@@ -42,6 +42,7 @@ struct LaunchOptions
     bool playing = false;
     juce::String mode;            // easy / standard / pro
     juce::String track;           // main / double / harm1
+    juce::File lyrics;            // 歌詞パッドをこのファイルで開く（--lyrics=。B4b）
 };
 
 /** DESIGN 4 メイン画面（練習兼録音）。左にキャンバス、右にラック。
@@ -79,6 +80,11 @@ public:
     void openUpdate();
     void openModelDownload (int stage, bool animate, float from = -1.0f);   // ModelDownloadDialog::Stage、from：届いた割合
 
+    // 曲の情報（B4b。DESIGN 7.5）
+    void openSongInfo();
+    void openLyrics (const juce::File& file = {});
+    void openSectionName (int index);
+
     void showToast (const juce::String&);
 
     static constexpr int defaultWidth = 1440, defaultHeight = 900;
@@ -93,6 +99,12 @@ private:
     void requestKey (int);
     void confirmDiscardRecording();
     void showConfirm (const juce::String& title, const juce::String& message, std::vector<ConfirmDialog::Option>);
+
+    /** 曲の情報のショートカット（T / M / Enter / ↑ ↓ / Delete / Backspace / Esc。B4b）。扱ったら true */
+    bool songInfoKey (const juce::KeyPress&);
+    void tapTempo();
+    /** 知らせ（録音中は出さない。DESIGN 4.10.1 TS） */
+    void notice (const juce::String&);
 
     AppHooks& hooks;
     Actions actions;

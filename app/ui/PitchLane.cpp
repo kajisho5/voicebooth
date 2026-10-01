@@ -1,4 +1,5 @@
 #include "PitchLane.h"
+#include "SongMarks.h"
 
 namespace vb
 {
@@ -37,8 +38,8 @@ namespace
     }
 }
 
-PitchLane::PitchLane (UiSession& u)
-    : SessionView (u),
+PitchLane::PitchLane (UiSession& u, Actions& a)
+    : SessionView (u), actions (a),
       octaveAlign (tr ("pitch.octaveAlign")),
       octaveUp (tr ("pitch.octaveUp")),
       fullRange (tr ("pitch.fullRange"))
@@ -118,17 +119,66 @@ float PitchLane::refOffset() const  { return state().isHarmonySelected() ? harmo
 float PitchLane::mineOffset() const { return refOffset() + (state().octaveUp ? 12.0f : 0.0f); }
 
 //==============================================================================
+int PitchLane::tagAt (juce::Point<float> p) const
+{
+    for (auto& t : lane::sectionTags (state(), map(), rulerArea.withTrimmedLeft (metrics::gutter).toFloat()))
+        if (t.area.expanded (0.0f, 2.0f).contains (p))
+            return t.index;
+    return -1;
+}
+
+void PitchLane::mouseMove (const juce::MouseEvent& e)
+{
+    setMouseCursor (tagAt (e.position) >= 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
+}
+
 void PitchLane::mouseDown (const juce::MouseEvent& e)
 {
-    draggingRuler = rulerArea.contains (e.getPosition());
-    if (draggingRuler)
+    draggingTag = -1;
+    draggingRuler = false;
+
+    if (rulerArea.contains (e.getPosition()))
+    {
+        const auto tag = tagAt (e.position);
+        if (e.mods.isPopupMenu())
+        {
+            const auto screen = juce::Rectangle<int> (e.getScreenX(), e.getScreenY(), 1, 1);
+            if (tag >= 0)
+                marks::showSectionMenu (session, actions, tag, screen);
+            else if (e.x >= plotArea.getX())
+                marks::showRulerMenu (session, actions, map().sampleAt (e.position.x), ! e.mods.isAltDown(), screen);
+            return;
+        }
+
+        if (tag >= 0)
+        {
+            draggingTag = tag;
+            tagMoved = false;
+            tagGrabOffset = e.position.x - map().x (state().project.sections[(size_t) tag].startSample);
+            session.selectSection (tag);
+            return;
+        }
+
+        session.selectSection (-1);
+        draggingRuler = true;
         session.seek (map().sampleAt ((float) juce::jmax (plotArea.getX(), e.x)));
+    }
     else if (plotArea.contains (e.getPosition()))
         gesture.down (session, map(), e.position.x);
 }
 
 void PitchLane::mouseDrag (const juce::MouseEvent& e)
 {
+    if (draggingTag >= 0)
+    {
+        if (! tagMoved && e.getDistanceFromDragStartX() * e.getDistanceFromDragStartX() < 9)
+            return;   // 3px 未満はクリック扱い
+        tagMoved = true;
+        const auto x = juce::jlimit ((float) plotArea.getX(), (float) plotArea.getRight(), e.position.x - tagGrabOffset);
+        draggingTag = session.moveSection (draggingTag, map().sampleAt (x), ! e.mods.isAltDown());
+        return;
+    }
+
     if (draggingRuler)
         session.seek (map().sampleAt ((float) juce::jlimit (plotArea.getX(), plotArea.getRight(), e.x)));
     else if (plotArea.contains (e.getMouseDownPosition()))
@@ -137,9 +187,25 @@ void PitchLane::mouseDrag (const juce::MouseEvent& e)
 
 void PitchLane::mouseUp (const juce::MouseEvent& e)
 {
+    if (draggingTag >= 0)
+    {
+        if (! tagMoved)
+            session.goToSection (draggingTag);   // 札をクリック：その区間の頭へ（「サビへ」）
+        draggingTag = -1;
+        return;
+    }
+
     if (! draggingRuler && plotArea.contains (e.getMouseDownPosition()))
         gesture.up (session, map(), e.position.x);
     draggingRuler = false;
+}
+
+void PitchLane::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    // 札をダブルクリック：名前を選ぶ（一覧 / 自由入力）
+    const auto tag = tagAt (e.position);
+    if (tag >= 0)
+        marks::showNameMenu (session, actions, tag, { e.getScreenX(), e.getScreenY(), 1, 1 });
 }
 
 //==============================================================================

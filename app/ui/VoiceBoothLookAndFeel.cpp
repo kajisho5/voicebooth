@@ -130,7 +130,7 @@ juce::Font VoiceBoothLookAndFeel::getPopupMenuFont()
 
 void VoiceBoothLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
                                                bool isSeparator, bool isActive, bool isHighlighted, bool isTicked,
-                                               bool, const juce::String& text, const juce::String&,
+                                               bool hasSubMenu, const juce::String& text, const juce::String&,
                                                const juce::Drawable* icon, const juce::Colour*)
 {
     if (isSeparator)
@@ -161,6 +161,11 @@ void VoiceBoothLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Re
                           juce::RectanglePlacement::centred, isActive ? 1.0f : 0.4f);
         r.removeFromRight (8.0f);
     }
+
+    // 下にメニューがある項目は右に ›（区間の「ここから区間」など）
+    if (hasSubMenu)
+        drawIcon (g, Icon::chevronRight, r.removeFromRight (22.0f).withSizeKeepingCentre (12.0f, 12.0f),
+                  isHighlighted ? colours::signal : colours::textDim);
 
     g.setColour (isActive ? (isTicked ? colours::text : colours::text.withAlpha (0.85f)) : colours::textMute);
     g.setFont (sansForLanguageName (text, 13.0f, isTicked ? Weight::semibold : Weight::regular));
