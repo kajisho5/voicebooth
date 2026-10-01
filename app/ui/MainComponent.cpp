@@ -7,13 +7,16 @@
 #include "screens/SkinTemplates.h"
 #include "screens/WelcomeScreen.h"
 #include "screens/UpdateDialog.h"
+#include "screens/SongInfoDialog.h"
+#include "screens/LyricsDialog.h"
+#include "SongMarks.h"
 
 namespace vb
 {
 MainComponent::MainComponent (UiSession& u, AppHooks& h)
     : SessionView (u),
       hooks (h),
-      top (u, actions), transport (u, actions), pitch (u), lyrics (u), wave (u), tracks (u), rack (u, actions), status (u)
+      top (u, actions), transport (u, actions), pitch (u, actions), lyrics (u, actions), wave (u), tracks (u), rack (u, actions), status (u)
 {
     actions.toggleRecord = [this] { toggleRecord(); };
     actions.requestTempo = [this] (int v) { requestTempo (v); };
@@ -22,6 +25,9 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openSetup    = [this] { openSetup(); };
     actions.openExport   = [this] { openExport(); };
     actions.openSettings = [this] { openSettings(); };
+    actions.openSongInfo = [this] { openSongInfo(); };
+    actions.openLyrics   = [this] { openLyrics(); };
+    actions.editSectionName = [this] (int i) { openSectionName (i); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
@@ -67,6 +73,9 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     }
 
     if (o.open != juce::File())     openSong (o.open);
+    if (o.lyrics != juce::File())   openLyrics (o.lyrics);
+    if (o.screen == "song-info")    openSongInfo();
+    if (o.screen == "lyrics")       openLyrics();
     if (o.screen == "start")        openStart();
     if (o.screen == "setup")        openSetup (0);
     if (o.screen == "setup2")       openSetup (1);
@@ -247,10 +256,93 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             session.selectTrack (index);
         return true;
     }
+    if (songInfoKey (key))
+        return true;
     if (key == juce::KeyPress::escapeKey)
     {
         if (s.isRecording)
             confirmDiscardRecording();
+        return true;
+    }
+    return false;
+}
+
+void MainComponent::notice (const juce::String& text)
+{
+    if (! state().isRecording)
+        showToast (text);
+}
+
+void MainComponent::tapTempo()
+{
+    const auto bpm = session.tapTempo (juce::Time::getMillisecondCounterHiRes() / 1000.0);
+    const auto n = session.tapCount();
+    notice (bpm > 0.0 ? tr ("songInfo.tap.result", song::formatBpm (bpm), n)
+                      : tr ("songInfo.tap.count", n, song::TapTempo::minTaps));
+}
+
+bool MainComponent::songInfoKey (const juce::KeyPress& key)
+{
+    const auto& s = state();
+    const auto c = juce::CharacterFunctions::toLowerCase (key.getTextCharacter());
+    const auto code = key.getKeyCode();
+
+    // T：タップテンポ（4 回以上。DESIGN 7.5.1）
+    if (c == 't')
+    {
+        tapTempo();
+        return true;
+    }
+
+    // M：今の位置に区間の頭（小節線に吸い付く。Alt / Option で吸い付かない。DESIGN 7.5.2）
+    if (c == 'm')
+    {
+        const auto index = session.addSectionAtPlayhead (! key.getModifiers().isAltDown());
+        notice (tr ("section.added", marks::sectionName (state().project.sections, index)));
+        return true;
+    }
+
+    // 歌詞：タップで合わせる（Enter で行の歌い出し、Backspace で 1 行戻す、Esc で終わる。DESIGN 7.5.3）
+    if (code == juce::KeyPress::returnKey && ! s.project.lyrics.empty())
+    {
+        if (! s.lyricSyncing)
+        {
+            session.setLyricSyncing (true);
+            notice (tr ("lyrics.sync.started"));
+        }
+        else if (! session.tapLyric())
+            notice (tr ("lyrics.sync.done"));
+        return true;
+    }
+    if (s.lyricSyncing && code == juce::KeyPress::backspaceKey)
+    {
+        session.undoLyricTap();
+        return true;
+    }
+    if (s.lyricSyncing && code == juce::KeyPress::escapeKey && ! s.isRecording)
+    {
+        session.setLyricSyncing (false);
+        return true;
+    }
+
+    // ↑ ↓：今の行を手で送る（時刻の無い歌詞・合わせている途中）
+    if ((code == juce::KeyPress::upKey || code == juce::KeyPress::downKey) && ! s.project.lyrics.empty())
+    {
+        session.stepLyric (code == juce::KeyPress::upKey ? -1 : 1);
+        return true;
+    }
+
+    // Delete / Backspace：選んだ区間を消す
+    if ((code == juce::KeyPress::deleteKey || code == juce::KeyPress::backspaceKey) && s.selectedSection >= 0)
+    {
+        session.removeSection (s.selectedSection);
+        return true;
+    }
+
+    // Esc：区間の選択を外す（録音中は従来どおり破棄の確認）
+    if (code == juce::KeyPress::escapeKey && ! s.isRecording && s.selectedSection >= 0)
+    {
+        session.selectSection (-1);
         return true;
     }
     return false;
@@ -367,13 +459,28 @@ void MainComponent::openSong (const juce::File& f)
 
 bool MainComponent::isInterestedInFileDrag (const juce::StringArray& files)
 {
-    // ダイアログ表示中・録音中は受けない（起動画面は自分で受ける）
-    return files.size() > 0 && ! overlay.isShowing() && ! state().isRecording;
+    // 録音中は受けない。ダイアログ表示中は歌詞パッドへの歌詞のファイルだけ（起動画面は自分で受ける）
+    if (files.isEmpty() || state().isRecording)
+        return false;
+    if (overlay.isShowing())
+        return dynamic_cast<LyricsDialog*> (overlay.getContent()) != nullptr && LyricsDialog::isLyricsFile (juce::File (files[0]));
+    return true;
 }
 
 void MainComponent::filesDropped (const juce::StringArray& files, int, int)
 {
-    openSong (juce::File (files[0]));
+    const juce::File f (files[0]);
+
+    // .txt / .lrc は歌詞（DESIGN 7.5.3：ウィンドウへのドロップ）
+    if (LyricsDialog::isLyricsFile (f))
+    {
+        if (auto* open = dynamic_cast<LyricsDialog*> (overlay.getContent()))
+            open->loadFile (f);
+        else
+            openLyrics (f);
+        return;
+    }
+    openSong (f);
 }
 
 void MainComponent::openSetup (int step)
@@ -473,6 +580,42 @@ void MainComponent::openSkinEditor (const skin::Skin* fromTemplate)
     auto* editor = dlg.get();
     overlay.show (std::move (dlg), false, OverlayHost::Placement::side);
     editor->applyPreview();   // テンプレートの色をすぐ後ろの画面に出す
+}
+
+void MainComponent::openSongInfo()
+{
+    auto dlg = std::make_unique<SongInfoDialog> (session, actions);
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    // 右に出す（背景を暗くしない：ルーラー・BAR.BEAT が変わるのを見ながら直す）
+    overlay.show (std::move (dlg), true, OverlayHost::Placement::side);
+}
+
+void MainComponent::openLyrics (const juce::File& file)
+{
+    auto dlg = std::make_unique<LyricsDialog> (session);
+    auto* raw = dlg.get();
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onApplied = [this] (const juce::String& msg) { overlay.close(); notice (msg); };
+    overlay.show (std::move (dlg), false);
+    if (file != juce::File())
+        raw->loadFile (file);
+}
+
+void MainComponent::openSectionName (int index)
+{
+    // 曲の情報パネルから開いた時は、名前を入れたらパネルに戻る
+    const bool fromPanel = dynamic_cast<SongInfoDialog*> (overlay.getContent()) != nullptr;
+    auto dlg = std::make_unique<SectionNameDialog> (session, index);
+    juce::Component::SafePointer<MainComponent> safe (this);
+    auto done = [this, safe, fromPanel]
+    {
+        overlay.close();
+        if (fromPanel)
+            juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSongInfo(); });
+    };
+    dlg->onDone = done;
+    dlg->onCloseRequest = done;
+    overlay.show (std::move (dlg), true);
 }
 
 void MainComponent::openUpdate()
