@@ -133,7 +133,7 @@ void StartScreen::loadFinished (audio::LoadResult r)
     }
 
     // 曲を差し替える（後ろのメイン画面もこの時点で実波形になる）
-    session.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview);
+    session.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview, r.audio);
     setPhase (Phase::loaded);
 }
 
@@ -363,7 +363,7 @@ juce::String StartScreen::errorText() const
         return tr ("load.error.notSong", name);   // 拡張子で弾いた
     if (error == audio::LoadResult::Error::cancelled)
         return tr ("load.error.cancelled");
-    return tr (audio::errorKey (error), name);
+    return tr (audio::errorKey (error), name, audio::maxSongMinutes);
 }
 
 void StartScreen::paintAnalyzing (juce::Graphics& g)

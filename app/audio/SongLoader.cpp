@@ -14,6 +14,7 @@ const char* errorKey (LoadResult::Error e)
         case LoadResult::Error::empty:       return "load.error.empty";
         case LoadResult::Error::readFailed:  return "load.error.readFailed";
         case LoadResult::Error::cancelled:   return "load.error.cancelled";
+        case LoadResult::Error::tooLong:     return "load.error.tooLong";
     }
     return "";
 }
@@ -79,21 +80,42 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
         return r;
     }
 
-    auto overview = std::make_shared<WaveformOverview> (info.lengthSamples);
+    if ((double) info.lengthSamples / info.sampleRate > maxSongMinutes * 60.0 || info.numChannels > 8)
+    {
+        r.error = LoadResult::Error::tooLong;
+        return r;
+    }
 
+    auto overview = std::make_shared<WaveformOverview> (info.lengthSamples);
+    auto audio = std::make_shared<SongAudio>();
+    audio->sampleRate = info.sampleRate;
+    try
+    {
+        audio->buffer.setSize (info.numChannels, (int) info.lengthSamples);
+    }
+    catch (const std::bad_alloc&)
+    {
+        r.error = LoadResult::Error::tooLong;
+        return r;
+    }
+
+    // デコードした音をそのまま曲のバッファへ。概形も同じ通過で作る
     constexpr int blockSize = 1 << 16;
-    juce::AudioBuffer<float> buffer (info.numChannels, blockSize);
+    std::vector<float*> dest ((size_t) info.numChannels);
 
     for (int64 pos = 0; pos < info.lengthSamples;)
     {
         const auto n = (int) juce::jmin ((int64) blockSize, info.lengthSamples - pos);
-        if (! reader->read (buffer.getArrayOfWritePointers(), info.numChannels, pos, n))
+        for (int c = 0; c < info.numChannels; ++c)
+            dest[(size_t) c] = audio->buffer.getWritePointer (c, (int) pos);
+
+        if (! reader->read (dest.data(), info.numChannels, pos, n))
         {
             r.error = LoadResult::Error::readFailed;
             return r;
         }
 
-        overview->append (buffer.getArrayOfReadPointers(), info.numChannels, n);
+        overview->append (dest.data(), info.numChannels, n);
         pos += n;
 
         if (progress && ! progress ((float) ((double) pos / (double) info.lengthSamples)))
@@ -104,6 +126,7 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
     }
 
     r.overview = std::move (overview);
+    r.audio = std::move (audio);
     return r;
 }
 
