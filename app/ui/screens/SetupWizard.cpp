@@ -495,7 +495,7 @@ void SetupWizard::paintStepper (juce::Graphics& g, juce::Rectangle<int> r)
         g.setColour (done ? colours::signal : (active ? colours::text : colours::line));
         g.fillEllipse (num);
         g.setColour (colours::bgDeep);
-        if (done) drawIcon (g, Icon::check, num.reduced (4.0f), colours::bgDeep);
+        if (done) drawIcon (g, Icon::check, num.reduced (4.0f), colours::onFill (colours::signal));
         else
         {
             g.setFont (mono (11.0f, Weight::semibold));
