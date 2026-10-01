@@ -47,8 +47,11 @@ namespace metrics
 //==============================================================================
 enum class Weight { regular, medium, semibold };
 
-/** 本文・ラベル（IBM Plex Sans JP） */
+/** 本文・ラベル。日本語・英語は IBM Plex Sans JP、韓国語・中国語は OS の標準フォント */
 juce::Font sans (float height, Weight = Weight::regular);
+
+/** データ（歌詞・曲名）用。かなを含む文字列は UI の言語に関係なく日本語の字形で描く */
+juce::Font sansFor (const juce::String& text, float height, Weight = Weight::regular);
 
 /** 数値・時間・英字の小見出し（IBM Plex Mono。日本語は入れない） */
 juce::Font mono (float height, Weight = Weight::medium, float tracking = 0.0f);

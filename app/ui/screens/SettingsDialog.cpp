@@ -50,7 +50,7 @@ SettingsDialog::SettingsDialog (UiSession& u)
         s->setFont (mono (11.5f, Weight::medium));
 
     rows = {
-        { tr ("settings.language"),   tr ("settings.language.note"),   &language,    260 },
+        { tr ("settings.language"),   tr ("settings.language.note"),   &language,    juce::jmax (420, language.idealWidth()) },
         { tr ("settings.mode"),       tr ("settings.mode.note"),       &mode,        260 },
         { tr ("settings.tolerance"),  tr ("settings.tolerance.note"),  &tolerance,   200 },
         { tr ("settings.octave"),     tr ("settings.octave.note"),     &octaveAlign, 0 },
@@ -95,7 +95,7 @@ void SettingsDialog::layoutBody (juce::Rectangle<int> r)
 
         if (row.control == nullptr) continue;
 
-        auto c = a.removeFromRight (260);
+        auto c = a.removeFromRight (juce::jmax (260, row.controlWidth));
         if (auto* k = dynamic_cast<KeyButton*> (row.control))
         {
             k->setSize (10, 32);
@@ -117,7 +117,7 @@ void SettingsDialog::paintBody (juce::Graphics& g, juce::Rectangle<int>)
         if (i + 1 < rows.size())
             paint::hline (g, a.getBottom() - 1.0f, a.getX(), a.getRight(), colours::grid);
 
-        auto text = a.withTrimmedRight (280.0f);
+        auto text = a.withTrimmedRight ((float) juce::jmax (260, rows[i].controlWidth) + 20.0f);
         g.setColour (colours::text);
         g.setFont (sans (13.0f, Weight::medium));
         g.drawText (rows[i].label, text.removeFromTop (rows[i].note.isEmpty() ? text.getHeight() : text.getHeight() * 0.55f),

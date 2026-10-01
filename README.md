@@ -9,14 +9,18 @@
 ## 現在の状態：Phase A（見た目だけ）
 
 - A1–A7 実装済み：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
-- **日本語 / English**（設定から即時切り替え。DESIGN 10.1）
+- **日本語 / English / 한국어 / 简体中文 / 繁體中文**（設定から即時切り替え。DESIGN 10.1）
 - **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_*` をリンクしない構成）。再生・録音は見た目だけで音は出ない
 
 ![メイン画面](docs/screenshots/main-ja.png)
 
-| 録音中 | English | 書き出し |
+| 録音中 | 書き出し | 設定（繁體中文） |
 |---|---|---|
-| ![](docs/screenshots/recording.png) | ![](docs/screenshots/main-en.png) | ![](docs/screenshots/export.png) |
+| ![](docs/screenshots/recording.png) | ![](docs/screenshots/export.png) | ![](docs/screenshots/settings-zh-Hant.png) |
+
+| English | 한국어 | 简体中文 |
+|---|---|---|
+| ![](docs/screenshots/main-en.png) | ![](docs/screenshots/main-ko.png) | ![](docs/screenshots/main-zh-Hans.png) |
 
 見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）。機能の参考にした TakyuPractice とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。
 
@@ -66,7 +70,7 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 docs/DESIGN.md        仕様（唯一の正）
 docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
-app/i18n/             多言語対応 tr("key")
+app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（Phase B で音声エンジンにつなぐ）
 app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定
 app/ui/Theme.*        色トークン・書体・描画の基本（キーキャップ / 表示窓 / LED）
@@ -78,19 +82,20 @@ app/audio/            音声エンジンのインターフェースのみ（中�
 app/project/          データモデル（形のみ）+ project.example.json
 app/export/           ExportService スタブ
 resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
-resources/i18n/       翻訳表 ja.json / en.json
+resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant
 tools/check_i18n.py   翻訳表と直書きの検査（CI でも実行）
 ```
 
 ## 多言語対応
 
-画面の文字は必ず `tr("key")` で引き、`resources/i18n/ja.json` と `en.json` の両方にキーを足す。
+画面の文字は必ず `tr("key")` で引き、`resources/i18n/` の全言語（ja / en / ko / zh-Hans / zh-Hant）にキーを足す。
 
 ```bash
 python3 tools/check_i18n.py
 ```
 
-言語を足す時は `app/i18n/I18n.cpp` の `available()` に 1 行と JSON を 1 枚（DESIGN 10.1）。
+言語を足す時は `app/i18n/I18n.cpp` の `available()` に 1 行、JSON を 1 枚、`CMakeLists.txt` の埋め込みに 1 行（DESIGN 10.1）。
+韓国語・中国語は OS の標準フォントで表示する（Linux で確認する場合は `fonts-noto-cjk` を入れる）。
 
 ## ライセンス上の注意（未決事項に関係）
 

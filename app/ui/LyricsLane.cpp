@@ -44,7 +44,7 @@ void LyricsLane::paint (juce::Graphics& g)
 
     if (cur != nullptr)
     {
-        const auto f = sans (22.0f, Weight::semibold);
+        const auto f = sansFor (cur->text, 22.0f, Weight::semibold);
         const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (f, cur->text));
         const auto line = r.removeFromLeft (w + 2.0f).withSizeKeepingCentre (w + 2.0f, 30.0f).translated (0.0f, -3.0f);
 
@@ -74,8 +74,8 @@ void LyricsLane::paint (juce::Graphics& g)
     {
         // フレーズの合間：次を大きめに待たせる
         g.setColour (colours::textDim);
-        g.setFont (sans (18.0f, Weight::medium));
-        const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (sans (18.0f, Weight::medium), next->text));
+        g.setFont (sansFor (next->text, 18.0f, Weight::medium));
+        const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (sansFor (next->text, 18.0f, Weight::medium), next->text));
         g.drawText (next->text, r.removeFromLeft (w + 2.0f), juce::Justification::centredLeft, true);
         r.removeFromLeft (36.0f);
         next = s.lyricAfter (next->startSample);
@@ -86,7 +86,7 @@ void LyricsLane::paint (juce::Graphics& g)
         const auto lw = textWidth (mono (9.5f, Weight::medium, 0.12f), tr ("label.next")) + 10.0f;
         paint::microLabel (g, r.removeFromLeft (lw), tr ("label.next"), colours::textMute);
         g.setColour (colours::textDim);
-        g.setFont (sans (15.0f));
+        g.setFont (sansFor (next->text, 15.0f));
         g.drawText (next->text, r, juce::Justification::centredLeft, true);
     }
 }
