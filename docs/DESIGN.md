@@ -1140,6 +1140,12 @@ Phase A だけやれ。音声デバイスは開くな。
   名前とロゴは改造版を別製品として配る時には使わせない（README）。録音・書き出した音声は利用者のもので、AGPL は及ばない
 - ~~Rubber Band のライセンス形態~~ → GPL（v2 以降）で使う。AGPL-3.0 のアプリと組み合わせられるので、商用ライセンスは買わない
 - ~~Intel Mac を初回から出すか~~ → 出す。ユニバーサル版（11.6）
+- Windows の署名（SmartScreen の警告）：案は「一般向けは Microsoft Store（MSIX。登録無料・Microsoft が署名し直すので警告なし・更新もストア）、
+  直接配布（GitHub / R2）は Certum のオープンソース向け証明書で署名」。Azure Artifact Signing は個人だと米国・カナダのみで日本の個人は使えない。
+  EV 証明書は 2024 年から警告を最初から消す効果がない。SignPath Foundation（OSS 向け無料）は名義が SignPath になり、条件の「商用とのデュアルライセンスなし」に
+  JUCE が当たるか要確認（2026-10-01 調査。https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options 、
+  https://blogs.windows.com/windowsdeveloper/2025/09/10/free-developer-registration-for-individual-developers-on-microsoft-store/ 、https://signpath.org/terms 、
+  https://shop.certum.eu/open-source-code-signing-on-simplysign.html ）。持ち主の決定待ち（ストアの開発者登録は本人の身分証確認が要る）
 - コードサイン / 公証の主体
 - ~~有料か無料か~~ → 無料。GitHub Sponsors で寄付を募る（2026-10-01 決定。`.github/FUNDING.yml`）。
   アプリでは設定画面の下（実装済み）と「このアプリについて」に「開発を支援する」の小さなリンクだけ置く。起動時や録音の前後に寄付を頼む画面は出さない。寄付の有無で機能を変えない
