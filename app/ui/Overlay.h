@@ -60,10 +60,15 @@ class OverlayHost : public juce::Component
 public:
     OverlayHost();
 
+    /** centre：中央に置いて背景を暗くする
+        side  ：右に寄せ、背景を暗くしない（スキンエディタ：後ろの画面で色を確かめる） */
+    enum class Placement { centre, side };
+
     /** パネルは自分の大きさを setSize しておく。dismissible なら背景クリックで閉じる */
-    void show (std::unique_ptr<juce::Component> panel, bool dismissible = true);
+    void show (std::unique_ptr<juce::Component> panel, bool dismissible = true, Placement = Placement::centre);
     void close();
     bool isShowing() const { return content != nullptr; }
+    juce::Component* getContent() const { return content.get(); }
     bool isDismissible() const { return dismissible; }
 
     std::function<void()> onClosed;
@@ -75,5 +80,6 @@ public:
 private:
     std::unique_ptr<juce::Component> content;
     bool dismissible = true;
+    Placement placement = Placement::centre;
 };
 } // namespace vb

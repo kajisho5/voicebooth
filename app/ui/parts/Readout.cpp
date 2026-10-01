@@ -52,7 +52,7 @@ void TallyLamp::paint (juce::Graphics& g)
         g.setGradientFill (juce::ColourGradient (colours::rec.brighter (0.2f), b.getX(), b.getY(),
                                                  colours::rec.darker (0.3f), b.getX(), b.getBottom(), false));
         g.fillRoundedRectangle (b, 4.0f);
-        g.setColour (colours::text);
+        g.setColour (colours::onRec());
         g.setFont (f);
         g.drawText (tr ("tally.rec"), b, juce::Justification::centred, false);
         return;

@@ -15,7 +15,7 @@
 
 namespace vb
 {
-/** 言語を変えた後に開き直す画面 */
+/** 言語・スキンを変えた後に開き直す画面 */
 enum class ReopenScreen { none, settings, welcome };
 
 /** アプリ本体（設定の保存・画面の作り直し）への窓口 */
@@ -23,12 +23,19 @@ struct AppHooks
 {
     std::function<void (i18n::Language, ReopenScreen)> changeLanguage;
     std::function<void()> firstRunDone;   // 初回の言語選択を確定した
+
+    // スキン（DESIGN 4.11）
+    std::function<void (const juce::String& id, ReopenScreen)> changeSkin;   // 選んで保存し、画面を作り直す
+    std::function<void (const skin::Skin&)> previewSkin;                       // 色だけ画面に反映（保存しない。エディタ用）
+    std::function<juce::String()> currentSkin;                                 // いま選んでいるスキンの id
+    skin::Library* skins = nullptr;                                            // 内蔵＋自作（Skins/）
 };
 
 /** 起動時の指定（開発・スクリーンショット用。--screen= など） */
 struct LaunchOptions
 {
-    juce::String screen;          // start / setup / setup2 / setup3 / export / settings / confirm-rec /
+    juce::String screen;          // start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
+                                  // skin-editor-borrow / confirm-rec /
                                   // update / update-notice / model-download / model-downloading / model-done / model-failed
     juce::File open;              // この曲を開く（--open=）
     bool recording = false;
@@ -67,6 +74,8 @@ public:
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
+    void openSkinTemplates();
+    void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
     void openModelDownload (int stage, bool animate);   // ModelDownloadDialog::Stage
 

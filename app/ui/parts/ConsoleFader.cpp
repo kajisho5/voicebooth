@@ -2,7 +2,7 @@
 
 namespace vb
 {
-ConsoleFader::ConsoleFader (double value, juce::Colour line)
+ConsoleFader::ConsoleFader (double value, colours::Tone line)
     : capLine (line)
 {
     setSliderStyle (juce::Slider::LinearVertical);
@@ -38,9 +38,9 @@ void ConsoleFader::paint (juce::Graphics& g)
 
     // 溝
     const auto groove = juce::Rectangle<float> (cx - 2.0f, top - 2.0f, 4.0f, bottom - top + 4.0f);
-    g.setColour (juce::Colours::black);
+    g.setColour (colours::isLight() ? colours::lineHi : juce::Colours::black);
     g.fillRoundedRectangle (groove, 2.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.05f));
+    g.setColour (colours::highlight (0.05f));
     g.fillRect (groove.withX (groove.getRight()).withWidth (1.0f));
 
     // 横のメーター（セグメント）
@@ -62,20 +62,22 @@ void ConsoleFader::paint (juce::Graphics& g)
     const bool hover = previewHover || isMouseOverOrDragging();
     const auto cap = juce::Rectangle<float> (capW, capH).withCentre ({ cx, capY });
 
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
+    g.setColour (colours::shadow (0.5f));
     g.fillRoundedRectangle (cap.translated (0.0f, 2.0f), 2.5f);
 
-    const auto capTop = hover ? juce::Colour (0xff4b4740) : juce::Colour (0xff403c36);
+    // キャップはキーより一段明るい（Booth では #403C36 / ホバー #4B4740 相当）
+    const auto capTop = colours::isLight() ? (hover ? colours::raisedHi : colours::raised)
+                                           : (hover ? colours::lineHi.brighter (0.02f) : colours::raisedHi.interpolatedWith (colours::lineHi, 0.62f));
     g.setGradientFill (juce::ColourGradient (capTop, cap.getX(), cap.getY(), colours::raised.darker (0.2f), cap.getX(), cap.getBottom(), false));
     g.fillRoundedRectangle (cap, 2.5f);
 
     // 指掛けの段差
-    g.setColour (juce::Colours::black.withAlpha (0.25f));
+    g.setColour (colours::shadow (0.25f));
     g.fillRect (cap.withHeight (cap.getHeight() * 0.42f).withY (cap.getY() + 1.0f).reduced (2.0f, 0.0f));
-    g.setColour (juce::Colours::white.withAlpha (0.10f));
+    g.setColour (colours::highlight (0.10f));
     g.fillRect (juce::Rectangle<float> (cap.getX() + 2.0f, cap.getY() + 1.0f, cap.getWidth() - 4.0f, 1.0f));
 
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.setColour (colours::shadow (0.6f));
     g.drawRoundedRectangle (cap, 2.5f, 1.0f);
 
     // 中心線（チャンネル色）
@@ -85,7 +87,7 @@ void ConsoleFader::paint (juce::Graphics& g)
 
 //==============================================================================
 ChannelStrip::ChannelStrip (const juce::String& n, double value, float meterLevel,
-                            juce::Colour capLine, bool ms, const juce::String& noteText)
+                            colours::Tone capLine, bool ms, const juce::String& noteText)
     : name (n), note (noteText), slider (value, capLine), withMuteSolo (ms)
 {
     slider.setMeter (meterLevel);

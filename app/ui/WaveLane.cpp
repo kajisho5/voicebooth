@@ -213,7 +213,7 @@ void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& m, juce::Rectangle
             const auto tag = label.removeFromLeft (tw).reduced (0.0f, 3.0f);
             g.setColour (colours::bad);
             g.fillRoundedRectangle (tag, 2.0f);
-            g.setColour (colours::bgDeep);
+            g.setColour (colours::onFill (colours::bad));
             g.setFont (tf);
             g.drawText (tr ("wave.clip"), tag, juce::Justification::centred, false);
         }

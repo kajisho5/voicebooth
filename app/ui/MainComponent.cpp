@@ -3,6 +3,8 @@
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
+#include "screens/SkinEditor.h"
+#include "screens/SkinTemplates.h"
 #include "screens/WelcomeScreen.h"
 #include "screens/UpdateDialog.h"
 
@@ -71,6 +73,20 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "setup3")       openSetup (2);
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
+    if (o.screen == "skin-templates") openSkinTemplates();
+    if (o.screen == "skin-editor" || o.screen == "skin-editor-borrow")
+        openSkinEditor();
+    if (o.screen == "skin-editor-borrow")
+    {
+        // スクリーンショット用：意味の色の「テンプレート」メニューを開く（ウィンドウが出てから）
+        juce::Component::SafePointer<MainComponent> safe (this);
+        juce::Timer::callAfterDelay (800, [safe]
+        {
+            if (safe != nullptr)
+                if (auto* editor = dynamic_cast<SkinEditor*> (safe->overlay.getContent()))
+                    editor->showGroupMenu (3);
+        });
+    }
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
 
     // DESIGN 11.7 のモック（通信しない）
@@ -373,7 +389,8 @@ void MainComponent::openExport()
 
 void MainComponent::openSettings()
 {
-    auto dlg = std::make_unique<SettingsDialog> (session);
+    std::vector<skin::Skin> skins = hooks.skins != nullptr ? hooks.skins->all() : skin::builtInSkins();
+    auto dlg = std::make_unique<SettingsDialog> (session, std::move (skins), hooks.currentSkin ? hooks.currentSkin() : juce::String ("booth"));
     dlg->onCloseRequest = [this] { overlay.close(); };
     // 入れ子のラムダで this を初期化キャプチャすると MSVC が外側のラムダと解釈するため、先に作っておく
     juce::Component::SafePointer<MainComponent> safe (this);
@@ -383,7 +400,75 @@ void MainComponent::openSettings()
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSetup(); });
     };
     dlg->onLanguage = [this] (i18n::Language l) { if (hooks.changeLanguage) hooks.changeLanguage (l, ReopenScreen::settings); };
+    dlg->onSkin = [this] (const juce::String& id) { if (hooks.changeSkin) hooks.changeSkin (id, ReopenScreen::settings); };
+    dlg->onEditSkin = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSkinEditor(); });
+    };
+    dlg->onNewSkin = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSkinTemplates(); });
+    };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openSkinTemplates()
+{
+    // 録音中はスキンを変えない（DESIGN 4.11）
+    if (hooks.skins == nullptr || state().isRecording)
+        return;
+
+    auto dlg = std::make_unique<SkinTemplates> (hooks.skins->all(), hooks.currentSkin ? hooks.currentSkin() : juce::String ("booth"));
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onChosen = [this, safe] (const skin::Skin& chosen)
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe, chosen] { if (safe != nullptr) safe->openSkinEditor (&chosen); });
+    };
+    dlg->onCloseRequest = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openSkinEditor (const skin::Skin* fromTemplate)
+{
+    // 録音中はスキンを変えない（DESIGN 4.11）
+    if (hooks.skins == nullptr || state().isRecording)
+        return;
+
+    const auto id = hooks.currentSkin ? hooks.currentSkin() : juce::String ("booth");
+    const auto* found = hooks.skins->find (id);
+    const auto active = found != nullptr ? *found : skin::defaultSkin();
+
+    // テンプレートを選んだ時はそのコピー、そうでなければいまのスキン（内蔵ならコピー）
+    auto dlg = fromTemplate != nullptr ? std::make_unique<SkinEditor> (*hooks.skins, active, *fromTemplate, true)
+                                       : std::make_unique<SkinEditor> (*hooks.skins, active, active, false);
+
+    // エディタはこの画面より長く生きることがある（終了時）ので、this ではなく AppHooks を捕まえる
+    auto* h = &hooks;
+    dlg->onPreview = [h] (const skin::Skin& s) { if (h->previewSkin) h->previewSkin (s); };
+    dlg->onSaved   = [h] (const juce::String& saved) { if (h->changeSkin) h->changeSkin (saved, ReopenScreen::settings); };
+    dlg->onDeleted = [h, id] (const juce::String& deleted)
+    {
+        // 使っていたスキンを消したら既定に戻す
+        if (h->changeSkin) h->changeSkin (deleted == id ? juce::String ("booth") : id, ReopenScreen::settings);
+    };
+
+    // キャンセル・閉じる：設定に戻る（色はエディタが消える時に元に戻す）
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onCloseRequest = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+    };
+    auto* editor = dlg.get();
+    overlay.show (std::move (dlg), false, OverlayHost::Placement::side);
+    editor->applyPreview();   // テンプレートの色をすぐ後ろの画面に出す
 }
 
 void MainComponent::openUpdate()

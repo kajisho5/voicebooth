@@ -192,7 +192,7 @@ void PitchLane::drawBackground (juce::Graphics& g, const TimeMap& m)
         const auto y0 = yForMidi ((float) n + 0.5f), y1 = yForMidi ((float) n - 0.5f);
         if (! isBlackKey (n))
         {
-            g.setColour (juce::Colours::white.withAlpha (0.012f));
+            g.setColour (colours::highlight (0.012f));
             g.fillRect (juce::Rectangle<float> (plot.getX(), y0, plot.getWidth(), y1 - y0));
         }
         if (n % 12 == 0)
@@ -227,7 +227,7 @@ void PitchLane::drawNoteGutter (juce::Graphics& g)
             const auto pill = juce::Rectangle<float> (r.getX() + 8.0f, yc - 8.5f, r.getWidth() - 22.0f, 17.0f);
             g.setColour (colours::signal);
             g.fillRoundedRectangle (pill, 3.0f);
-            g.setColour (colours::bgDeep);
+            g.setColour (colours::onFill (colours::signal));
             g.setFont (mono (11.0f, Weight::semibold));
             g.drawText (dummy::noteName ((float) n), pill, juce::Justification::centred, false);
         }

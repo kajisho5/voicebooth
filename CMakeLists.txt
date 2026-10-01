@@ -100,11 +100,16 @@ set(VOICEBOOTH_SONG_SOURCES
     app/system/SystemCheck.cpp
     app/analysis/Align.cpp)
 
+# スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
+set(VOICEBOOTH_SKIN_SOURCES
+    app/skin/Skin.cpp)
+
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
     app/i18n/I18n.cpp
     ${VOICEBOOTH_AUDIO_SOURCES}
     ${VOICEBOOTH_SONG_SOURCES}
+    ${VOICEBOOTH_SKIN_SOURCES}
     # テーマ
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
@@ -116,6 +121,7 @@ target_sources(VoiceBooth PRIVATE
     app/ui/parts/LedMeter.cpp
     app/ui/parts/Readout.cpp
     app/ui/parts/Dropdown.cpp
+    app/ui/parts/ColourPad.cpp
     app/ui/Gallery.cpp
     # 状態
     app/ui/DummySession.cpp
@@ -138,7 +144,9 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/ExportDialog.cpp
     app/ui/screens/SettingsDialog.cpp
     app/ui/screens/WelcomeScreen.cpp
-    app/ui/screens/UpdateDialog.cpp)
+    app/ui/screens/UpdateDialog.cpp
+    app/ui/screens/SkinEditor.cpp
+    app/ui/screens/SkinTemplates.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 
@@ -202,8 +210,10 @@ if(VOICEBOOTH_TESTS)
         tests/TempoTests.cpp
         tests/SystemCheckTests.cpp
         tests/AlignTests.cpp
+        tests/SkinTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
-        ${VOICEBOOTH_SONG_SOURCES})
+        ${VOICEBOOTH_SONG_SOURCES}
+        ${VOICEBOOTH_SKIN_SOURCES})
     target_include_directories(VoiceBoothTests PRIVATE app)
     target_compile_definitions(VoiceBoothTests PRIVATE
         JUCE_WEB_BROWSER=0
