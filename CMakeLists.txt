@@ -96,7 +96,8 @@ set(VOICEBOOTH_AUDIO_SOURCES
 
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
-    app/song/LyricsImport.cpp)
+    app/song/LyricsImport.cpp
+    app/system/SystemCheck.cpp)
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
@@ -198,6 +199,7 @@ if(VOICEBOOTH_TESTS)
         tests/DeviceRulesTests.cpp
         tests/LyricsImportTests.cpp
         tests/TempoTests.cpp
+        tests/SystemCheckTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES})
     target_include_directories(VoiceBoothTests PRIVATE app)
