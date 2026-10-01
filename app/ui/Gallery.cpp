@@ -256,7 +256,8 @@ void Gallery::paint (juce::Graphics& g)
         const Icon all[] = { Icon::play, Icon::pause, Icon::stop, Icon::toStart, Icon::rec, Icon::loop, Icon::rangeIn,
                              Icon::rangeOut, Icon::close, Icon::metronome, Icon::gear, Icon::mic, Icon::headphones,
                              Icon::edit, Icon::compare, Icon::lock, Icon::chevronDown, Icon::chevronRight, Icon::minus, Icon::plus,
-                             Icon::exportFile, Icon::folder, Icon::note, Icon::check, Icon::warning, Icon::globe };
+                             Icon::exportFile, Icon::folder, Icon::note, Icon::check, Icon::warning, Icon::globe,
+                             Icon::download, Icon::shield };
         int col = 0;
         auto row = a.removeFromTop (40);
         for (auto ic : all)

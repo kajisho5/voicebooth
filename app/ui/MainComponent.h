@@ -28,7 +28,8 @@ struct AppHooks
 /** 起動時の指定（開発・スクリーンショット用。--screen= など） */
 struct LaunchOptions
 {
-    juce::String screen;          // start / setup / setup2 / setup3 / export / settings / confirm-rec
+    juce::String screen;          // start / setup / setup2 / setup3 / export / settings / confirm-rec /
+                                  // update / update-notice / model-download / model-downloading / model-done / model-failed
     juce::File open;              // この曲を開く（--open=）
     bool recording = false;
     bool playing = false;
@@ -66,6 +67,8 @@ public:
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
+    void openUpdate();
+    void openModelDownload (int stage, bool animate);   // ModelDownloadDialog::Stage
 
     void showToast (const juce::String&);
 
