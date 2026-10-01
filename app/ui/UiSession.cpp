@@ -1,4 +1,6 @@
 #include "UiSession.h"
+#include "audio/DeviceRules.h"
+#include "audio/InputMeter.h"
 
 namespace vb
 {
@@ -29,10 +31,24 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
 
 void UiSession::attachEngine (audio::AudioEngine* e)
 {
+    if (engine != nullptr)
+        engine->setDeviceChangeCallback (nullptr);
+
     engine = e;
     s.engineAttached = e != nullptr;
+
+    if (engine != nullptr)
+    {
+        // デバイスが外から変わった（抜けた等）。エンジンはメッセージスレッドから呼ぶ
+        engine->setDeviceChangeCallback ([this] (bool lost) { deviceChanged (lost); });
+
+        // ここからはダミーの値を出さない（入力が開くまでメーターは消灯）
+        s.inputPeakDb = s.inputRmsDb = s.inputPeakHoldDb = audio::InputMeter::floorDb;
+        s.inputClipped = false;
+    }
     refreshOutputStatus();
-    notify (change::device);
+    refreshInputStatus();
+    notify (change::device | change::meter);
 }
 
 bool UiSession::isEngineDriven() const
@@ -44,6 +60,93 @@ void UiSession::refreshOutputStatus()
 {
     s.output = engine != nullptr ? engine->getOutputStatus() : audio::OutputStatus {};
 }
+
+void UiSession::refreshInputStatus()
+{
+    if (engine == nullptr)
+    {
+        s.input = {};   // UI_MOCK：入力の表示はダミーのまま
+        return;
+    }
+
+    s.input = engine->getInputStatus();
+    s.inputDevice = s.input.deviceName;
+    s.driver      = s.input.typeName.isNotEmpty() ? s.input.typeName : s.output.typeName;
+    s.bufferSize  = s.input.bufferSize > 0 ? s.input.bufferSize : s.output.bufferSize;
+
+    if (! s.input.open)
+    {
+        s.inputPeakDb = s.inputRmsDb = s.inputPeakHoldDb = audio::InputMeter::floorDb;
+        s.inputClipped = false;
+    }
+}
+
+void UiSession::pollInput()
+{
+    if (engine == nullptr || ! s.input.open)
+        return;
+
+    const auto l = engine->getInputLevel();
+    auto same = [] (float a, float b) { return std::abs (a - b) < 0.05f; };
+    if (same (l.peakDb, s.inputPeakDb) && same (l.rmsDb, s.inputRmsDb) && same (l.holdDb, s.inputPeakHoldDb)
+        && l.clipped == s.inputClipped)
+        return;
+
+    s.inputPeakDb = l.peakDb;
+    s.inputRmsDb = l.rmsDb;
+    s.inputPeakHoldDb = l.holdDb;
+    s.inputClipped = l.clipped;
+    notify (change::meter);
+}
+
+void UiSession::resetInputClip()
+{
+    if (engine != nullptr)
+        engine->resetInputClip();
+    s.inputClipped = false;
+    notify (change::meter);
+}
+
+void UiSession::deviceChanged (bool lost)
+{
+    // DESIGN 13「デバイス抜け：停止して再選択」。エンジン側はもう止まっている
+    if (engine != nullptr)
+        engine->stop();
+    s.isPlaying = s.isRecording = false;
+    if (lost)
+        ++s.deviceLostCount;
+
+    refreshOutputStatus();
+    refreshInputStatus();
+    notify (change::device | change::meter | change::transport);
+}
+
+audio::DeviceList UiSession::getDeviceList() const
+{
+    return engine != nullptr ? engine->getDeviceList() : audio::DeviceList {};
+}
+
+void UiSession::rescanDevices()
+{
+    if (engine == nullptr) return;
+    engine->rescanDevices();
+    notify (change::device);
+}
+
+juce::String UiSession::afterDeviceSelect (juce::String error)
+{
+    refreshOutputStatus();
+    refreshInputStatus();
+    notify (change::device | change::meter);
+    return error;
+}
+
+// 切り替えるとデバイスが開き直すので、先に再生を止める
+juce::String UiSession::selectDeviceType (const juce::String& t)    { if (engine == nullptr) return {}; stop(); return afterDeviceSelect (engine->setDeviceType (t)); }
+juce::String UiSession::selectInputDevice (const juce::String& n)   { if (engine == nullptr) return {}; stop(); return afterDeviceSelect (engine->setInputDevice (n)); }
+juce::String UiSession::selectOutputDevice (const juce::String& n)  { if (engine == nullptr) return {}; stop(); return afterDeviceSelect (engine->setOutputDevice (n)); }
+juce::String UiSession::selectInputChannel (int ch)                 { if (engine == nullptr) return {}; stop(); return afterDeviceSelect (engine->setInputChannel (ch)); }
+juce::String UiSession::selectBufferSize (int n)                    { if (engine == nullptr) return {}; stop(); return afterDeviceSelect (engine->setBufferSize (n)); }
 
 void UiSession::syncLoopToEngine()
 {
@@ -117,16 +220,22 @@ void UiSession::seek (int64 sample)
 
 void UiSession::tick (double seconds)
 {
-    // 出力デバイスの状態はときどき見直す（抜けた・SR が変わった）
+    // デバイスの状態はときどき見直す（抜けた・SR が変わった・入力が無音のまま）
     sinceStatus += seconds;
     if (engine != nullptr && sinceStatus >= 1.0)
     {
         sinceStatus = 0.0;
         const auto before = s.output;
+        const auto in = s.input;
         refreshOutputStatus();
+        refreshInputStatus();
+        const auto& i = s.input;
         if (before.open != s.output.open || std::abs (before.sampleRate - s.output.sampleRate) > 0.5
-            || before.bufferSize != s.output.bufferSize || before.deviceName != s.output.deviceName)
-            notify (change::device);
+            || before.bufferSize != s.output.bufferSize || before.deviceName != s.output.deviceName
+            || in.open != i.open || in.problem != i.problem || in.deviceName != i.deviceName || in.channel != i.channel
+            || in.numChannels != i.numChannels || in.silent != i.silent || in.permission != i.permission
+            || in.inputLatency != i.inputLatency || in.outputLatency != i.outputLatency || in.bufferSize != i.bufferSize)
+            notify (change::device | change::meter);
     }
 
     if (! s.isPlaying) return;
@@ -287,5 +396,63 @@ bool UiSession::isTrackVisible (project::TrackType t) const
         case TrackType::main:    return true;
     }
     return true;
+}
+//==============================================================================
+juce::String inputChannelLabel (int channel, int numChannels)
+{
+    if (numChannels <= 1) return {};
+    if (numChannels == 2) return channel == 0 ? tr ("input.channel.left") : tr ("input.channel.right");
+    return tr ("input.channel.n", channel + 1);
+}
+
+juce::String inputDisplayName (const dummy::Session& s)
+{
+    if (! s.engineAttached) return s.inputDevice;          // UI_MOCK：ダミー
+    if (! s.input.open)     return tr ("input.none");
+
+    const auto ch = inputChannelLabel (s.input.channel, s.input.numChannels);
+    return ch.isEmpty() ? s.input.deviceName
+                        : s.input.deviceName + juce::String::fromUTF8 (" \xe2\x80\x94 ") + ch;   // 機器名はデータ（翻訳しない）
+}
+
+juce::String inputProblemShort (const dummy::Session& s)
+{
+    if (! s.engineAttached) return {};
+    if (s.input.open)       return s.input.silent ? tr ("status.input.silent") : juce::String();
+
+    switch (s.input.problem)
+    {
+        case audio::InputProblem::permissionDenied: return tr ("status.input.denied");
+        case audio::InputProblem::permissionAsking: return tr ("status.input.asking");
+        case audio::InputProblem::openFailed:
+        case audio::InputProblem::noChannels:       return tr ("status.input.failed");
+        case audio::InputProblem::stalled:          return tr ("status.input.stalled");
+        case audio::InputProblem::noDevice:
+        case audio::InputProblem::none:             break;
+    }
+    return tr ("status.input.none");
+}
+
+LatencyDisplay latencyDisplay (const dummy::Session& s)
+{
+    LatencyDisplay d;
+    if (! s.engineAttached)
+    {
+        // UI_MOCK：ダミーの補正量
+        d.known = true;
+        d.samples = s.latencySamples;
+        d.ms = (double) s.latencySamples * 1000.0 / s.sampleRate();
+        return d;
+    }
+    if (! s.input.open || s.input.sampleRate <= 0.0)
+        return d;
+
+    const auto r = audio::reportedLatency (s.input.inputLatency, s.input.outputLatency, s.input.bufferSize);
+    d.known = true;
+    d.reported = true;
+    d.estimated = r.estimated;
+    d.samples = r.samples;
+    d.ms = (double) r.samples * 1000.0 / s.input.sampleRate;
+    return d;
 }
 } // namespace vb

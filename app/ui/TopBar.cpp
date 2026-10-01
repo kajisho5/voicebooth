@@ -31,7 +31,7 @@ TopBar::TopBar (UiSession& u, Actions& a)
 {
     mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
 
-    device.setButtonText (state().inputDevice);
+    device.setButtonText (inputDisplayName (state()));
     device.withIcon (Icon::mic).withFont (sans (12.0f));
     device.setTooltip (tr ("topbar.device.tooltip"));
     device.onClick = [this] { if (actions.openSetup) actions.openSetup(); };
@@ -54,6 +54,17 @@ void TopBar::onSessionChanged (juce::uint32 changes)
 {
     if (changes & change::song)
         repaint (songArea);   // 曲名・長さ・SR
+
+    // 入力デバイス名（無ければ警告色。DESIGN 4.1）
+    if (changes & change::device)
+    {
+        const auto& s = state();
+        const bool missing = s.engineAttached && ! s.input.open;
+        device.setButtonText (inputDisplayName (s));
+        device.withIconColour (missing ? colours::warn : colours::text);
+        resized();
+        repaint();
+    }
 
     if ((changes & (change::transport | change::mode)) == 0)
         return;

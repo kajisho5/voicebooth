@@ -6,8 +6,22 @@ LedMeter::LedMeter (Style s) : style (s) {}
 
 void LedMeter::setLevels (float p, float r, float h, bool c)
 {
+    if (juce::approximatelyEqual (p, peakDb) && juce::approximatelyEqual (r, rmsDb)
+        && juce::approximatelyEqual (h, holdDb) && c == clipped)
+        return;
     peakDb = p; rmsDb = r; holdDb = h; clipped = c;
     repaint();
+}
+
+void LedMeter::mouseEnter (const juce::MouseEvent&)
+{
+    setMouseCursor (onClick ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+}
+
+void LedMeter::mouseUp (const juce::MouseEvent& e)
+{
+    if (onClick && e.mouseWasClicked())
+        onClick();
 }
 
 juce::Colour LedMeter::zoneColour (float db) const
@@ -44,7 +58,7 @@ void LedMeter::paint (juce::Graphics& g)
     const auto x0 = bar.getX() + (bar.getWidth() - used) * 0.5f;
 
     int holdIndex = -1;
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < n && holdDb > minDb; ++i)   // 無音（下限）ではホールドを出さない
     {
         const auto dbTop = minDb + (float) (i + 1) / (float) n * -minDb;
         if (holdIndex < 0 && dbTop >= holdDb) holdIndex = i;

@@ -23,7 +23,7 @@ public:
     static constexpr int height = 28;
 
 private:
-    void onSessionChanged (juce::uint32 c) override { if (c & (change::transport | change::practice | change::mode | change::device | change::song)) repaint(); }
+    void onSessionChanged (juce::uint32 c) override;
 
     LedMeter mini { LedMeter::Style::compact };
     juce::Rectangle<int> meterArea;

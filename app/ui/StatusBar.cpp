@@ -5,8 +5,21 @@ namespace vb
 {
 StatusBar::StatusBar (UiSession& u) : SessionView (u)
 {
-    mini.setLevels (u->inputPeakDb, u->inputRmsDb, u->inputPeakHoldDb, false);
+    mini.setLevels (u->inputPeakDb, u->inputRmsDb, u->inputPeakHoldDb, u->inputClipped);
+    mini.onClick = [this] { session.resetInputClip(); };
+    mini.setTooltip (tr ("meter.clip.tooltip"));
     addAndMakeVisible (mini);
+}
+
+void StatusBar::onSessionChanged (juce::uint32 c)
+{
+    if (c & (change::meter | change::device))
+    {
+        const auto& s = state();
+        mini.setLevels (s.inputPeakDb, s.inputRmsDb, s.inputPeakHoldDb, s.inputClipped);
+    }
+    if (c & (change::transport | change::practice | change::mode | change::device | change::song | change::meter))
+        repaint();
 }
 
 void StatusBar::mouseUp (const juce::MouseEvent& e)
@@ -53,10 +66,14 @@ void StatusBar::paint (juce::Graphics& g)
         r.removeFromLeft (13.0f);
     };
 
-    const auto latencyMs = (double) s.latencySamples * 1000.0 / s.sampleRate();
+    // レイテンシ：実デバイスは申告値（実測は B6）と明記。UI_MOCK はダミー
+    const auto ld = latencyDisplay (s);
+    const auto latency = ! ld.known  ? juce::String ("-")
+                       : ld.reported ? tr ("status.latency.reported", juce::String (ld.ms, 1))
+                                     : juce::String (ld.ms, 1) + " ms";
 
-    item ({}, juce::String (s.inputPeakDb, 1) + " dBFS", colours::text);
-    item (tr ("status.latency"), juce::String (latencyMs, 1) + " ms", colours::text);
+    item ({}, formatDb (s.inputPeakDb) + " dBFS", colours::text);
+    item (tr ("status.latency"), latency, colours::text);
     item (tr ("status.recTo"), s.recMode == project::RecMode::delivery ? tr ("status.recTo.delivery") : tr ("status.recTo.practice"),
           s.isRecording ? colours::rec : colours::text);
     item (tr ("status.export"), tr ("status.export.value", formatKhz (s.sampleRate()), s.project.bitDepthExport), colours::text);
@@ -107,15 +124,23 @@ void StatusBar::paint (juce::Graphics& g)
         return;
     }
 
-    // 入力（メーター・レイテンシ）は B3 までダミー
-    chip (tr ("status.inputMock"), colours::warn);
+    // 入力が使えない理由（許可なし・デバイスなし・開けない・完全な無音）
+    if (const auto problem = inputProblemShort (s); problem.isNotEmpty())
+    {
+        const bool severe = s.input.problem == audio::InputProblem::permissionDenied
+                         || s.input.problem == audio::InputProblem::openFailed
+                         || s.input.problem == audio::InputProblem::noChannels
+                         || s.input.problem == audio::InputProblem::stalled;
+        chip (problem, severe && ! s.input.open ? colours::bad : colours::warn);
+    }
 
     const auto& o = s.output;
     if (! o.open)
     {
         g.setColour (colours::bad);
         g.setFont (sans (10.5f));
-        g.drawText (tr ("status.noOutput", o.error), r.withTrimmedRight (8.0f), juce::Justification::centredRight, true);
+        g.drawText (o.stalled ? tr ("status.deviceStalled") : tr ("status.noOutput", o.error),
+                    r.withTrimmedRight (8.0f), juce::Justification::centredRight, true);
         return;
     }
 
@@ -124,11 +149,11 @@ void StatusBar::paint (juce::Graphics& g)
 
     // 出力：デバイス名・SR・バッファ（右寄せ）
     const auto value = o.deviceName + "   " + formatKhz (juce::roundToInt (o.sampleRate)) + " kHz   " + juce::String (o.bufferSize);
-    const auto vw = textWidth (vf, value) + 4.0f;
+    const auto label = tr ("status.output");
+    const auto vw = juce::jmin (textWidth (vf, value) + 4.0f, r.getWidth() - textWidth (lf, label) - 8.0f);   // 長い機器名は省略
     g.setColour (colours::text);
     g.setFont (vf);
-    g.drawText (value, r.removeFromRight (vw), juce::Justification::centredRight, true);
-    const auto label = tr ("status.output");
+    g.drawText (value, r.removeFromRight (juce::jmax (0.0f, vw)), juce::Justification::centredRight, true);
     paint::microLabel (g, r.removeFromRight (textWidth (lf, label) + 8.0f), label, colours::textMute);
 }
 } // namespace vb

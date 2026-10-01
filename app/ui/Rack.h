@@ -40,7 +40,7 @@ public:
     void resized() override;
 
 private:
-    void onSessionChanged (juce::uint32 c) override { if (c & change::mode) { resized(); repaint(); } }
+    void onSessionChanged (juce::uint32 c) override;
 
     Actions& actions;
     LedMeter meter;

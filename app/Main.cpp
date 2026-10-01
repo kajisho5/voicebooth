@@ -21,7 +21,9 @@
     アプリ設定（PropertiesFile）に保存するもの
       language      表示言語（初回に選び、以後は設定から変更）
       mode          最後に使ったモード（簡単 / 標準 / プロ）
-      firstRunDone  初回の言語選択を終えたか */
+      firstRunDone  初回の言語選択を終えたか
+      audioDevice   オーディオデバイスの設定（AudioDeviceManager の XML。ドライバ・入出力の機器・入力チャンネル・SR・バッファ）。
+                    戻せなければ既定のデバイスで開く */
 
 namespace vb
 {
@@ -163,11 +165,14 @@ public:
         session = std::make_unique<UiSession>();
 
        #if ! VOICEBOOTH_UI_MOCK
-        // B2：既定の出力デバイスを開く（入力は開かない）。開けなくても画面は出す（ステータスバーに理由）
+        // B2 / B3：前回のデバイス（無ければ既定）を開く。入力は 1 ch でメーターだけ。開けなくても画面は出す（ステータスバーに理由）
         engine = std::make_unique<audio::PlaybackEngine>();
-        if (const auto err = engine->openDefaultOutput(); err.isNotEmpty())
         {
-            DBG ("Output device: " << err);
+            const auto saved = stored->getXmlValue ("audioDevice");
+            if (const auto err = engine->openDevices (saved.get()); err.isNotEmpty())
+            {
+                DBG ("Audio device: " << err);
+            }
         }
         session->attachEngine (engine.get());
        #endif
@@ -228,6 +233,16 @@ private:
 
         if ((changes & change::song) && window != nullptr)
             window->updateTitle();
+
+       #if ! VOICEBOOTH_UI_MOCK
+        // 選んだデバイスを覚えておく（値が変わった時だけ書く）
+        if ((changes & change::device) && engine != nullptr)
+            if (auto xml = engine->createDeviceStateXml())
+            {
+                settings()->setValue ("audioDevice", xml.get());
+                settings()->saveIfNeeded();
+            }
+       #endif
 
         if ((changes & change::mode) == 0) return;
         settings()->setValue ("mode", modeKey (session->get().mode));
