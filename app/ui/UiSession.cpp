@@ -118,7 +118,9 @@ void UiSession::resetInputClip()
 
 void UiSession::deviceChanged (bool lost)
 {
-    // DESIGN 13「デバイス抜け：停止して再選択」。エンジン側はもう止まっている
+    // DESIGN 13「デバイス抜け：停止して再選択」。エンジン側はもう止まっている。
+    // 録音中なら、そこまでをテイクとして閉じる（録った声は捨てない）
+    finishRecording();
     if (engine != nullptr)
         engine->stop();
     s.isPlaying = s.isRecording = false;
@@ -373,8 +375,11 @@ void UiSession::finishRecording()
             case project::TrackType::doubleTrack: return tr ("track.double");
             case project::TrackType::harm1:       return tr ("track.harm1");
             case project::TrackType::harm2:       return tr ("track.harm2");
-            default:                              return tr ("track.main");
+            case project::TrackType::main:
+            case project::TrackType::backing:
+            case project::TrackType::guide:       break;
         }
+        return tr ("track.main");
     }();
     const auto range = formatTime (take.startSample, s.sampleRate(), true) + " - " + formatTime (take.endSample, s.sampleRate(), true);
     if (take.recMode == project::RecMode::practice) postNotice (tr ("record.donePractice", name, id, range));
