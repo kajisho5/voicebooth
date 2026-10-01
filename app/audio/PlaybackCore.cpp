@@ -76,21 +76,22 @@ float PlaybackCore::faderToGain (float p) noexcept
     return juce::Decibels::decibelsToGain (db, -100.0f);
 }
 
-void PlaybackCore::render (float* const* out, int numChannels, int numSamples) noexcept
+PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels, int numSamples) noexcept
 {
+    Rendered r;
     for (int c = 0; c < numChannels; ++c)
         if (out[c] != nullptr)
             juce::FloatVectorOperations::clear (out[c], numSamples);
 
     const juce::SpinLock::ScopedTryLockType sl (songLock);
     if (! sl.isLocked() || song == nullptr || ! prepared)
-        return;
+        return r;
 
     const auto& buffer = song->buffer;
     const auto length = (juce::int64) buffer.getNumSamples();
     const auto songChannels = buffer.getNumChannels();
     if (length == 0 || songChannels == 0)
-        return;
+        return r;
 
     auto pos = position.load();
     if (const auto seekTo = pendingSeek.exchange (-1); seekTo >= 0)
@@ -99,10 +100,11 @@ void PlaybackCore::render (float* const* out, int numChannels, int numSamples) n
         fraction = 0.0;
     }
 
+    r.start = pos;
     if (! playing)
     {
         position = pos;
-        return;
+        return r;
     }
 
     smoothedGain.setTargetValue (muted ? 0.0f : gain.load());
@@ -117,7 +119,10 @@ void PlaybackCore::render (float* const* out, int numChannels, int numSamples) n
     for (; i < numSamples; ++i)
     {
         if (loop && pos >= outPoint && outPoint > in)
+        {
             pos = in + (pos - outPoint);
+            r.wrapped = true;
+        }
 
         if (pos >= length)
         {
@@ -155,5 +160,7 @@ void PlaybackCore::render (float* const* out, int numChannels, int numSamples) n
     }
 
     position = pos;
+    r.played = i;
+    return r;
 }
 } // namespace vb::audio

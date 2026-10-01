@@ -42,8 +42,17 @@ public:
     /** 曲の終わりまで行って止まったら、1 度だけ true */
     bool consumeReachedEnd() { return reachedEnd.exchange (false); }
 
+    /** render が鳴らした範囲（録音の位置合わせ用。B5）。start は 1 サンプル目の曲の位置、played は曲として鳴らした長さ
+        （止まっていれば 0、曲の終わりに来たらそこまで）。ループで戻ったら wrapped */
+    struct Rendered
+    {
+        juce::int64 start = 0;
+        int played = 0;
+        bool wrapped = false;
+    };
+
     /** オーディオスレッド。out は numChannels 本 × numSamples（必ず全部書く） */
-    void render (float* const* out, int numChannels, int numSamples) noexcept;
+    Rendered render (float* const* out, int numChannels, int numSamples) noexcept;
 
     /** フェーダーの位置（0..1）→ 倍率。0.75 で 0 dB、1.0 で +6 dB、0 で無音 */
     static float faderToGain (float position) noexcept;

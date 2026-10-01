@@ -93,7 +93,13 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/PlaybackCore.cpp
     app/audio/InputMeter.cpp
     app/audio/MonitorMixer.cpp
+    app/audio/TakeRecorder.cpp
     app/audio/DeviceRules.cpp)
+
+# テイクと採用区間・書き出し（DESIGN 6 / 8 / 9：Phase B5〜）。UI に依存しない。テストからも使う
+set(VOICEBOOTH_RECORD_SOURCES
+    app/project/Comp.cpp
+    app/export/ExportService.cpp)
 
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
@@ -109,6 +115,7 @@ target_sources(VoiceBooth PRIVATE
     app/Main.cpp
     app/i18n/I18n.cpp
     ${VOICEBOOTH_AUDIO_SOURCES}
+    ${VOICEBOOTH_RECORD_SOURCES}
     ${VOICEBOOTH_SONG_SOURCES}
     ${VOICEBOOTH_SKIN_SOURCES}
     # テーマ・動き（DESIGN 4.10：共通の時計は 1 つ）
@@ -222,7 +229,9 @@ if(VOICEBOOTH_TESTS)
         tests/SkinTests.cpp
         tests/MotionTests.cpp
         tests/MonitorMixerTests.cpp
+        tests/RecordTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
+        ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
         ${VOICEBOOTH_SKIN_SOURCES})
     target_include_directories(VoiceBoothTests PRIVATE app)

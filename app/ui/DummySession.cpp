@@ -287,6 +287,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.latencySamples  = prev.latencySamples;
     s.input           = prev.input;
     s.deviceLostCount = prev.deviceLostCount;
+    s.noticeSerial    = prev.noticeSerial;      // 前の知らせを出し直さない
     s.output          = prev.output;
     s.engineAttached  = prev.engineAttached;
     s.updateVersion   = prev.updateVersion;
@@ -354,6 +355,45 @@ float vocalAmplitude (const Session& s, TrackType type, int64 sample)
 
     // 音符外：ブレス/ノイズフロア
     return 0.025f + 0.015f * (float) std::abs (std::sin (twoPi * 3.0 * t));
+}
+
+juce::String takeWaveKey (TrackType t, const juce::String& takeId)
+{
+    return juce::String (project::trackKey (t)) + "/" + takeId;
+}
+
+float vocalPeak (const Session& s, TrackType type, int64 start, int64 end)
+{
+    // ダミー（UI_MOCK・デモ）：合成した声の形を数点で拾う
+    if (s.backingWave == nullptr)
+    {
+        float a = 0.0f;
+        for (int k = 0; k < 6; ++k)
+            a = juce::jmax (a, vocalAmplitude (s, type, start + (end - start) * k / 6));
+        return a;
+    }
+
+    // 録ったテイク（B5）：採用区間ごとに、そのテイクの概形から引く（概形はテイク頭が 0）
+    const auto* tr = s.project.findTrack (type);
+    if (tr == nullptr)
+        return 0.0f;
+    float a = 0.0f;
+    for (auto& c : tr->comp)
+    {
+        const auto a0 = juce::jmax (start, c.startSample), a1 = juce::jmin (end, c.endSample);
+        if (a1 <= a0)
+            continue;
+        const project::Take* take = nullptr;
+        for (auto& k : tr->takes)
+            if (k.id == c.takeId)
+                take = &k;
+        const auto it = s.takeWaves.find (takeWaveKey (type, c.takeId));
+        if (take == nullptr || it == s.takeWaves.end() || it->second == nullptr)
+            continue;
+        const auto pk = it->second->getPeak (a0 - take->startSample, a1 - take->startSample).magnitude();
+        a = juce::jmax (a, pk >= 0.98855309f ? 1.08f : pk);   // -0.1 dBFS 以上はクリップの色
+    }
+    return a;
 }
 
 bool isRecorded (const Session& s, TrackType type, int64 sample)
