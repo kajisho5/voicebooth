@@ -319,7 +319,13 @@ void MainComponent::openSettings()
 {
     auto dlg = std::make_unique<SettingsDialog> (session);
     dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onOpenSetup = [this] { overlay.close(); juce::MessageManager::callAsync ([sp = juce::Component::SafePointer<MainComponent> (this)] { if (sp) sp->openSetup(); }); };
+    // 入れ子のラムダで this を初期化キャプチャすると MSVC が外側のラムダと解釈するため、先に作っておく
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onOpenSetup = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSetup(); });
+    };
     dlg->onLanguage = [this] (i18n::Language l) { if (changeLanguage) changeLanguage (l); };
     overlay.show (std::move (dlg), true);
 }
