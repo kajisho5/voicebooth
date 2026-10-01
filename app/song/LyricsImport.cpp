@@ -292,6 +292,33 @@ juce::String sectionHeadingOf (const juce::String& line)
     return sectionWords().contains (key) ? s : juce::String();
 }
 
+juce::String sectionKindOfHeading (const juce::String& heading)
+{
+    // 見出しの語 → 区間の種類（SongInfo.h の kind）。Aメロ ≒ verse、Bメロ ≒ pre-chorus、Cメロ ≒ bridge とみなす
+    struct WordKind { const char* word; const char* kind; };
+    static const WordKind table[] {
+        { "イントロ", "intro" }, { "前奏", "intro" }, { "intro", "intro" }, { "인트로", "intro" },
+        { "aメロ", "verseA" }, { "verse", "verseA" }, { "벌스", "verseA" }, { "主歌", "verseA" },
+        { "bメロ", "verseB" }, { "プレサビ", "verseB" }, { "pre-chorus", "verseB" }, { "prechorus", "verseB" },
+        { "프리코러스", "verseB" }, { "导歌", "verseB" }, { "導歌", "verseB" },
+        { "サビ", "chorus" }, { "chorus", "chorus" }, { "hook", "chorus" }, { "refrain", "chorus" },
+        { "코러스", "chorus" }, { "후렴", "chorus" }, { "副歌", "chorus" },
+        { "間奏", "interlude" }, { "interlude", "interlude" }, { "instrumental", "interlude" }, { "간주", "interlude" },
+        { "间奏", "interlude" },
+        { "cメロ", "verseC" }, { "ブリッジ", "verseC" }, { "bridge", "verseC" }, { "브릿지", "verseC" },
+        { "桥段", "verseC" }, { "橋段", "verseC" },
+        { "落ちサビ", "dropChorus" },
+        { "大サビ", "lastChorus" }, { "ラスサビ", "lastChorus" },
+        { "アウトロ", "outro" }, { "後奏", "outro" }, { "outro", "outro" }, { "아웃트로", "outro" }, { "尾奏", "outro" },
+    };
+
+    const auto key = stripNumber (normaliseForMatch (heading));
+    for (const auto& w : table)
+        if (key == juce::String::fromUTF8 (w.word))
+            return w.kind;
+    return {};
+}
+
 LyricsDoc parseLyrics (const juce::String& text)
 {
     LyricsDoc doc;

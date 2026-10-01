@@ -23,7 +23,7 @@ public:
 private:
     void onSessionChanged (juce::uint32 c) override
     {
-        if (c & (change::playhead | change::range | change::view | change::tracks | change::mode | change::transport)) repaint();
+        if (c & (change::playhead | change::range | change::view | change::tracks | change::mode | change::transport | change::songInfo)) repaint();
     }
 
     struct Row { project::TrackType type; int trackIndex; juce::Rectangle<float> area; bool current; };

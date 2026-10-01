@@ -1,30 +1,68 @@
 #include "LaneCommon.h"
+#include "SongMarks.h"
 
 namespace vb::lane
 {
 namespace
 {
-    /** 目盛りの単位。テンポが分かっていれば拍と小節、分からなければ 1 秒と 5 秒 */
-    int64 beatLength (const dummy::Session& s)
-    {
-        if (! s.tempoKnown)
-            return s.sampleRate();
-        return (int64) std::llround (60.0 / s.bpm() * s.sampleRate());
-    }
-
-    int beatsPerBar (const dummy::Session& s)
-    {
-        return s.tempoKnown ? s.beatsPerBar : 5;
-    }
-
+    /** 目盛りの線を順に渡す：fn (位置, 小節線か, 添える文字)
+        テンポが分かっていれば 1 小節目の位置から拍と小節（狭ければ拍線を省き、小節番号を間引く）。
+        分からなければ 1 秒と 5 秒（m:ss） */
     template <typename Fn>
-    void forEachBeat (const dummy::Session& s, Fn&& fn)
+    void forEachTick (const dummy::Session& s, const TimeMap& map, Fn&& fn)
     {
-        const auto beat = beatLength (s);
-        const auto perBar = beatsPerBar (s);
-        for (auto b = (s.viewStart / beat) * beat; b <= s.viewEnd; b += beat)
-            if (b >= s.viewStart)
-                fn (b, (b / beat) % perBar == 0, b / beat);
+        const auto sr = s.sampleRate();
+        const auto pxPerSample = (double) (map.x1 - map.x0) / (double) juce::jmax ((int64) 1, map.end - map.start);
+
+        if (! s.tempoKnown())
+        {
+            const int64 sec = sr;
+            for (auto b = (s.viewStart / sec) * sec; b <= s.viewEnd; b += sec)
+                if (b >= s.viewStart)
+                {
+                    const bool five = (b / sec) % 5 == 0;
+                    fn (b, five, five ? formatTime (b, sr, false) : juce::String());
+                }
+            return;
+        }
+
+        const auto& t = s.project.tempo;
+        const auto spb = t.samplesPerBeat (sr);
+        const auto perBar = s.beatsPerBar();
+        const bool beatLines = spb * pxPerSample >= 5.0;
+        int labelEvery = 1;
+        while (spb * perBar * labelEvery * pxPerSample < 30.0 && labelEvery < 256)
+            labelEvery *= 2;
+
+        for (auto k = song::beatIndexAt (t, s.viewStart, sr);; ++k)
+        {
+            const auto b = song::beatSample (t, k, sr);
+            if (b > s.viewEnd)
+                break;
+            if (b < s.viewStart)
+                continue;
+
+            const auto bb = song::barBeatAt (t, b, sr);
+            const bool barLine = bb.beat == 1;
+            if (! barLine && ! beatLines)
+                continue;
+            const bool labelled = barLine && ((bb.bar - 1) % labelEvery + labelEvery) % labelEvery == 0;
+            fn (b, barLine, labelled ? juce::String (bb.bar) : juce::String());
+        }
+    }
+
+    /** 区間の札の色（選んでいる / 確定 / 推定） */
+    struct TagLook { juce::Colour fill, outline, text, line; };
+
+    TagLook tagLook (const dummy::Session& s, int index)
+    {
+        const auto& sec = s.project.sections[(size_t) index];
+        if (index == s.selectedSection)
+            return { colours::signal, colours::signal, colours::onFill (colours::signal), colours::signal };
+        if (sec.source == song::Source::confirmed)
+            return { colours::raisedHi, colours::lineHi, colours::text, colours::textDim };
+        // 推定は薄く（DESIGN 7.5：触ったら確定）
+        return { colours::bgDeep, colours::line, colours::textDim, colours::textMute };
     }
 }
 
@@ -40,12 +78,23 @@ TimeMap makeMap (const dummy::Session& s, juce::Rectangle<float> plot)
 
 void drawTimeGrid (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> area)
 {
-    forEachBeat (s, [&] (int64 b, bool barLine, int64)
+    forEachTick (s, map, [&] (int64 b, bool barLine, const juce::String&)
     {
         const auto x = std::round (map.x (b));
         g.setColour (barLine ? colours::line.withAlpha (0.75f) : colours::grid.withAlpha (0.7f));
         g.fillRect (juce::Rectangle<float> (x, area.getY(), 1.0f, area.getHeight()));
     });
+
+    // 区間の頭（ピッチ・波形を縦に通す）
+    const auto& list = s.project.sections;
+    for (int i = 0; i < (int) list.size(); ++i)
+    {
+        const auto x = std::round (map.x (list[(size_t) i].startSample));
+        if (x < area.getX() || x > area.getRight())
+            continue;
+        g.setColour (i == s.selectedSection ? colours::signal.withAlpha (0.5f) : colours::lineHi.withAlpha (0.9f));
+        g.fillRect (juce::Rectangle<float> (x, area.getY(), 1.0f, area.getHeight()));
+    }
 }
 
 void drawRange (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> area)
@@ -110,39 +159,38 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
     }
 
     g.setFont (mono (10.5f, Weight::medium));
-    forEachBeat (s, [&] (int64 b, bool barLine, int64 beatIndex)
+    forEachTick (s, map, [&] (int64 b, bool barLine, const juce::String& label)
     {
         const auto x = std::round (map.x (b));
         const auto tickH = barLine ? 9.0f : 4.0f;
         g.setColour (barLine ? colours::textMute : colours::line);
         g.fillRect (juce::Rectangle<float> (x, r.getBottom() - 1.0f - tickH, 1.0f, tickH));
 
-        if (barLine)
+        if (label.isNotEmpty())
         {
             g.setColour (colours::textDim);
-            g.drawText (s.tempoKnown ? juce::String (beatIndex / s.beatsPerBar + 1)
-                                     : formatTime (b, s.sampleRate(), false),
-                        juce::Rectangle<float> (x + 5.0f, r.getY() + 2.0f, 40.0f, r.getHeight() - 8.0f),
+            g.drawText (label, juce::Rectangle<float> (x + 5.0f, r.getY() + 2.0f, 40.0f, r.getHeight() - 8.0f),
                         juce::Justification::centredLeft, false);
         }
     });
 
-    // マーカー（サビ等）
-    for (auto& m : s.project.markers)
+    // 区間の札（イントロ・Aメロ・サビ…）。小節番号の上に重ねる
+    const auto f = sans (10.5f, Weight::semibold);
+    for (auto& tag : sectionTags (s, map, r))
     {
-        const auto x = map.x (m.sample);
-        if (x < r.getX() || x > r.getRight())
-            continue;
+        const auto look = tagLook (s, tag.index);
+        const auto x = std::round (map.x (s.project.sections[(size_t) tag.index].startSample));
+        g.setColour (look.line);
+        g.fillRect (juce::Rectangle<float> (x, r.getY(), 1.0f, r.getHeight() - 1.0f));
 
-        const auto name = m.kind == project::MarkerKind::chorus ? tr ("marker.chorus") : m.name;
-        const auto f = sans (10.5f, Weight::semibold);
-        const auto w = textWidth (f, name) + 12.0f;
-        const auto tag = juce::Rectangle<float> (x + 26.0f, r.getY() + 4.0f, w, r.getHeight() - 11.0f);
-        g.setColour (colours::signal);
-        g.fillRoundedRectangle (tag, 2.0f);
-        g.setColour (colours::onFill (colours::signal));
+        g.setColour (look.fill);
+        g.fillRoundedRectangle (tag.area, 2.0f);
+        g.setColour (look.outline);
+        g.drawRoundedRectangle (tag.area.reduced (0.5f), 2.0f, 1.0f);
+        g.setColour (look.text);
         g.setFont (f);
-        g.drawText (name, tag, juce::Justification::centred, false);
+        g.drawText (marks::sectionName (s.project.sections, tag.index), tag.area.reduced (5.0f, 0.0f),
+                    juce::Justification::centredLeft, true);
     }
 
     // 再生ヘッドの頭
@@ -151,6 +199,31 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
     head.addTriangle (px - 5.5f, r.getY() + 3.0f, px + 5.5f, r.getY() + 3.0f, px, r.getBottom() - 3.0f);
     g.setColour (playheadColour (s));
     g.fillPath (head);
+}
+
+std::vector<SectionTag> sectionTags (const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> r)
+{
+    std::vector<SectionTag> tags;
+    const auto& list = s.project.sections;
+    const auto f = sans (10.5f, Weight::semibold);
+
+    for (int i = 0; i < (int) list.size(); ++i)
+    {
+        const auto x = std::round (map.x (list[(size_t) i].startSample));
+        if (x < r.getX() - 1.0f || x > r.getRight())
+            continue;
+
+        // 次の頭の手前まで（狭ければ名前を省略する）
+        auto right = r.getRight();
+        if (i + 1 < (int) list.size())
+            right = juce::jmin (right, std::round (map.x (list[(size_t) i + 1].startSample)) - 2.0f);
+
+        const auto w = juce::jmin (textWidth (f, marks::sectionName (list, i)) + 12.0f, right - (x + 1.0f));
+        if (w < 10.0f)
+            continue;
+        tags.push_back ({ i, juce::Rectangle<float> (x + 1.0f, r.getY() + 3.0f, w, r.getHeight() - 8.0f) });
+    }
+    return tags;
 }
 
 void RangeGesture::down (UiSession&, const TimeMap& map, float x)
