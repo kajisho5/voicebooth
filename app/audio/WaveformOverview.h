@@ -46,6 +46,17 @@ public:
     /** [start, end) を含むビンの RMS（全チャンネルの平均パワー）。範囲外・空なら 0 */
     float getRms (int64 start, int64 end) const;
 
+    /** 表示の高さ 0..1 を dB スケールで（0 dBFS = 1、floorDb 以下 = 0）
+        細い行や小さい音でも形が見える（Ardour の Logarithmic 表示と同じ考え方）。
+        曲全体の起伏を見る全体表示は線形のまま使う */
+    static float toDbScale (float linear, float floorDb = -40.0f) noexcept
+    {
+        if (linear <= 0.0f || floorDb >= 0.0f)
+            return 0.0f;
+        const auto db = 20.0f * std::log10 (linear);
+        return juce::jlimit (0.0f, 1.0f, 1.0f - db / floorDb);
+    }
+
     /** 曲全体の最大振幅（0 dBFS = 1.0） */
     float getOverallMagnitude() const { return overall; }
 

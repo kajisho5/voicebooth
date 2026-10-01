@@ -153,6 +153,19 @@ public:
             }
         }
 
+        beginTest ("dB display scale");
+        {
+            using O = WaveformOverview;
+            expectEquals (O::toDbScale (1.0f), 1.0f);                                   // 0 dBFS
+            expectEquals (O::toDbScale (1.5f), 1.0f);                                   // 超えても 1
+            expectWithinAbsoluteError (O::toDbScale (0.1f), 0.5f, 1.0e-5f);             // -20 dB（下限 -40）
+            expectWithinAbsoluteError (O::toDbScale (0.01f), 0.0f, 1.0e-5f);            // -40 dB
+            expectEquals (O::toDbScale (0.001f), 0.0f);                                 // 下限より小さい
+            expectEquals (O::toDbScale (0.0f), 0.0f);
+            expectWithinAbsoluteError (O::toDbScale (0.1f, -60.0f), 2.0f / 3.0f, 1.0e-5f);
+            expect (O::toDbScale (0.2f) > O::toDbScale (0.1f));                         // 単調増加
+        }
+
         beginTest ("coarse level matches brute force (long-song LOD)");
         {
             const int64 len = 48000 * 10 + 77;
