@@ -87,7 +87,9 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/MediaFoundationFormat.cpp
     app/audio/Mp3Format.cpp
     app/audio/Mp4Gapless.cpp
-    app/audio/PlaybackCore.cpp)
+    app/audio/PlaybackCore.cpp
+    app/audio/InputMeter.cpp
+    app/audio/DeviceRules.cpp)
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
@@ -155,10 +157,17 @@ target_link_libraries(VoiceBooth
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
-# 出力デバイス（B2）。UI_MOCK では juce_audio_devices をリンクしない
+# 出力・入力デバイス（B2 / B3）。UI_MOCK では juce_audio_devices をリンクしない
 if(NOT VOICEBOOTH_UI_MOCK)
     target_sources(VoiceBooth PRIVATE app/audio/PlaybackEngine.cpp)
     target_link_libraries(VoiceBooth PRIVATE juce::juce_audio_devices)
+    if(APPLE)
+        # マイクの許可を AVFoundation に聞く（.mm = Objective-C++。中身は MicPermission.cpp）
+        target_sources(VoiceBooth PRIVATE app/audio/MicPermission.mm)
+        target_link_libraries(VoiceBooth PRIVATE "-framework AVFoundation")
+    else()
+        target_sources(VoiceBooth PRIVATE app/audio/MicPermission.cpp)
+    endif()
 endif()
 
 # Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
@@ -177,6 +186,8 @@ if(VOICEBOOTH_TESTS)
         tests/WaveformOverviewTests.cpp
         tests/SongLoaderTests.cpp
         tests/PlaybackCoreTests.cpp
+        tests/InputMeterTests.cpp
+        tests/DeviceRulesTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES})
     target_include_directories(VoiceBoothTests PRIVATE app)
     target_compile_definitions(VoiceBoothTests PRIVATE

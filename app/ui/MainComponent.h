@@ -102,6 +102,7 @@ private:
     juce::Rectangle<int> canvasArea;
     double lastTick = 0.0;
     bool clockFrozen = false;   // スクリーンショット用（--rec）
+    int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
 
     juce::String toastText;
     double toastUntil = 0.0;

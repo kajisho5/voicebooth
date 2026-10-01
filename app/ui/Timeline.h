@@ -27,6 +27,12 @@ inline juce::String formatKhz (int sampleRate)
     return sampleRate % 1000 == 0 ? juce::String (sampleRate / 1000) : juce::String (sampleRate / 1000.0, 1);
 }
 
+/** dBFS の表示（小数 1 桁）。メーターの下限（-100）は "-inf" */
+inline juce::String formatDb (float db)
+{
+    return db <= -99.95f ? juce::String ("-inf") : juce::String (db, 1);
+}
+
 /** m:ss / m:ss.mmm（表示専用。内部はサンプルが真実） */
 inline juce::String formatTime (int64 samples, int sampleRate, bool withMillis)
 {

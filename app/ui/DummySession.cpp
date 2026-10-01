@@ -273,14 +273,17 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.monitorGain         = prev.monitorGain;
     s.monitorReverb       = prev.monitorReverb;
 
-    // 入力（B3 で実デバイスにつなぐまではダミーのまま）
+    // 入力（デバイスは曲と関係ないので引き継ぐ）
     s.inputDevice     = prev.inputDevice;
     s.driver          = prev.driver;
     s.bufferSize      = prev.bufferSize;
     s.inputPeakDb     = prev.inputPeakDb;
     s.inputRmsDb      = prev.inputRmsDb;
     s.inputPeakHoldDb = prev.inputPeakHoldDb;
+    s.inputClipped    = prev.inputClipped;
     s.latencySamples  = prev.latencySamples;
+    s.input           = prev.input;
+    s.deviceLostCount = prev.deviceLostCount;
     s.output          = prev.output;
     s.engineAttached  = prev.engineAttached;
     s.updateVersion   = prev.updateVersion;

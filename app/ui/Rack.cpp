@@ -11,7 +11,9 @@ void RackModule::paint (juce::Graphics& g)
 InputModule::InputModule (UiSession& u, Actions& a)
     : RackModule (tr ("rack.input"), tr ("rack.input.sub")), SessionView (u), actions (a)
 {
-    meter.setLevels (u->inputPeakDb, u->inputRmsDb, u->inputPeakHoldDb, false);
+    meter.setLevels (u->inputPeakDb, u->inputRmsDb, u->inputPeakHoldDb, u->inputClipped);
+    meter.onClick = [this] { session.resetInputClip(); };
+    meter.setTooltip (tr ("meter.clip.tooltip"));
     addAndMakeVisible (meter);
 
     buffer.setButtonText (juce::String (u->bufferSize) + " smp");
@@ -19,6 +21,26 @@ InputModule::InputModule (UiSession& u, Actions& a)
     buffer.setTooltip (tr ("rack.input.buffer.tooltip"));
     buffer.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
     addChildComponent (buffer);
+}
+
+void InputModule::onSessionChanged (juce::uint32 c)
+{
+    const auto& s = state();
+    if (c & (change::meter | change::device))
+    {
+        meter.setLevels (s.inputPeakDb, s.inputRmsDb, s.inputPeakHoldDb, s.inputClipped);
+        repaint (readoutArea);
+    }
+    if (c & change::device)
+    {
+        buffer.setButtonText (juce::String (s.bufferSize) + " smp");
+        repaint();
+    }
+    if (c & change::mode)
+    {
+        resized();
+        repaint();
+    }
 }
 
 void InputModule::resized()
@@ -64,9 +86,11 @@ void InputModule::paint (juce::Graphics& g)
             g.drawText (drv, r.removeFromRight (textWidth (df, drv) + 2.0f), juce::Justification::centredRight, false);
         }
 
-        g.setColour (colours::text.withAlpha (0.9f));
-        g.setFont (sans (12.0f));
-        g.drawText (s.inputDevice, r, juce::Justification::centredLeft, true);
+        // 入力が無い時は警告色（DESIGN 4.1）。機器名はデータなので翻訳しない
+        const bool missing = s.engineAttached && ! s.input.open;
+        g.setColour (missing ? colours::warn : colours::text.withAlpha (0.9f));
+        g.setFont (sansFor (inputDisplayName (s), 12.0f));
+        g.drawText (inputDisplayName (s), r, juce::Justification::centredLeft, true);
     }
 
     // 数値：PEAK / RMS / 判定 / レイテンシ
@@ -84,29 +108,37 @@ void InputModule::paint (juce::Graphics& g)
             g.drawText (v, row.removeFromLeft (textWidth (vf, v) + 2.0f), juce::Justification::centredLeft, false);
             row.removeFromLeft (14.0f);
         };
-        value (tr ("meter.peak"), juce::String (s.inputPeakDb, 1));
-        value (tr ("meter.rms"), juce::String (s.inputRmsDb, 1));
+        value (tr ("meter.peak"), formatDb (s.inputPeakDb));
+        value (tr ("meter.rms"), formatDb (s.inputRmsDb));
 
-        const bool inTarget = s.inputPeakDb >= LedMeter::targetLow && s.inputPeakDb <= LedMeter::targetHigh;
-        const auto text = inTarget ? tr ("meter.ok") : tr ("meter.adjust");
-        const auto cf = sans (11.0f, Weight::medium);
-        const auto cw = textWidth (cf, text) + 26.0f;
-        const auto chip = row.removeFromRight (cw).withSizeKeepingCentre (cw, 20.0f);
-        const auto c = inTarget ? colours::signal : colours::warn;
-        g.setColour (c.withAlpha (0.14f));
-        g.fillRoundedRectangle (chip, 3.0f);
-        paint::led (g, { chip.getX() + 9.0f, chip.getCentreY() }, 2.4f, c, true);
-        g.setColour (c);
-        g.setFont (cf);
-        g.drawText (text, chip.withTrimmedLeft (16.0f), juce::Justification::centredLeft, false);
+        // 適正 / 調整の札（入力が無い時は出さない）
+        if (! s.engineAttached || s.input.open)
+        {
+            const bool inTarget = s.inputPeakDb >= LedMeter::targetLow && s.inputPeakDb <= LedMeter::targetHigh;
+            const auto text = inTarget ? tr ("meter.ok") : tr ("meter.adjust");
+            const auto cf = sans (11.0f, Weight::medium);
+            const auto cw = textWidth (cf, text) + 26.0f;
+            const auto chip = row.removeFromRight (cw).withSizeKeepingCentre (cw, 20.0f);
+            const auto c = inTarget ? colours::signal : colours::warn;
+            g.setColour (c.withAlpha (0.14f));
+            g.fillRoundedRectangle (chip, 3.0f);
+            paint::led (g, { chip.getX() + 9.0f, chip.getCentreY() }, 2.4f, c, true);
+            g.setColour (c);
+            g.setFont (cf);
+            g.drawText (text, chip.withTrimmedLeft (16.0f), juce::Justification::centredLeft, false);
+        }
 
+        // レイテンシ：実デバイスは申告値（実測は B6）と明記。UI_MOCK はダミー
         r.removeFromTop (4);
-        const auto ms = (double) s.latencySamples * 1000.0 / s.sampleRate();
+        const auto ld = latencyDisplay (s);
         auto lat = r.removeFromTop (16).toFloat();
         paint::microLabel (g, lat.removeFromLeft (textWidth (lf, tr ("meter.latency")) + 10.0f), tr ("meter.latency"), colours::textMute);
         g.setColour (colours::textDim);
         g.setFont (mono (11.0f));
-        g.drawText (tr ("meter.latency.value", juce::String (ms, 1), s.latencySamples), lat, juce::Justification::centredLeft, false);
+        const auto text = ! ld.known  ? juce::String ("-")
+                        : ld.reported ? tr ("meter.latency.reported", juce::String (ld.ms, 1), ld.samples)
+                                      : tr ("meter.latency.value", juce::String (ld.ms, 1), ld.samples);
+        g.drawText (text, lat, juce::Justification::centredLeft, true);
     }
 }
 
