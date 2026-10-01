@@ -11,17 +11,97 @@ namespace
 }
 
 Encoder::Encoder (double min, double max, double value, double step, bool bi, colours::Tone led)
-    : bipolar (bi), ledColour (led)
+    : bipolar (bi), ledColour (led), defaultValue (bi ? 0.0 : value)
 {
     setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     setRange (min, max, step);
     setValue (value, juce::dontSendNotification);
-    setDoubleClickReturnValue (true, bipolar ? 0.0 : value);
     setRotaryParameters (startAngle + juce::MathConstants<float>::twoPi, endAngle + juce::MathConstants<float>::twoPi, true);
-    setMouseDragSensitivity (220);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
     setWantsKeyboardFocus (false);
+    shown.snap ((float) value);
+}
+
+void Encoder::valueChanged()
+{
+    // 指標・LED の輪・数値はばねで追う
+    if (isShowing() && ! motion::prefersReducedMotion())
+        startAnimating();
+    else
+    {
+        shown.snap ((float) getValue());
+        if (onShownChange) onShownChange();
+    }
+}
+
+void Encoder::mouseDown (const juce::MouseEvent& e)
+{
+    if (! isEnabled()) return;
+    raw = motion::encoder::detent (defaultValue, range()).toRaw (getValue());   // 掴んだ所から相対
+    lastY = e.position.y;
+    lastDragMs = juce::Time::getMillisecondCounterHiRes();
+}
+
+void Encoder::mouseDrag (const juce::MouseEvent& e)
+{
+    if (! isEnabled()) return;
+    const auto nowMs = juce::Time::getMillisecondCounterHiRes();
+    const auto dy = lastY - e.position.y;   // 上が増える
+    const auto ms = nowMs - lastDragMs;
+    lastY = e.position.y;
+    lastDragMs = nowMs;
+
+    const auto detent = motion::encoder::detent (defaultValue, range());
+    raw = juce::jlimit (detent.toRaw (getMinimum()), detent.toRaw (getMaximum()),
+                        raw + motion::encoder::dragDelta (dy, ms, range(), e.mods.isShiftDown()));
+    const auto before = getValue();
+    setValue (detent.toValue (raw), juce::sendNotificationSync);   // 刻み（setRange の step）は Slider が合わせる
+
+    // 既定値でカチッと止まった：見出しを一瞬光らせる
+    if (juce::exactlyEqual (getValue(), defaultValue) && ! juce::exactlyEqual (before, defaultValue))
+    {
+        flash = 1.0f;
+        startAnimating();
+    }
+}
+
+void Encoder::mouseUp (const juce::MouseEvent&)
+{
+    repaint();
+}
+
+void Encoder::mouseDoubleClick (const juce::MouseEvent&)
+{
+    if (! isEnabled()) return;
+    if (! juce::exactlyEqual (getValue(), defaultValue))
+        flash = 1.0f;
+    setValue (defaultValue, juce::sendNotificationSync);   // 値はすぐ既定値、見た目はばねで戻る
+    startAnimating();
+}
+
+bool Encoder::advanceAnimation (float dt)
+{
+    const bool reduced = motion::prefersReducedMotion();
+    const auto target = (float) getValue();
+
+    if (! isShowing() || reduced)
+    {
+        shown.snap (target);
+        flash = 0.0f;
+        repaint();
+        if (onShownChange) onShownChange();
+        return false;
+    }
+
+    shown.step (target, dt, motion::encoder::springK, motion::encoder::springC);
+    const bool rest = shown.atRest (target, 0.002f * (float) range(), 0.02f * (float) range());
+    if (rest) shown.snap (target);
+    flash = juce::jmax (0.0f, flash - dt * 1.4f);
+
+    repaint();
+    if (onShownChange) onShownChange();
+    return ! rest || flash > 0.0f;
 }
 
 void Encoder::paint (juce::Graphics& g)
@@ -33,7 +113,10 @@ void Encoder::paint (juce::Graphics& g)
     const bool hover = previewHover || isMouseOverOrDragging();
 
     // --- LED リング ---
-    const auto pos = (float) valueToProportionOfLength (getValue());
+    // 外から通知なしで値が変わることもあるので、動いていない時は値そのものに合わせる
+    if (! isAnimating())
+        shown.snap ((float) getValue());
+    const auto pos = (float) juce::jlimit (0.0, 1.0, valueToProportionOfLength (juce::jlimit (getMinimum(), getMaximum(), getShownValue())));
     const auto from = bipolar ? 0.5f : 0.0f;
     const auto lo = juce::jmin (from, pos), hi = juce::jmax (from, pos);
 
@@ -95,6 +178,7 @@ EncoderBlock::EncoderBlock (const juce::String& l, double min, double max, doubl
     : label (l), unit (u), format (std::move (fmt)), enc (min, max, value, step, bipolar, led)
 {
     enc.onValueChange = [this] { repaint(); if (onChange) onChange (enc.getValue()); };
+    enc.onShownChange = [this] { repaint (valueArea.getUnion (captionArea)); };
     addAndMakeVisible (enc);
 }
 
@@ -121,8 +205,10 @@ void EncoderBlock::paint (juce::Graphics& g)
                                                                                      (float) labelArea.getCentreY() }), colours::warn);
     }
 
-    // 値（Mono）＋単位
-    const auto value = format ? format (enc.getValue()) : juce::String (enc.getValue());
+    // 値（Mono）＋単位。ばねで追っている途中の値を刻みに合わせて出す（数値がなめらかに追う）
+    const auto step = enc.getInterval() > 0.0 ? enc.getInterval() : 1.0;
+    const auto shownValue = enc.getMinimum() + std::round ((enc.getShownValue() - enc.getMinimum()) / step) * step;
+    const auto value = format ? format (shownValue) : juce::String (shownValue);
     const auto vf = mono (19.0f, Weight::semibold);
     const auto uf = mono (11.0f, Weight::medium);
     const auto vw = textWidth (vf, value), uw = unit.isEmpty() ? 0.0f : textWidth (uf, unit) + 3.0f;
@@ -138,7 +224,8 @@ void EncoderBlock::paint (juce::Graphics& g)
         g.drawText (unit, r.withTrimmedLeft (3.0f).translated (0.0f, 2.0f), juce::Justification::centredLeft, false);
     }
 
-    g.setColour (colours::textMute);
+    // 既定値に吸い付いた直後は補足（「原速」など）が一瞬点灯色になる
+    g.setColour (colours::textMute.interpolatedWith (colours::signal, enc.getDetentFlash()));
     g.setFont (sans (10.5f));
     g.drawText (caption, captionArea, juce::Justification::centredTop, true);
 }

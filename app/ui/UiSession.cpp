@@ -1,4 +1,5 @@
 #include "UiSession.h"
+#include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
 
@@ -249,7 +250,7 @@ void UiSession::tick (double seconds)
 
         const bool ended = engine->consumeReachedEnd() || ! engine->isPlaying();
         s.playhead = pos;
-        keepPlayheadInView();
+        followPlayhead (seconds);
         if (ended)
         {
             s.isPlaying = s.isRecording = false;
@@ -277,8 +278,21 @@ void UiSession::tick (double seconds)
     }
 
     s.playhead = next;
-    keepPlayheadInView();
+    followPlayhead (seconds);
     notify (change::playhead);
+}
+
+void UiSession::followPlayhead (double seconds)
+{
+    // 再生中：右から 7 割を越えたら画面がなめらかに先回りする（ページ送りしない。DESIGN 4.10.1 PH）
+    const auto len = s.viewEnd - s.viewStart;
+    const auto start = motion::playhead::follow (s.viewStart, len, s.playhead, s.project.lengthSamples,
+                                                 seconds, motion::prefersReducedMotion());
+    if (start == s.viewStart)
+        return;
+    s.viewStart = start;
+    s.viewEnd = start + len;
+    notify (change::view);
 }
 
 void UiSession::keepPlayheadInView()
@@ -287,7 +301,7 @@ void UiSession::keepPlayheadInView()
     if (s.playhead >= s.viewStart && s.playhead <= s.viewStart + len * 85 / 100)
         return;
 
-    // 再生ヘッドが 1/4 の位置に来るようにページ送り
+    // シークで画面の外へ飛んだ：再生ヘッドが 1/4 の位置に来るように合わせる（再生中の追従は followPlayhead）
     auto start = juce::jlimit ((int64) 0, juce::jmax ((int64) 0, s.project.lengthSamples - len), s.playhead - len / 4);
     s.viewStart = start;
     s.viewEnd = start + len;

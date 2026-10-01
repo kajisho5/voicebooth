@@ -264,6 +264,59 @@ void inset (juce::Graphics& g, juce::Rectangle<float> r, float radius)
     g.drawRoundedRectangle (r.reduced (0.5f), radius, 1.0f);
 }
 
+namespace
+{
+    /** 白い光の画像（中心が濃く、縁で消える）。一度だけ作る */
+    class GlowSprite : public juce::DeletedAtShutdown
+    {
+    public:
+        GlowSprite() : image (juce::Image::ARGB, size, size, true)
+        {
+            juce::Graphics g (image);
+            const auto c = (float) size * 0.5f;
+            juce::ColourGradient grad (juce::Colours::white, c, c, juce::Colours::white.withAlpha (0.0f), c, 0.0f, true);
+            grad.addColour (0.35, juce::Colours::white.withAlpha (0.55f));
+            grad.addColour (0.7, juce::Colours::white.withAlpha (0.12f));
+            g.setGradientFill (grad);
+            g.fillEllipse (0.0f, 0.0f, (float) size, (float) size);
+        }
+        ~GlowSprite() override { clearSingletonInstance(); }
+
+        static constexpr int size = 64;
+        juce::Image image;
+
+        JUCE_DECLARE_SINGLETON_SINGLETHREADED_MINIMAL_INLINE (GlowSprite)
+    };
+}
+
+void glow (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour)
+{
+    if (colour.getAlpha() == 0 || area.isEmpty())
+        return;
+
+    const auto& img = GlowSprite::getInstance()->image;
+    g.setColour (colour);
+    g.drawImage (img, area.getX(), area.getY(), area.getWidth(), area.getHeight(),
+                 0, 0, img.getWidth(), img.getHeight(), true);   // 画像のアルファを型にして、色で塗る
+}
+
+void led (juce::Graphics& g, juce::Point<float> c, float radius, juce::Colour colour, float level)
+{
+    level = juce::jlimit (0.0f, 1.0f, level);
+    if (level >= 1.0f) { led (g, c, radius, colour, true); return; }
+    led (g, c, radius, colour, false);
+    if (level <= 0.0f) return;
+
+    // 消えかけ・点きかけ：点灯の絵を薄く重ねる
+    const auto body = juce::Rectangle<float> (radius * 2.0f, radius * 2.0f).withCentre (c);
+    g.setColour (colour.withAlpha (0.22f * level));
+    g.fillEllipse (body.expanded (radius * 1.1f * level));
+    g.setColour (colour.withAlpha (level));
+    g.fillEllipse (body);
+    g.setColour (juce::Colours::white.withAlpha (0.55f * level * level));
+    g.fillEllipse (body.reduced (radius * 0.55f).translated (-radius * 0.2f, -radius * 0.25f));
+}
+
 void led (juce::Graphics& g, juce::Point<float> c, float radius, juce::Colour colour, bool lit)
 {
     const auto body = juce::Rectangle<float> (radius * 2.0f, radius * 2.0f).withCentre (c);
