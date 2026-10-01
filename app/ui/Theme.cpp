@@ -1,6 +1,8 @@
 #include "Theme.h"
 #include "VoiceBoothFonts.h"
 
+#include <map>
+
 namespace vb
 {
 namespace
@@ -34,14 +36,103 @@ namespace
     };
 }
 
+//==============================================================================
+// 韓国語・中国語は OS の標準フォント（DESIGN 10.1）
+//   同梱の Plex Sans JP では漢字が日本の字形になり、ハングルも無いため。
+namespace
+{
+    struct SystemFace { juce::String family, style[3]; };
+
+    juce::StringArray candidatesFor (i18n::Language l)
+    {
+        switch (l)
+        {
+            case i18n::Language::ko:     return { "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic" };
+            case i18n::Language::zhHans: return { "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC" };
+            case i18n::Language::zhHant: return { "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", "Source Han Sans TC" };
+            case i18n::Language::ja:
+            case i18n::Language::en:     break;
+        }
+        return {};
+    }
+
+    juce::String pickStyle (const juce::StringArray& available, std::initializer_list<const char*> wanted)
+    {
+        for (auto* w : wanted)
+            for (auto& a : available)
+                if (a.equalsIgnoreCase (w))
+                    return a;
+        return available.isEmpty() ? juce::String ("Regular") : available[0];
+    }
+
+    /** 言語ごとに一度だけ探す。見つからなければ family は空（同梱フォントで描き、足りない字は OS が代替） */
+    const SystemFace& systemFace (i18n::Language l)
+    {
+        static std::map<int, SystemFace> cache;
+        if (auto it = cache.find ((int) l); it != cache.end())
+            return it->second;
+
+        static const auto installed = juce::Font::findAllTypefaceNames();
+        SystemFace face;
+
+        for (auto& name : candidatesFor (l))
+        {
+            if (! installed.contains (name, true))
+                continue;
+
+            const auto styles = juce::Font::findAllTypefaceStyles (name);
+            face.family = name;
+            face.style[0] = pickStyle (styles, { "Regular", "Normal", "Book" });
+            face.style[1] = pickStyle (styles, { "Medium", "Regular", "Normal" });
+            face.style[2] = pickStyle (styles, { "SemiBold", "Semibold", "DemiBold", "Bold" });
+            break;
+        }
+
+        return cache[(int) l] = face;
+    }
+
+    bool containsKana (const juce::String& text)
+    {
+        for (auto p = text.getCharPointer(); ! p.isEmpty(); ++p)
+            if (const auto c = *p; c >= 0x3040 && c <= 0x30ff)
+                return true;
+        return false;
+    }
+
+    juce::Font embeddedSans (float height, Weight w)
+    {
+        return juce::Font (juce::FontOptions (FontCache::getInstance()->sans[(int) w]).withHeight (height));
+    }
+}
+
 juce::Typeface::Ptr sansTypeface (Weight w)
 {
+    const auto lang = i18n::current();
+    if (! i18n::info (lang).embeddedFont)
+    {
+        const auto& face = systemFace (lang);
+        if (face.family.isNotEmpty())
+            return juce::Font (juce::FontOptions (face.family, face.style[(int) w], 14.0f)).getTypefacePtr();
+    }
     return FontCache::getInstance()->sans[(int) w];
 }
 
 juce::Font sans (float height, Weight w)
 {
-    return juce::Font (juce::FontOptions (sansTypeface (w)).withHeight (height));
+    const auto lang = i18n::current();
+    if (! i18n::info (lang).embeddedFont)
+    {
+        const auto& face = systemFace (lang);
+        if (face.family.isNotEmpty())
+            return juce::Font (juce::FontOptions (face.family, face.style[(int) w], height));
+    }
+    return embeddedSans (height, w);
+}
+
+juce::Font sansFor (const juce::String& text, float height, Weight w)
+{
+    // 日本語の歌詞・曲名は UI の言語に関係なく日本語の字形で描く
+    return containsKana (text) ? embeddedSans (height, w) : sans (height, w);
 }
 
 juce::Font mono (float height, Weight w, float tracking)

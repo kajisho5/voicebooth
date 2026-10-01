@@ -118,7 +118,7 @@ void TopBar::paint (juce::Graphics& g)
         paint::vline (g, (float) songArea.getX() - 1.0f, 14.0f, (float) getHeight() - 14.0f);
 
         auto r = songArea.withTrimmedLeft (14).toFloat();
-        const auto tf = sans (14.0f, Weight::medium);
+        const auto tf = sansFor (s.songName, 14.0f, Weight::medium);
         const auto tw = juce::jmin (r.getWidth() * 0.5f, textWidth (tf, s.songName));
         g.setColour (colours::text);
         g.setFont (tf);

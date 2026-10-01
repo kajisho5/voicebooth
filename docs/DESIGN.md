@@ -551,7 +551,7 @@ Main
 - クロスフェード
 - テーマはダーク固定でよい
 - キャッシュ場所
-- 表示言語（日本語 / English。既定は OS の表示言語、対応外は英語）→ 10.1
+- 表示言語（日本語 / English / 한국어 / 简体中文 / 繁體中文。既定は OS の表示言語、対応外は英語）→ 10.1
 
 ### 10.1 多言語対応（2026-10-01 決定。最初から入れる）
 
@@ -563,7 +563,14 @@ Main
 - 英大文字の小見出し（INPUT / PRACTICE / TIME 等）はデザイン要素として全言語で英語のままでもよいが、必ず表から引く
 - 曲名・歌詞・機器名・ファイル名はデータなので翻訳しない
 - `tools/check_i18n.py` を CI で実行：全言語のキー一致、差し込みの一致、未定義キー、非 ASCII 文字列の直書きを検出
-- 言語を足す時：`i18n::available()` に 1 行 ＋ JSON を 1 枚。日本語・英語以外の文字は埋め込みフォントに無いため OS のフォントへ自動で代替される（見た目を揃えるなら IBM Plex Sans KR / SC 等を追加）
+- 対応言語：日本語 `ja` / English `en` / 한국어 `ko` / 简体中文 `zh-Hans` / 繁體中文 `zh-Hant`
+  - OS の言語が zh-TW / zh-HK / zh-MO / zh-Hant は繁体、それ以外の zh は簡体
+- フォント
+  - 日本語・英語：同梱の IBM Plex Sans JP（数値は IBM Plex Mono）
+  - 韓国語・中国語：OS の標準フォント（Mac: Apple SD Gothic Neo / PingFang SC / PingFang TC、Win: Malgun Gothic / Microsoft YaHei UI / Microsoft JhengHei UI）。日本語フォントでは漢字が日本の字形になりハングルも無いため。見つからなければ同梱フォント＋OS の代替
+  - IBM Plex Sans SC / TC は公式配布が Web フォント形式のみで、同梱すると約 30MB 増えるため見送り（必要になったら再検討）
+  - 歌詞・曲名などかなを含むデータは、UI の言語に関係なく日本語の字形で描く（`sansFor()`）
+- 言語を足す時：`i18n::available()` に 1 行 ＋ JSON を 1 枚（CMake の埋め込みにも追加）
 - 長さの違い（英語は長い・日本語は短い）を前提に、ボタン幅は文字幅から計算し、固定幅にしない
 
 ---
