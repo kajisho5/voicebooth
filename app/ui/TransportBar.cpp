@@ -29,15 +29,21 @@ void OverviewSeek::paint (juce::Graphics& g)
         g.fillRect (juce::Rectangle<float> (x0, r.getBottom() - 4.0f, x1 - x0, 2.0f));
     }
 
-    // オフボ概形（下から伸びるバー）
+    // オフボ概形（下から伸びるバー）：薄いのがピーク、濃いのが RMS（曲の起伏）
     for (float px = in.getX(); px < in.getRight(); px += 2.0f)
     {
         const auto s0 = map.sampleAt (px), s1 = map.sampleAt (px + 2.0f);
-        const auto a = juce::jmin (1.0f, dummy::backingPeak (s, s0, s1));
+        const auto peak = juce::jmin (1.0f, dummy::backingPeak (s, s0, s1));
+        const auto rms = juce::jmin (peak, dummy::backingRms (s, s0, s1));
+        const bool played = px < playX;
 
-        const auto h = juce::jmax (1.0f, a * in.getHeight());
-        g.setColour (px < playX ? colours::text.withAlpha (0.55f) : colours::textMute.withAlpha (0.55f));
-        g.fillRect (juce::Rectangle<float> (px, in.getBottom() - h, 1.0f, h));
+        const auto hp = juce::jmax (1.0f, peak * in.getHeight());
+        g.setColour ((played ? colours::text : colours::textMute).withAlpha (0.22f));
+        g.fillRect (juce::Rectangle<float> (px, in.getBottom() - hp, 1.0f, hp));
+
+        const auto hr = juce::jmax (1.0f, rms * in.getHeight());
+        g.setColour ((played ? colours::text : colours::textDim).withAlpha (0.7f));
+        g.fillRect (juce::Rectangle<float> (px, in.getBottom() - hr, 1.0f, hr));
     }
 
     // 表示中ウィンドウ
