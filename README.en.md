@@ -40,6 +40,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Main / Double / Harmony | Doubles and harmonies recorded to the same length | ⬜ Planned |
 | Vocal separation | Make an instrumental and a reference vocal from a full mix (the model is downloaded on first use and resumes if interrupted) | ⬜ Planned |
 | 5 languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 | ✅ Works |
+| Skins | Recolour the whole app (10 built-in). Make your own from a template and share it as a `.vbskin` file | ✅ Works |
 
 ### What your mix engineer gets
 
@@ -88,6 +89,10 @@ The engine is the same; only what you see changes. A project made in one mode op
 - **Type**: IBM Plex Sans JP, with IBM Plex Mono for times, dB and other numbers (fixed width, so digits never jump)
 - **Controls**: keycap buttons with LEDs, LED-ring knobs, vertical console faders, segmented LED meters
 - **Motion**: keys that spring when pressed, faders with a detent at 0 dB, count-in lights in time with the beat. Audio always comes first, and the OS "reduce motion" setting is respected
+
+**Skins.** Swap all the colours at once (fonts, layout and motion stay the same). There are 10 built-in skins, including Studio Day / Sweet for bright rooms, High Contrast for legibility and Color Safe for colour-vision differences. In Settings → Skin → New, pick a template and change colours one by one or group by group (or borrow a group from another template), then save. Hard-to-read combinations are flagged as you edit (saving is never blocked). Share skins as `.vbskin` files.
+
+![The 10 built-in skins](docs/screenshots/skins/all.png)
 
 | App icon | Brand kit |
 |---|---|

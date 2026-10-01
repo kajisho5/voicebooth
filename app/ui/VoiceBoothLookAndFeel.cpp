@@ -5,12 +5,42 @@ namespace vb
 {
 VoiceBoothLookAndFeel::VoiceBoothLookAndFeel()
 {
+    applySkinColours();
+}
+
+void VoiceBoothLookAndFeel::applySkinColours()
+{
     setColour (juce::ResizableWindow::backgroundColourId, colours::bg0);
     setColour (juce::DocumentWindow::textColourId, colours::text);
     setColour (juce::PopupMenu::backgroundColourId, colours::panel);
     setColour (juce::PopupMenu::textColourId, colours::text);
     setColour (juce::PopupMenu::highlightedBackgroundColourId, colours::raisedHi);
     setColour (juce::PopupMenu::highlightedTextColourId, colours::text);
+
+    // 文字入力（スキンエディタの名前・HEX）・色の選択
+    setColour (juce::TextEditor::backgroundColourId, colours::bgDeep);
+    setColour (juce::TextEditor::textColourId, colours::text);
+    setColour (juce::TextEditor::highlightColourId, colours::signal.withAlpha (0.3f));
+    setColour (juce::TextEditor::highlightedTextColourId, colours::text);
+    setColour (juce::TextEditor::outlineColourId, colours::line);
+    setColour (juce::TextEditor::focusedOutlineColourId, colours::lineHi);
+    setColour (juce::CaretComponent::caretColourId, colours::signal);
+
+    // ファイル選択（OS のダイアログが無い時の JUCE 製）
+    setColour (juce::ListBox::backgroundColourId, colours::bgDeep);
+    setColour (juce::ListBox::textColourId, colours::text);
+    setColour (juce::DirectoryContentsDisplayComponent::highlightColourId, colours::raisedHi);
+    setColour (juce::DirectoryContentsDisplayComponent::textColourId, colours::text);
+    setColour (juce::TextButton::buttonColourId, colours::raised);
+    setColour (juce::TextButton::textColourOffId, colours::text);
+    setColour (juce::TextButton::textColourOnId, colours::text);
+    setColour (juce::Label::textColourId, colours::text);
+    setColour (juce::ComboBox::backgroundColourId, colours::raised);
+    setColour (juce::ComboBox::textColourId, colours::text);
+    setColour (juce::ComboBox::outlineColourId, colours::line);
+    setColour (juce::ScrollBar::thumbColourId, colours::lineHi);
+    setColour (juce::AlertWindow::backgroundColourId, colours::panel);
+    setColour (juce::AlertWindow::textColourId, colours::text);
 }
 
 juce::Typeface::Ptr VoiceBoothLookAndFeel::getTypefaceForFont (const juce::Font& f)
@@ -48,6 +78,13 @@ void VoiceBoothLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int widt
     g.drawRect (r, 1.0f);
 }
 
+void VoiceBoothLookAndFeel::drawPopupMenuSectionHeader (juce::Graphics& g, const juce::Rectangle<int>& area, const juce::String& text)
+{
+    g.setColour (colours::textMute);
+    g.setFont (sans (11.5f, Weight::medium));
+    g.drawText (text, area.toFloat().withTrimmedLeft (13.0f).withTrimmedRight (8.0f), juce::Justification::bottomLeft, true);
+}
+
 juce::Font VoiceBoothLookAndFeel::getPopupMenuFont()
 {
     return sans (13.0f);
@@ -56,7 +93,7 @@ juce::Font VoiceBoothLookAndFeel::getPopupMenuFont()
 void VoiceBoothLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
                                                bool isSeparator, bool isActive, bool isHighlighted, bool isTicked,
                                                bool, const juce::String& text, const juce::String&,
-                                               const juce::Drawable*, const juce::Colour*)
+                                               const juce::Drawable* icon, const juce::Colour*)
 {
     if (isSeparator)
     {
@@ -75,6 +112,17 @@ void VoiceBoothLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Re
     const auto ledArea = r.removeFromLeft (14.0f);
     paint::led (g, ledArea.getCentre(), 2.8f, colours::signal, isTicked);
     r.removeFromLeft (8.0f);
+
+    // 添え物の絵（スキンエディタの色の並びなど）は右に寄せる
+    if (icon != nullptr)
+    {
+        const auto b = icon->getDrawableBounds();
+        const auto h = juce::jmin (r.getHeight() - 8.0f, b.getHeight());
+        const auto w = b.getHeight() > 0.0f ? b.getWidth() * h / b.getHeight() : 0.0f;
+        icon->drawWithin (g, r.removeFromRight (w + 10.0f).withTrimmedRight (10.0f).withSizeKeepingCentre (w, h),
+                          juce::RectanglePlacement::centred, isActive ? 1.0f : 0.4f);
+        r.removeFromRight (8.0f);
+    }
 
     g.setColour (isActive ? (isTicked ? colours::text : colours::text.withAlpha (0.85f)) : colours::textMute);
     g.setFont (sansForLanguageName (text, 13.0f, isTicked ? Weight::semibold : Weight::regular));

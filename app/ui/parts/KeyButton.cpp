@@ -19,11 +19,11 @@ KeyButton::KeyButton (const juce::String& label, Kind k)
 }
 
 KeyButton& KeyButton::withIcon (Icon i)                 { icon = i; repaint(); return *this; }
-KeyButton& KeyButton::withLed (juce::Colour c)          { ledColour = c; setClickingTogglesState (true); repaint(); return *this; }
+KeyButton& KeyButton::withLed (colours::Tone c)         { ledColour = c; setClickingTogglesState (true); repaint(); return *this; }
 KeyButton& KeyButton::withToggle (bool t)               { setClickingTogglesState (t); return *this; }
 KeyButton& KeyButton::withFont (juce::Font f)           { labelFont = f; repaint(); return *this; }
-KeyButton& KeyButton::withIconColour (juce::Colour c)   { iconColour = c; repaint(); return *this; }
-KeyButton& KeyButton::withLatch (juce::Colour c)        { latchColour = c; setClickingTogglesState (true); repaint(); return *this; }
+KeyButton& KeyButton::withIconColour (colours::Tone c)  { iconColour = c; repaint(); return *this; }
+KeyButton& KeyButton::withLatch (colours::Tone c)       { latchColour = c; setClickingTogglesState (true); repaint(); return *this; }
 
 void KeyButton::flash()
 {
@@ -72,7 +72,7 @@ void KeyButton::paintButton (juce::Graphics& g, bool over, bool down)
         g.setGradientFill (juce::ColourGradient (colours::rec.brighter (0.15f), r.getX(), r.getY(),
                                                  colours::rec.darker (0.25f), r.getX(), r.getBottom(), false));
         g.fillRoundedRectangle (r, metrics::keyRadius);
-        g.setColour (juce::Colours::black.withAlpha (0.4f));
+        g.setColour (colours::shadow (0.4f));
         g.drawRoundedRectangle (r, metrics::keyRadius, 1.0f);
     }
     else
@@ -83,7 +83,7 @@ void KeyButton::paintButton (juce::Graphics& g, bool over, bool down)
 
         if (latched)
         {
-            g.setColour (latchColour->withAlpha (0.12f));
+            g.setColour (latchColour->get().withAlpha (0.12f));
             g.fillRoundedRectangle (bounds.reduced (1.5f), metrics::keyRadius - 1.0f);
         }
     }
@@ -93,9 +93,9 @@ void KeyButton::paintButton (juce::Graphics& g, bool over, bool down)
     auto content = bounds.reduced (pad, 0.0f);
     if (s.down || latched) content.translate (0.0f, 1.0f);
 
-    auto fg = s.enabled ? colours::text : colours::textMute;
+    juce::Colour fg = s.enabled ? colours::text : colours::textMute;
     if (kind == Kind::ghost && ! s.over) fg = colours::textDim;
-    if (recOn) fg = colours::text;
+    if (recOn) fg = colours::onRec();
     if (latched) fg = *latchColour;
 
     const bool iconOnly = getButtonText().isEmpty() && ! ledColour.has_value();
@@ -115,8 +115,8 @@ void KeyButton::paintButton (juce::Graphics& g, bool over, bool down)
         else
             iconArea = content.removeFromLeft (size).withSizeKeepingCentre (size, size);
 
-        auto ic = iconColour.value_or (fg);
-        if (kind == Kind::rec) ic = recOn ? colours::text : colours::rec;
+        juce::Colour ic = iconColour.has_value() ? iconColour->get() : fg;
+        if (kind == Kind::rec) ic = recOn ? colours::onRec() : juce::Colour (colours::rec);
         if (! s.enabled) ic = ic.withMultipliedAlpha (0.4f);
         drawIcon (g, *icon, iconArea, ic);
 
@@ -135,7 +135,7 @@ void KeyButton::paintButton (juce::Graphics& g, bool over, bool down)
 }
 
 //==============================================================================
-SegmentedKeys::SegmentedKeys (juce::StringArray opts, int sel, juce::Colour led)
+SegmentedKeys::SegmentedKeys (juce::StringArray opts, int sel, colours::Tone led)
     : options (std::move (opts)), selected (sel), ledColour (led), labelFont (sans (12.0f, Weight::medium))
 {
     setMouseCursor (juce::MouseCursor::PointingHandCursor);

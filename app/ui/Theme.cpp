@@ -161,6 +161,62 @@ float textWidth (const juce::Font& f, const juce::String& s)
 }
 
 //==============================================================================
+// スキン（DESIGN 4.11）
+namespace colours
+{
+namespace
+{
+    Token* const tokens[skin::numTokens] = { &bg0, &bgDeep, &panel, &raised, &raisedHi, &grid, &line, &lineHi,
+                                             &text, &textDim, &textMute, &signal, &ref, &warn, &bad, &rec };
+    bool light = false;
+}
+
+juce::Colour current (int index)
+{
+    return juce::isPositiveAndBelow (index, skin::numTokens) ? juce::Colour (*tokens[index]) : juce::Colour();
+}
+
+bool isLight() { return light; }
+
+juce::Colour shadow (float alpha)
+{
+    // 明るい地に黒い影をそのまま落とすと汚れて見えるので弱める
+    return juce::Colours::black.withAlpha (light ? alpha * 0.4f : alpha);
+}
+
+juce::Colour highlight (float alpha)
+{
+    return juce::Colours::white.withAlpha (light ? juce::jmin (1.0f, alpha * 4.0f) : alpha);
+}
+
+juce::Colour onFill (juce::Colour fill)
+{
+    const auto argb = fill.getARGB();
+    return skin::contrastRatio (text.getARGB(), argb) > skin::contrastRatio (bgDeep.getARGB(), argb) ? juce::Colour (text) : juce::Colour (bgDeep);
+}
+
+juce::Colour onRec()
+{
+    return text.getPerceivedBrightness() >= bgDeep.getPerceivedBrightness() ? juce::Colour (text) : juce::Colour (bgDeep);
+}
+}
+
+void applySkin (const skin::Skin& s)
+{
+    for (int i = 0; i < skin::numTokens; ++i)
+        *colours::tokens[i] = juce::Colour (s.colours[(size_t) i]);
+    colours::light = colours::bg0.getPerceivedBrightness() > 0.5f;
+}
+
+skin::Colours currentSkinColours()
+{
+    skin::Colours c {};
+    for (int i = 0; i < skin::numTokens; ++i)
+        c[(size_t) i] = colours::tokens[i]->getARGB();
+    return c;
+}
+
+//==============================================================================
 namespace paint
 {
 void keycap (juce::Graphics& g, juce::Rectangle<float> r, const KeyState& s, float radius)
@@ -170,7 +226,7 @@ void keycap (juce::Graphics& g, juce::Rectangle<float> r, const KeyState& s, flo
     // 外側の影（沈んでいない時だけ）
     if (! s.down)
     {
-        g.setColour (juce::Colours::black.withAlpha (0.35f));
+        g.setColour (colours::shadow (0.35f));
         g.fillRoundedRectangle (r.translated (0.0f, 1.0f), radius);
     }
 
@@ -183,12 +239,12 @@ void keycap (juce::Graphics& g, juce::Rectangle<float> r, const KeyState& s, flo
     g.fillRoundedRectangle (r, radius);
 
     // 縁と上辺のハイライト
-    g.setColour (juce::Colours::black.withAlpha (0.55f));
+    g.setColour (colours::shadow (0.55f));
     g.drawRoundedRectangle (r, radius, 1.0f);
 
     if (! s.down && s.enabled)
     {
-        g.setColour (juce::Colours::white.withAlpha (s.over ? 0.09f : 0.06f));
+        g.setColour (colours::highlight (s.over ? 0.09f : 0.06f));
         g.fillRect (juce::Rectangle<float> (r.getX() + radius, r.getY() + 1.0f, r.getWidth() - radius * 2.0f, 1.0f));
     }
 }
@@ -199,9 +255,9 @@ void inset (juce::Graphics& g, juce::Rectangle<float> r, float radius)
     g.fillRoundedRectangle (r, radius);
 
     // 内側の影（上辺が暗く、下辺がわずかに明るい）
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
+    g.setColour (colours::shadow (0.5f));
     g.fillRect (juce::Rectangle<float> (r.getX() + radius, r.getY(), r.getWidth() - radius * 2.0f, 1.0f));
-    g.setColour (juce::Colours::white.withAlpha (0.04f));
+    g.setColour (colours::highlight (0.04f));
     g.fillRect (juce::Rectangle<float> (r.getX() + radius, r.getBottom() - 1.0f, r.getWidth() - radius * 2.0f, 1.0f));
 
     g.setColour (colours::line.withAlpha (0.6f));
@@ -225,7 +281,7 @@ void led (juce::Graphics& g, juce::Point<float> c, float radius, juce::Colour co
     {
         g.setColour (colour.interpolatedWith (colours::bgDeep, 0.78f));
         g.fillEllipse (body);
-        g.setColour (juce::Colours::black.withAlpha (0.5f));
+        g.setColour (colours::shadow (0.5f));
         g.drawEllipse (body, 0.8f);
     }
 }
