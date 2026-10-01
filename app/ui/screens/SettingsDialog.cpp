@@ -50,7 +50,7 @@ SettingsDialog::SettingsDialog (UiSession& u)
         s->setFont (mono (11.5f, Weight::medium));
 
     rows = {
-        { tr ("settings.language"),   tr ("settings.language.note"),   &language,    juce::jmax (420, language.idealWidth()) },
+        { tr ("settings.language"),   tr ("settings.language.note"),   &language,    juce::jmax (220, language.idealWidth()) },
         { tr ("settings.mode"),       tr ("settings.mode.note"),       &mode,        260 },
         { tr ("settings.tolerance"),  tr ("settings.tolerance.note"),  &tolerance,   200 },
         { tr ("settings.octave"),     tr ("settings.octave.note"),     &octaveAlign, 0 },

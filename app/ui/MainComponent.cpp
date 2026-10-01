@@ -3,12 +3,13 @@
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
+#include "screens/WelcomeScreen.h"
 
 namespace vb
 {
-MainComponent::MainComponent (UiSession& u, std::function<void (i18n::Language)> langFn)
+MainComponent::MainComponent (UiSession& u, AppHooks& h)
     : SessionView (u),
-      changeLanguage (std::move (langFn)),
+      hooks (h),
       top (u, actions), transport (u, actions), pitch (u), lyrics (u), wave (u), tracks (u), rack (u, actions), status (u)
 {
     actions.toggleRecord = [this] { toggleRecord(); };
@@ -293,9 +294,24 @@ void MainComponent::confirmDiscardRecording()
 }
 
 //==============================================================================
-void MainComponent::openStart (bool analyzing)
+void MainComponent::openWelcome()
 {
-    auto screen = std::make_unique<StartScreen> (session, analyzing);
+    auto screen = std::make_unique<WelcomeScreen>();
+    screen->onLanguage = [this] (i18n::Language l) { if (hooks.changeLanguage) hooks.changeLanguage (l, ReopenScreen::welcome); };
+    screen->onContinue = [this]
+    {
+        overlay.close();
+        if (hooks.firstRunDone) hooks.firstRunDone();
+        // 続けて初回だけのモードの質問（起動画面）
+        juce::Component::SafePointer<MainComponent> safe (this);
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openStart (false, true); });
+    };
+    overlay.show (std::move (screen), false);
+}
+
+void MainComponent::openStart (bool analyzing, bool firstRun)
+{
+    auto screen = std::make_unique<StartScreen> (session, analyzing, firstRun);
     screen->onDone = [this] { overlay.close(); };
     overlay.show (std::move (screen), false);
 }
@@ -326,7 +342,7 @@ void MainComponent::openSettings()
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSetup(); });
     };
-    dlg->onLanguage = [this] (i18n::Language l) { if (changeLanguage) changeLanguage (l); };
+    dlg->onLanguage = [this] (i18n::Language l) { if (hooks.changeLanguage) hooks.changeLanguage (l, ReopenScreen::settings); };
     overlay.show (std::move (dlg), true);
 }
 } // namespace vb

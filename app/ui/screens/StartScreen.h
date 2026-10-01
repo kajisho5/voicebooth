@@ -12,7 +12,7 @@ namespace vb
 class StartScreen : public juce::Component, private SessionView
 {
 public:
-    StartScreen (UiSession&, bool analyzing);
+    StartScreen (UiSession&, bool analyzing, bool firstRun);
 
     std::function<void()> onDone;
 
@@ -26,7 +26,7 @@ private:
     void paintHome (juce::Graphics&);
     void paintAnalyzing (juce::Graphics&);
 
-    bool analyzing;
+    bool analyzing, firstRun;
     juce::Rectangle<int> panel, dropArea, recentArea, firstRunArea;
     std::vector<juce::Rectangle<int>> recentRows;
     juce::OwnedArray<KeyButton> firstRunKeys;

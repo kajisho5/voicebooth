@@ -245,5 +245,10 @@
   "wave.clip": "CLIP",
   "wave.newTake": "NEW TAKE",
   "wave.noTake": "尚無錄音",
-  "wave.unrecorded": "未錄音"
+  "wave.unrecorded": "未錄音",
+  "welcome.continue": "繼續",
+  "welcome.language": "LANGUAGE",
+  "welcome.note": "之後可隨時在設定中變更",
+  "welcome.sub": "請先選擇顯示語言。",
+  "welcome.title": "歡迎使用 VoiceBooth"
 }

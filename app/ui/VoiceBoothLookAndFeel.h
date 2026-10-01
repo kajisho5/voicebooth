@@ -15,5 +15,14 @@ public:
 
     juce::Rectangle<int> getTooltipBounds (const juce::String&, juce::Point<int>, juce::Rectangle<int>) override;
     void drawTooltip (juce::Graphics&, const juce::String&, int width, int height) override;
+
+    // ポップアップメニュー（Dropdown）
+    void drawPopupMenuBackground (juce::Graphics&, int width, int height) override;
+    void drawPopupMenuItem (juce::Graphics&, const juce::Rectangle<int>& area,
+                            bool isSeparator, bool isActive, bool isHighlighted, bool isTicked, bool hasSubMenu,
+                            const juce::String& text, const juce::String& shortcutKeyText,
+                            const juce::Drawable* icon, const juce::Colour* textColour) override;
+    juce::Font getPopupMenuFont() override;
+    int getPopupMenuBorderSize() override { return 4; }
 };
 } // namespace vb
