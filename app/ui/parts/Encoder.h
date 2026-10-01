@@ -10,7 +10,7 @@ class Encoder : public juce::Slider
 {
 public:
     Encoder (double min, double max, double value, double step, bool bipolar = false,
-             juce::Colour ledColour = colours::signal);
+             colours::Tone ledColour = colours::signal);
 
     void setPreviewHover (bool h) { previewHover = h; repaint(); }
 
@@ -18,7 +18,7 @@ public:
 
 private:
     bool bipolar;
-    juce::Colour ledColour;
+    colours::Tone ledColour;
     bool previewHover = false;
 };
 
@@ -28,7 +28,7 @@ class EncoderBlock : public juce::Component
 public:
     EncoderBlock (const juce::String& label, double min, double max, double value, double step,
                   std::function<juce::String (double)> format, const juce::String& unit = {},
-                  bool bipolar = false, juce::Colour ledColour = colours::signal);
+                  bool bipolar = false, colours::Tone ledColour = colours::signal);
 
     Encoder& encoder() { return enc; }
     std::function<void (double)> onChange;

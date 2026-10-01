@@ -130,7 +130,7 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
         const auto tag = juce::Rectangle<float> (x + 26.0f, r.getY() + 4.0f, w, r.getHeight() - 11.0f);
         g.setColour (colours::signal);
         g.fillRoundedRectangle (tag, 2.0f);
-        g.setColour (colours::bgDeep);
+        g.setColour (colours::onFill (colours::signal));
         g.setFont (f);
         g.drawText (name, tag, juce::Justification::centred, false);
     }

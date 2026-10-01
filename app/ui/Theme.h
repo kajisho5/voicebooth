@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "i18n/I18n.h"
+#include "skin/Skin.h"
 
 /*  見た目トークン v2 "Booth"（DESIGN 4.9）
     コンセプト: 夜の録音ブース。暖色グラファイトに機材の LED とタリーランプが灯る。
@@ -17,23 +18,86 @@ inline juce::String utf8 (const char* s) { return juce::String::fromUTF8 (s); }
 
 namespace colours
 {
-    inline const juce::Colour bg0      { 0xff141311 };   // 地
-    inline const juce::Colour bgDeep   { 0xff0d0c0b };   // レーン・表示窓の内側
-    inline const juce::Colour panel    { 0xff1b1a17 };   // ラック・バー
-    inline const juce::Colour raised   { 0xff262420 };   // キーキャップ
-    inline const juce::Colour raisedHi { 0xff302d28 };   // キーキャップ（ホバー）
-    inline const juce::Colour grid     { 0xff24221e };   // 罫線
-    inline const juce::Colour line     { 0xff34312b };   // 境界
-    inline const juce::Colour lineHi   { 0xff4a463e };
-    inline const juce::Colour text     { 0xfff2ede3 };   // 暖かい白
-    inline const juce::Colour textDim  { 0xffa9a295 };
-    inline const juce::Colour textMute { 0xff6f6a60 };
-    inline const juce::Colour signal   { 0xffc6ee6a };   // ライム：自分ピッチ OK / 再生ヘッド / 点灯 LED / 選択
-    inline const juce::Colour ref      { 0xff8cc1ee };   // アイスブルー：お手本
-    inline const juce::Colour warn     { 0xfff4b942 };   // アンバー
-    inline const juce::Colour bad      { 0xffff6b5e };   // コーラル
-    inline const juce::Colour rec      { 0xffff3b30 };   // タリー赤（録音のみ）
+    /** スキンで差し替わる色（DESIGN 4.11）。juce::Colour としてそのまま使える。
+        値は applySkin() が書き換える。既定は Booth（DESIGN 4.9） */
+    class Token
+    {
+    public:
+        Token (int i, juce::uint32 argbValue) : index (i), value (argbValue) {}
+        Token& operator= (juce::Colour c) { value = c; return *this; }
+
+        operator juce::Colour() const { return value; }
+
+        // よく使う juce::Colour の操作（juce::Colour は継承できないので取り次ぐ）
+        juce::Colour withAlpha (float a) const              { return value.withAlpha (a); }
+        juce::Colour withMultipliedAlpha (float a) const    { return value.withMultipliedAlpha (a); }
+        juce::Colour brighter (float amount = 0.4f) const   { return value.brighter (amount); }
+        juce::Colour darker (float amount = 0.4f) const     { return value.darker (amount); }
+        juce::Colour interpolatedWith (juce::Colour other, float proportion) const { return value.interpolatedWith (other, proportion); }
+        float getPerceivedBrightness() const                { return value.getPerceivedBrightness(); }
+        juce::uint32 getARGB() const                        { return value.getARGB(); }
+
+        int index;   // skin::Token の並び
+
+    private:
+        juce::Colour value;
+    };
+
+    inline Token bg0      {  0, 0xff141311 };   // 地
+    inline Token bgDeep   {  1, 0xff0d0c0b };   // レーン・表示窓の内側
+    inline Token panel    {  2, 0xff1b1a17 };   // ラック・バー
+    inline Token raised   {  3, 0xff262420 };   // キーキャップ
+    inline Token raisedHi {  4, 0xff302d28 };   // キーキャップ（ホバー）
+    inline Token grid     {  5, 0xff24221e };   // 罫線
+    inline Token line     {  6, 0xff34312b };   // 境界
+    inline Token lineHi   {  7, 0xff4a463e };
+    inline Token text     {  8, 0xfff2ede3 };   // 暖かい白
+    inline Token textDim  {  9, 0xffa9a295 };
+    inline Token textMute { 10, 0xff6f6a60 };
+    inline Token signal   { 11, 0xffc6ee6a };   // ライム：自分ピッチ OK / 再生ヘッド / 点灯 LED / 選択
+    inline Token ref      { 12, 0xff8cc1ee };   // アイスブルー：お手本
+    inline Token warn     { 13, 0xfff4b942 };   // アンバー
+    inline Token bad      { 14, 0xffff6b5e };   // コーラル
+    inline Token rec      { 15, 0xffff3b30 };   // タリー赤（録音のみ）
+
+    /** いまのスキンでの色（index は Token::index） */
+    juce::Colour current (int index);
+
+    /** 部品が覚えておく色（LED の色など）。トークンから作ると、スキンを変えた後も今の色を返す
+        （スキンエディタでその場の画面に反映するため） */
+    class Tone
+    {
+    public:
+        Tone (juce::Colour c) : colour (c) {}
+        Tone (const Token& t) : colour (t), token (t.index) {}
+
+        juce::Colour get() const { return token >= 0 ? current (token) : colour; }
+        operator juce::Colour() const { return get(); }
+
+    private:
+        juce::Colour colour;
+        int token = -1;
+    };
+
+    /** 明るいスキン（地が明るい）か。影・照りの強さを変える */
+    bool isLight();
+
+    /** 影（黒）と照り（白）。明るいスキンでは影を弱め、暗いスキンでは従来どおり */
+    juce::Colour shadow (float alpha);
+    juce::Colour highlight (float alpha);
+
+    /** 色で塗った面（区間の札・音名・CLIP など）に載せる文字の色：text と bgDeep のうち読みやすい方 */
+    juce::Colour onFill (juce::Colour fill);
+
+    /** タリー赤（REC のキー・ランプ）に載せる文字の色：text と bgDeep のうち明るい方（赤には白い文字） */
+    juce::Colour onRec();
 }
+
+/** スキンの 16 色を差し替える（DESIGN 4.11）。描き直し・LookAndFeel の色の入れ直しは呼び出し側 */
+void applySkin (const skin::Skin&);
+
+/** いま使っている 16 色 */
+skin::Colours currentSkinColours();
 
 namespace metrics
 {

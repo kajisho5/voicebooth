@@ -36,6 +36,7 @@ void DialogPanel::resized()
     auto f = getLocalBounds().removeFromBottom (footerH).reduced (padding, 0);
     for (auto* k : footerKeys)
     {
+        if (! k->isVisible()) continue;   // 隠したキーは詰める
         k->setSize (10, 34);
         const auto w = juce::jmax (96, k->idealWidth());
         k->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 34));
@@ -92,10 +93,11 @@ OverlayHost::OverlayHost()
     setVisible (false);
 }
 
-void OverlayHost::show (std::unique_ptr<juce::Component> panel, bool canDismiss)
+void OverlayHost::show (std::unique_ptr<juce::Component> panel, bool canDismiss, Placement where)
 {
     content = std::move (panel);
     dismissible = canDismiss;
+    placement = where;
     addAndMakeVisible (*content);
     setVisible (true);
     toFront (false);
@@ -118,13 +120,19 @@ void OverlayHost::resized()
     if (content == nullptr) return;
     if (content->getWidth() == 0 || content->getHeight() == 0)
         content->setBounds (getLocalBounds());
+    else if (placement == Placement::side)
+        content->setTopLeftPosition (getWidth() - content->getWidth() - 16,
+                                     juce::jmax (8, (getHeight() - content->getHeight()) / 2));
     else
         content->setCentrePosition (getLocalBounds().getCentre());
 }
 
 void OverlayHost::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colours::black.withAlpha (0.58f));
+    if (placement == Placement::centre)
+        g.fillAll (colours::shadow (0.58f));
+    else if (content != nullptr)
+        juce::DropShadow (colours::shadow (0.55f), 28, { 0, 8 }).drawForRectangle (g, content->getBounds());   // 暗くしない代わりに影で浮かせる
 }
 
 void OverlayHost::mouseDown (const juce::MouseEvent& e)

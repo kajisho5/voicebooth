@@ -19,13 +19,13 @@ public:
     explicit KeyButton (const juce::String& label = {}, Kind = Kind::key);
 
     KeyButton& withIcon (Icon);
-    KeyButton& withLed (juce::Colour = colours::signal);    // トグル状態を LED で表示
+    KeyButton& withLed (colours::Tone = colours::signal);    // トグル状態を LED で表示
     KeyButton& withToggle (bool clickingToggles = true);
     KeyButton& withFont (juce::Font);
-    KeyButton& withIconColour (juce::Colour);
+    KeyButton& withIconColour (colours::Tone);
 
     /** ラッチ式（M / S 等の小さなキー）：オンで沈み、文字が点灯色になる */
-    KeyButton& withLatch (juce::Colour litColour);
+    KeyButton& withLatch (colours::Tone litColour);
 
     /** ショートカットで押された時の見た目（一瞬沈む） */
     void flash();
@@ -40,7 +40,7 @@ public:
 private:
     Kind kind;
     std::optional<Icon> icon;
-    std::optional<juce::Colour> ledColour, iconColour, latchColour;
+    std::optional<colours::Tone> ledColour, iconColour, latchColour;   // スキンを変えても今の色で描く
     juce::Font labelFont;
     std::optional<KeyState> preview;
     bool flashing = false;
@@ -51,7 +51,7 @@ private:
 class SegmentedKeys : public juce::Component
 {
 public:
-    SegmentedKeys (juce::StringArray options, int selected, juce::Colour led = colours::signal);
+    SegmentedKeys (juce::StringArray options, int selected, colours::Tone led = colours::signal);
 
     void setSelected (int index, juce::NotificationType = juce::sendNotification);
     int getSelected() const { return selected; }
@@ -73,7 +73,7 @@ private:
 
     juce::StringArray options;
     int selected = 0, hover = -1;
-    juce::Colour ledColour;
+    colours::Tone ledColour;
     juce::Font labelFont;
 };
 } // namespace vb

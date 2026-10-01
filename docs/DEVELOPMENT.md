@@ -7,6 +7,7 @@
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
 - **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
 - **日本語 / English / 한국어 / 简体中文 / 繁體中文**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
+- **スキン**（DESIGN 4.11）：色トークン 16 個の着せ替え。内蔵 10 種＋テンプレートから自作（`.vbskin`、`Skins/` に保存）。設定で選ぶと画面を作り直す。`--skin=<id>`
 - **B2**：開いた曲（オフボ）を既定の出力デバイスで再生・シーク・ループ。オフボのフェーダーと M が効く
 - **B3**：ドライバ・入出力の機器・SR・バッファを列挙し、入力セットアップで選べる（設定に保存）。入力は 1 ch（モノラル、既定 L）を開いてメーターだけ（ピーク・ホールド・RMS・クリップ）。レイテンシはデバイスの申告値（実測は B6）。Mac はマイクの許可を確かめる。モニター・録音はまだ（B4 / B5）
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
@@ -23,7 +24,7 @@
 |---|---|---|
 | ![](screenshots/recording.png) | ![](screenshots/export.png) | ![](screenshots/settings-zh-Hant.png) |
 
-見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）。機能の参考にした 既存の練習アプリ とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。動きは DESIGN 4.10。
+見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）が既定で、スキンで色を着せ替えられる（[一覧](screenshots/skins/all.png)）。機能の参考にした 既存の練習アプリ とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。動きは DESIGN 4.10。
 
 起動オプション（`--lang=en` `--mode=pro` `--screen=export` など）は [`UI_STATES.md`](UI_STATES.md)。
 
@@ -71,7 +72,7 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth らしい名前の判定を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
+波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth らしい名前の判定、スキン（`.vbskin` の読み書きと 64 KB・64 文字・HEX の制限、base からの補い、コントラスト比・色差・rec の色相、内蔵 10 種がすべて自分の点検を通ること、`Skins/` の保存・削除）を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
 
 ## 構成
 
@@ -82,12 +83,13 @@ app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 128
 app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）
 app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
+app/skin/             スキン（DESIGN 4.11）：内蔵 10 種・.vbskin の読み書き・見やすさの点検・自作の置き場（画面に依存しない）
 app/song/             曲の情報（DESIGN 7.5）：歌詞の読み込み（LyricsImport、CP932 表は tools/gen_cp932_table.py で生成）、タップテンポ（Tempo.h）
 third_party/minimp3/  mp3 デコーダ（CC0。出典とコミットは README）
 tests/                VoiceBoothTests（ctest）
-app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定 / 更新・モデルのダウンロード
-app/ui/Theme.*        色トークン・書体・描画の基本（キーキャップ / 表示窓 / LED）
-app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFader / LedMeter / Readout / TallyLamp / Icons / Dropdown
+app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定 / 更新・モデルのダウンロード / スキン（テンプレート・エディタ）
+app/ui/Theme.*        色トークン（スキンで差し替わる）・書体・描画の基本（キーキャップ / 表示窓 / LED）
+app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFader / LedMeter / Readout / TallyLamp / Icons / Dropdown / ColourPad
 app/ui/Gallery.*      部品ギャラリー
 app/ui/*.cpp          画面：TopBar / TransportBar / PitchLane / LyricsLane / WaveLane / TrackTabs / Rack / StatusBar
 app/ui/DummySession.* 固定ダミー（DESIGN 20）。結線時に差し替える
