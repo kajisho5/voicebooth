@@ -83,11 +83,19 @@ struct Session
     // 新しいバージョンの知らせ（DESIGN 11.7。今はモックのみ。空なら出さない）
     juce::String updateVersion;
 
-    // 入力
+    // 入力。UI_MOCK ではこのダミーのまま。エンジンがあれば UiSession が実デバイスの値で上書きする（B3）
     juce::String inputDevice, driver;
     int bufferSize = 256;
     float inputPeakDb = -12.0f, inputRmsDb = -18.4f, inputPeakHoldDb = -9.6f;
-    int64 latencySamples = 538;
+    bool inputClipped = false;
+    int64 latencySamples = 538;           // 録音位置の補正量（実測は B6。いまはダミー）
+
+    // 入力デバイス（B3。UI_MOCK では open = false のまま）
+    audio::InputStatus input;
+    int deviceLostCount = 0;              // 使っていた機器が外れた回数（増えたら知らせる）
+
+    /** 実際の入力を表示しているか（エンジンがあり、入力が開いている） */
+    bool inputLive() const { return engineAttached && input.open; }
 
     std::vector<TrackUi> trackUi;   // タブに出すボーカルトラック
     int selectedTrack = 0;          // trackUi の添字
