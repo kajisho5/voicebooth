@@ -224,7 +224,7 @@ namespace
 }
 
 MediaFoundationAudioFormat::MediaFoundationAudioFormat()
-    : juce::AudioFormat ("Media Foundation", juce::StringArray { ".m4a", ".mp4", ".aac" })
+    : juce::AudioFormat ("Media Foundation", juce::StringArray { ".m4a", ".mp4", ".aac", ".mp3" })
 {
 }
 
@@ -251,9 +251,12 @@ juce::AudioFormatReader* MediaFoundationAudioFormat::createReaderFor (juce::Inpu
 
 void registerSongFormats (juce::AudioFormatManager& formats)
 {
-    formats.registerBasicFormats();
    #if JUCE_WINDOWS
+    // 先に登録した読み手が優先される。mp3 も Media Foundation で読む：
+    // JUCE 標準の Windows Media の読み手は、頭から順に読んだときと途中から読んだときで
+    // 位置が約 2000 サンプル食い違った（CI で計測、2026-10-01）。開けなければ Windows Media に回る
     formats.registerFormat (new MediaFoundationAudioFormat(), false);
    #endif
+    formats.registerBasicFormats();
 }
 } // namespace vb::audio
