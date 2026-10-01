@@ -41,6 +41,9 @@ void drawTimeGrid (juce::Graphics& g, const dummy::Session& s, const TimeMap& ma
 
 void drawRange (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> area)
 {
+    if (! s.hasRange())
+        return;
+
     const auto x0 = juce::jmax (area.getX(), map.x (s.rangeIn));
     const auto x1 = juce::jmin (area.getRight(), map.x (s.rangeOut));
     if (x1 <= x0)
@@ -76,6 +79,7 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
     paint::hline (g, r.getBottom() - 1.0f, r.getX(), r.getRight());
 
     // ループ範囲（ルーラー下端の帯）
+    if (s.hasRange())
     {
         const auto x0 = juce::jmax (r.getX(), map.x (s.rangeIn));
         const auto x1 = juce::jmin (r.getRight(), map.x (s.rangeOut));
@@ -110,14 +114,15 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
         if (x < r.getX() || x > r.getRight())
             continue;
 
+        const auto name = m.kind == project::MarkerKind::chorus ? tr ("marker.chorus") : m.name;
         const auto f = sans (10.5f, Weight::semibold);
-        const auto w = textWidth (f, m.name) + 12.0f;
+        const auto w = textWidth (f, name) + 12.0f;
         const auto tag = juce::Rectangle<float> (x + 26.0f, r.getY() + 4.0f, w, r.getHeight() - 11.0f);
         g.setColour (colours::signal);
         g.fillRoundedRectangle (tag, 2.0f);
         g.setColour (colours::bgDeep);
         g.setFont (f);
-        g.drawText (m.name, tag, juce::Justification::centred, false);
+        g.drawText (name, tag, juce::Justification::centred, false);
     }
 
     // 再生ヘッドの頭
@@ -126,6 +131,29 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
     head.addTriangle (px - 5.5f, r.getY() + 3.0f, px + 5.5f, r.getY() + 3.0f, px, r.getBottom() - 3.0f);
     g.setColour (playheadColour (s));
     g.fillPath (head);
+}
+
+void RangeGesture::down (UiSession&, const TimeMap& map, float x)
+{
+    startX = x;
+    startSample = map.sampleAt (x);
+    dragging = false;
+}
+
+void RangeGesture::drag (UiSession& session, const TimeMap& map, float x)
+{
+    if (! dragging && std::abs (x - startX) < 4.0f)
+        return;   // 4px 未満はクリック扱い
+
+    dragging = true;
+    session.setRange (startSample, map.sampleAt (juce::jlimit (map.x0, map.x1, x)));
+}
+
+void RangeGesture::up (UiSession& session, const TimeMap& map, float x)
+{
+    if (! dragging)
+        session.seek (map.sampleAt (x));
+    dragging = false;
 }
 
 void drawHatch (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour c)

@@ -20,53 +20,53 @@ Gallery::Gallery()
         return k;
     };
 
-    key ("normal", jp ("範囲を解除"), {});
-    key ("hover", jp ("範囲を解除"), { true });
-    key ("down", jp ("範囲を解除"), { true, true });
-    key ("disabled", jp ("範囲を解除"), { false, false, false, false });
+    key ("normal", tr ("transport.clearRange.tooltip"), {});
+    key ("hover", tr ("transport.clearRange.tooltip"), { true });
+    key ("down", tr ("transport.clearRange.tooltip"), { true, true });
+    key ("disabled", tr ("transport.clearRange.tooltip"), { false, false, false, false });
 
-    make<KeyButton> ("LED off", jp ("ループ")).withIcon (Icon::loop).withLed().setPreview (KeyState {});
-    make<KeyButton> ("LED on", jp ("ループ")).withIcon (Icon::loop).withLed().setPreview (KeyState { false, false, true });
-    make<KeyButton> ("LED on hover", jp ("クリック")).withIcon (Icon::metronome).withLed().setPreview (KeyState { true, false, true });
+    make<KeyButton> ("LED off", tr ("transport.loop")).withIcon (Icon::loop).withLed().setPreview (KeyState {});
+    make<KeyButton> ("LED on", tr ("transport.loop")).withIcon (Icon::loop).withLed().setPreview (KeyState { false, false, true });
+    make<KeyButton> ("LED on hover", tr ("transport.click")).withIcon (Icon::metronome).withLed().setPreview (KeyState { true, false, true });
 
     make<KeyButton> ("icon", "").withIcon (Icon::play).setPreview (KeyState {});
     make<KeyButton> ("icon hover", "").withIcon (Icon::pause).setPreview (KeyState { true });
     make<KeyButton> ("rec off", "", KeyButton::Kind::rec).withIcon (Icon::rec).setPreview (KeyState {});
     make<KeyButton> ("rec on", "", KeyButton::Kind::rec).withIcon (Icon::rec).setPreview (KeyState { false, false, true });
 
-    make<KeyButton> ("ghost", jp ("歌詞パッド"), KeyButton::Kind::ghost).withIcon (Icon::edit).setPreview (KeyState {});
-    make<KeyButton> ("ghost hover", jp ("歌詞パッド"), KeyButton::Kind::ghost).withIcon (Icon::edit).setPreview (KeyState { true });
+    make<KeyButton> ("ghost", tr ("lyrics.pad"), KeyButton::Kind::ghost).withIcon (Icon::edit).setPreview (KeyState {});
+    make<KeyButton> ("ghost hover", tr ("lyrics.pad"), KeyButton::Kind::ghost).withIcon (Icon::edit).setPreview (KeyState { true });
 
     make<KeyButton> ("M off", "M").withLatch (colours::warn).withFont (mono (10.5f, Weight::semibold)).setPreview (KeyState {});
     make<KeyButton> ("M on", "M").withLatch (colours::warn).withFont (mono (10.5f, Weight::semibold)).setPreview (KeyState { false, false, true });
     make<KeyButton> ("S on", "S").withLatch (colours::signal).withFont (mono (10.5f, Weight::semibold)).setPreview (KeyState { false, false, true });
 
     // --- Segmented ----------------------------------------------------------
-    make<SegmentedKeys> (jp ("モード"), juce::StringArray { jp ("簡単"), jp ("標準"), jp ("プロ") }, 1);
-    make<SegmentedKeys> ("hover", juce::StringArray { "Off", jp ("1小節"), jp ("2小節") }, 1).setPreviewHover (2);
-    make<SegmentedKeys> (jp ("録音モード"), juce::StringArray { jp ("納品"), jp ("練習") }, 0, colours::rec);
+    make<SegmentedKeys> ("mode", juce::StringArray { tr ("mode.easy"), tr ("mode.standard"), tr ("mode.pro") }, 1);
+    make<SegmentedKeys> ("hover", juce::StringArray { tr ("transport.countIn.off"), "1", "2" }, 1).setPreviewHover (2);
+    make<SegmentedKeys> ("rec mode", juce::StringArray { tr ("record.delivery"), tr ("record.practice") }, 0, colours::rec);
 
     // --- Encoders -----------------------------------------------------------
-    make<EncoderBlock> ("unipolar", jp ("テンポ"), 50.0, 150.0, 100.0, 1.0, pct, "%").setCaption (jp ("原速 120 BPM"));
-    make<EncoderBlock> ("slow", jp ("テンポ"), 50.0, 150.0, 75.0, 1.0, pct, "%").setCaption (jp ("練習用"));
-    make<EncoderBlock> ("bipolar 0", jp ("キー"), -6.0, 6.0, 0.0, 1.0,
+    make<EncoderBlock> ("unipolar", tr ("practice.tempo"), 50.0, 150.0, 100.0, 1.0, pct, "%").setCaption (tr ("practice.tempo.original", 120));
+    make<EncoderBlock> ("slow", tr ("practice.tempo"), 50.0, 150.0, 75.0, 1.0, pct, "%").setCaption (tr ("practice.key.shifted"));
+    make<EncoderBlock> ("bipolar 0", tr ("practice.key"), -6.0, 6.0, 0.0, 1.0,
                         [] (double v) { const auto k = juce::roundToInt (v); return (k > 0 ? "+" : "") + juce::String (k); },
-                        "", true, colours::ref).setCaption (jp ("原キー"));
-    make<EncoderBlock> ("bipolar -3", jp ("キー"), -6.0, 6.0, -3.0, 1.0,
+                        "", true, colours::ref).setCaption (tr ("practice.key.original"));
+    make<EncoderBlock> ("bipolar -3", tr ("practice.key"), -6.0, 6.0, -3.0, 1.0,
                         [] (double v) { const auto k = juce::roundToInt (v); return (k > 0 ? "+" : "") + juce::String (k); },
-                        "", true, colours::ref).setCaption (jp ("練習用"));
-    auto& locked = make<EncoderBlock> ("locked", jp ("テンポ"), 50.0, 150.0, 100.0, 1.0, pct, "%");
+                        "", true, colours::ref).setCaption (tr ("practice.key.shifted"));
+    auto& locked = make<EncoderBlock> ("locked", tr ("practice.tempo"), 50.0, 150.0, 100.0, 1.0, pct, "%");
     locked.setLocked (true);
-    locked.setCaption (jp ("納品REC中は固定"));
+    locked.setCaption (tr ("record.lockNote"));
     make<Encoder> ("hover", 0.0, 1.0, 0.25, 0.01).setPreviewHover (true);
 
     // --- Faders -------------------------------------------------------------
-    make<ChannelStrip> ("", jp ("オフボ"), 0.51, 0.62f);
-    make<ChannelStrip> ("", jp ("お手本 Main"), 0.72, 0.48f, colours::ref);
-    make<ChannelStrip> ("", jp ("お手本 Harm"), 0.40, 0.30f, colours::ref);
-    auto& me = make<ChannelStrip> ("", jp ("自分"), 0.64, 0.80f);
+    make<ChannelStrip> ("", tr ("monitor.backing"), 0.51, 0.62f);
+    make<ChannelStrip> ("", tr ("monitor.refMain"), 0.72, 0.48f, colours::ref);
+    make<ChannelStrip> ("", tr ("monitor.refHarm"), 0.40, 0.30f, colours::ref);
+    auto& me = make<ChannelStrip> ("", tr ("monitor.self"), 0.64, 0.80f);
     me.soloKey().setToggleState (true, juce::dontSendNotification);
-    make<ChannelStrip> ("", jp ("リバーブ"), 0.25, -1.0f, colours::textDim, false, jp ("耳のみ"));
+    make<ChannelStrip> ("", tr ("monitor.reverb"), 0.25, -1.0f, colours::textDim, false, tr ("monitor.reverb.note"));
 
     // --- Meters -------------------------------------------------------------
     make<LedMeter> ("full  -12 / -18.4 / hold -9.6").setLevels (-12.0f, -18.4f, -9.6f, false);
@@ -75,8 +75,8 @@ Gallery::Gallery()
     make<LedMeter> ("compact", LedMeter::Style::compact).setLevels (-12.0f, -18.4f, -9.6f, false);
 
     // --- Readouts -----------------------------------------------------------
-    make<Readout> ("", "TIME").setValue ("0:39.000", "/ 2:16");
-    make<Readout> ("", "BAR.BEAT").setValue ("20.3");
+    make<Readout> ("", tr ("transport.time")).setValue ("0:39.000", "/ 2:16");
+    make<Readout> ("", tr ("transport.barBeat")).setValue ("20.3");
     make<Readout> ("", "TEMPO").setValue ("100%", "120 BPM");
     make<Readout> ("", "KEY").setValue ("0");
     make<TallyLamp> ("standby").setState (TallyLamp::State::standby);
@@ -107,7 +107,7 @@ void Gallery::resized()
 
     faderArea = right.removeFromTop (sectionTitleH + 260);
     right.removeFromTop (8);
-    iconArea  = right.removeFromTop (sectionTitleH + 120);
+    iconArea  = right.removeFromTop (sectionTitleH + 156);
     right.removeFromTop (8);
     tokenArea = right.removeFromTop (sectionTitleH + 150);
     right.removeFromTop (8);
@@ -211,7 +211,7 @@ void Gallery::paint (juce::Graphics& g)
 
     g.setColour (colours::text);
     g.setFont (sans (18.0f, Weight::semibold));
-    g.drawText (jp ("VoiceBooth 部品ギャラリー"), getLocalBounds().reduced (24, 18).removeFromTop (28), juce::Justification::centredLeft, false);
+    g.drawText (tr ("gallery.title"), getLocalBounds().reduced (24, 18).removeFromTop (28), juce::Justification::centredLeft, false);
 
     auto title = [&] (juce::Rectangle<int> a, const juce::String& en, const juce::String& ja)
     {
@@ -219,15 +219,15 @@ void Gallery::paint (juce::Graphics& g)
         paint::hline (g, (float) a.getY() + 1.0f, (float) a.getX(), (float) a.getRight());
     };
 
-    title (keysArea, "KEYS", jp ("キー（通常 / LED / アイコン / 録音 / ゴースト / ラッチ）"));
-    title (segArea, "SWITCH", jp ("択一スイッチ"));
-    title (encArea, "ENCODER", jp ("LED リング"));
-    title (meterArea, "METER", jp ("入力レベル（目標帯 -12〜-6 dBFS）"));
-    title (readoutArea, "READOUT", jp ("表示窓 / タリー"));
-    title (faderArea, "FADER", jp ("モニターミックス"));
-    title (iconArea, "ICONS", jp ("24 グリッド"));
-    title (tokenArea, "TOKENS", jp ("色"));
-    title (typeArea, "TYPE", jp ("書体"));
+    title (keysArea, "KEYS", tr ("gallery.keys"));
+    title (segArea, "SWITCH", tr ("gallery.switch"));
+    title (encArea, "ENCODER", tr ("gallery.encoder"));
+    title (meterArea, "METER", tr ("gallery.meter"));
+    title (readoutArea, "READOUT", tr ("gallery.readout"));
+    title (faderArea, "FADER", tr ("gallery.fader"));
+    title (iconArea, "ICONS", tr ("gallery.icons"));
+    title (tokenArea, "TOKENS", tr ("gallery.tokens"));
+    title (typeArea, "TYPE", tr ("gallery.type"));
 
     // キャプション
     g.setFont (mono (9.5f));
@@ -244,12 +244,13 @@ void Gallery::paint (juce::Graphics& g)
         auto a = iconArea.withTrimmedTop (sectionTitleH);
         const Icon all[] = { Icon::play, Icon::pause, Icon::stop, Icon::toStart, Icon::rec, Icon::loop, Icon::rangeIn,
                              Icon::rangeOut, Icon::close, Icon::metronome, Icon::gear, Icon::mic, Icon::headphones,
-                             Icon::edit, Icon::compare, Icon::lock, Icon::chevronDown, Icon::minus, Icon::plus };
+                             Icon::edit, Icon::compare, Icon::lock, Icon::chevronDown, Icon::chevronRight, Icon::minus, Icon::plus,
+                             Icon::exportFile, Icon::folder, Icon::note, Icon::check, Icon::warning, Icon::globe };
         int col = 0;
         auto row = a.removeFromTop (40);
         for (auto ic : all)
         {
-            if (col == 10) { row = a.removeFromTop (40); col = 0; }
+            if (col == 11) { row = a.removeFromTop (40); col = 0; }
             auto cell = row.removeFromLeft (44).toFloat();
             paint::inset (g, cell.reduced (3.0f));
             drawIcon (g, ic, cell.withSizeKeepingCentre (20.0f, 20.0f), colours::text);
@@ -301,9 +302,9 @@ void Gallery::paint (juce::Graphics& g)
             g.setFont (f);
             g.drawText (s, a.removeFromTop ((int) f.getHeight() + 10), juce::Justification::centredLeft, true);
         };
-        line (sans (22.0f, Weight::semibold), jp ("同じ穴の無地 投げ所"), colours::text);
-        line (sans (14.0f, Weight::medium), jp ("IBM Plex Sans JP Medium — 録音中: Dry Vocal / 納品"), colours::text);
-        line (sans (12.0f), jp ("IBM Plex Sans JP Regular — 耳だけ。録音には入りません"), colours::textDim);
+        line (sans (22.0f, Weight::semibold), tr ("gallery.type.sample1"), colours::text);
+        line (sans (14.0f, Weight::medium), "IBM Plex Sans JP Medium  " + tr ("gallery.type.sample2"), colours::text);
+        line (sans (12.0f), "IBM Plex Sans JP Regular  " + tr ("gallery.type.sample3"), colours::textDim);
         line (mono (24.0f, Weight::semibold), "0:39.000  20.3  -12.0 dBFS", colours::text);
         line (mono (10.5f, Weight::semibold, 0.14f), "INPUT  PRACTICE  MONITOR  RECORD", colours::textDim);
     }

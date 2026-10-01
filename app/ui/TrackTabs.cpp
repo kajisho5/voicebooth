@@ -1,28 +1,45 @@
 #include "TrackTabs.h"
+#include "WaveLane.h"
 
 namespace vb
 {
-TrackCard::TrackCard (const dummy::Session& s, const dummy::TrackUi& t, bool sel)
-    : session (s), track (t), selected (sel)
+TrackCard::TrackCard (UiSession& u, int i)
+    : SessionView (u), index (i)
 {
-    arm.withIcon (Icon::rec);
-    arm.setToggleState (t.armed, juce::dontSendNotification);
-    arm.setTooltip (jp ("録音対象（アーム）"));
+    arm.withIcon (Icon::rec).withToggle (false);
+    arm.setTooltip (tr ("track.arm.tooltip"));
+    arm.onClick = [this] { session.armTrack (index); };
 
-    mute.withLatch (colours::warn).withFont (mono (10.5f, Weight::semibold));
-    solo.withLatch (colours::signal).withFont (mono (10.5f, Weight::semibold));
-    mute.setToggleState (t.mute, juce::dontSendNotification);
-    solo.setToggleState (t.solo, juce::dontSendNotification);
+    mute.withLatch (colours::warn).withToggle (false).withFont (mono (10.5f, Weight::semibold));
+    solo.withLatch (colours::signal).withToggle (false).withFont (mono (10.5f, Weight::semibold));
+    mute.setTooltip (tr ("monitor.mute"));
+    solo.setTooltip (tr ("monitor.solo"));
+    mute.onClick = [this] { session.setMute (index, ! track().mute); };
+    solo.onClick = [this] { session.setSolo (index, ! track().solo); };
 
     addAndMakeVisible (arm);
     addAndMakeVisible (mute);
     addAndMakeVisible (solo);
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
+
+    onSessionChanged (change::all);
+}
+
+void TrackCard::onSessionChanged (juce::uint32 changes)
+{
+    if ((changes & (change::tracks | change::mode)) == 0)
+        return;
+
+    arm.setToggleState (track().armed, juce::dontSendNotification);
+    mute.setToggleState (track().mute, juce::dontSendNotification);
+    solo.setToggleState (track().solo, juce::dontSendNotification);
+    resized();
+    repaint();
 }
 
 void TrackCard::resized()
 {
-    auto r = getLocalBounds().reduced (10, 0).withTrimmedLeft (selected ? 3 : 0);
+    auto r = getLocalBounds().reduced (10, 0).withTrimmedLeft (isSelected() ? 3 : 0);
     arm.setBounds (r.removeFromLeft (30).withSizeKeepingCentre (30, 28));
     r.removeFromLeft (10);
 
@@ -40,6 +57,8 @@ void TrackCard::paint (juce::Graphics& g)
 {
     const auto b = getLocalBounds().toFloat();
     const bool over = isMouseOver (true);
+    const bool selected = isSelected();
+    const auto& t = track();
 
     if (selected)
     {
@@ -56,60 +75,63 @@ void TrackCard::paint (juce::Graphics& g)
     }
 
     // 名前 + ホットキー
-    auto t = textArea;
-    auto top = t.removeFromTop (t.getHeight() / 2 + 2);
+    auto tx = textArea;
+    auto top = tx.removeFromTop (tx.getHeight() / 2 + 2);
     const auto nf = sans (13.5f, Weight::semibold);
+    const auto name = trackName (t.type);
     g.setColour (selected ? colours::text : colours::text.withAlpha (0.82f));
     g.setFont (nf);
-    const auto nw = (int) textWidth (nf, track.name) + 2;
-    g.drawText (track.name, top.removeFromLeft (nw), juce::Justification::bottomLeft, false);
+    const auto nw = juce::jmin (top.getWidth() - 24, (int) textWidth (nf, name) + 2);
+    g.drawText (name, top.removeFromLeft (nw), juce::Justification::bottomLeft, true);
 
     top.removeFromLeft (7);
     const auto key = top.removeFromLeft (15).withTrimmedTop (top.getHeight() - 15).toFloat();
     paint::inset (g, key, 2.0f);
     g.setColour (colours::textDim);
     g.setFont (mono (9.5f, Weight::semibold));
-    g.drawText (juce::String (track.hotkey), key, juce::Justification::centred, false);
+    g.drawText (juce::String (t.hotkey), key, juce::Justification::centred, false);
 
     // テイク情報
-    const auto* tr = session.project.findTrack (track.type);
-    const auto takes = tr != nullptr ? (int) tr->takes.size() : 0;
-    const auto segs  = tr != nullptr ? (int) tr->comp.size() : 0;
+    const auto* tr_ = state().project.findTrack (t.type);
+    const auto takes = tr_ != nullptr ? (int) tr_->takes.size() : 0;
+    const auto segs  = tr_ != nullptr ? (int) tr_->comp.size() : 0;
 
     g.setFont (sans (11.0f));
-    if (takes == 0)
-    {
-        g.setColour (colours::textMute);
-        g.drawText (jp ("未録音"), t, juce::Justification::topLeft, true);
-    }
-    else
-    {
-        g.setColour (colours::textDim);
-        g.drawText (juce::String (takes) + jp (" テイク ・ 採用 ") + juce::String (segs) + jp (" 区間"), t, juce::Justification::topLeft, true);
-    }
+    g.setColour (takes == 0 ? colours::textMute : colours::textDim);
+    g.drawText (takes == 0 ? tr ("track.unrecorded") : tr ("track.takes", takes, segs), tx, juce::Justification::topLeft, true);
 
     // モニター量
     const auto gr = gainArea.toFloat().withSizeKeepingCentre ((float) gainArea.getWidth(), 3.0f);
     g.setColour (colours::bgDeep);
     g.fillRoundedRectangle (gr, 1.5f);
     g.setColour ((selected ? colours::signal : colours::textDim).withAlpha (0.85f));
-    g.fillRoundedRectangle (gr.withWidth (gr.getWidth() * track.monitorGain), 1.5f);
+    g.fillRoundedRectangle (gr.withWidth (gr.getWidth() * t.monitorGain), 1.5f);
 }
 
 //==============================================================================
-TrackTabs::TrackTabs (const dummy::Session& s) : session (s)
+TrackTabs::TrackTabs (UiSession& u)
+    : SessionView (u), compare (tr ("track.compare"))
 {
-    for (size_t i = 0; i < s.trackUi.size(); ++i)
-    {
-        const auto& t = s.trackUi[i];
-        if (t.type == project::TrackType::harm2 && s.mode != project::Mode::pro)
-            continue;   // 標準は Harm 1 本まで（DESIGN 2）
-
-        addAndMakeVisible (cards.add (new TrackCard (s, t, (int) i == s.selectedTrack)));
-    }
+    for (int i = 0; i < (int) u->trackUi.size(); ++i)
+        addChildComponent (cards.add (new TrackCard (u, i)));
 
     compare.withIcon (Icon::compare).withToggle (false);
+    compare.setTooltip (tr ("track.compare.tooltip"));
     addAndMakeVisible (compare);
+
+    onSessionChanged (change::all);
+}
+
+void TrackTabs::onSessionChanged (juce::uint32 changes)
+{
+    if ((changes & (change::mode | change::tracks)) == 0)
+        return;
+
+    for (auto* c : cards)
+        c->setVisible (session.isTrackVisible (state().trackUi[(size_t) c->trackIndex()].type));
+
+    compare.setVisible (state().mode != project::Mode::easy);   // テイク比較は標準以上（DESIGN 2）
+    resized();
 }
 
 void TrackTabs::resized()
@@ -117,13 +139,20 @@ void TrackTabs::resized()
     auto r = getLocalBounds().reduced (metrics::pad, 9);
     r.removeFromLeft (metrics::gutter - metrics::pad);
 
-    compare.setSize (10, 34);
-    compare.setBounds (r.removeFromRight (compare.idealWidth()).withSizeKeepingCentre (compare.idealWidth(), 34));
-    r.removeFromRight (16);
+    if (compare.isVisible())
+    {
+        compare.setSize (10, 34);
+        compare.setBounds (r.removeFromRight (compare.idealWidth()).withSizeKeepingCentre (compare.idealWidth(), 34));
+        r.removeFromRight (16);
+    }
 
-    const auto w = juce::jmin (264, (r.getWidth() - 8 * (cards.size() - 1)) / juce::jmax (1, cards.size()));
+    int visible = 0;
+    for (auto* c : cards) visible += c->isVisible() ? 1 : 0;
+
+    const auto w = juce::jmin (264, (r.getWidth() - 8 * (juce::jmax (1, visible) - 1)) / juce::jmax (1, visible));
     for (auto* c : cards)
     {
+        if (! c->isVisible()) continue;
         c->setBounds (r.removeFromLeft (w));
         r.removeFromLeft (8);
     }
@@ -133,6 +162,6 @@ void TrackTabs::paint (juce::Graphics& g)
 {
     g.fillAll (colours::bg0);
     paint::microLabel (g, getLocalBounds().withWidth (metrics::gutter).toFloat().withTrimmedLeft ((float) metrics::pad),
-                       "TRACK", colours::textMute);
+                       tr ("label.track"), colours::textMute);
 }
 } // namespace vb

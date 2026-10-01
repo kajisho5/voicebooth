@@ -1,12 +1,20 @@
 name: build
 
-# Win / Mac でビルドが通ることを確認する（Phase A: UI_MOCK のみ）
+# Win / Mac でビルドが通ること、翻訳表がそろっていることを確認する（Phase A: UI_MOCK のみ）
 on:
   pull_request:
   workflow_dispatch:
 
 jobs:
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check translations
+        run: python3 tools/check_i18n.py
+
   build:
+    needs: i18n
     strategy:
       fail-fast: false
       matrix:

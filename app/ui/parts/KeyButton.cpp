@@ -13,6 +13,7 @@ KeyButton::KeyButton (const juce::String& label, Kind k)
     : juce::Button (label), kind (k), labelFont (sans (12.0f, Weight::medium))
 {
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    setWantsKeyboardFocus (false);   // ショートカットはメイン画面が受ける
     if (kind == Kind::rec)
         setClickingTogglesState (true);
 }
@@ -23,6 +24,17 @@ KeyButton& KeyButton::withToggle (bool t)               { setClickingTogglesStat
 KeyButton& KeyButton::withFont (juce::Font f)           { labelFont = f; repaint(); return *this; }
 KeyButton& KeyButton::withIconColour (juce::Colour c)   { iconColour = c; repaint(); return *this; }
 KeyButton& KeyButton::withLatch (juce::Colour c)        { latchColour = c; setClickingTogglesState (true); repaint(); return *this; }
+
+void KeyButton::flash()
+{
+    flashing = true;
+    repaint();
+    juce::Component::SafePointer<KeyButton> safe (this);
+    juce::Timer::callAfterDelay (120, [safe]
+    {
+        if (safe != nullptr) { safe->flashing = false; safe->repaint(); }
+    });
+}
 
 int KeyButton::idealWidth() const
 {
@@ -40,7 +52,7 @@ int KeyButton::idealWidth() const
 
 void KeyButton::paintButton (juce::Graphics& g, bool over, bool down)
 {
-    KeyState s { over, down, getToggleState(), isEnabled() };
+    KeyState s { over, down || flashing, getToggleState(), isEnabled() };
     if (preview) s = *preview;
 
     const auto bounds = getLocalBounds().toFloat();
@@ -127,6 +139,7 @@ SegmentedKeys::SegmentedKeys (juce::StringArray opts, int sel, juce::Colour led)
     : options (std::move (opts)), selected (sel), ledColour (led), labelFont (sans (12.0f, Weight::medium))
 {
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
+    setWantsKeyboardFocus (false);
 }
 
 void SegmentedKeys::setSelected (int index, juce::NotificationType n)

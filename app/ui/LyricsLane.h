@@ -1,15 +1,15 @@
 #pragma once
 
-#include "DummySession.h"
+#include "UiSession.h"
 #include "parts/KeyButton.h"
 
 namespace vb
 {
 /** DESIGN 4.4 歌詞。現在フレーズを強調（歌った分を点灯色でワイプ）、次フレーズを薄く */
-class LyricsLane : public juce::Component
+class LyricsLane : public juce::Component, private SessionView
 {
 public:
-    explicit LyricsLane (const dummy::Session&);
+    explicit LyricsLane (UiSession&);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -17,8 +17,9 @@ public:
     static constexpr int height = 60;
 
 private:
-    const dummy::Session& session;
-    KeyButton editButton { jp ("歌詞パッド"), KeyButton::Kind::ghost };
+    void onSessionChanged (juce::uint32 c) override { if (c & (change::playhead | change::transport)) repaint (textArea); }
+
+    KeyButton editButton { {}, KeyButton::Kind::ghost };
     juce::Rectangle<int> textArea;
 };
 } // namespace vb

@@ -141,7 +141,7 @@ Session makeSession()
     s.viewStart = s.sec (33.0);
     s.viewEnd   = s.sec (55.0);
 
-    s.inputDevice = jp ("USB Audio Interface — In 1");
+    s.inputDevice = juce::String::fromUTF8 ("USB Audio Interface \xe2\x80\x94 In 1");   // 機器名（データ。翻訳しない）
     s.driver      = "WASAPI";
 
     // トラック（DESIGN 4.6 / take_map 例に合わせる）
@@ -183,24 +183,24 @@ Session makeSession()
     project::Track harm2 { TrackType::harm2, {}, {} };
 
     p.tracks = { backing, guide, main, dbl, harm1, harm2 };
-    p.markers = { { s.sec (48.0), jp ("サビ") } };
+    p.markers = { { s.sec (48.0), {}, project::MarkerKind::chorus } };
 
     s.trackUi = {
-        { TrackType::main,        "Main",   true,  false, false, 0.80f, 1 },
-        { TrackType::doubleTrack, "Double", false, false, false, 0.55f, 2 },
-        { TrackType::harm1,       "Harm 1", false, false, false, 0.60f, 3 },
-        { TrackType::harm2,       "Harm 2", false, false, false, 0.60f, 4 },
+        { TrackType::main,        true,  false, false, 0.80f, 1 },
+        { TrackType::doubleTrack, false, false, false, 0.55f, 2 },
+        { TrackType::harm1,       false, false, false, 0.60f, 3 },
+        { TrackType::harm2,       false, false, false, 0.60f, 4 },
     };
     s.selectedTrack = 0;
 
     for (auto& l : lyricDefs)
-        p.lyrics.push_back ({ s.sec (l.t0), s.sec (l.t1), jp (l.text) });
+        p.lyrics.push_back ({ s.sec (l.t0), s.sec (l.t1), utf8 (l.text) });
 
     for (auto& n : melody)
         s.refNotes.push_back ({ s.sec (n.t), s.sec (n.t + n.len), n.midi, n.vib, n.cons });
 
     // ピッチ曲線（10 ms ホップ）
-    const auto from = s.sec (28.0), to = s.sec (62.0);
+    const auto from = s.sec (28.0), to = s.sec (62.0);   // メロディのある区間
     for (int64 smp = from; smp < to; smp += hop)
     {
         const auto t = s.toSec (smp);
@@ -210,7 +210,7 @@ Session makeSession()
         if (ref > 0.0f)
             s.refPitch.push_back ({ smp, ref, low ? 0.1f : 0.95f, 0.0f });
 
-        if (smp <= s.playhead)
+        // 自分のピッチは全区間ぶん用意し、描画側で「再生ヘッドまで」に切る
         {
             bool myLow = false;
             const auto base = refMidiAt (s, t - singerLagSec, myLow);
@@ -281,6 +281,19 @@ bool isRecorded (const Session& s, TrackType type, int64 sample)
                 return true;
 
     return false;
+}
+
+const PitchPoint* myPitchAt (const Session& s, int64 sample)
+{
+    // 10 ms 刻みなので二分探索で直前の点
+    auto it = std::upper_bound (s.myPitch.begin(), s.myPitch.end(), sample,
+                                [] (int64 v, const PitchPoint& p) { return v < p.sample; });
+    if (it == s.myPitch.begin())
+        return nullptr;
+    --it;
+    if (sample - it->sample > 960 || it->confidence < 0.5f)
+        return nullptr;
+    return &*it;
 }
 
 juce::String noteName (float midi)

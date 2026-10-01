@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "i18n/I18n.h"
 
 /*  見た目トークン v2 "Booth"（DESIGN 4.9）
     コンセプト: 夜の録音ブース。暖色グラファイトに機材の LED とタリーランプが灯る。
@@ -10,8 +11,9 @@ namespace vb
 {
 using int64 = juce::int64;
 
-/** UTF-8 リテラル → juce::String（MSVC は /utf-8 でビルドする前提） */
-inline juce::String jp (const char* utf8) { return juce::String::fromUTF8 (utf8); }
+/** UTF-8 のデータ（歌詞・機器名など、翻訳しない文字列）→ juce::String
+    画面の文言は直書きせず tr("key") を使う（app/i18n/I18n.h） */
+inline juce::String utf8 (const char* s) { return juce::String::fromUTF8 (s); }
 
 namespace colours
 {

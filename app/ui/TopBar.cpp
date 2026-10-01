@@ -18,30 +18,48 @@ void drawBoothMark (juce::Graphics& g, juce::Rectangle<float> r, bool recording)
 
     // タリー（右上）
     const auto c = juce::Point<float> (r.getRight() - s * 0.06f, r.getY() + s * 0.06f);
-    g.setColour (colours::bg0);
+    g.setColour (colours::panel);
     g.fillEllipse (juce::Rectangle<float> (s * 0.36f, s * 0.36f).withCentre (c));
     paint::led (g, c, s * 0.11f, recording ? colours::rec : colours::signal, true);
 }
 
 //==============================================================================
-TopBar::TopBar (const dummy::Session& s)
-    : session (s),
-      mode ({ jp ("簡単"), jp ("標準"), jp ("プロ") }, (int) s.mode),
-      device (s.inputDevice, KeyButton::Kind::ghost)
+TopBar::TopBar (UiSession& u, Actions& a)
+    : SessionView (u), actions (a),
+      mode ({ tr ("mode.easy"), tr ("mode.standard"), tr ("mode.pro") }, (int) u->mode),
+      exportKey (tr ("topbar.export"))
 {
-    device.withIcon (Icon::mic).withFont (sans (12.0f));
-    device.setTooltip (jp ("入力デバイス（クリックで入力セットアップ）"));
+    mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
 
-    tally.setState (s.isRecording ? TallyLamp::State::rec
-                                  : (s.isPlaying ? TallyLamp::State::play : TallyLamp::State::standby));
+    device.setButtonText (state().inputDevice);
+    device.withIcon (Icon::mic).withFont (sans (12.0f));
+    device.setTooltip (tr ("topbar.device.tooltip"));
+    device.onClick = [this] { if (actions.openSetup) actions.openSetup(); };
+
+    exportKey.withIcon (Icon::exportFile);
+    exportKey.setTooltip (tr ("topbar.export.tooltip"));
+    exportKey.onClick = [this] { if (actions.openExport) actions.openExport(); };
 
     settings.withIcon (Icon::gear);
-    settings.setTooltip (jp ("設定"));
+    settings.setTooltip (tr ("topbar.settings"));
+    settings.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
 
-    addAndMakeVisible (mode);
-    addAndMakeVisible (device);
-    addAndMakeVisible (tally);
-    addAndMakeVisible (settings);
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &tally, &exportKey, &settings })
+        addAndMakeVisible (c);
+
+    onSessionChanged (change::all);
+}
+
+void TopBar::onSessionChanged (juce::uint32 changes)
+{
+    if ((changes & (change::transport | change::mode)) == 0)
+        return;
+
+    const auto& s = state();
+    tally.setState (s.isRecording ? TallyLamp::State::rec
+                                  : (s.isPlaying ? TallyLamp::State::play : TallyLamp::State::standby));
+    mode.setSelected ((int) s.mode, juce::dontSendNotification);
+    repaint (logoArea);
 }
 
 void TopBar::resized()
@@ -53,14 +71,17 @@ void TopBar::resized()
     r.removeFromLeft (14);
 
     settings.setBounds (centreH (r.removeFromRight (32), 32));
-    r.removeFromRight (10);
+    r.removeFromRight (8);
+    exportKey.setSize (10, 32);
+    exportKey.setBounds (centreH (r.removeFromRight (exportKey.idealWidth()), 32));
+    r.removeFromRight (12);
     tally.setBounds (centreH (r.removeFromRight (TallyLamp::idealWidth()), 28));
     r.removeFromRight (10);
 
     device.setSize (10, 32);
-    const auto dw = juce::jmin (260, device.idealWidth());
+    const auto dw = juce::jmin (240, device.idealWidth());
     device.setBounds (centreH (r.removeFromRight (dw), 32));
-    r.removeFromRight (18);
+    r.removeFromRight (14);
 
     const auto mw = mode.idealWidth();
     mode.setBounds (centreH (r.removeFromRight (mw), 32));
@@ -69,19 +90,27 @@ void TopBar::resized()
     songArea = r;
 }
 
+void TopBar::mouseUp (const juce::MouseEvent& e)
+{
+    // ロゴ → 起動画面（曲の読み込み / 最近のプロジェクト）
+    if (logoArea.contains (e.getPosition()) && actions.openStart)
+        actions.openStart();
+}
+
 void TopBar::paint (juce::Graphics& g)
 {
+    const auto& s = state();
     g.fillAll (colours::panel);
     paint::hline (g, (float) getHeight() - 1.0f, 0.0f, (float) getWidth());
 
     // ロゴ
     {
         auto r = logoArea.toFloat();
-        drawBoothMark (g, r.removeFromLeft (26.0f).withSizeKeepingCentre (26.0f, 26.0f), session.isRecording);
+        drawBoothMark (g, r.removeFromLeft (26.0f).withSizeKeepingCentre (26.0f, 26.0f), s.isRecording);
         r.removeFromLeft (10.0f);
         g.setColour (colours::text);
         g.setFont (sans (16.5f, Weight::semibold));
-        g.drawText ("VoiceBooth", r, juce::Justification::centredLeft, false);
+        g.drawText (tr ("app.name"), r, juce::Justification::centredLeft, false);
     }
 
     // 区切り + 曲名 + 情報
@@ -90,21 +119,22 @@ void TopBar::paint (juce::Graphics& g)
 
         auto r = songArea.withTrimmedLeft (14).toFloat();
         const auto tf = sans (14.0f, Weight::medium);
-        const auto tw = juce::jmin (r.getWidth() - 220.0f, textWidth (tf, session.songName));
+        const auto tw = juce::jmin (r.getWidth() * 0.5f, textWidth (tf, s.songName));
         g.setColour (colours::text);
         g.setFont (tf);
-        g.drawText (session.songName, r.removeFromLeft (tw + 2.0f), juce::Justification::centredLeft, true);
+        g.drawText (s.songName, r.removeFromLeft (tw + 2.0f), juce::Justification::centredLeft, true);
 
         r.removeFromLeft (14.0f);
-        const auto meta = juce::String (session.sampleRate() / 1000) + "kHz  "
-                        + formatTime (session.project.lengthSamples, session.sampleRate(), false)
-                        + "  KEY " + juce::String (session.project.keyOriginal)
-                        + "  " + juce::String (juce::roundToInt (session.bpm())) + "BPM";
+        const auto meta = tr ("topbar.meta",
+                              s.sampleRate() / 1000,
+                              formatTime (s.project.lengthSamples, s.sampleRate(), false),
+                              s.project.keyOriginal,
+                              juce::roundToInt (s.bpm()));
         g.setColour (colours::textMute);
         g.setFont (mono (11.0f));
         g.drawText (meta, r, juce::Justification::centredLeft, true);
     }
 
-    paint::microLabel (g, modeLabelArea.toFloat().withTrimmedRight (8.0f), "MODE", colours::textMute, juce::Justification::centredRight);
+    paint::microLabel (g, modeLabelArea.toFloat().withTrimmedRight (8.0f), tr ("label.mode"), colours::textMute, juce::Justification::centredRight);
 }
 } // namespace vb

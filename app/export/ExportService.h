@@ -38,8 +38,10 @@ public:
             case project::TrackType::doubleTrack: return song + "_double_dry.wav";
             case project::TrackType::harm1:       return song + "_harmony1_dry.wav";
             case project::TrackType::harm2:       return song + "_harmony2_dry.wav";
-            default:                              return {};
+            case project::TrackType::backing:
+            case project::TrackType::guide:       return {};   // ボーカルファイルには混ぜない（DESIGN 6.5）
         }
+        return {};
     }
 };
 } // namespace vb::exporter

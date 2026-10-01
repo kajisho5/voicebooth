@@ -42,10 +42,13 @@ struct Track
     std::vector<CompSegment> comp;
 };
 
+enum class MarkerKind { user, chorus };
+
 struct Marker
 {
     int64 sample = 0;
-    juce::String name;
+    juce::String name;                     // user のみ。自動マーカーは種類から表示名を引く（翻訳）
+    MarkerKind kind = MarkerKind::user;
 };
 
 struct LyricLine

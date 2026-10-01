@@ -12,7 +12,8 @@ enum class Icon
     play, pause, stop, toStart, rec,
     loop, rangeIn, rangeOut, close,
     metronome, gear, mic, headphones, edit, compare, lock,
-    chevronDown, minus, plus
+    chevronDown, chevronRight, minus, plus,
+    exportFile, folder, note, check, warning, globe
 };
 
 juce::Path makeIcon (Icon, juce::Rectangle<float> area);
