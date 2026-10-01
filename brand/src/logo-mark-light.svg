@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs>
+  <linearGradient id="tile" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#36322C"/><stop offset="0.55" stop-color="#1E1C19"/><stop offset="1" stop-color="#121110"/>
+  </linearGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0B0A09"/><stop offset="1" stop-color="#191714"/>
+  </linearGradient>
+  <linearGradient id="capsule" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#D9D2C5"/><stop offset="0.45" stop-color="#F7F3EA"/><stop offset="1" stop-color="#C9C1B3"/>
+  </linearGradient>
+  <radialGradient id="ledglow">
+    <stop offset="0" stop-color="#C6EE6A" stop-opacity="0.55"/><stop offset="1" stop-color="#C6EE6A" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/>
+    <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0"/>
+    <feComposite in2="SourceGraphic" operator="in"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+    <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/>
+  </filter>
+</defs>
+<mask id="cut4" maskUnits="userSpaceOnUse" x="-409.6" y="-399.36" width="1320.96" height="1320.96"><rect x="-409.6" y="-399.36" width="1320.96" height="1320.96" fill="#fff"/><circle cx="443.52" cy="68.48" r="83.66" fill="#000"/></mask>
+<g mask="url(#cut4)"><rect x="58.24" y="68.48" width="385.28" height="385.28" rx="96.87" fill="none" stroke="#141311" stroke-width="37.43"/>
+  <rect x="184.83" y="151.04" width="132.10" height="193.74" rx="66.05" fill="#141311"/>
+  <rect x="235.47" y="340.38" width="30.82" height="66.05" fill="#141311"/></g>
+<circle cx="443.52" cy="68.48" r="50.64" fill="#7FB51F"/>
+</svg>
