@@ -1,5 +1,5 @@
 #include "audio/SongLoader.h"
-#include "audio/MediaFoundationFormat.h"
+#include "audio/Mp4Gapless.h"
 
 namespace vb::audio
 {
@@ -26,23 +26,26 @@ namespace
         return b;
     }
 
-    /** OS の読み手でこの環境が mp3 / m4a を読めるはずか（DESIGN 19 の対応表）
-        Windows の mp3 は Windows Media（wmvcore.dll）。Server や N エディションでは無いことがある */
-    bool expectCompressedSupport (const juce::String& ext)
+    /** この環境で読めるはずか（DESIGN 19）
+        mp3：全 OS で minimp3。m4a：Mac は Core Audio、Windows は Media Foundation＋AAC デコーダ（msauddecmft.dll） */
+    bool expectSupport (const juce::String& ext)
     {
+        if (ext == "mp3")
+            return true;
        #if JUCE_MAC
-        juce::ignoreUnused (ext);
         return true;
        #elif JUCE_WINDOWS
-        // mp3：Media Foundation（無ければ Windows Media）、m4a：Media Foundation と AAC デコーダ（msauddecmft.dll）
-        const bool mf = juce::DynamicLibrary().open ("mfreadwrite.dll");
-        if (ext == "mp3") return mf || juce::DynamicLibrary().open ("wmvcore.dll");
-        if (ext == "m4a") return mf && juce::DynamicLibrary().open ("msauddecmft.dll");
-        return false;
+        return juce::DynamicLibrary().open ("mfreadwrite.dll") && juce::DynamicLibrary().open ("msauddecmft.dll");
        #else
-        juce::ignoreUnused (ext);
         return false;
        #endif
+    }
+
+    /** 頭の位置・長さが ffmpeg と完全一致するはずか
+        mp3：minimp3（全 OS）、m4a：Mac は Core Audio、Windows は Media Foundation ＋ MP4 の edit list で頭を切る */
+    bool expectExact (const juce::String&)
+    {
+        return true;
     }
 
     /** 最初に |x| > threshold になるサンプル（無ければ -1） */
@@ -153,7 +156,7 @@ public:
                 const auto ext = f.getFileExtension().substring (1);
                 const auto r = loadSong (f, formats);
 
-                if (! expectCompressedSupport (ext))
+                if (! expectSupport (ext))
                 {
                     logMessage (juce::String ("  ") + fixture + ": not supported on this system (expected) -> " + errorKey (r.error));
                     expect (r.error == LoadResult::Error::unsupported, fixture);
@@ -165,8 +168,11 @@ public:
 
                 expectEquals (r.info.sampleRate, 44100.0);
                 expectEquals (r.info.numChannels, 2);
-                // エンコーダの遅延・詰め物の扱いはデコーダしだい。長さは ±4096 サンプルの範囲で確認し、値は記録する
-                expect (std::abs (r.info.lengthSamples - 88200) <= 4096, juce::String (r.info.lengthSamples));
+                // エンコーダの遅延・詰め物の扱いはデコーダしだい。完全一致のはずのものは厳しく、ほかは値を記録する
+                if (expectExact (ext))
+                    expectEquals (r.info.lengthSamples, (juce::int64) 88200);
+                else
+                    expect (std::abs (r.info.lengthSamples - 88200) <= 4096, juce::String (r.info.lengthSamples));
                 expectWithinAbsoluteError (r.overview->getOverallMagnitude(), 0.5f, 0.08f);
 
                 std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (f));
@@ -175,7 +181,10 @@ public:
                             + ": length " + juce::String (r.info.lengthSamples) + " (wav 88200)"
                             + ", onset " + juce::String (onset) + " (ffmpeg 22051, offset "
                             + juce::String (onset - 22051) + " samples)");
-                expect (onset >= 0 && std::abs (onset - 22051) <= 2400, juce::String (onset));
+                if (expectExact (ext))
+                    expect (std::abs (onset - 22051) <= 1, "onset " + juce::String (onset));
+                else
+                    expect (onset >= 0 && std::abs (onset - 22051) <= 2400, juce::String (onset));
 
                 // 途中から読む・後ろに戻って読む（再生のシークで使う経路）。頭から読んだときと同じ位置にバーストが出ること
                 {
@@ -190,6 +199,109 @@ public:
                             found = i;
                     logMessage (juce::String ("  ") + fixture + " seek back: burst at +" + juce::String (found) + " (expected +1000)");
                     expect (std::abs (found - 1000) <= 2, juce::String (found));
+                }
+            }
+        }
+
+        beginTest ("MP4 gapless info (edit list / iTunSMPB)");
+        {
+            // ffmpeg の AAC：edit list で 1024 サンプル飛ばし、2.000 秒を使う
+            juce::FileInputStream m4a (juce::File (VOICEBOOTH_TEST_DATA_DIR).getChildFile ("burst.m4a"));
+            const auto g = readMp4Gapless (m4a, 44100.0);
+            expect (g.found);
+            expectEquals (g.source, juce::String ("elst"));
+            expectEquals (g.priming, (juce::int64) 1024);
+            expectEquals (g.validSamples, (juce::int64) 88200);
+
+            // iTunes 形式：moov/udta/meta/ilst/----（mean / name / data）を組み立てて読む
+            auto box = [] (const char* type, const juce::MemoryBlock& body)
+            {
+                juce::MemoryOutputStream out;
+                out.writeIntBigEndian ((int) body.getSize() + 8);
+                out.write (type, 4);
+                out.write (body.getData(), body.getSize());
+                return out.getMemoryBlock();
+            };
+            auto withHeader = [] (int headerBytes, const juce::String& text)
+            {
+                juce::MemoryOutputStream out;
+                for (int i = 0; i < headerBytes; ++i) out.writeByte (0);
+                out << text;
+                return out.getMemoryBlock();
+            };
+            juce::MemoryBlock item;
+            item.append (box ("mean", withHeader (4, "com.apple.iTunes")).getData(), box ("mean", withHeader (4, "com.apple.iTunes")).getSize());
+            const auto nameBox = box ("name", withHeader (4, "iTunSMPB"));
+            const auto data = box ("data", withHeader (8, " 00000000 00000840 0000037C 0000000000015888 00000000"));
+            item.append (nameBox.getData(), nameBox.getSize());
+            item.append (data.getData(), data.getSize());
+            const auto ilst = box ("ilst", box ("----", item));
+            juce::MemoryBlock metaBody (4, true);
+            metaBody.append (ilst.getData(), ilst.getSize());
+            const auto moov = box ("moov", box ("udta", box ("meta", metaBody)));
+            juce::MemoryBlock file = box ("ftyp", withHeader (0, "M4A "));
+            file.append (moov.getData(), moov.getSize());
+
+            juce::MemoryInputStream in (file, false);
+            const auto t = readMp4Gapless (in, 44100.0);
+            expect (t.found);
+            expectEquals (t.source, juce::String ("iTunSMPB"));
+            expectEquals (t.priming, (juce::int64) 2112);          // 0x840
+            expectEquals (t.validSamples, (juce::int64) 88200);    // 0x15888
+
+            // MP4 でないもの
+            juce::MemoryInputStream junk ("not an mp4 file at all", 22, false);
+            expect (! readMp4Gapless (junk, 44100.0).found);
+        }
+
+        beginTest ("external songs vs ffmpeg (VOICEBOOTH_EXTRA_AUDIO_DIR)");
+        {
+            // 手元の実曲で確かめる（著作物はリポジトリに入れない）。<name>.mp3 と、ffmpeg でデコードした <name>.wav を並べて置く
+            //   ffmpeg -i "<name>.mp3" -map 0:a -c:a pcm_f32le "<name>.wav"
+            //   float で書くこと（16bit だと 0 dBFS を超えたサンプルが WAV 側で切れて差に見える）
+            const auto dirPath = juce::SystemStats::getEnvironmentVariable ("VOICEBOOTH_EXTRA_AUDIO_DIR", {});
+            if (dirPath.isEmpty())
+            {
+                logMessage ("  skipped (VOICEBOOTH_EXTRA_AUDIO_DIR is not set)");
+            }
+            else
+            {
+                for (const auto& song : juce::File (dirPath).findChildFiles (juce::File::findFiles, false, "*.mp3"))
+                {
+                    const auto ref = song.withFileExtension ("wav");
+                    if (! ref.existsAsFile()) continue;
+
+                    std::unique_ptr<juce::AudioFormatReader> a (formats.createReaderFor (song));
+                    std::unique_ptr<juce::AudioFormatReader> b (formats.createReaderFor (ref));
+                    expect (a != nullptr && b != nullptr, song.getFileName());
+                    if (a == nullptr || b == nullptr) continue;
+
+                    // 全体を比べる（デコーダの丸め差だけのはず）
+                    constexpr int block = 1 << 16;
+                    juce::AudioBuffer<float> x ((int) a->numChannels, block), y ((int) b->numChannels, block);
+                    float maxDiff = 0.0f;
+                    for (juce::int64 pos = 0; pos < b->lengthInSamples; pos += block)
+                    {
+                        const auto n = (int) juce::jmin ((juce::int64) block, b->lengthInSamples - pos);
+                        a->read (&x, 0, n, pos, true, true);
+                        b->read (&y, 0, n, pos, true, true);
+                        for (int c = 0; c < juce::jmin (x.getNumChannels(), y.getNumChannels()); ++c)
+                            for (int i = 0; i < n; ++i)
+                                maxDiff = juce::jmax (maxDiff, std::abs (x.getSample (c, i) - y.getSample (c, i)));
+                    }
+                    logMessage ("  " + song.getFileName() + " via " + a->getFormatName() + ": length " + juce::String (a->lengthInSamples)
+                                + " (ffmpeg " + juce::String (b->lengthInSamples) + "), max diff " + juce::String (maxDiff, 6));
+                    expectEquals (a->lengthInSamples, b->lengthInSamples);
+                    expectLessThan (maxDiff, 1.0e-4f);
+
+                    // 途中へ飛んで読んでも同じサンプル
+                    const auto at = b->lengthInSamples / 3;
+                    a->read (&x, 0, 4096, at, true, true);
+                    b->read (&y, 0, 4096, at, true, true);
+                    float seekDiff = 0.0f;
+                    for (int i = 0; i < 4096; ++i)
+                        seekDiff = juce::jmax (seekDiff, std::abs (x.getSample (0, i) - y.getSample (0, i)));
+                    expectLessThan (seekDiff, 1.0e-4f);
                 }
             }
         }

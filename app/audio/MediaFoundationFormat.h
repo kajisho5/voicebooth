@@ -6,8 +6,7 @@
     JUCE 標準の読み手は Windows で m4a を読めないため、OS 標準の Media Foundation を使う。
     追加のライブラリ・ライセンスは不要（Windows 7 以降に標準。N エディションは Media Feature Pack が要る）。
 
-    - 対象は .m4a / .mp4 / .aac / .mp3。mp3 も JUCE 標準の Windows Media より優先する
-      （Windows Media の読み手は途中から読むと位置がずれた。開けないときだけ Windows Media に回る）
+    - 対象は .m4a / .mp4 / .aac（.mp3 は minimp3 で開けないときの予備。Mp3Format.h）
     - 位置は「頭からデコードしたサンプル数」で数える。後ろへ戻るときは頭から読み直す
     - 32bit float で受け取る。SR・チャンネルは元のまま（リサンプルしない）
     - Windows 以外ではこのクラスは無い（Mac の m4a は Core Audio、Linux は開発用で非対応） */
@@ -35,7 +34,4 @@ public:
     }
 };
 #endif
-
-/** 曲を開くための読み手一式（JUCE 標準 ＋ Windows では Media Foundation） */
-void registerSongFormats (juce::AudioFormatManager&);
 } // namespace vb::audio
