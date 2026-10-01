@@ -20,8 +20,9 @@ ExportDialog::ExportDialog (UiSession& u)
     {
         if (! session.isTrackVisible (t)) return;
         const auto* tr_ = s.project.findTrack (t);
+        const bool recorded = tr_ != nullptr && ! tr_->comp.empty();
         rows.push_back ({ t, exporter::ExportService::dryFileName (s.songName, t),
-                          tr_ != nullptr && ! tr_->comp.empty(), clip, peak });
+                          recorded, clip && recorded, recorded ? peak : "" });   // ピーク値はダミー（B15）
     };
     add (TrackType::main, true, "-0.1");
     add (TrackType::doubleTrack, false, "-4.8");
@@ -135,7 +136,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         paint::microLabel (g, f.removeFromLeft (80.0f), tr ("export.format"), colours::textMute);
         g.setColour (colours::text);
         g.setFont (sans (12.0f));
-        g.drawText (tr ("export.format.value", s.sampleRate() / 1000, s.project.bitDepthExport), f, juce::Justification::centredLeft, true);
+        g.drawText (tr ("export.format.value", formatKhz (s.sampleRate()), s.project.bitDepthExport), f, juce::Justification::centredLeft, true);
     }
 
     // 書き出し方

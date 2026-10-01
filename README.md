@@ -8,11 +8,16 @@
 
 仕様は [`docs/DESIGN.md`](docs/DESIGN.md) が唯一の正。
 
-## 現在の状態：Phase A（見た目だけ）
+## 現在の状態：Phase B1（曲を開いて実波形）— 手動確認待ち
 
-- A1–A7 実装済み：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
-- **日本語 / English / 한국어 / 简体中文 / 繁體中文**（設定から即時切り替え。DESIGN 10.1）
-- **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_*` をリンクしない構成）。再生・録音は見た目だけで音は出ない
+- Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
+- **B1**：曲ファイル（wav / flac / aiff / ogg、mp3 は Win・Mac、m4a は Mac）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
+- **日本語 / English / 한국어 / 简体中文 / 繁體中文**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
+- **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_devices` をリンクしない構成）。再生・録音はまだ見た目だけで音は出ない（B2 以降）
+
+| 曲を読み込んだところ | 開いた曲の画面（実波形） |
+|---|---|
+| ![](docs/screenshots/b1-loaded.png) | ![](docs/screenshots/b1-main.png) |
 
 ![メイン画面](docs/screenshots/main-ja.png)
 
@@ -66,6 +71,14 @@ cmake --build build
 
 JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR=/path/to/JUCE`
 
+### テスト
+
+```bash
+ctest --test-dir build -C Release --output-on-failure
+```
+
+波形の概形（ビン境界・全チャンネル・粗い段と総当たりの一致）と、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知）を確かめる。CI（Win / Mac）でも実行。
+
 ## 構成
 
 ```text
@@ -74,6 +87,8 @@ docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
 app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（Phase B で音声エンジンにつなぐ）
+app/audio/            曲の読み込み（SongLoader）と波形の概形（WaveformOverview）
+tests/                VoiceBoothTests（ctest）
 app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定
 app/ui/Theme.*        色トークン・書体・描画の基本（キーキャップ / 表示窓 / LED）
 app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFader / LedMeter / Readout / TallyLamp / Icons

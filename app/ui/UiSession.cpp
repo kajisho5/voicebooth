@@ -10,6 +10,15 @@ void UiSession::notify (juce::uint32 changes)
 }
 
 //==============================================================================
+void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSamples,
+                          std::shared_ptr<const audio::WaveformOverview> wave)
+{
+    s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
+                                sampleRate, lengthSamples, std::move (wave));
+    notify (change::all);
+}
+
+//==============================================================================
 void UiSession::setPlaying (bool p)
 {
     if (s.isPlaying == p) return;

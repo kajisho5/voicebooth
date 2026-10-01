@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UiSession.h"
+#include "Timeline.h"
 #include "parts/LedMeter.h"
 
 namespace vb

@@ -271,11 +271,14 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)
     {
         const auto s0 = m.sampleAt (px), s1 = m.sampleAt (px + 1.0f);
         float amp = 0.0f;
-        for (int k = 0; k < 6; ++k)
+        if (backing)
         {
-            const auto smp = s0 + (s1 - s0) * k / 6;
-            amp = juce::jmax (amp, backing ? dummy::backingAmplitude (s, smp)
-                                           : dummy::vocalAmplitude (s, row.type, smp));
+            amp = dummy::backingPeak (s, s0, s1);
+        }
+        else
+        {
+            for (int k = 0; k < 6; ++k)
+                amp = juce::jmax (amp, dummy::vocalAmplitude (s, row.type, s0 + (s1 - s0) * k / 6));
         }
         if (amp <= 0.0f)
             continue;
