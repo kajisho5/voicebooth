@@ -138,6 +138,10 @@ python3 tools/check_i18n.py
 
 アプリアイコン・ロゴ・SNS 画像・インストーラー画像は [`brand/`](brand/README.md)（`python3 brand/build_brand.py` で再生成）。
 
+## 開発の支援
+
+VoiceBooth は無料です。気に入ったら [GitHub Sponsors](https://github.com/sponsors/kajisho5) で支援していただけると開発が続けられます。支援の有無で使える機能は変わりません。
+
 ## ライセンス
 
 VoiceBooth のソースコードは **GNU Affero General Public License v3.0 以降（AGPL-3.0-or-later）** で公開しています（[`LICENSE`](LICENSE)）。
