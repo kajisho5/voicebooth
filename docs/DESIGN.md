@@ -235,6 +235,7 @@ Utawave 後追いの小型Cubaseを作らない。
 
 中央下。自動認識結果。現在フレーズ強調。  
 失敗しても空で進める。貼り付け編集可（歌詞パッド兼用）。
+歌詞ファイルの読み込み・時刻合わせは 7.5.3。
 
 ### 4.5 波形レーン（標準以上。簡単は細くても可）
 
@@ -512,21 +513,67 @@ REC中差分:
 4. 分離品質
 5. 見た目の派手さ
 
+### 7.5 曲の情報：テンポ・拍・キー・区間・歌詞（2026-10-01 決定）
+
+原則：**自動で取れたら使い、取れなければ・違っていれば自分で入れられる。何も入れなくても録音と書き出しはできる。**
+自動の結果は「推定」と薄く出し、触ったら「確定」。確定した値は解析をやり直しても上書きしない。
+
+#### 7.5.1 テンポ・拍・キー
+
+- 自動：BPM、拍の位置、小節の頭（ダウンビート）、キー。信頼度が低ければ「推定」のまま確認を促す
+- 手で入れる：
+  - BPM を数値で（小数 2 桁まで。例 128.00）
+  - タップテンポ（`T` を 4 回以上叩く。叩いた間隔の平均）
+  - **×2 / ÷2**（自動推定でよくある倍・半分の間違いを 1 回で直す）
+  - 「ここを 1 小節目の頭に」（再生ヘッドの位置で決める）。目盛り全体を拍単位で左右にずらす
+  - 拍子：4/4（既定）/ 3/4 / 6/8
+  - キー：C〜B × メジャー / マイナー（トップバーの KEY）
+- 拍の持ち方：自動の時は拍の位置の列（テンポが少し揺れる曲にも追従）、手入力の時は一定テンポ＋1 小節目の位置。途中でテンポが変わる曲の手入力は v1 ではしない
+- 使い道：小節・拍の目盛り（未設定なら秒）、カウントイン・クリック、範囲の吸い付き、BWF / notes.txt の BPM・キー
+
+#### 7.5.2 区間（イントロ・Aメロ・Bメロ・サビ…）
+
+- 自動：区間の境目と、自信がある時だけ「サビ」の名前。ほかは「区間 1, 2…」で出す
+  （公開されている構造解析は intro / verse / chorus / bridge 等の英語圏の分類で、Bメロに当たるものが無い。Aメロ・Bメロの決め付けはしない）
+  - 手がかり：曲の繰り返し（同じ響きが戻ってくる所）、音量の盛り上がり、歌詞の同じ塊の繰り返し（7.5.3）
+- 手で付ける（解析が無くても使える）：
+  - 再生中に `M` で今の位置に区間の頭を打つ。ルーラーを右クリックして「ここから○○」でも
+  - 名前は一覧から：イントロ / Aメロ / Bメロ / サビ / 間奏 / Cメロ / 落ちサビ / 大サビ / アウトロ（＋自由入力）。同じ名前には番号（サビ 1、サビ 2）
+  - 頭は小節線に吸い付く（拍が分かっている時。Alt / Option で吸い付かない）。ドラッグで移動、ダブルクリックで名前、Delete で消す
+- 使い道：曲の全体表示に区間の帯と名前、シークの吸い付き（4.10）、「この区間をループ」「サビへ」、区間を選んで録り直し、take_map / notes.txt に区間名
+
+#### 7.5.3 歌詞の読み込み
+
+- 読めるもの：`.txt`、`.lrc`（時刻付き）、貼り付け、ウィンドウへのドロップ
+- 文字コードは自動判定：UTF-8（BOM あり / なし）、UTF-16、Shift_JIS（CP932。古いメモ帳で保存した日本語の txt）。化けたら選び直せる
+- 1 行＝1 フレーズ。空行＝区間の区切り
+  - 行が「【サビ】」「[Chorus]」「(A メロ)」のような見出しだけなら、歌詞ではなく区間名として使う
+  - 同じ歌詞の塊が 2 回以上出てくる所は「サビ」の候補（7.5.2）
+- 時刻合わせ（どの行をいつ歌うか）：
+  1. `.lrc` の時刻があればそのまま使う
+  2. 自動：歌詞認識（B17）の単語の時刻と、読み込んだ文を突き合わせる（文字は読み込んだ方が正。認識結果で書き換えない）
+  3. 手で：「タップで合わせる」— 再生しながら各行の歌い出しで `Enter`。あとから行の頭をドラッグで微調整
+  4. 時刻が無いままでも表示はする（今の行は `↑` `↓` で手送り）
+- 時刻を合わせた歌詞は `.lrc` で書き出せる（P2）
+- 歌詞はプロジェクトの中に保存するだけで、どこにも送らない
+
 ---
 
 ## 8. データモデル
 
 ```text
 Project
+  format_version
   song_path
   sr, bit_depth_export, length_samples
-  key_original, tempo_original
+  key_original {tonic, mode, source: auto|manual, confidence}
+  tempo {bpm, time_signature, downbeat_sample, beats[] (自動の時の拍の位置), source, confidence}
   cache_dir
   mode_last
   input_profile_id
   tracks[]
-  markers[]
-  lyrics[]
+  sections[] {start_sample, name, source}
+  lyrics {source_file_name, encoding, lines[] {text, start_sample?, section?}}
 
 Track
   type: backing|guide|main|double|harm1|harm2
@@ -543,8 +590,16 @@ Cache
   analysis.json
 ```
 
-プロジェクトは1フォルダ。使用音源は中へコピー（Utawave同等の持ち運び）。  
-`Projects/{song}/project.json`
+プロジェクトは1フォルダ。使用音源は中へコピー（Utawave同等の持ち運び）。
+
+プロジェクトファイル（2026-10-01 決定）：
+
+- 拡張子は **`.vbooth`**（中身は UTF-8 の JSON、`format_version` 付き）。`.vb` は Visual Basic のソースファイルの拡張子として広く使われていて、
+  Windows で Visual Studio などに関連付けられていることがあるため使わない。`.vbooth` は検索した範囲で既存の利用が見つからなかった（2026-10-01）
+- 形：`Projects/{曲名}/{曲名}.vbooth` ＋ 同じフォルダに `Audio/`（曲のコピー・テイク）と `Cache/`（分離・解析の結果。消しても作り直せる）。
+  `.vbooth` をダブルクリックで開く。持ち運びはフォルダごと（Cubase の .cpr ＋ Audio フォルダと同じ考え方。Win と Mac で同じ形）
+- インストーラで `.vbooth` を VoiceBooth に関連付け、専用のドキュメントアイコンを付ける（brand の「未対応」を解消）
+- テンポ・拍・キー・区間・歌詞（7.5）も `.vbooth` に入る
 
 自動保存と世代バックアップを入れる（結線フェーズP1）。
 
@@ -786,7 +841,7 @@ Main採用後 → Harm1アーム → Mainを薄くモニター → 3度ガイド
 - デバイス変更後にレベル画面を再提示
 - クリップテイクを黙って採用しない
 - UI_MOCK で音声デバイスなしにメイン画面が開く
-- 同一 project.json が Win と Mac で開く
+- 同一の .vbooth が Win と Mac で開く
 
 ---
 
@@ -840,19 +895,21 @@ B2. オフボ再生 + シーク + ループ（入力なし）
     → 実装済み・手動確認待ち。既定の出力デバイス（入力 0 ch）でオフボを鳴らす。位置は鳴っている音から取る（サンプル単位）。出力の SR は曲に合わせ、合わなければ試聴用に変換して表示。オフボのフェーダー（0.75 = 0 dB）と M が効く。曲はデコードしてメモリに持つ（B14 で内部 WAV へ）  
 B3. デバイス列挙 + メーター  
 B4. マイク入力モニター（録音しない）  
+B4b. 曲の情報を手で入れる（7.5。解析なしで使える部分）：BPM の数値・タップ・×2 / ÷2・1 小節目・拍子・キー、区間の手付け、歌詞の txt / lrc 読み込みとタップで合わせる。カウントイン・クリックに BPM が要るので録音の前に置く  
 B5. 通しDry録音 → フル尺WAV（遡及は次）  
 B6. レイテンシ校正を録音位置へ適用  
 B7. 遡及録音  
 B8. リアルタイムピッチ（自分だけ）  
 B9. お手本ピッチ事前解析 + 重ね + 色  
+B9b. テンポ・拍・キー・区間の自動推定（7.5。推定は薄く出し、手で直せる）  
 B10. パンチイン + 区間テイク + フル尺書き出し不変  
 B11. テンポ / キー（練習）。納品RECでロック  
 B12. トラック Double / Harm、モニターバス分離  
 B13. 入力セットアップウィザード  
-B14. プロジェクト保存/自動保存  
+B14. プロジェクト保存/自動保存（`.vbooth`、8）  
 B15. 納品パック  
 B16. 分離キャッシュ（失敗してもB2は生きる）  
-B17. 歌詞認識と手動編集  
+B17. 歌詞認識と手動編集（読み込んだ歌詞があれば、認識は時刻合わせだけに使う。7.5.3）  
 B18. 入りタイミング、テイク比較、解析（プロ）
 
 Bは「1本結線しては手動確認」。まとめて配線するな。
@@ -1003,6 +1060,9 @@ Phase A だけやれ。音声デバイスは開くな。
 | 分離：Main / ハモリ（リード / バック） | Mel-RoFormer Karaoke（aufr33 / viperx） | lead SDR 9.45 / back+inst 14.84（MVSEP） | **明記なし**（UVR の Issue #2295 で質問中・未回答） | 使わない（許可待ち）。代わりを探す |
 | お手本ピッチ（B9） | RMVPE（伴奏入りの歌から直接ピッチ） | 論文：全 SNR で頑健 | 実装は Apache-2.0。学習済み重みの所在・条件は未確認 | 第一候補（重みを確認） |
 | 〃 | FCPE（高速） | MIR-1K RPA 96.79% | 未確認 | 速度が要る時の候補 |
+| 拍・小節の頭・BPM（B9b） | Beat This!（CPJKU、ISMIR 2024） | ダウンビートも出す。小さいモデルは約 8 MB | **コードと公開の重みが MIT**（リポジトリに明記） | **第一候補** |
+| 〃・キー（B9b） | Essentia（RhythmExtractor2013 / KeyExtractor） | 学習済みの重みが要らない信号処理。C++ | AGPLv3 / 商用のデュアル（本アプリの AGPL と合う） | キー推定の第一候補、BPM の予備 |
+| 区間（B9b） | All-In-One（mir-aidj） | 拍・小節・区間とラベル（intro / verse / chorus / bridge / outro 等） | コードは MIT。**重みのライセンスは明記なし**。入力に Demucs の 4 ステムが要り重い | 使わない（許可待ち）。繰り返し・音量・歌詞から自前で境目を推す |
 | 歌詞（B17） | Whisper large-v3-turbo | large-v3 より 4〜8 倍速い | MIT | 候補 |
 | 〃 | kotoba-whisper v2（日本語特化、large-v3 の蒸留） | 6.3 倍速い | Apache-2.0 | 日本語の第一候補（歌での精度は要検証） |
 
@@ -1013,7 +1073,7 @@ Phase A だけやれ。音声デバイスは開くな。
 
 出典：MVSEP アルゴリズム一覧 https://mvsep.com/en/algorithms ／ MSST 学習済みモデル一覧 https://github.com/ZFTurbo/Music-Source-Separation-Training/blob/main/docs/pretrained_models.md ／
 Mel-Band RoFormer（Kimberley Jensen）https://huggingface.co/KimberleyJSN/melbandroformer ／ Karaoke のライセンス質問 https://github.com/Anjok07/ultimatevocalremovergui/issues/2295 ／
-RMVPE https://arxiv.org/abs/2306.15412 , https://github.com/Dream-High/RMVPE ／ whisper.cpp（モデルサイズ）https://github.com/ggml-org/whisper.cpp ／ kotoba-whisper https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0
+RMVPE https://arxiv.org/abs/2306.15412 , https://github.com/Dream-High/RMVPE ／ Beat This! https://github.com/CPJKU/beat_this ／ Essentia https://github.com/MTG/essentia ／ All-In-One https://github.com/mir-aidj/all-in-one ／ whisper.cpp（モデルサイズ）https://github.com/ggml-org/whisper.cpp ／ kotoba-whisper https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0
 
 仮決めしてよいもの:
 
