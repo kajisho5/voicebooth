@@ -137,8 +137,11 @@ void PracticeModule::onSessionChanged (juce::uint32 changes)
     tempo.encoder().setValue (s.tempoPercent, juce::dontSendNotification);
     key.encoder().setValue (s.keyShift, juce::dontSendNotification);
 
-    tempo.setCaption (s.tempoPercent == 100 ? tr ("practice.tempo.original", juce::roundToInt (s.bpm()))
-                                            : tr ("practice.tempo.bpm", juce::roundToInt (s.bpm() * s.tempoPercent / 100.0)));
+    if (! s.tempoKnown)
+        tempo.setCaption (tr ("practice.tempo.unknown"));   // テンポ推定前は BPM を出さない
+    else
+        tempo.setCaption (s.tempoPercent == 100 ? tr ("practice.tempo.original", juce::roundToInt (s.bpm()))
+                                                : tr ("practice.tempo.bpm", juce::roundToInt (s.bpm() * s.tempoPercent / 100.0)));
     key.setCaption (s.keyShift == 0 ? tr ("practice.key.original") : tr ("practice.key.shifted"));
 
     const bool lock = session.deliveryLocked();
@@ -240,7 +243,7 @@ void RecordModule::paint (juce::Graphics& g)
 
     g.setColour (colours::textDim);
     g.setFont (mono (10.5f));
-    g.drawText (tr ("record.format", s.sampleRate() / 1000, s.project.bitDepthExport,
+    g.drawText (tr ("record.format", formatKhz (s.sampleRate()), s.project.bitDepthExport,
                     formatTime (s.project.lengthSamples, s.sampleRate(), false)),
                 inner, juce::Justification::centredLeft, true);
 

@@ -20,6 +20,7 @@ namespace change
         practice  = 1 << 5,   // テンポ / キー / 録音モード
         mode      = 1 << 6,   // 簡単 / 標準 / プロ
         monitor   = 1 << 7,
+        song      = 1 << 8,   // 曲を開いた（全部が変わる）
         all       = 0xffffffff
     };
 }
@@ -40,6 +41,11 @@ public:
 
     void addListener (Listener* l)    { listeners.add (l); }
     void removeListener (Listener* l) { listeners.remove (l); }
+
+    // --- 曲 -----------------------------------------------------------------
+    /** 開いた曲に差し替える（B1）。録音・再生は止まり、位置は頭へ */
+    void loadSong (const juce::File&, int sampleRate, int64 lengthSamples,
+                   std::shared_ptr<const audio::WaveformOverview>);
 
     // --- 輸送 ---------------------------------------------------------------
     void setPlaying (bool);

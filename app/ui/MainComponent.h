@@ -11,6 +11,7 @@
 #include "Rack.h"
 #include "StatusBar.h"
 #include "Overlay.h"
+#include "audio/SongLoader.h"
 
 namespace vb
 {
@@ -27,7 +28,8 @@ struct AppHooks
 /** 起動時の指定（開発・スクリーンショット用。--screen= など） */
 struct LaunchOptions
 {
-    juce::String screen;          // start / analyzing / setup / setup2 / setup3 / export / settings / confirm-rec
+    juce::String screen;          // start / setup / setup2 / setup3 / export / settings / confirm-rec
+    juce::File open;              // この曲を開く（--open=）
     bool recording = false;
     bool playing = false;
     juce::String mode;            // easy / standard / pro
@@ -36,7 +38,12 @@ struct LaunchOptions
 
 /** DESIGN 4 メイン画面（練習兼録音）。左にキャンバス、右にラック。
     ショートカット（DESIGN 4.2）と、確認ダイアログが要る操作（DESIGN 4.7 / 6）もここで扱う */
-class MainComponent : public juce::Component, private juce::Timer, private SessionView
+class StartScreen;
+
+class MainComponent : public juce::Component,
+                      public juce::FileDragAndDropTarget,
+                      private juce::Timer,
+                      private SessionView
 {
 public:
     MainComponent (UiSession&, AppHooks&);
@@ -49,8 +56,13 @@ public:
     void resized() override;
     bool keyPressed (const juce::KeyPress&) override;
 
+    /** 曲ファイルをメイン画面にドロップ → 起動画面で読み込む（B1） */
+    bool isInterestedInFileDrag (const juce::StringArray&) override;
+    void filesDropped (const juce::StringArray&, int, int) override;
+
     void openWelcome();
-    void openStart (bool analyzing = false, bool firstRun = false);
+    StartScreen* openStart (bool firstRun = false);
+    void openSong (const juce::File&);
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
@@ -72,6 +84,7 @@ private:
 
     AppHooks& hooks;
     Actions actions;
+    audio::SongLoader songLoader;   // 曲の読み込み（バックグラウンド）
 
     TopBar top;
     TransportBar transport;

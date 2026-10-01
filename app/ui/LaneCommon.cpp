@@ -4,18 +4,27 @@ namespace vb::lane
 {
 namespace
 {
+    /** 目盛りの単位。テンポが分かっていれば拍と小節、分からなければ 1 秒と 5 秒 */
     int64 beatLength (const dummy::Session& s)
     {
+        if (! s.tempoKnown)
+            return s.sampleRate();
         return (int64) std::llround (60.0 / s.bpm() * s.sampleRate());
+    }
+
+    int beatsPerBar (const dummy::Session& s)
+    {
+        return s.tempoKnown ? s.beatsPerBar : 5;
     }
 
     template <typename Fn>
     void forEachBeat (const dummy::Session& s, Fn&& fn)
     {
         const auto beat = beatLength (s);
+        const auto perBar = beatsPerBar (s);
         for (auto b = (s.viewStart / beat) * beat; b <= s.viewEnd; b += beat)
             if (b >= s.viewStart)
-                fn (b, (b / beat) % s.beatsPerBar == 0, b / beat);
+                fn (b, (b / beat) % perBar == 0, b / beat);
     }
 }
 
@@ -101,7 +110,8 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
         if (barLine)
         {
             g.setColour (colours::textDim);
-            g.drawText (juce::String (beatIndex / s.beatsPerBar + 1),
+            g.drawText (s.tempoKnown ? juce::String (beatIndex / s.beatsPerBar + 1)
+                                     : formatTime (b, s.sampleRate(), false),
                         juce::Rectangle<float> (x + 5.0f, r.getY() + 2.0f, 40.0f, r.getHeight() - 8.0f),
                         juce::Justification::centredLeft, false);
         }

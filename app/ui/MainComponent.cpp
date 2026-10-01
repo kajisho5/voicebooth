@@ -61,8 +61,8 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
         clockFrozen = true;
     }
 
+    if (o.open != juce::File())     openSong (o.open);
     if (o.screen == "start")        openStart();
-    if (o.screen == "analyzing")    openStart (true);
     if (o.screen == "setup")        openSetup (0);
     if (o.screen == "setup2")       openSetup (1);
     if (o.screen == "setup3")       openSetup (2);
@@ -304,16 +304,34 @@ void MainComponent::openWelcome()
         if (hooks.firstRunDone) hooks.firstRunDone();
         // 続けて初回だけのモードの質問（起動画面）
         juce::Component::SafePointer<MainComponent> safe (this);
-        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openStart (false, true); });
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openStart (true); });
     };
     overlay.show (std::move (screen), false);
 }
 
-void MainComponent::openStart (bool analyzing, bool firstRun)
+StartScreen* MainComponent::openStart (bool firstRun)
 {
-    auto screen = std::make_unique<StartScreen> (session, analyzing, firstRun);
+    auto screen = std::make_unique<StartScreen> (session, songLoader, firstRun);
+    auto* raw = screen.get();
     screen->onDone = [this] { overlay.close(); };
     overlay.show (std::move (screen), false);
+    return raw;
+}
+
+void MainComponent::openSong (const juce::File& f)
+{
+    openStart()->openFile (f);
+}
+
+bool MainComponent::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    // ダイアログ表示中・録音中は受けない（起動画面は自分で受ける）
+    return files.size() > 0 && ! overlay.isShowing() && ! state().isRecording;
+}
+
+void MainComponent::filesDropped (const juce::StringArray& files, int, int)
+{
+    openSong (juce::File (files[0]));
 }
 
 void MainComponent::openSetup (int step)
