@@ -35,6 +35,27 @@ namespace
         return names.joinIntoString (tr ("settings.system.sep"));
     }
 
+    /** 内蔵は「Booth — 夜のブース」、自作は「名前 — 作者」（作者が無ければ「自作」） */
+    juce::StringArray skinNames (const std::vector<skin::Skin>& skins)
+    {
+        juce::StringArray a;
+        for (auto& s : skins)
+        {
+            const auto sub = s.builtIn ? tr (skin::subtitleKey (s.id).toRawUTF8())
+                                       : (s.author.isNotEmpty() ? s.author : tr ("settings.skin.mine"));
+            a.add (s.name + utf8 (" \xe2\x80\x94 ") + sub);
+        }
+        return a;
+    }
+
+    int skinIndex (const std::vector<skin::Skin>& skins, const juce::String& id)
+    {
+        for (size_t i = 0; i < skins.size(); ++i)
+            if (skins[i].id == id)
+                return (int) i;
+        return 0;
+    }
+
     int languageIndex (i18n::Language lang)
     {
         const auto& list = i18n::available();
@@ -45,9 +66,13 @@ namespace
     }
 }
 
-SettingsDialog::SettingsDialog (UiSession& u)
+SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, const juce::String& currentSkin)
     : DialogPanel (tr ("settings.title"), tr ("settings.micro")), SessionView (u),
+      skinChoices (std::move (skinList)),
       language (languageNames(), languageIndex (i18n::current())),
+      skinPicker (skinNames (skinChoices), skinIndex (skinChoices, currentSkin)),
+      editSkin (tr ("settings.skin.edit")),
+      newSkin (tr ("settings.skin.new")),
       mode ({ tr ("mode.easy"), tr ("mode.standard"), tr ("mode.pro") }, (int) u->mode),
       tolerance ({ "20", "30", "50" }, u->pitchToleranceCents <= 20.0f ? 0 : (u->pitchToleranceCents <= 30.0f ? 1 : 2)),
       countIn ({ tr ("transport.countIn.off"), "1", "2" }, u->countInBars),
@@ -59,6 +84,11 @@ SettingsDialog::SettingsDialog (UiSession& u)
       systemInfo (system::gather (juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("VoiceBooth")))
 {
     language.onChange = [this] (int i) { if (onLanguage) onLanguage (i18n::available()[(size_t) i].id); };
+    skinPicker.onChange = [this] (int i) { if (onSkin && juce::isPositiveAndBelow (i, (int) skinChoices.size())) onSkin (skinChoices[(size_t) i].id); };
+    editSkin.withIcon (Icon::edit);
+    editSkin.onClick = [this] { if (onEditSkin) onEditSkin(); };
+    newSkin.withIcon (Icon::plus);
+    newSkin.onClick = [this] { if (onNewSkin) onNewSkin(); };
     mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
     tolerance.onChange = [this] (int i) { const float v[] = { 20.0f, 30.0f, 50.0f }; session.setPitchTolerance (v[i]); };
     countIn.onChange = [this] (int i) { session.setCountIn (i); };
@@ -104,17 +134,26 @@ SettingsDialog::SettingsDialog (UiSession& u)
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
         { tr ("settings.cache"),      utf8 ("~/Music/VoiceBooth/Cache"), &cacheKey,  0 },
         { tr ("settings.system"),     systemSummary (systemInfo),      nullptr,      330, systemValue, systemLed },
-        { tr ("settings.theme"),      tr ("settings.theme.note"),      nullptr,      0,   tr ("settings.theme.value") },
+        { tr ("settings.skin"),       tr ("settings.skin.note"),       &skinPicker,  juce::jmax (200, skinPicker.idealWidth()), {}, {}, { &newSkin, &editSkin } },
         { tr ("settings.support"),    tr ("settings.support.note"),    &supportKey,  0 },
     };
 
     for (auto& r : rows)
+    {
         if (r.control != nullptr)
             addAndMakeVisible (r.control);
+        for (auto* k : r.extras)
+        {
+            // control の左に置くキーの分だけ、文言の幅を詰める
+            k->setSize (10, 32);
+            r.controlWidth += juce::jmax (72, k->idealWidth()) + 8;
+            addAndMakeVisible (k);
+        }
+    }
 
     addFooterKey (tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
 
-    setSize (760, headerH + 14 + rowH * (int) rows.size() + footerH + 12);
+    setSize (820, headerH + 14 + rowH * (int) rows.size() + footerH + 12);
     onSessionChanged (change::all);
 }
 
@@ -125,6 +164,13 @@ void SettingsDialog::onSessionChanged (juce::uint32)
     countIn.setSelected (s.countInBars, juce::dontSendNotification);
     octaveAlign.setToggleState (s.octaveAlign, juce::dontSendNotification);
     octaveAlign.setButtonText (s.octaveAlign ? tr ("common.on") : tr ("common.off"));
+
+    // 録音中はスキンを切り替えない（DESIGN 4.11）
+    for (auto* c : { (juce::Component*) &skinPicker, (juce::Component*) &editSkin, (juce::Component*) &newSkin })
+    {
+        c->setEnabled (! s.isRecording);
+        c->setAlpha (s.isRecording ? 0.45f : 1.0f);
+    }
 
     // クロスフェードはプロのみ編集（DESIGN 6.4）
     crossfade.setEnabled (s.mode == project::Mode::pro);
@@ -148,6 +194,17 @@ void SettingsDialog::layoutBody (juce::Rectangle<int> r)
             k->setSize (10, 32);
             const auto w = juce::jmax (96, k->idealWidth());
             k->setBounds (c.removeFromRight (w).withSizeKeepingCentre (w, 32));
+        }
+        else if (! row.extras.empty())
+        {
+            auto area = c.removeFromRight (row.controlWidth);
+            for (auto* key : row.extras)
+            {
+                const auto keyW = juce::jmax (72, key->idealWidth());
+                key->setBounds (area.removeFromLeft (keyW).withSizeKeepingCentre (keyW, 32));
+                area.removeFromLeft (8);
+            }
+            row.control->setBounds (area.withSizeKeepingCentre (area.getWidth(), 32));
         }
         else
         {

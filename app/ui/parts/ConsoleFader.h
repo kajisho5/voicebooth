@@ -8,7 +8,7 @@ namespace vb
 class ConsoleFader : public juce::Slider
 {
 public:
-    explicit ConsoleFader (double value, juce::Colour capLine = colours::signal);
+    explicit ConsoleFader (double value, colours::Tone capLine = colours::signal);
 
     /** 横に出すモニター音量メーター（0..1、負なら非表示） */
     void setMeter (float level) { meter = level; repaint(); }
@@ -19,7 +19,7 @@ public:
     static constexpr float capW = 30.0f, capH = 16.0f;
 
 private:
-    juce::Colour capLine;
+    colours::Tone capLine;
     float meter = -1.0f;
     bool previewHover = false;
 };
@@ -29,7 +29,7 @@ class ChannelStrip : public juce::Component
 {
 public:
     ChannelStrip (const juce::String& name, double value, float meterLevel,
-                  juce::Colour capLine = colours::signal, bool withMuteSolo = true,
+                  colours::Tone capLine = colours::signal, bool withMuteSolo = true,
                   const juce::String& note = {});
 
     ConsoleFader& fader() { return slider; }
