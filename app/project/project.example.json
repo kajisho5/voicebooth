@@ -1,0 +1,44 @@
+{
+  "format": "voicebooth.project",
+  "format_version": 1,
+  "song_path": "audio/Demo_song.wav",
+  "sr": 48000,
+  "bit_depth_export": 24,
+  "length_samples": 6528000,
+  "key_original": 0,
+  "tempo_original": 120.0,
+  "cache_dir": "cache",
+  "mode_last": "standard",
+  "input_profile_id": "usb-audio-interface-in1",
+  "tracks": [
+    { "type": "backing", "takes": [], "comp": [] },
+    { "type": "guide",   "takes": [], "comp": [] },
+    {
+      "type": "main",
+      "takes": [
+        { "id": "take2", "path": "takes/main/take2.wav", "start_sample": 0,       "end_sample": 6528000,
+          "created": "2026-09-30T21:04:11+09:00", "clip": false, "rec_mode": "delivery", "latency_samples": 538 },
+        { "id": "take4", "path": "takes/main/take4.wav", "start_sample": 2304000, "end_sample": 3456000,
+          "created": "2026-09-30T21:18:52+09:00", "clip": true,  "rec_mode": "delivery", "latency_samples": 538 }
+      ],
+      "comp": [
+        { "start_sample": 0,       "end_sample": 2304000, "take_id": "take2" },
+        { "start_sample": 2304000, "end_sample": 3456000, "take_id": "take4" },
+        { "start_sample": 3456000, "end_sample": 6528000, "take_id": "take2" }
+      ]
+    },
+    {
+      "type": "double",
+      "takes": [
+        { "id": "take2", "path": "takes/double/take2.wav", "start_sample": 2304000, "end_sample": 3456000,
+          "created": "2026-09-30T21:30:02+09:00", "clip": false, "rec_mode": "delivery", "latency_samples": 538 }
+      ],
+      "comp": [ { "start_sample": 2304000, "end_sample": 3456000, "take_id": "take2" } ]
+    },
+    { "type": "harm1", "takes": [], "comp": [] }
+  ],
+  "markers": [ { "sample": 2304000, "name": "サビ" } ],
+  "lyrics": [
+    { "start_sample": 1704000, "end_sample": 1968000, "text": "同じ穴の無地 投げ所" }
+  ]
+}

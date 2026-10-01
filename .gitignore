@@ -1,0 +1,17 @@
+# build
+build/
+build-*/
+cmake-build-*/
+out/
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+*.user
+.DS_Store
+Thumbs.db
+
+# 再配布禁止（DESIGN 11.1 / 17）
+**/asiosdk*/
+**/ASIOSDK*/
