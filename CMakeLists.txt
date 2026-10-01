@@ -94,10 +94,15 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/InputMeter.cpp
     app/audio/DeviceRules.cpp)
 
+# 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
+set(VOICEBOOTH_SONG_SOURCES
+    app/song/LyricsImport.cpp)
+
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
     app/i18n/I18n.cpp
     ${VOICEBOOTH_AUDIO_SOURCES}
+    ${VOICEBOOTH_SONG_SOURCES}
     # テーマ
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
@@ -191,7 +196,10 @@ if(VOICEBOOTH_TESTS)
         tests/PlaybackCoreTests.cpp
         tests/InputMeterTests.cpp
         tests/DeviceRulesTests.cpp
-        ${VOICEBOOTH_AUDIO_SOURCES})
+        tests/LyricsImportTests.cpp
+        tests/TempoTests.cpp
+        ${VOICEBOOTH_AUDIO_SOURCES}
+        ${VOICEBOOTH_SONG_SOURCES})
     target_include_directories(VoiceBoothTests PRIVATE app)
     target_compile_definitions(VoiceBoothTests PRIVATE
         JUCE_WEB_BROWSER=0
