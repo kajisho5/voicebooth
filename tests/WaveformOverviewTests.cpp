@@ -111,6 +111,48 @@ public:
             expectEquals (o.getPeak (0, 300).max, 0.5f);
         }
 
+        beginTest ("RMS: constant, sine and silence");
+        {
+            const int64 len = 48000 * 3 + 100;
+            std::vector<std::vector<float>> ch (2, std::vector<float> ((size_t) len, 0.0f));
+            for (int64 i = 0; i < 48000; ++i)
+                ch[0][(size_t) i] = ch[1][(size_t) i] = 0.5f;                                    // 0–1 s：一定 0.5
+            for (int64 i = 48000; i < 96000; ++i)
+                ch[0][(size_t) i] = (float) std::sin (juce::MathConstants<double>::twoPi * 1000.0 * (double) i / 48000.0);   // 1–2 s：正弦（左だけ）
+            const auto o = build (ch, 4000);
+
+            expectWithinAbsoluteError (o.getRms (0, 48000), 0.5f, 1.0e-4f);   // 48000 はビン境界でないので端のビンを含む
+            // 左だけ振幅 1 の正弦：チャンネル平均パワー 0.25 → RMS 0.5
+            expectWithinAbsoluteError (o.getRms (48000, 96000), 0.5f, 1.0e-3f);
+            expectWithinAbsoluteError (o.getRms (96000, len), 0.0f, 1.0e-6f);
+            expectWithinAbsoluteError (o.getRms (0, len), std::sqrt ((0.25f * 48000 + 0.25f * 48000) / (float) len), 1.0e-4f);
+            expectEquals (o.getRms (len, len + 10), 0.0f);
+        }
+
+        beginTest ("RMS: coarse level matches brute force");
+        {
+            const int64 len = 48000 * 7 + 333;
+            std::vector<std::vector<float>> ch (1, std::vector<float> ((size_t) len));
+            Lcg rng;
+            for (auto& v : ch[0])
+                v = rng.next();
+            const auto o = build (ch, 65536);
+
+            Lcg pick;
+            for (int i = 0; i < 100; ++i)
+            {
+                const auto a = (int64) ((pick.next() * 0.5f + 0.5f) * (float) len);
+                const auto b = juce::jmin (len, a + (int64) ((pick.next() * 0.5f + 0.5f) * (float) len));
+                if (b <= a) continue;
+                // 期待値：範囲を含むビン全体の生サンプル
+                const auto from = (a / bin) * bin, to = juce::jmin (len, ((b - 1) / bin + 1) * bin);
+                double sum = 0.0;
+                for (auto k = from; k < to; ++k)
+                    sum += (double) ch[0][(size_t) k] * ch[0][(size_t) k];
+                expectWithinAbsoluteError (o.getRms (a, b), (float) std::sqrt (sum / (double) (to - from)), 1.0e-4f);
+            }
+        }
+
         beginTest ("coarse level matches brute force (long-song LOD)");
         {
             const int64 len = 48000 * 10 + 77;

@@ -25,6 +25,35 @@ namespace
         return b;
     }
 
+    /** OS の読み手でこの環境が mp3 / m4a を読めるはずか（DESIGN 19 の対応表）
+        Windows の mp3 は Windows Media（wmvcore.dll）。Server や N エディションでは無いことがある */
+    bool expectCompressedSupport (const juce::String& ext)
+    {
+       #if JUCE_MAC
+        juce::ignoreUnused (ext);
+        return true;
+       #elif JUCE_WINDOWS
+        if (ext != "mp3") return false;
+        juce::DynamicLibrary wm;
+        return wm.open ("wmvcore.dll");
+       #else
+        juce::ignoreUnused (ext);
+        return false;
+       #endif
+    }
+
+    /** 最初に |x| > threshold になるサンプル（無ければ -1） */
+    int64 firstAbove (juce::AudioFormatReader& reader, float threshold)
+    {
+        juce::AudioBuffer<float> b ((int) reader.numChannels, (int) reader.lengthInSamples);
+        reader.read (&b, 0, (int) reader.lengthInSamples, 0, true, true);
+        for (int i = 0; i < b.getNumSamples(); ++i)
+            for (int c = 0; c < b.getNumChannels(); ++c)
+                if (std::abs (b.getSample (c, i)) > threshold)
+                    return i;
+        return -1;
+    }
+
     bool waitFor (const bool& flag, int ms)
     {
         for (int t = 0; t < ms && ! flag; t += 10)
@@ -107,6 +136,44 @@ public:
             const auto r = loadSong (f, formats, [&] (float) { return ++calls < 2; });
             expect (r.error == LoadResult::Error::cancelled);
             expect (r.overview == nullptr);
+        }
+
+        beginTest ("mp3 / m4a through the OS decoder");
+        {
+            // tests/data/make_fixtures.sh：88200 サンプル、22050 サンプル目から 1 kHz のバースト
+            //   ffmpeg で 22051 サンプル目に |x| > 0.05（基準）。差がデコーダの頭のずれ
+            const juce::File data (VOICEBOOTH_TEST_DATA_DIR);
+            for (auto name : { "burst.mp3", "burst.m4a" })
+            {
+                const auto f = data.getChildFile (name);
+                expect (f.existsAsFile(), f.getFullPathName());
+                const auto ext = f.getFileExtension().substring (1);
+                const auto r = loadSong (f, formats);
+
+                if (! expectCompressedSupport (ext))
+                {
+                    logMessage (juce::String ("  ") + name + ": not supported on this system (expected) -> " + errorKey (r.error));
+                    expect (r.error == LoadResult::Error::unsupported, name);
+                    continue;
+                }
+
+                expect (r.ok(), juce::String (name) + ": " + errorKey (r.error));
+                if (! r.ok()) continue;
+
+                expectEquals (r.info.sampleRate, 44100.0);
+                expectEquals (r.info.numChannels, 2);
+                // エンコーダの遅延・詰め物の扱いはデコーダしだい。長さは ±4096 サンプルの範囲で確認し、値は記録する
+                expect (std::abs (r.info.lengthSamples - 88200) <= 4096, juce::String (r.info.lengthSamples));
+                expectWithinAbsoluteError (r.overview->getOverallMagnitude(), 0.5f, 0.08f);
+
+                std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (f));
+                const auto onset = firstAbove (*reader, 0.05f);
+                logMessage (juce::String ("  ") + name + " via " + r.info.formatName
+                            + ": length " + juce::String (r.info.lengthSamples) + " (wav 88200)"
+                            + ", onset " + juce::String (onset) + " (ffmpeg 22051, offset "
+                            + juce::String (onset - 22051) + " samples)");
+                expect (onset >= 0 && std::abs (onset - 22051) <= 2400, juce::String (onset));
+            }
         }
 
         beginTest ("song extensions");
