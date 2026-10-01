@@ -105,6 +105,7 @@ set(VOICEBOOTH_RECORD_SOURCES
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
     app/song/LyricsImport.cpp
+    app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
     app/analysis/Align.cpp)
 
@@ -136,8 +137,10 @@ target_sources(VoiceBooth PRIVATE
     # 状態
     app/ui/DummySession.cpp
     app/ui/UiSession.cpp
+    app/ui/UiSessionSong.cpp
     # 画面
     app/ui/LaneCommon.cpp
+    app/ui/SongMarks.cpp
     app/ui/Overlay.cpp
     app/ui/TopBar.cpp
     app/ui/TransportBar.cpp
@@ -156,7 +159,9 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/WelcomeScreen.cpp
     app/ui/screens/UpdateDialog.cpp
     app/ui/screens/SkinEditor.cpp
-    app/ui/screens/SkinTemplates.cpp)
+    app/ui/screens/SkinTemplates.cpp
+    app/ui/screens/SongInfoDialog.cpp
+    app/ui/screens/LyricsDialog.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 
@@ -225,6 +230,7 @@ if(VOICEBOOTH_TESTS)
         tests/DeviceRulesTests.cpp
         tests/LyricsImportTests.cpp
         tests/TempoTests.cpp
+        tests/SongInfoTests.cpp
         tests/SystemCheckTests.cpp
         tests/AlignTests.cpp
         tests/SkinTests.cpp

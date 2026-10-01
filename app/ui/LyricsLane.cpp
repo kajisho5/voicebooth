@@ -2,22 +2,80 @@
 
 namespace vb
 {
-LyricsLane::LyricsLane (UiSession& u) : SessionView (u)
+namespace
+{
+    /** 小さなキーの形（「Enter」など）。幅を返す */
+    float drawKeyHint (juce::Graphics& g, juce::Point<float> leftCentre, const juce::String& key)
+    {
+        const auto f = mono (10.0f, Weight::semibold);
+        const auto w = textWidth (f, key) + 12.0f;
+        const auto r = juce::Rectangle<float> (leftCentre.x, leftCentre.y - 9.0f, w, 18.0f);
+        paint::keycap (g, r, {}, 3.0f);
+        g.setColour (colours::text);
+        g.setFont (f);
+        g.drawText (key, r, juce::Justification::centred, false);
+        return w;
+    }
+}
+
+LyricsLane::LyricsLane (UiSession& u, Actions& a) : SessionView (u), actions (a), syncKey (tr ("lyrics.sync"))
 {
     editButton.setButtonText (tr ("lyrics.pad"));
     editButton.withIcon (Icon::edit).withFont (sans (11.5f, Weight::medium));
     editButton.setTooltip (tr ("lyrics.pad.tooltip"));
+    editButton.onClick = [this] { if (actions.openLyrics) actions.openLyrics(); };
     addAndMakeVisible (editButton);
+
+    // タップで合わせる（DESIGN 7.5.3）：押している間 LED が点く
+    syncKey.withLed().withToggle (false).withFont (sans (11.5f, Weight::medium));
+    syncKey.setTooltip (tr ("lyrics.sync.tooltip"));
+    syncKey.withShortcut ("Enter");
+    syncKey.onClick = [this] { session.setLyricSyncing (! state().lyricSyncing); };
+    addChildComponent (syncKey);
+
+    refreshKeys();
+}
+
+void LyricsLane::onSessionChanged (juce::uint32 c)
+{
+    if (c & change::songInfo)
+    {
+        refreshKeys();
+        repaint();
+        return;
+    }
+    if (c & (change::playhead | change::transport))
+        repaint (textArea);
+}
+
+void LyricsLane::refreshKeys()
+{
+    const auto& s = state();
+    const bool had = syncKey.isVisible();
+    syncKey.setVisible (! s.project.lyrics.empty());
+    syncKey.setToggleState (s.lyricSyncing, juce::dontSendNotification);
+    if (had != syncKey.isVisible())
+        resized();
 }
 
 void LyricsLane::resized()
 {
     auto r = getLocalBounds();
     r.removeFromLeft (metrics::gutter);
+    r.removeFromRight (metrics::pad);
+
     editButton.setSize (10, 28);
     const auto w = editButton.idealWidth();
-    auto right = r.removeFromRight (w + metrics::pad * 2).reduced (metrics::pad, 0);
-    editButton.setBounds (right.withSizeKeepingCentre (w, 28));
+    editButton.setBounds (r.removeFromRight (w).withSizeKeepingCentre (w, 28));
+
+    if (syncKey.isVisible())
+    {
+        r.removeFromRight (6);
+        syncKey.setSize (10, 28);
+        const auto sw = syncKey.idealWidth();
+        syncKey.setBounds (r.removeFromRight (sw).withSizeKeepingCentre (sw, 28));
+    }
+    r.removeFromRight (metrics::pad);
     textArea = r.withTrimmedLeft (22);
 }
 
@@ -29,18 +87,39 @@ void LyricsLane::paint (juce::Graphics& g)
     paint::microLabel (g, getLocalBounds().withWidth (metrics::gutter).toFloat().withTrimmedLeft ((float) metrics::pad),
                        tr ("label.lyric"), colours::textMute);
 
-    const auto* cur = s.lyricAt (s.playhead);
-    const auto* next = s.lyricAfter (s.playhead);
-
-    if (s.project.lyrics.empty())
+    const auto& ly = s.project.lyrics;
+    if (ly.empty())
     {
         g.setColour (colours::textMute);
         g.setFont (sans (13.0f));
-        g.drawText (tr ("lyrics.empty"), textArea, juce::Justification::centredLeft, false);
+        g.drawText (tr ("lyrics.empty"), textArea, juce::Justification::centredLeft, true);
         return;
     }
 
     auto r = textArea.toFloat();
+    if (s.lyricSyncing)
+        paintSyncing (g, r);
+    else if (ly.numTimed() == 0)
+        paintManual (g, r);    // 時刻が無いままでも表示する（今の行は ↑ ↓ で手送り）
+    else
+        paintTimed (g, r);
+}
+
+void LyricsLane::paintNext (juce::Graphics& g, juce::Rectangle<float> r, const juce::String& text)
+{
+    const auto lf = mono (9.5f, Weight::medium, 0.12f);
+    const auto lw = textWidth (lf, tr ("label.next")) + 10.0f;
+    paint::microLabel (g, r.removeFromLeft (lw), tr ("label.next"), colours::textMute);
+    g.setColour (colours::textDim);
+    g.setFont (sansFor (text, 15.0f));
+    g.drawText (text, r, juce::Justification::centredLeft, true);
+}
+
+void LyricsLane::paintTimed (juce::Graphics& g, juce::Rectangle<float> r)
+{
+    const auto& s = state();
+    const auto* cur = s.lyricAt (s.playhead);
+    const auto* next = s.lyricAfter (s.playhead);
 
     if (cur != nullptr)
     {
@@ -49,7 +128,7 @@ void LyricsLane::paint (juce::Graphics& g)
         const auto line = r.removeFromLeft (w + 2.0f).withSizeKeepingCentre (w + 2.0f, 30.0f).translated (0.0f, -3.0f);
 
         const auto progress = juce::jlimit (0.0f, 1.0f, (float) (s.playhead - cur->startSample)
-                                                          / (float) (cur->endSample - cur->startSample));
+                                                          / (float) juce::jmax ((int64) 1, cur->endSample - cur->startSample));
         const auto split = line.getX() + line.getWidth() * progress;
         const auto sung = s.isRecording ? colours::rec : colours::signal;
 
@@ -73,21 +152,106 @@ void LyricsLane::paint (juce::Graphics& g)
     else if (next != nullptr)
     {
         // フレーズの合間：次を大きめに待たせる
+        const auto f = sansFor (next->text, 18.0f, Weight::medium);
         g.setColour (colours::textDim);
-        g.setFont (sansFor (next->text, 18.0f, Weight::medium));
-        const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (sansFor (next->text, 18.0f, Weight::medium), next->text));
+        g.setFont (f);
+        const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (f, next->text));
         g.drawText (next->text, r.removeFromLeft (w + 2.0f), juce::Justification::centredLeft, true);
         r.removeFromLeft (36.0f);
         next = s.lyricAfter (next->startSample);
     }
 
     if (next != nullptr)
+        paintNext (g, r, next->text);
+}
+
+void LyricsLane::paintManual (juce::Graphics& g, juce::Rectangle<float> r)
+{
+    const auto& s = state();
+    const auto& lines = s.project.lyrics.lines;
+    const auto i = juce::jlimit (0, (int) lines.size() - 1, s.lyricCursor);
+    const auto& cur = lines[(size_t) i].text;
+
+    const auto f = sansFor (cur, 22.0f, Weight::semibold);
+    const auto w = juce::jmin (r.getWidth() * 0.55f, textWidth (f, cur));
+    g.setColour (colours::text);
+    g.setFont (f);
+    g.drawText (cur, r.removeFromLeft (w + 2.0f).translated (0.0f, -3.0f), juce::Justification::centredLeft, true);
+    r.removeFromLeft (30.0f);
+
+    // 右端：↑ ↓ で送る（時刻はまだ）
     {
-        const auto lw = textWidth (mono (9.5f, Weight::medium, 0.12f), tr ("label.next")) + 10.0f;
-        paint::microLabel (g, r.removeFromLeft (lw), tr ("label.next"), colours::textMute);
-        g.setColour (colours::textDim);
-        g.setFont (sansFor (next->text, 15.0f));
-        g.drawText (next->text, r, juce::Justification::centredLeft, true);
+        const auto hf = sans (11.0f);
+        const auto hint = tr ("lyrics.manualHint");
+        auto hr = r.removeFromRight (textWidth (hf, hint) + 2.0f + 2 * 26.0f);
+        auto x = hr.getX();
+        x += drawKeyHint (g, { x, hr.getCentreY() }, juce::String::charToString (0x2191)) + 4.0f;   // ↑
+        x += drawKeyHint (g, { x, hr.getCentreY() }, juce::String::charToString (0x2193)) + 6.0f;   // ↓
+        g.setColour (colours::textMute);
+        g.setFont (hf);
+        g.drawText (hint, hr.withLeft (x), juce::Justification::centredLeft, false);
+        r.removeFromRight (16.0f);
     }
+
+    if (i + 1 < (int) lines.size())
+        paintNext (g, r, lines[(size_t) i + 1].text);
+}
+
+void LyricsLane::paintSyncing (juce::Graphics& g, juce::Rectangle<float> r)
+{
+    const auto& s = state();
+    const auto& lines = s.project.lyrics.lines;
+    const auto i = juce::jlimit (0, (int) lines.size() - 1, s.lyricCursor);
+
+    // 左：TAP と進み具合（3 / 24）
+    {
+        const auto lf = mono (9.5f, Weight::medium, 0.12f);
+        const auto label = tr ("lyrics.sync.micro");
+        auto left = r.removeFromLeft (textWidth (lf, label) + 18.0f + 44.0f);
+        paint::led (g, { left.getX() + 4.0f, left.getCentreY() - 7.0f }, 2.8f, colours::signal, true);
+        paint::microLabel (g, left.withTrimmedLeft (12.0f).withHeight (left.getHeight() / 2.0f).translated (0.0f, 2.0f), label, colours::signal);
+        g.setColour (colours::textDim);
+        g.setFont (mono (11.0f, Weight::medium));
+        g.drawText (juce::String (i + 1) + " / " + juce::String ((int) lines.size()),
+                    left.withTrimmedTop (left.getHeight() / 2.0f).withTrimmedLeft (12.0f).translated (0.0f, -3.0f),
+                    juce::Justification::centredLeft, false);
+        r.removeFromLeft (8.0f);
+    }
+
+    // 右：Enter 歌い出し / Backspace 1 行戻す / Esc 終わる
+    {
+        const auto hf = sans (11.0f);
+        const juce::String keys[] = { "Enter", "Backspace", "Esc" };
+        const juce::String texts[] = { tr ("lyrics.sync.hintTap"), tr ("lyrics.sync.hintBack"), tr ("lyrics.sync.hintEnd") };
+        float total = 0.0f;
+        for (int k = 0; k < 3; ++k)
+            total += textWidth (mono (10.0f, Weight::semibold), keys[k]) + 12.0f + 5.0f + textWidth (hf, texts[k]) + 14.0f;
+        auto hr = r.removeFromRight (juce::jmin (total, r.getWidth() * 0.5f));
+        auto x = hr.getX();
+        for (int k = 0; k < 3 && x < hr.getRight(); ++k)
+        {
+            x += drawKeyHint (g, { x, hr.getCentreY() }, keys[k]) + 5.0f;
+            const auto tw = textWidth (hf, texts[k]);
+            g.setColour (colours::textMute);
+            g.setFont (hf);
+            g.drawText (texts[k], juce::Rectangle<float> (x, hr.getY(), tw + 2.0f, hr.getHeight()), juce::Justification::centredLeft, false);
+            x += tw + 14.0f;
+        }
+        r.removeFromRight (12.0f);
+    }
+
+    // 次に叩く行（大きく）と、その次（薄く）
+    const auto& cur = lines[(size_t) i].text;
+    const auto f = sansFor (cur, 22.0f, Weight::semibold);
+    const auto w = juce::jmin (r.getWidth() * 0.62f, textWidth (f, cur));
+    const auto line = r.removeFromLeft (w + 2.0f).withSizeKeepingCentre (w + 2.0f, 30.0f).translated (0.0f, -3.0f);
+    g.setColour (colours::text);
+    g.setFont (f);
+    g.drawText (cur, line, juce::Justification::centredLeft, true);
+    paint::hline (g, line.getBottom() + 3.0f, line.getX(), line.getRight(), colours::signal.withAlpha (0.6f));
+    r.removeFromLeft (28.0f);
+
+    if (i + 1 < (int) lines.size())
+        paintNext (g, r, lines[(size_t) i + 1].text);
 }
 } // namespace vb
