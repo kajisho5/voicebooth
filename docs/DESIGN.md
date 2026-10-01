@@ -872,6 +872,32 @@ Phase A だけやれ。音声デバイスは開くな。
     CI では自作の合成音から同じ形の m4a を作って（tests/data/add_itunsmpb.py）実デコードまで確かめる
   納品 WAV とオフボの頭を合わせる（14）ため、B2〜B14 で「読み込み時に内部 WAV へ変換し、それを唯一の時間軸にする」（7.1）か、gapless 情報を読んで切るかを決める
 
+### 19.1 既製モデルの候補（2026-10-01 調査。各フェーズに入る時に最新を調べ直して更新する）
+
+方針：自作で学習はしない。公開モデルを使う。**重みのライセンスが明記され、アプリでの利用・配布（または初回ダウンロード）が許されるものだけ**採用する。性能が上でもライセンス不明なものは使わない（作者の許可が取れたら使う）。
+
+| 用途 | 候補 | 性能の目安 | ライセンス | 判断 |
+|---|---|---|---|---|
+| 分離：ボーカル / オフボ（B16） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記） | **第一候補** |
+| 〃 | BS PolarFormer（ZFTurbo） | 11.00 | 配布元リポジトリは MIT。重み単体の明記は未確認 | 確認できれば候補 |
+| 〃 | BS-RoFormer（viperx） | 10.87 | 明記なし | 使わない（許可待ち） |
+| 〃 | MVSEP の最新（BS Roformer 2026.07 など） | 12.33 | サービス側のモデル。重みの配布は未確認 | 使えない見込み |
+| 〃 | HTDemucs v4 | 約 9 前後 | MIT | 予備（品質は下） |
+| 分離：Main / ハモリ（リード / バック） | Mel-RoFormer Karaoke（aufr33 / viperx） | lead SDR 9.45 / back+inst 14.84（MVSEP） | **明記なし**（UVR の Issue #2295 で質問中・未回答） | 使わない（許可待ち）。代わりを探す |
+| お手本ピッチ（B9） | RMVPE（伴奏入りの歌から直接ピッチ） | 論文：全 SNR で頑健 | 実装は Apache-2.0。学習済み重みの所在・条件は未確認 | 第一候補（重みを確認） |
+| 〃 | FCPE（高速） | MIR-1K RPA 96.79% | 未確認 | 速度が要る時の候補 |
+| 歌詞（B17） | Whisper large-v3-turbo | large-v3 より 4〜8 倍速い | MIT | 候補 |
+| 〃 | kotoba-whisper v2（日本語特化、large-v3 の蒸留） | 6.3 倍速い | Apache-2.0 | 日本語の第一候補（歌での精度は要検証） |
+
+実装の前に確かめること：
+- C++（ONNX Runtime）で動かせるか。RoFormer 系は PyTorch の重み。ONNX への書き出しと結果の一致を検証する（設計 11.3：GUI 本体を Python にしない）
+- 重みのファイルサイズ・必要メモリ・CPU だけでの処理時間（4〜5 分の曲で何分か）
+- 有料配布にする場合（19 の未決）、商用利用の条件
+
+出典：MVSEP アルゴリズム一覧 https://mvsep.com/en/algorithms ／ MSST 学習済みモデル一覧 https://github.com/ZFTurbo/Music-Source-Separation-Training/blob/main/docs/pretrained_models.md ／
+Mel-Band RoFormer（Kimberley Jensen）https://huggingface.co/KimberleyJSN/melbandroformer ／ Karaoke のライセンス質問 https://github.com/Anjok07/ultimatevocalremovergui/issues/2295 ／
+RMVPE https://arxiv.org/abs/2306.15412 , https://github.com/Dream-High/RMVPE ／ whisper.cpp（モデルサイズ）https://github.com/ggml-org/whisper.cpp ／ kotoba-whisper https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0
+
 仮決めしてよいもの:
 
 - ~~コードネーム TakeBooth~~ → 正式名称 VoiceBooth（1.3）
