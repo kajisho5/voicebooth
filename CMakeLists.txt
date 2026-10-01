@@ -66,7 +66,16 @@ juce_add_binary_data(VoiceBoothI18n
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
+# アプリアイコン（brand/build_brand.py で生成。Mac は余白＋影つき、Win はフルブリード）
+if(APPLE)
+    set(VOICEBOOTH_ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/brand/out/icons/juce_icon_big_mac.png")
+else()
+    set(VOICEBOOTH_ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/brand/out/icons/juce_icon_big_win.png")
+endif()
+
 juce_add_gui_app(VoiceBooth
+    ICON_BIG     "${VOICEBOOTH_ICON_BIG}"
+    ICON_SMALL   "${CMAKE_CURRENT_SOURCE_DIR}/brand/out/icons/juce_icon_small.png"
     PRODUCT_NAME "VoiceBooth"
     COMPANY_NAME "SEVENTHWELL"
     BUNDLE_ID    "com.seventhwell.voicebooth"   # TODO: 署名主体の決定後に確定（DESIGN 19）

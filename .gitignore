@@ -15,3 +15,6 @@ Thumbs.db
 # 再配布禁止（DESIGN 11.1 / 17）
 **/asiosdk*/
 **/ASIOSDK*/
+
+# brand ツール
+__pycache__/
