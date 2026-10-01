@@ -861,7 +861,10 @@ Phase A だけやれ。音声デバイスは開くな。
 - JUCE 内蔵の MP3 デコーダ（`JUCE_USE_MP3AUDIOFORMAT`）は特許・権利の免責が付くため無効のまま。mp3 は OS の読み手に任せる
 - mp3 / m4a の頭のずれ（エンコーダ遅延・詰め物の扱い）：デコーダによって長さと頭の位置が変わる。
   実曲 3 本で確認（2026-10-01、実験ビルドの JUCE 内蔵デコーダ）：ffmpeg（gapless 処理あり）より 33〜52 ms 長い。
-  Win（Windows Media）/ Mac（Core Audio）の値は CI のテスト（tests/data/burst.*）で記録する。
+  CI 計測（tests/data/burst.*、基準は ffmpeg / WAV：88200 サンプル・バースト 22051 サンプル目）：
+  Mac（Core Audio）は mp3 / m4a とも長さ・頭のずれ 0。Windows は Windows Media の mp3 が長さ +2910・頭 +1729、
+  Media Foundation の m4a が長さ一致・頭 +1024。Windows Media の mp3 は途中から読むと位置がさらに約 2000 ずれたため、
+  Windows の mp3 も Media Foundation で読む（位置は頭から数える）。OS で頭が数十 ms 違うことは残る。
   納品 WAV とオフボの頭を合わせる（14）ため、B2〜B14 で「読み込み時に内部 WAV へ変換し、それを唯一の時間軸にする」（7.1）か、gapless 情報を読んで切るかを決める
 
 仮決めしてよいもの:
