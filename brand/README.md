@@ -53,4 +53,4 @@ python3 brand/build_brand.py
 ## 未対応
 
 - Windows の .exe に埋め込まれるアイコンは、JUCE が `ICON_BIG` / `ICON_SMALL` から作る。手調整した 16/24/48 を確実に使うには、配布時にインストーラーかリソース（.rc）で `VoiceBooth.ico` を指定する
-- プロジェクトファイル用のドキュメントアイコンは、拡張子（ファイル関連付け）を決めてから作る（現状はフォルダ＋ project.json）
+- プロジェクトファイル（`.vbooth`、DESIGN 8）用のドキュメントアイコンはまだ無い。B14 で作る
