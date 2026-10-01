@@ -22,7 +22,8 @@ namespace change
         mode      = 1 << 6,   // 簡単 / 標準 / プロ
         monitor   = 1 << 7,
         song      = 1 << 8,   // 曲を開いた（全部が変わる）
-        device    = 1 << 9,   // 出力デバイスの状態
+        device    = 1 << 9,   // 出力 / 入力デバイスの状態・一覧
+        meter     = 1 << 10,  // 入力メーターの値（30 Hz）
         all       = 0xffffffff
     };
 }
@@ -55,6 +56,24 @@ public:
 
     /** 再生位置をエンジンから取っているか（曲を開いていて、出力デバイスがある） */
     bool isEngineDriven() const;
+
+    // --- デバイスと入力メーター（B3） ----------------------------------------
+    /** 入力メーターを読む（30 Hz。MainComponent のタイマーから）。UI_MOCK ではダミーのまま */
+    void pollInput();
+
+    /** 選べるデバイス（エンジンが無ければ空） */
+    audio::DeviceList getDeviceList() const;
+    void rescanDevices();
+
+    /** 切り替え。再生は止まる。戻り値は失敗の理由（空なら成功） */
+    juce::String selectDeviceType (const juce::String&);
+    juce::String selectInputDevice (const juce::String&);
+    juce::String selectOutputDevice (const juce::String&);
+    juce::String selectInputChannel (int);
+    juce::String selectBufferSize (int);
+
+    /** クリップ表示を消す（メーターをクリック） */
+    void resetInputClip();
 
     // --- 輸送 ---------------------------------------------------------------
     void setPlaying (bool);
@@ -110,12 +129,36 @@ private:
     void keepPlayheadInView();
     void syncLoopToEngine();
     void refreshOutputStatus();
+    void refreshInputStatus();
+    void deviceChanged (bool lost);
+    juce::String afterDeviceSelect (juce::String error);
 
     dummy::Session s;
     audio::AudioEngine* engine = nullptr;
     double sinceStatus = 0.0;
     juce::ListenerList<Listener> listeners;
 };
+
+//==============================================================================
+/** 入力チャンネルの表示（2 ch は L / R、それ以上は番号。1 ch は空） */
+juce::String inputChannelLabel (int channel, int numChannels);
+
+/** 入力デバイスの表示名（機器名 — チャンネル）。UI_MOCK はダミー、入力が無ければ「入力なし」 */
+juce::String inputDisplayName (const dummy::Session&);
+
+/** 入力が使えない理由（短い文。ステータスバー用）。使えていれば空 */
+juce::String inputProblemShort (const dummy::Session&);
+
+/** 表示するレイテンシ。実デバイスならデバイスの申告値（実測は B6）、UI_MOCK はダミー */
+struct LatencyDisplay
+{
+    bool known = false;       // 入力が無いと出せない
+    bool reported = false;    // デバイスの申告値（実測ではない）
+    bool estimated = false;   // 申告が無く、バッファから推定
+    int64 samples = 0;
+    double ms = 0.0;
+};
+LatencyDisplay latencyDisplay (const dummy::Session&);
 
 /** UiSession を購読する部品の共通部分（登録・解除の書き忘れを防ぐ） */
 class SessionView : private UiSession::Listener
