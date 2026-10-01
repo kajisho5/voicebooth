@@ -867,6 +867,9 @@ Phase A だけやれ。音声デバイスは開くな。
   - 計測（tests/data/burst.*、基準は ffmpeg：88200 サンプル・バースト 22051 サンプル目）：
     対策前は Win の mp3（Windows Media）が長さ +2910・頭 +1729、Win の m4a が頭 +1024、Mac は 0。
     実曲 mp3 3 本（手元のみ）で minimp3 と ffmpeg の長さがサンプル単位で一致・波形の差は最大 4e-6
+  - iTunes で作った m4a（edit list なし・iTunSMPB だけ）も実物で確認：頭 2112 は ffmpeg と一致。
+    ffmpeg は尻の詰め物（600）を残すが、こちらはエンコーダの指定どおり切る（Core Audio と同じ。Win / Mac で揃う）。
+    CI では自作の合成音から同じ形の m4a を作って（tests/data/add_itunsmpb.py）実デコードまで確かめる
   納品 WAV とオフボの頭を合わせる（14）ため、B2〜B14 で「読み込み時に内部 WAV へ変換し、それを唯一の時間軸にする」（7.1）か、gapless 情報を読んで切るかを決める
 
 仮決めしてよいもの:

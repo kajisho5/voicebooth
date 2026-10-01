@@ -149,7 +149,7 @@ public:
             // tests/data/make_fixtures.sh：88200 サンプル、22050 サンプル目から 1 kHz のバースト
             //   ffmpeg で 22051 サンプル目に |x| > 0.05（基準）。差がデコーダの頭のずれ
             const juce::File data (VOICEBOOTH_TEST_DATA_DIR);
-            for (auto fixture : { "burst.mp3", "burst.m4a" })
+            for (auto fixture : { "burst.mp3", "burst.m4a", "burst_itunes.m4a" })
             {
                 const auto f = data.getChildFile (fixture);
                 expect (f.existsAsFile(), f.getFullPathName());
@@ -213,6 +213,14 @@ public:
             expectEquals (g.priming, (juce::int64) 1024);
             expectEquals (g.validSamples, (juce::int64) 88200);
 
+            // 同じ AAC を edit list なし＋ iTunSMPB にしたもの（tests/data/add_itunsmpb.py）
+            juce::FileInputStream itunes (juce::File (VOICEBOOTH_TEST_DATA_DIR).getChildFile ("burst_itunes.m4a"));
+            const auto gi = readMp4Gapless (itunes, 44100.0);
+            expect (gi.found);
+            expectEquals (gi.source, juce::String ("iTunSMPB"));
+            expectEquals (gi.priming, (juce::int64) 1024);
+            expectEquals (gi.validSamples, (juce::int64) 88200);
+
             // iTunes 形式：moov/udta/meta/ilst/----（mean / name / data）を組み立てて読む
             auto box = [] (const char* type, const juce::MemoryBlock& body)
             {
@@ -256,7 +264,7 @@ public:
 
         beginTest ("external songs vs ffmpeg (VOICEBOOTH_EXTRA_AUDIO_DIR)");
         {
-            // 手元の実曲で確かめる（著作物はリポジトリに入れない）。<name>.mp3 と、ffmpeg でデコードした <name>.wav を並べて置く
+            // 手元の実曲で確かめる（著作物はリポジトリに入れない）。<name>.mp3 / .m4a と、ffmpeg でデコードした <name>.wav を並べて置く
             //   ffmpeg -i "<name>.mp3" -map 0:a -c:a pcm_f32le "<name>.wav"
             //   float で書くこと（16bit だと 0 dBFS を超えたサンプルが WAV 側で切れて差に見える）
             const auto dirPath = juce::SystemStats::getEnvironmentVariable ("VOICEBOOTH_EXTRA_AUDIO_DIR", {});
@@ -266,15 +274,35 @@ public:
             }
             else
             {
-                for (const auto& song : juce::File (dirPath).findChildFiles (juce::File::findFiles, false, "*.mp3"))
+                for (const auto& song : juce::File (dirPath).findChildFiles (juce::File::findFiles, false, "*.mp3;*.m4a"))
                 {
                     const auto ref = song.withFileExtension ("wav");
                     if (! ref.existsAsFile()) continue;
 
-                    std::unique_ptr<juce::AudioFormatReader> a (formats.createReaderFor (song));
                     std::unique_ptr<juce::AudioFormatReader> b (formats.createReaderFor (ref));
-                    expect (a != nullptr && b != nullptr, song.getFileName());
-                    if (a == nullptr || b == nullptr) continue;
+                    expect (b != nullptr, ref.getFileName());
+                    if (b == nullptr) continue;
+
+                    // m4a：頭の詰め物と本当の長さの読み取りを ffmpeg と比べる（デコーダが無い OS でも確かめられる）
+                    if (song.hasFileExtension ("m4a"))
+                    {
+                        juce::FileInputStream in (song);
+                        const auto g = readMp4Gapless (in, b->sampleRate);
+                        logMessage ("  " + song.getFileName() + " gapless via " + g.source + ": priming " + juce::String (g.priming)
+                                    + ", length " + juce::String (g.validSamples) + " (ffmpeg " + juce::String (b->lengthInSamples) + ")");
+                        expect (g.found, song.getFileName());
+                        // ffmpeg は頭の詰め物だけ切る。iTunSMPB の尻の詰め物（多くて 1 フレーム強）は残すので、
+                        // こちら（エンコーダの指定どおり両方切る。Core Audio と同じ）が少し短くなる
+                        const auto tail = b->lengthInSamples - g.validSamples;
+                        logMessage ("    ffmpeg keeps " + juce::String (tail) + " tail padding samples");
+                        expect (tail >= 0 && tail <= 2112, juce::String (tail));
+                        if (! expectSupport ("m4a"))
+                            continue;   // この OS では m4a を開けない（Linux）
+                    }
+
+                    std::unique_ptr<juce::AudioFormatReader> a (formats.createReaderFor (song));
+                    expect (a != nullptr, song.getFileName());
+                    if (a == nullptr) continue;
 
                     // 全体を比べる（デコーダの丸め差だけのはず）
                     constexpr int block = 1 << 16;
