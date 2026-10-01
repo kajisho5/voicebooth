@@ -50,6 +50,12 @@ enum class Weight { regular, medium, semibold };
 /** 本文・ラベル。日本語・英語は IBM Plex Sans JP、韓国語・中国語は OS の標準フォント */
 juce::Font sans (float height, Weight = Weight::regular);
 
+/** 指定した言語の本文フォント（UI の言語と無関係に） */
+juce::Font sansIn (i18n::Language, float height, Weight = Weight::regular);
+
+/** 言語名（"한국어" "简体中文" …）をその言語の字形で。言語名でなければ sans() */
+juce::Font sansForLanguageName (const juce::String& text, float height, Weight = Weight::regular);
+
 /** データ（歌詞・曲名）用。かなを含む文字列は UI の言語に関係なく日本語の字形で描く */
 juce::Font sansFor (const juce::String& text, float height, Weight = Weight::regular);
 

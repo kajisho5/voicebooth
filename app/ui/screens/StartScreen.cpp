@@ -37,8 +37,8 @@ namespace
     };
 }
 
-StartScreen::StartScreen (UiSession& u, bool isAnalyzing)
-    : SessionView (u), analyzing (isAnalyzing),
+StartScreen::StartScreen (UiSession& u, bool isAnalyzing, bool isFirstRun)
+    : SessionView (u), analyzing (isAnalyzing), firstRun (isFirstRun),
       openFolder (tr ("start.openProject")),
       continueKey (tr ("analyze.continue")),
       cancelKey (tr ("common.cancel"))
@@ -69,7 +69,7 @@ void StartScreen::resized()
 {
     panel = getLocalBounds().withSizeKeepingCentre (juce::jmin (1080, getWidth() - 80), juce::jmin (700, getHeight() - 80));
 
-    for (auto* k : firstRunKeys) k->setVisible (! analyzing);
+    for (auto* k : firstRunKeys) k->setVisible (! analyzing && firstRun);   // 最初の 1 回だけ（DESIGN 2）
     openFolder.setVisible (! analyzing);
     continueKey.setVisible (analyzing);
     cancelKey.setVisible (analyzing);
@@ -88,8 +88,12 @@ void StartScreen::resized()
     }
 
     auto r = panel.reduced (40, 0).withTrimmedTop (112).withTrimmedBottom (32);
-    firstRunArea = r.removeFromBottom (128);
-    r.removeFromBottom (24);
+    firstRunArea = {};
+    if (firstRun)
+    {
+        firstRunArea = r.removeFromBottom (128);
+        r.removeFromBottom (24);
+    }
     dropArea = r.removeFromLeft (r.getWidth() * 55 / 100);
     r.removeFromLeft (28);
     recentArea = r;
@@ -103,6 +107,9 @@ void StartScreen::resized()
     }
     openFolder.setSize (10, 32);
     openFolder.setBounds (rows.removeFromTop (40).removeFromLeft (openFolder.idealWidth()).withSizeKeepingCentre (openFolder.idealWidth(), 32));
+
+    if (! firstRun)
+        return;
 
     auto keys = firstRunArea.withTrimmedTop (44);
     const auto w = (keys.getWidth() - 20) / 3;
@@ -204,6 +211,9 @@ void StartScreen::paintHome (juce::Graphics& g)
         g.setFont (mono (10.5f));
         g.drawText (rc.date, r, juce::Justification::topLeft, false);
     }
+
+    if (! firstRun)
+        return;
 
     // 初回だけ
     paint::hline (g, (float) firstRunArea.getY(), (float) firstRunArea.getX(), (float) firstRunArea.getRight());

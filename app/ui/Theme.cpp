@@ -117,9 +117,8 @@ juce::Typeface::Ptr sansTypeface (Weight w)
     return FontCache::getInstance()->sans[(int) w];
 }
 
-juce::Font sans (float height, Weight w)
+juce::Font sansIn (i18n::Language lang, float height, Weight w)
 {
-    const auto lang = i18n::current();
     if (! i18n::info (lang).embeddedFont)
     {
         const auto& face = systemFace (lang);
@@ -127,6 +126,20 @@ juce::Font sans (float height, Weight w)
             return juce::Font (juce::FontOptions (face.family, face.style[(int) w], height));
     }
     return embeddedSans (height, w);
+}
+
+juce::Font sans (float height, Weight w)
+{
+    return sansIn (i18n::current(), height, w);
+}
+
+juce::Font sansForLanguageName (const juce::String& text, float height, Weight w)
+{
+    // 言語名（"简体中文" など）はその言語の字形で描く
+    for (auto& info : i18n::available())
+        if (text == juce::String::fromUTF8 (info.nativeName))
+            return sansIn (info.id, height, w);
+    return sans (height, w);
 }
 
 juce::Font sansFor (const juce::String& text, float height, Weight w)

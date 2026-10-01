@@ -245,5 +245,10 @@
   "wave.clip": "CLIP",
   "wave.newTake": "NEW TAKE",
   "wave.noTake": "テイクなし",
-  "wave.unrecorded": "未録音"
+  "wave.unrecorded": "未録音",
+  "welcome.continue": "続ける",
+  "welcome.language": "LANGUAGE",
+  "welcome.note": "あとから設定でいつでも変更できます",
+  "welcome.sub": "まず表示する言語を選んでください。",
+  "welcome.title": "VoiceBooth へようこそ"
 }

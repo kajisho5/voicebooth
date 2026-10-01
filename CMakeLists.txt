@@ -96,6 +96,7 @@ target_sources(VoiceBooth PRIVATE
     app/ui/parts/ConsoleFader.cpp
     app/ui/parts/LedMeter.cpp
     app/ui/parts/Readout.cpp
+    app/ui/parts/Dropdown.cpp
     app/ui/Gallery.cpp
     # 状態
     app/ui/DummySession.cpp
@@ -116,7 +117,8 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/StartScreen.cpp
     app/ui/screens/SetupWizard.cpp
     app/ui/screens/ExportDialog.cpp
-    app/ui/screens/SettingsDialog.cpp)
+    app/ui/screens/SettingsDialog.cpp
+    app/ui/screens/WelcomeScreen.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 
