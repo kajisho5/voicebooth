@@ -1,4 +1,5 @@
 #include "Gallery.h"
+#include "parts/Dropdown.h"
 
 namespace vb
 {
@@ -83,6 +84,14 @@ Gallery::Gallery()
     make<TallyLamp> ("play").setState (TallyLamp::State::play);
     make<TallyLamp> ("rec").setState (TallyLamp::State::rec);
 
+    // --- Dropdown（items の最後に置き、SWITCH の行に並べる） --------------------
+    {
+        juce::StringArray langs;
+        for (auto& l : i18n::available())
+            langs.add (juce::String::fromUTF8 (l.nativeName));
+        make<Dropdown> ("dropdown", langs, 0);
+    }
+
     setSize (1440, 900);
 }
 
@@ -114,7 +123,7 @@ void Gallery::resized()
     typeArea  = right;
 
     // items の並び（コンストラクタで作った順）
-    constexpr size_t keysAt = 0, segAt = 16, encAt = 19, faderAt = 25, meterAt = 30, readoutAt = 34, lampAt = 38;
+    constexpr size_t keysAt = 0, segAt = 16, encAt = 19, faderAt = 25, meterAt = 30, readoutAt = 34, lampAt = 38, dropAt = 41;
 
     auto place = [this] (size_t index, juce::Rectangle<int> cell)
     {
@@ -149,6 +158,8 @@ void Gallery::resized()
             place (segAt + k, a.removeFromLeft (sk->idealWidth()).withHeight (34 + captionH));
             a.removeFromLeft (24);
         }
+        auto* dd = dynamic_cast<Dropdown*> (items[dropAt].comp);
+        place (dropAt, a.removeFromLeft (juce::jmax (160, dd->idealWidth())).withHeight (34 + captionH));
     }
 
     // Encoders

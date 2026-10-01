@@ -14,6 +14,16 @@
 
 namespace vb
 {
+/** 言語を変えた後に開き直す画面 */
+enum class ReopenScreen { none, settings, welcome };
+
+/** アプリ本体（設定の保存・画面の作り直し）への窓口 */
+struct AppHooks
+{
+    std::function<void (i18n::Language, ReopenScreen)> changeLanguage;
+    std::function<void()> firstRunDone;   // 初回の言語選択を確定した
+};
+
 /** 起動時の指定（開発・スクリーンショット用。--screen= など） */
 struct LaunchOptions
 {
@@ -29,7 +39,7 @@ struct LaunchOptions
 class MainComponent : public juce::Component, private juce::Timer, private SessionView
 {
 public:
-    MainComponent (UiSession&, std::function<void (i18n::Language)> changeLanguage);
+    MainComponent (UiSession&, AppHooks&);
     ~MainComponent() override;
 
     void applyLaunchOptions (const LaunchOptions&);
@@ -39,7 +49,8 @@ public:
     void resized() override;
     bool keyPressed (const juce::KeyPress&) override;
 
-    void openStart (bool analyzing = false);
+    void openWelcome();
+    void openStart (bool analyzing = false, bool firstRun = false);
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
@@ -59,7 +70,7 @@ private:
     void confirmDiscardRecording();
     void showConfirm (const juce::String& title, const juce::String& message, std::vector<ConfirmDialog::Option>);
 
-    std::function<void (i18n::Language)> changeLanguage;
+    AppHooks& hooks;
     Actions actions;
 
     TopBar top;

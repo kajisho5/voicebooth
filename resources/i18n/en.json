@@ -245,5 +245,10 @@
   "wave.clip": "CLIP",
   "wave.newTake": "NEW TAKE",
   "wave.noTake": "No takes yet",
-  "wave.unrecorded": "Not recorded"
+  "wave.unrecorded": "Not recorded",
+  "welcome.continue": "Continue",
+  "welcome.language": "LANGUAGE",
+  "welcome.note": "You can change this any time in Settings.",
+  "welcome.sub": "First, choose your display language.",
+  "welcome.title": "Welcome to VoiceBooth"
 }

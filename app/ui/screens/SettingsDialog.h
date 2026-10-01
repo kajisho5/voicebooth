@@ -2,6 +2,7 @@
 
 #include "../Overlay.h"
 #include "../UiSession.h"
+#include "../parts/Dropdown.h"
 
 namespace vb
 {
@@ -23,7 +24,8 @@ private:
 
     struct Row { juce::String label, note; juce::Component* control; int controlWidth; };
 
-    SegmentedKeys language, mode, tolerance, countIn, crossfade;
+    Dropdown language;
+    SegmentedKeys mode, tolerance, countIn, crossfade;
     KeyButton octaveAlign, openSetup, cacheKey;
     std::vector<Row> rows;
     std::vector<juce::Rectangle<int>> rowAreas;
