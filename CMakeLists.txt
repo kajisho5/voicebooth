@@ -39,14 +39,18 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# 埋め込みフォント（Noto Sans JP / SIL OFL 1.1）
+# 埋め込みフォント（IBM Plex Sans JP / IBM Plex Mono、SIL OFL 1.1）
 # ---------------------------------------------------------------------------
 juce_add_binary_data(VoiceBoothFonts
     HEADER_NAME VoiceBoothFonts.h
     NAMESPACE   VoiceBoothFonts
     SOURCES
-        resources/fonts/NotoSansJP-Regular.otf
-        resources/fonts/NotoSansJP-Bold.otf)
+        resources/fonts/IBMPlexSansJP-Regular.ttf
+        resources/fonts/IBMPlexSansJP-Medium.ttf
+        resources/fonts/IBMPlexSansJP-SemiBold.ttf
+        resources/fonts/IBMPlexMono-Regular.ttf
+        resources/fonts/IBMPlexMono-Medium.ttf
+        resources/fonts/IBMPlexMono-SemiBold.ttf)
 
 # ---------------------------------------------------------------------------
 # App
@@ -61,18 +65,27 @@ juce_add_gui_app(VoiceBooth
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
+    # テーマ
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
-    app/ui/Widgets.cpp
+    # 部品
+    app/ui/parts/Icons.cpp
+    app/ui/parts/KeyButton.cpp
+    app/ui/parts/Encoder.cpp
+    app/ui/parts/ConsoleFader.cpp
+    app/ui/parts/LedMeter.cpp
+    app/ui/parts/Readout.cpp
+    app/ui/Gallery.cpp
+    # 画面
     app/ui/DummySession.cpp
     app/ui/LaneCommon.cpp
-    app/ui/HeaderBar.cpp
+    app/ui/TopBar.cpp
     app/ui/TransportBar.cpp
     app/ui/PitchLane.cpp
     app/ui/LyricsLane.cpp
     app/ui/WaveLane.cpp
     app/ui/TrackTabs.cpp
-    app/ui/ControlPanel.cpp
+    app/ui/Rack.cpp
     app/ui/StatusBar.cpp
     app/ui/MainComponent.cpp)
 

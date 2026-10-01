@@ -5,7 +5,7 @@ namespace vb
 MainComponent::MainComponent()
 {
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &header, &transport, &pitch, &lyrics, &wave, &tracks, &controls, &status })
+             &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
         addAndMakeVisible (c);
 
     setSize (defaultWidth, defaultHeight);
@@ -20,13 +20,15 @@ void MainComponent::resized()
 {
     auto r = getLocalBounds();
 
-    header.setBounds (r.removeFromTop (HeaderBar::height));
+    top.setBounds (r.removeFromTop (TopBar::height));
     transport.setBounds (r.removeFromTop (TransportBar::height));
     status.setBounds (r.removeFromBottom (StatusBar::height));
-    controls.setBounds (r.removeFromBottom (ControlPanel::height));
+    rack.setBounds (r.removeFromRight (metrics::rackWidth));
+
+    // キャンバス：下から積み、残りはすべてピッチレーン（主役）
     tracks.setBounds (r.removeFromBottom (TrackTabs::height));
     wave.setBounds (r.removeFromBottom (WaveLane::height));
     lyrics.setBounds (r.removeFromBottom (LyricsLane::height));
-    pitch.setBounds (r);   // 残りは全部ピッチレーン（主役）
+    pitch.setBounds (r);
 }
 } // namespace vb

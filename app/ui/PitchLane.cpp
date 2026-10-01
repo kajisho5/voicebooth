@@ -6,14 +6,34 @@ namespace vb
 namespace
 {
     constexpr int rulerH = 24;
-    constexpr int footerH = 34;
+    constexpr int footerH = 38;
     constexpr float minConfidence = 0.5f;
-    constexpr int64 maxGapSamples = 720;   // 15 ms 以上空いたら線を切る
+    constexpr int64 maxGapSamples = 720;   // 15 ms 以上空いたら線を切る（嘘でつながない）
 
     bool isBlackKey (int midi)
     {
         const auto pc = ((midi % 12) + 12) % 12;
         return pc == 1 || pc == 3 || pc == 6 || pc == 8 || pc == 10;
+    }
+
+    /** 信頼できる点だけを、途切れごとの区間に分ける */
+    template <typename Fn>
+    void forEachRun (const std::vector<dummy::PitchPoint>& pts, int64 from, int64 to, Fn&& fn)
+    {
+        std::vector<const dummy::PitchPoint*> run;
+        int64 last = 0;
+
+        auto flush = [&] { if (run.size() > 1) fn (run); run.clear(); };
+
+        for (auto& p : pts)
+        {
+            if (p.sample < from || p.sample > to) continue;
+            if (p.confidence < minConfidence) { flush(); continue; }
+            if (! run.empty() && p.sample - last > maxGapSamples) flush();
+            run.push_back (&p);
+            last = p.sample;
+        }
+        flush();
     }
 }
 
@@ -24,10 +44,10 @@ PitchLane::PitchLane (const dummy::Session& s) : session (s)
 
     for (auto* b : { &octaveAlign, &octaveUp, &fullRange })
     {
-        b->setFontSize (11.0f);
-        b->setSubtle (true);
+        b->withLed().withFont (sans (11.5f, Weight::medium));
         addAndMakeVisible (b);
     }
+    octaveUp.setTooltip (jp ("自分の声を1オクターブ上げて重ねる"));
 }
 
 void PitchLane::resized()
@@ -39,16 +59,14 @@ void PitchLane::resized()
     plotArea = r;
 
     auto f = footerArea.reduced (metrics::pad, 0);
-    auto place = [&f] (ChipButton& b)
+    for (auto* b : { &fullRange, &octaveUp, &octaveAlign })
     {
-        const auto w = b.idealWidth();
-        b.setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 24));
+        b->setSize (10, 26);
+        const auto w = b->idealWidth();
+        b->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 26));
         f.removeFromRight (6);
-    };
-    place (fullRange);
-    place (octaveUp);
-    place (octaveAlign);
-    legendArea = f;
+    }
+    legendArea = f.withTrimmedLeft (metrics::gutter - metrics::pad);
 }
 
 float PitchLane::yForMidi (float midi) const
@@ -61,188 +79,162 @@ float PitchLane::yForMidi (float midi) const
 juce::Colour PitchLane::colourForCents (float cents) const
 {
     const auto a = std::abs (cents);
-    if (a <= session.pitchToleranceCents) return colours::accent;
+    if (a <= session.pitchToleranceCents) return colours::signal;
     if (a <= 50.0f)                       return colours::warn;
     return colours::bad;
 }
 
 void PitchLane::paint (juce::Graphics& g)
 {
-    g.fillAll (colours::bg0);
-
     const auto plot = plotArea.toFloat();
     const auto map = lane::makeMap (session, plot);
 
-    // ルーラー（ガター部分は空き）
     g.setColour (colours::panel);
     g.fillRect (rulerArea.withWidth (metrics::gutter));
+    paint::hline (g, (float) rulerArea.getBottom() - 1.0f, 0.0f, (float) metrics::gutter);
     lane::drawRuler (g, session, map, rulerArea.withTrimmedLeft (metrics::gutter).toFloat());
 
     {
         juce::Graphics::ScopedSaveState save (g);
         g.reduceClipRegion (plotArea);
 
-        drawGrid (g, map);
+        drawBackground (g, map);
         lane::drawRange (g, session, map, plot);
         drawReference (g, map);
         drawMine (g, map);
         lane::drawPlayhead (g, session, map, plot);
-        drawCurrentDot (g, map);
+        drawCurrent (g, map);
     }
 
-    drawKeyboard (g);
+    drawNoteGutter (g);
     drawFooter (g);
 }
 
-void PitchLane::drawGrid (juce::Graphics& g, const TimeMap& map)
+void PitchLane::drawBackground (juce::Graphics& g, const TimeMap& map)
 {
     const auto plot = plotArea.toFloat();
+    g.setColour (colours::bgDeep);
+    g.fillRect (plot);
 
     for (int m = session.lowMidi; m <= session.highMidi; ++m)
     {
         const auto y0 = yForMidi ((float) m + 0.5f), y1 = yForMidi ((float) m - 0.5f);
-        if (isBlackKey (m))
+        if (! isBlackKey (m))
         {
-            g.setColour (colours::bgDeep);
+            g.setColour (juce::Colours::white.withAlpha (0.012f));
             g.fillRect (juce::Rectangle<float> (plot.getX(), y0, plot.getWidth(), y1 - y0));
         }
-
         if (m % 12 == 0)
-        {
-            g.setColour (colours::grid.brighter (0.2f));
-            g.fillRect (juce::Rectangle<float> (plot.getX(), std::round (y1), plot.getWidth(), 1.0f));
-        }
+            paint::hline (g, std::round (y1), plot.getX(), plot.getRight(), colours::line.withAlpha (0.8f));
     }
 
     lane::drawTimeGrid (g, session, map, plot);
 }
 
-void PitchLane::drawKeyboard (juce::Graphics& g)
+void PitchLane::drawNoteGutter (juce::Graphics& g)
 {
     const auto r = gutterArea.toFloat();
     g.setColour (colours::panel);
     g.fillRect (r);
+    paint::vline (g, r.getRight() - 1.0f, r.getY(), r.getBottom());
 
-    // 現在の自分の音（ハイライト用）
-    int currentMidi = -1;
-    if (! session.myPitch.empty())
-        currentMidi = (int) std::lround (session.myPitch.back().midi);
-
-    const auto keyX = r.getRight() - 22.0f;
+    const int current = session.myPitch.empty() ? -1 : (int) std::lround (session.myPitch.back().midi);
 
     for (int m = session.lowMidi; m <= session.highMidi; ++m)
     {
-        const auto y0 = yForMidi ((float) m + 0.5f), y1 = yForMidi ((float) m - 0.5f);
-        const auto row = juce::Rectangle<float> (keyX, y0, 22.0f, y1 - y0);
+        const auto yc = yForMidi ((float) m);
+        const auto rowH = yForMidi ((float) m - 0.5f) - yForMidi ((float) m + 0.5f);
 
-        if (m == currentMidi)
+        // 音高の目盛り（黒鍵は短く）
+        g.setColour (isBlackKey (m) ? colours::line : colours::lineHi);
+        const auto len = m % 12 == 0 ? 10.0f : (isBlackKey (m) ? 3.0f : 6.0f);
+        g.fillRect (juce::Rectangle<float> (r.getRight() - 1.0f - len, std::round (yc), len, 1.0f));
+
+        if (m == current)
         {
-            g.setColour (colours::accent.withAlpha (0.22f));
-            g.fillRect (juce::Rectangle<float> (r.getX(), y0, r.getWidth(), y1 - y0));
+            const auto pill = juce::Rectangle<float> (r.getX() + 8.0f, yc - 8.5f, r.getWidth() - 22.0f, 17.0f);
+            g.setColour (colours::signal);
+            g.fillRoundedRectangle (pill, 3.0f);
+            g.setColour (colours::bgDeep);
+            g.setFont (mono (11.0f, Weight::semibold));
+            g.drawText (dummy::noteName ((float) m), pill, juce::Justification::centred, false);
         }
-
-        g.setColour (isBlackKey (m) ? colours::bgDeep : colours::grid.brighter (0.25f));
-        g.fillRect (isBlackKey (m) ? row.withTrimmedRight (6.0f) : row);
-
-        if (m % 12 == 0 || m == currentMidi)
+        else if (m % 12 == 0 && rowH > 0.0f)
         {
-            g.setColour (m == currentMidi ? colours::accent : colours::textDim);
-            g.setFont (font (11.0f, FontWeight::bold));
-            g.drawText (dummy::noteName ((float) m), juce::Rectangle<float> (r.getX() + 8.0f, (y0 + y1) * 0.5f - 7.0f, keyX - r.getX() - 12.0f, 14.0f),
-                        juce::Justification::centredRight, false);
+            g.setColour (colours::textDim);
+            g.setFont (mono (10.5f, Weight::medium));
+            g.drawText (dummy::noteName ((float) m), juce::Rectangle<float> (r.getX() + 8.0f, yc - 7.0f, r.getWidth() - 22.0f, 14.0f),
+                        juce::Justification::centredLeft, false);
         }
     }
-
-    g.setColour (colours::border);
-    g.fillRect (juce::Rectangle<float> (r.getRight() - 1.0f, r.getY(), 1.0f, r.getHeight()));
 }
 
 void PitchLane::drawReference (juce::Graphics& g, const TimeMap& map)
 {
-    juce::Path path;
-    bool open = false;
-    int64 last = 0;
+    const auto halfBand = session.pitchToleranceCents / 100.0f;
 
-    for (auto& p : session.refPitch)
+    forEachRun (session.refPitch, session.viewStart - 4800, session.viewEnd + 4800,
+                [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
-        if (p.sample < session.viewStart - 4800 || p.sample > session.viewEnd + 4800)
-            continue;
+        // 許容帯：上辺を左→右、下辺を右→左でつないだ多角形
+        juce::Path band, centre;
+        for (size_t i = 0; i < run.size(); ++i)
+        {
+            const auto x = map.x (run[i]->sample);
+            const auto y = yForMidi (run[i]->midi + halfBand);
+            if (i == 0) band.startNewSubPath (x, y); else band.lineTo (x, y);
+        }
+        for (size_t i = run.size(); i-- > 0;)
+            band.lineTo (map.x (run[i]->sample), yForMidi (run[i]->midi - halfBand));
+        band.closeSubPath();
 
-        const bool usable = p.confidence >= minConfidence;
-        if (! usable) { open = false; continue; }
+        for (size_t i = 0; i < run.size(); ++i)
+        {
+            const juce::Point<float> pt { map.x (run[i]->sample), yForMidi (run[i]->midi) };
+            if (i == 0) centre.startNewSubPath (pt); else centre.lineTo (pt);
+        }
 
-        const juce::Point<float> pt { map.x (p.sample), yForMidi (p.midi) };
-        if (! open || p.sample - last > maxGapSamples) path.startNewSubPath (pt);
-        else                                           path.lineTo (pt);
-
-        open = true;
-        last = p.sample;
-    }
-
-    const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
-    g.setColour (colours::refPitch.withAlpha (0.14f));
-    g.strokePath (path, stroke (10.0f));
-    g.setColour (colours::refPitch.withAlpha (0.92f));
-    g.strokePath (path, stroke (4.0f));
+        g.setColour (colours::ref.withAlpha (0.24f));
+        g.fillPath (band);
+        g.setColour (colours::ref.withAlpha (0.9f));
+        g.strokePath (centre, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    });
 }
 
 void PitchLane::drawMine (juce::Graphics& g, const TimeMap& map)
 {
     const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
 
-    juce::Path path;
-    juce::Colour colour;
-    bool open = false;
-    int64 last = 0;
-    juce::Point<float> lastPt;
-
-    auto flush = [&]
+    forEachRun (session.myPitch, session.viewStart - 4800, session.viewEnd,
+                [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
-        if (path.isEmpty()) return;
-        g.setColour (colour.withAlpha (0.16f));
-        g.strokePath (path, stroke (9.0f));
-        g.setColour (colour);
-        g.strokePath (path, stroke (3.0f));
-        path.clear();
-    };
+        // 同じ色の連続ごとに描く（境界点は両側で共有して途切れなく見せる）
+        juce::Path path;
+        auto colour = colourForCents (run.front()->centsOff);
 
-    for (auto& p : session.myPitch)
-    {
-        if (p.sample < session.viewStart - 4800 || p.sample > session.viewEnd)
-            continue;
-
-        if (p.confidence < minConfidence) { flush(); open = false; continue; }
-
-        const juce::Point<float> pt { map.x (p.sample), yForMidi (p.midi) };
-        const auto c = colourForCents (p.centsOff);
-        const bool continuous = open && p.sample - last <= maxGapSamples;
-
-        if (! continuous)
+        auto flush = [&]
         {
-            flush();
-            colour = c;
-            path.startNewSubPath (pt);
-        }
-        else if (c != colour)
+            g.setColour (colour.withAlpha (0.16f));
+            g.strokePath (path, stroke (7.0f));
+            g.setColour (colour);
+            g.strokePath (path, stroke (2.6f));
+            path.clear();
+        };
+
+        for (size_t i = 0; i < run.size(); ++i)
         {
-            path.lineTo (pt);      // 境界点は両方の色で共有して途切れなく見せる
-            flush();
-            colour = c;
-            path.startNewSubPath (pt);
-        }
-        else
-        {
+            const juce::Point<float> pt { map.x (run[i]->sample), yForMidi (run[i]->midi) };
+            const auto c = colourForCents (run[i]->centsOff);
+
+            if (i == 0)                { path.startNewSubPath (pt); continue; }
             path.lineTo (pt);
+            if (c != colour)           { flush(); colour = c; path.startNewSubPath (pt); }
         }
-
-        open = true;
-        last = p.sample;
-        lastPt = pt;
-    }
-    flush();
+        flush();
+    });
 }
 
-void PitchLane::drawCurrentDot (juce::Graphics& g, const TimeMap& map)
+void PitchLane::drawCurrent (juce::Graphics& g, const TimeMap& map)
 {
     if (session.myPitch.empty())
         return;
@@ -251,21 +243,22 @@ void PitchLane::drawCurrentDot (juce::Graphics& g, const TimeMap& map)
     const juce::Point<float> c { map.x (session.playhead), yForMidi (p.midi) };
     const auto col = colourForCents (p.centsOff);
 
-    g.setColour (col.withAlpha (0.18f));
-    g.fillEllipse (juce::Rectangle<float> (30.0f, 30.0f).withCentre (c));
+    g.setColour (col.withAlpha (0.16f));
+    g.fillEllipse (juce::Rectangle<float> (26.0f, 26.0f).withCentre (c));
+    g.setColour (colours::bgDeep);
+    g.fillEllipse (juce::Rectangle<float> (13.0f, 13.0f).withCentre (c));
     g.setColour (col);
-    g.fillEllipse (juce::Rectangle<float> (14.0f, 14.0f).withCentre (c));
-    g.setColour (colours::bg0);
-    g.drawEllipse (juce::Rectangle<float> (14.0f, 14.0f).withCentre (c), 2.0f);
+    g.drawEllipse (juce::Rectangle<float> (13.0f, 13.0f).withCentre (c), 2.5f);
+    g.fillEllipse (juce::Rectangle<float> (5.0f, 5.0f).withCentre (c));
 
     // セント値はプロのみ（DESIGN 4.3）
     if (session.mode == project::Mode::pro)
     {
         const auto cents = juce::roundToInt (p.centsOff);
         const auto txt = (cents >= 0 ? "+" : "") + juce::String (cents) + " cent";
-        g.setFont (font (12.0f, FontWeight::bold));
+        g.setFont (mono (11.0f, Weight::semibold));
         g.setColour (col);
-        g.drawText (txt, juce::Rectangle<float> (c.x + 14.0f, c.y - 22.0f, 80.0f, 16.0f), juce::Justification::centredLeft, false);
+        g.drawText (txt, juce::Rectangle<float> (c.x + 14.0f, c.y - 22.0f, 90.0f, 16.0f), juce::Justification::centredLeft, false);
     }
 }
 
@@ -273,30 +266,45 @@ void PitchLane::drawFooter (juce::Graphics& g)
 {
     g.setColour (colours::panel);
     g.fillRect (footerArea);
-    g.setColour (colours::border);
-    g.fillRect (footerArea.withHeight (1));
+    paint::hline (g, (float) footerArea.getY(), 0.0f, (float) getWidth());
 
-    auto r = legendArea;
-    g.setFont (font (11.0f, FontWeight::bold));
+    paint::microLabel (g, footerArea.withWidth (metrics::gutter).toFloat().withTrimmedLeft ((float) metrics::pad),
+                       "PITCH", colours::textMute);
 
-    auto swatch = [&] (juce::Colour c, const juce::String& label, bool line)
+    auto r = legendArea.toFloat();
+    const auto lf = sans (11.0f);
+
+    auto label = [&] (const juce::String& s, juce::Colour c)
     {
-        auto s = r.removeFromLeft (line ? 22 : 12).toFloat();
         g.setColour (c);
-        if (line) g.fillRoundedRectangle (s.withSizeKeepingCentre (18.0f, 4.0f), 2.0f);
-        else      g.fillEllipse (s.withSizeKeepingCentre (8.0f, 8.0f));
-        r.removeFromLeft (6);
-        g.setColour (colours::textDim);
-        const auto w = (int) textWidth (font (11.0f, FontWeight::bold), label) + 2;
-        g.drawText (label, r.removeFromLeft (w), juce::Justification::centredLeft, false);
-        r.removeFromLeft (16);
+        g.setFont (lf);
+        const auto w = textWidth (lf, s) + 2.0f;
+        g.drawText (s, r.removeFromLeft (w), juce::Justification::centredLeft, false);
+        r.removeFromLeft (16.0f);
     };
 
-    swatch (colours::refPitch, jp ("お手本"), true);
-    swatch (colours::accent, jp ("自分"), true);
-    r.removeFromLeft (10);
-    swatch (colours::accent, jp ("±") + juce::String ((int) session.pitchToleranceCents) + "c", false);
-    swatch (colours::warn, jp ("±50c"), false);
-    swatch (colours::bad, jp ("外れ"), false);
+    // お手本：帯
+    {
+        auto sw = r.removeFromLeft (26.0f).withSizeKeepingCentre (26.0f, 8.0f);
+        g.setColour (colours::ref.withAlpha (0.22f));
+        g.fillRect (sw);
+        g.setColour (colours::ref.withAlpha (0.85f));
+        g.fillRect (sw.withSizeKeepingCentre (sw.getWidth(), 1.4f));
+        r.removeFromLeft (6.0f);
+        label (jp ("お手本（±") + juce::String ((int) session.pitchToleranceCents) + jp ("c の帯）"), colours::textDim);
+    }
+
+    // 自分：3 状態
+    {
+        const juce::Colour cs[] = { colours::signal, colours::warn, colours::bad };
+        for (auto c : cs)
+        {
+            g.setColour (c);
+            g.fillRoundedRectangle (r.removeFromLeft (12.0f).withSizeKeepingCentre (12.0f, 3.0f), 1.5f);
+            r.removeFromLeft (2.0f);
+        }
+        r.removeFromLeft (6.0f);
+        label (jp ("自分（合う / ±50c / 外れ）"), colours::textDim);
+    }
 }
 } // namespace vb
