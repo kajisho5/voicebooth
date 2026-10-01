@@ -35,15 +35,11 @@ $exe = Join-Path $AppBuildDir "VoiceBooth.exe"
 if (-not (Test-Path $exe)) { throw "Missing $exe. Run: cmake --build build --config Release" }
 
 # --- ISCC ---
-$candidates = @()
-$onPath = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-if ($onPath) { $candidates += $onPath.Source }
-foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, (Join-Path $env:LOCALAPPDATA "Programs"))) {
-    if ($base) { $candidates += (Join-Path $base "Inno Setup 6\ISCC.exe") }
-}
-$iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-if (-not $iscc) { throw "ISCC.exe (Inno Setup 6.5.2+) not found. Install: winget install JRSoftware.InnoSetup" }
-$isccVersion = (Get-Item $iscc).VersionInfo.ProductVersion
+. (Join-Path $PSScriptRoot "find_iscc.ps1")
+$found = Find-Iscc
+if (-not $found) { throw "ISCC.exe (Inno Setup 6.5.2+) not found. Install: winget install JRSoftware.InnoSetup" }
+$iscc = $found.Path
+$isccVersion = $found.Version
 Write-Host "ISCC: $iscc ($isccVersion)"
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
