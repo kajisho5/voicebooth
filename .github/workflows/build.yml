@@ -34,8 +34,10 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
 
+      # 並列数は明示する。Mac は Makefile なので数なしの --parallel は make -j（上限なし）になり、
+      # 3 コア・7 GB のランナーで約 100 個のコンパイルが同時に走ってメモリが溢れ、77 分かかっていた
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel ${{ runner.os == 'macOS' && '3' || '4' }}
 
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure -V   # -V：mp3 / m4a の長さ・頭のずれをログに残す
