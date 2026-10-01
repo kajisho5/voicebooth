@@ -3,6 +3,7 @@
 #include "../Overlay.h"
 #include "../UiSession.h"
 #include "../parts/Dropdown.h"
+#include "../../system/SystemCheck.h"
 
 namespace vb
 {
@@ -22,11 +23,13 @@ protected:
 private:
     void onSessionChanged (juce::uint32) override;
 
-    struct Row { juce::String label, note; juce::Component* control; int controlWidth; };
+    // control が無い行は value（と LED）を右に描く
+    struct Row { juce::String label, note; juce::Component* control; int controlWidth; juce::String value = {}; juce::Colour led = {}; };
 
     Dropdown language;
     SegmentedKeys mode, tolerance, countIn, crossfade;
-    KeyButton octaveAlign, openSetup, cacheKey;
+    KeyButton octaveAlign, openSetup, cacheKey, supportKey;
+    system::Info systemInfo;
     std::vector<Row> rows;
     std::vector<juce::Rectangle<int>> rowAreas;
 };
