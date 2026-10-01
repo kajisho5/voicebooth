@@ -8,7 +8,12 @@ DialogPanel::DialogPanel (const juce::String& t, const juce::String& m)
     closeKey.withIcon (Icon::close);
     closeKey.setTooltip (tr ("common.close"));
     closeKey.onClick = [this] { if (onCloseRequest) onCloseRequest(); };
+    closeKey.setWantsKeyboardFocus (true);              // Tab で移れる（枠はキーボードの時だけ。DESIGN 4.10.1 FC）
+    closeKey.setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (closeKey);
+
+    // ダイアログ自身がフォーカスを受ける（出した時はここ。Tab で中のキーへ、Esc はメイン画面が閉じる）
+    setWantsKeyboardFocus (true);
 }
 
 KeyButton& DialogPanel::addFooterKey (const juce::String& text, KeyRole role, std::function<void()> onClick)
@@ -18,6 +23,8 @@ KeyButton& DialogPanel::addFooterKey (const juce::String& text, KeyRole role, st
     if (role == KeyRole::danger)  k->withLed (colours::rec).withToggle (false);
     k->setToggleState (role != KeyRole::normal, juce::dontSendNotification);   // LED を点けておく
     k->onClick = std::move (onClick);
+    k->setWantsKeyboardFocus (true);                    // Tab で移り、Enter で押せる
+    k->setMouseClickGrabsKeyboardFocus (false);         // マウスで押した時は枠を出さない
     roles.push_back (role);
     addAndMakeVisible (k);
     resized();
@@ -103,6 +110,10 @@ void OverlayHost::show (std::unique_ptr<juce::Component> panel, bool canDismiss,
     toFront (false);
     resized();
     repaint();
+
+    // キーボードの操作をダイアログへ（Tab で中のキーに移れるように）。キーにはまだフォーカスを置かない（Enter で誤って押さない）
+    if (content->getWantsKeyboardFocus() && content->isShowing())
+        content->grabKeyboardFocus();
 }
 
 void OverlayHost::close()
