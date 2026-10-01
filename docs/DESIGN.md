@@ -627,6 +627,7 @@ Main
   - 歌詞・曲名などかなを含むデータは、UI の言語に関係なく日本語の字形で描く（`sansFor()`）
 - 言語を足す時：`i18n::available()` に 1 行 ＋ JSON を 1 枚（CMake の埋め込みにも追加）
 - 長さの違い（英語は長い・日本語は短い）を前提に、ボタン幅は文字幅から計算し、固定幅にしない
+- README も 5 言語（`README.md` が日本語、`README.<言語コード>.md`）。肩書きはアプリの `app.tagline` と同じ文、見出し画像も言語ごと（`brand/out/marketing/readme-banner-*.png`）。内容を変えたら全言語をそろえる。開発者向けの説明は `docs/DEVELOPMENT.md`（日本語のみ）
 
 ---
 
