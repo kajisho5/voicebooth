@@ -140,9 +140,14 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         }
         std::unique_ptr<juce::OutputStream> stream (fileStream.release());
         juce::WavAudioFormat wav;
+        // 24bit PCM か 32bit float（プロジェクトの録音形式）
+        const bool asFloat = project.bitDepthExport >= 32;
+        using Format = juce::AudioFormatWriterOptions::SampleFormat;
         writer = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate ((double) rate)
                                                                               .withNumChannels (1)
-                                                                              .withBitsPerSample (24));
+                                                                              .withBitsPerSample (asFloat ? 32 : 24)
+                                                                              .withSampleFormat (asFloat ? Format::floatingPoint
+                                                                                                         : Format::integral));
         if (writer == nullptr)
         {
             result.message = "can't create WAV writer";

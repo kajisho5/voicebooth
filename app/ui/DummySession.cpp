@@ -273,6 +273,10 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.monitorGain         = prev.monitorGain;
     s.monitorReverb       = prev.monitorReverb;
     s.selfMuted           = prev.selfMuted;
+    s.recordRate          = prev.recordRate;
+    s.recordFloat         = prev.recordFloat;
+    s.songSerial          = prev.songSerial + 1;
+    s.project.bitDepthExport = prev.recordFloat ? 32 : 24;
     s.speakerOutput       = prev.speakerOutput;
     s.speakerCheckedFor   = prev.speakerCheckedFor;
 

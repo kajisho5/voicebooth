@@ -26,6 +26,7 @@ namespace change
         meter     = 1 << 10,  // 入力メーターの値（30 Hz）
         takes     = 1 << 20,  // テイク・採用区間・テイクの波形が変わった（B5）
         notice    = 1 << 21,  // 知らせ（トースト）を出す（noticeText / noticeSerial）
+        recordFormat = 1 << 22,  // 録音形式（SR・ビット数）が変わった
         all       = 0xffffffff
     };
 }
@@ -116,6 +117,11 @@ public:
     void setSelfMonitorMuted (bool);
     void setMonitorReverb (float fader);  // 耳だけ。録音には入らない
 
+    // --- 録音形式（SR・ビット数。2026-10-01） ---------------------------------
+    /** rate = 0 は曲に合わせる。曲を開いていて、まだテイクが無ければ伴奏をその SR にそろえ直す（裏で）。
+        テイクがある曲は SR を変えない（次に開く曲から）。ビット数はいつでも変えられる（次のテイク・書き出しから） */
+    void setRecordFormat (double rate, bool floatSamples);
+
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
     juce::String recordProblem() const;
@@ -150,6 +156,8 @@ private:
     void checkSpeakerOutput();
     void pushMonitorToEngine();
     void finishRecording();
+    void conformSong();
+    bool hasTakes() const;
     void loadTakeWave (project::TrackType, const project::Take&);
     void postNotice (const juce::String& text);
     void refreshInputStatus();

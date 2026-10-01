@@ -27,6 +27,12 @@ inline juce::String formatKhz (int sampleRate)
     return sampleRate % 1000 == 0 ? juce::String (sampleRate / 1000) : juce::String (sampleRate / 1000.0, 1);
 }
 
+/** 録音・書き出しのビット数の表示（24 → "24bit"、32 → "32bit float"） */
+inline juce::String formatBits (int bitDepth)
+{
+    return bitDepth >= 32 ? juce::String ("32bit float") : juce::String (bitDepth) + "bit";
+}
+
 /** dBFS の表示（小数 1 桁）。メーターの下限（-100）は "-inf" */
 inline juce::String formatDb (float db)
 {

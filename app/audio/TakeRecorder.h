@@ -2,7 +2,8 @@
 
 #include <juce_audio_formats/juce_audio_formats.h>
 
-/*  通し録音（DESIGN 6 / Phase B5）。入力 1 ch（モニターより前の素の声）を 24bit モノラル WAV に書く
+/*  通し録音（DESIGN 6 / Phase B5）。入力 1 ch（モニターより前の素の声）をモノラル WAV に書く。
+    形式は 24bit PCM（既定）か 32bit float。SR はデバイス（＝時間軸）の SR（44.1〜384 kHz。録音形式 2026-10-01）
     オーディオスレッドは ThreadedWriter の FIFO に入れるだけ。ファイルへの書き込みは裏のスレッド（DESIGN 17）。
 
     位置：テイクの 1 サンプル目が曲のどこか（startSample）を、録音を始めたブロックの再生位置から決める。
@@ -31,7 +32,7 @@ public:
 
     /** ファイルを作って待機する。録音は次に再生中のブロックが来た時から。失敗なら理由（空なら成功）。
         同じ名前のファイルがあれば録らない（録った声を上書きしない） */
-    juce::String begin (const juce::File& file, double sampleRate);
+    juce::String begin (const juce::File& file, double sampleRate, bool floatSamples = false);
 
     /** 録音を閉じて結果を返す（ファイルは書ききってから返る）。begin していなければ空の結果 */
     Result finish();

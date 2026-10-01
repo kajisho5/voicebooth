@@ -400,10 +400,10 @@ void MainComponent::openExport()
     dlg->onExport = [this, d]
     {
         // 曲を開いていれば本当に書き出す（B5：個別のフル尺 Dry）。見本（UI_MOCK・デモ）は書かない
-        const auto tracks = d->selectedTracks();
+        const auto chosen = d->selectedTracks();
         const bool real = state().backingWave != nullptr;
         overlay.close();   // d はここで消える
-        if (real) session.exportTracks (tracks);
+        if (real) session.exportTracks (chosen);
         else      showToast (tr ("export.mockToast"));
     };
     overlay.show (std::move (dlg), true);

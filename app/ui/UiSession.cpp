@@ -5,6 +5,7 @@
 #include "project/Comp.h"
 #include "export/ExportService.h"
 #include "Timeline.h"
+#include "audio/Resample.h"
 
 namespace vb
 {
@@ -24,6 +25,8 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
     s.projectFolder = projectFolderFor (s.songName);
+    s.songRate = sampleRate;
+    s.songOriginal = audio;
 
     if (engine != nullptr)
     {
@@ -33,6 +36,107 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         refreshOutputStatus();
     }
     notify (change::all);
+
+    // 録音の SR を曲と違う値にしていれば、伴奏をその SR にそろえる（裏で）
+    if (s.targetRate() != s.songRate)
+        conformSong();
+}
+
+//==============================================================================
+bool UiSession::hasTakes() const
+{
+    for (auto& t : s.project.tracks)
+        if (! t.takes.empty())
+            return true;
+    return false;
+}
+
+void UiSession::setRecordFormat (double rate, bool floatSamples)
+{
+    const bool rateChanged = std::abs (rate - s.recordRate) > 0.5;
+    s.recordFloat = floatSamples;
+    s.recordRate = rate;
+    s.project.bitDepthExport = floatSamples ? 32 : 24;
+    notify (change::recordFormat | change::practice);
+
+    if (! rateChanged || s.songOriginal == nullptr || s.isRecording)
+        return;
+
+    // テイクがある曲は時間軸を変えない（録った声の SR と合わなくなる）。次に開く曲から
+    if (hasTakes())
+    {
+        if (s.targetRate() != s.sampleRate())
+            postNotice (tr ("format.rateLater", formatKhz (s.sampleRate()), formatKhz (s.targetRate())));
+        return;
+    }
+    conformSong();
+}
+
+void UiSession::conformSong()
+{
+    const auto target = s.targetRate();
+    if (s.songOriginal == nullptr || target <= 0 || target == s.sampleRate() || s.conforming)
+        return;
+
+    if (s.isPlaying) stop();
+    s.conforming = true;
+    postNotice (tr ("format.conforming", formatKhz (target)));
+    notify (change::recordFormat);
+
+    // 元の伴奏から作り直す（何度変えても劣化しない）。概形もそろえた SR で作り直す
+    const auto original = s.songOriginal;
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, original, target, serial]
+    {
+        auto audio = audio::resampleSong (*original, (double) target);
+        std::shared_ptr<audio::WaveformOverview> wave;
+        if (audio != nullptr)
+        {
+            wave = std::make_shared<audio::WaveformOverview> (audio->length());
+            std::vector<const float*> ch;
+            for (int c = 0; c < audio->buffer.getNumChannels(); ++c)
+                ch.push_back (audio->buffer.getReadPointer (c));
+            wave->append (ch.data(), (int) ch.size(), audio->buffer.getNumSamples());
+        }
+        juce::MessageManager::callAsync ([this, weak, audio, wave, target, serial]
+        {
+            if (weak.expired() || serial != s.songSerial)
+                return;   // 消えた・別の曲を開いた
+            s.conforming = false;
+            if (audio == nullptr)
+            {
+                postNotice (tr ("format.conformFailed", formatKhz (target)));
+                notify (change::recordFormat);
+                return;
+            }
+
+            // 位置をすべて新しい SR のサンプルに直す（時刻は変えない）
+            const auto ratio = (double) target / (double) s.sampleRate();
+            auto scale = [ratio] (int64 v) { return (int64) std::llround ((double) v * ratio); };
+            s.playhead = scale (s.playhead);
+            s.rangeIn = scale (s.rangeIn);
+            s.rangeOut = scale (s.rangeOut);
+            s.viewStart = scale (s.viewStart);
+            s.viewEnd = scale (s.viewEnd);
+            for (auto& m : s.project.markers) m.sample = scale (m.sample);
+            for (auto& l : s.project.lyrics) { l.startSample = scale (l.startSample); l.endSample = scale (l.endSample); }
+            s.project.sampleRate = target;
+            s.project.lengthSamples = audio->length();
+            s.backingWave = wave;
+
+            if (engine != nullptr)
+            {
+                engine->setSong (audio);   // デバイスもこの SR に切り替える（対応していれば）
+                engine->setBackingLevel (s.offVocalGain, s.backingMuted);
+                engine->seek (s.playhead);
+                syncLoopToEngine();
+                refreshOutputStatus();
+            }
+            postNotice (tr ("format.conformed", formatKhz (target), formatBits (s.project.bitDepthExport)));
+            notify (change::all);
+        });
+    });
 }
 
 void UiSession::attachEngine (audio::AudioEngine* e)
@@ -297,7 +401,7 @@ void UiSession::setRecording (bool r)
     loopBeforeRecording = s.loopOn && s.hasRange();
     engine->setLoop (s.rangeIn, s.rangeOut, false);
 
-    const auto error = engine->startRecording (s.projectFolder.getChildFile (rel()));
+    const auto error = engine->startRecording (s.projectFolder.getChildFile (rel()), s.recordFloat);
     if (error.isNotEmpty())
     {
         syncLoopToEngine();
@@ -322,6 +426,7 @@ juce::String UiSession::recordProblem() const
     bool armed = false;
     for (auto& t : s.trackUi) armed = armed || t.armed;
     if (! armed)                                      return "record.problem.noArm";
+    if (s.conforming)                                 return "record.problem.conforming";
     if (! s.output.open || s.output.converting)       return "record.problem.sampleRate";
     return {};
 }

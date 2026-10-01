@@ -10,7 +10,7 @@ TakeRecorder::~TakeRecorder()
     writerThread.stopThread (2000);
 }
 
-juce::String TakeRecorder::begin (const juce::File& f, double sampleRate)
+juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool floatSamples)
 {
     finish();
 
@@ -25,12 +25,15 @@ juce::String TakeRecorder::begin (const juce::File& f, double sampleRate)
     if (! fileStream->openedOk())
         return fileStream->getStatus().getErrorMessage();
 
-    // 24bit PCM・モノラル・デバイス（＝曲）の SR（DESIGN 6.5）
+    // 24bit PCM か 32bit float・モノラル・デバイス（＝時間軸）の SR（DESIGN 6.5）
     std::unique_ptr<juce::OutputStream> stream (fileStream.release());
     juce::WavAudioFormat wav;
+    using Format = juce::AudioFormatWriterOptions::SampleFormat;
     auto w = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (sampleRate)
                                                                          .withNumChannels (1)
-                                                                         .withBitsPerSample (24));
+                                                                         .withBitsPerSample (floatSamples ? 32 : 24)
+                                                                         .withSampleFormat (floatSamples ? Format::floatingPoint
+                                                                                                         : Format::integral));
     if (w == nullptr)
         return "can't create WAV writer";
 
