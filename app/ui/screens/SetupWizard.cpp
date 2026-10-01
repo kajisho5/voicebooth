@@ -1,4 +1,5 @@
 #include "SetupWizard.h"
+#include "audio/Resample.h"
 #include "../Timeline.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -76,7 +77,7 @@ namespace
     }
 
     // 実デバイスの画面の配置（layoutBody と paintBody で同じものを使う）
-    enum InfoRow { rowDriver, rowChannel, rowRate, rowBuffer, rowLatency, rowMic, numInfoRows };
+    enum InfoRow { rowDriver, rowChannel, rowRate, rowFormat, rowBuffer, rowLatency, rowMic, numInfoRows };
 
     struct LiveLayout
     {
@@ -246,7 +247,7 @@ SetupWizard::SetupWizard (UiSession& u, int initialStep)
         rebuildDeviceControls();
     }
 
-    setSize (780, live() ? 600 : 560);
+    setSize (780, live() ? 630 : 560);
     setStep (initialStep);
 }
 
@@ -293,7 +294,8 @@ void SetupWizard::rebuildDeviceControls()
         << "#" << devices.inputs.joinIntoString ("|") << "#" << devices.outputs.joinIntoString ("|")
         << "#" << devices.currentInput << "#" << devices.currentOutput
         << "#" << in.numChannels << "#" << in.channel << "#" << (int) in.open
-        << "#" << devices.bufferSize << "#" << devices.sampleRate << "#" << (int) s.mode;
+        << "#" << devices.bufferSize << "#" << devices.sampleRate << "#" << (int) s.mode
+        << "#" << s.recordRate << "#" << (int) s.recordFloat << "#" << s.songRate;
     for (auto b : devices.bufferSizes) key << "," << b;
     if (key == devicesKey)
         return;
@@ -404,6 +406,45 @@ void SetupWizard::rebuildDeviceControls()
         addChildComponent (*bufferPick);
     }
 
+    // 録音形式（2026-10-01）：SR はこの機器で録れる値だけ（44.1〜384 kHz）、ビット数は 24bit / 32bit float。簡単は自動
+    ratePick.reset();
+    bitKeys.reset();
+    if (s.mode != project::Mode::easy)
+    {
+        rateChoices.clear();
+        juce::StringArray items;
+        items.add (s.songRate > 0 ? tr ("setup.device.format.songRate", formatKhz (s.songRate))
+                                  : tr ("setup.device.format.songRateUnknown"));
+        rateChoices.add (0.0);
+        for (auto r : audio::recordingRates())
+            if (devices.sampleRates.contains (r) || std::abs (r - s.recordRate) < 0.5)
+            {
+                items.add (formatKhz (juce::roundToInt (r)) + " kHz");
+                rateChoices.add (r);
+            }
+        int current = 0;
+        for (int i = 0; i < rateChoices.size(); ++i)
+            if (std::abs (rateChoices[i] - s.recordRate) < 0.5)
+                current = i;
+        ratePick = std::make_unique<Dropdown> (items, current);
+        ratePick->setFont (mono (12.0f));
+        const auto choices = rateChoices;
+        ratePick->onChange = [this, choices] (int i)
+        {
+            const auto rate = choices[i];
+            later ([rate] (SetupWizard& w) { w.session.setRecordFormat (rate, w.state().recordFloat); });
+        };
+        addChildComponent (*ratePick);
+
+        bitKeys = std::make_unique<SegmentedKeys> (juce::StringArray { "24bit", "32bit float" }, s.recordFloat ? 1 : 0);
+        bitKeys->setFont (mono (11.5f));
+        bitKeys->onChange = [this] (int i)
+        {
+            later ([i] (SetupWizard& w) { w.session.setRecordFormat (w.state().recordRate, i == 1); });
+        };
+        addChildComponent (*bitKeys);
+    }
+
     if (getWidth() > 0)
         setStep (step);   // 見せる / 隠す・配置
 }
@@ -425,7 +466,8 @@ void SetupWizard::setStep (int s)
     measure.setVisible (step == 2);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             inputList.get(), outputList.get(), driverPick.get(), channelKeys.get(), channelPick.get(), bufferPick.get() })
+             inputList.get(), outputList.get(), driverPick.get(), channelKeys.get(), channelPick.get(), bufferPick.get(),
+             ratePick.get(), bitKeys.get() })
         if (c != nullptr)
             c->setVisible (step == 0);
 
@@ -448,6 +490,17 @@ void SetupWizard::layoutBody (juce::Rectangle<int> body)
         if (channelKeys != nullptr) channelKeys->setBounds (l.control (rowChannel, channelKeys->idealWidth()));
         if (channelPick != nullptr) channelPick->setBounds (l.control (rowChannel, juce::jmin (220, channelPick->idealWidth())));
         if (bufferPick != nullptr) bufferPick->setBounds (l.control (rowBuffer, juce::jmin (180, bufferPick->idealWidth())));
+        if (ratePick != nullptr)
+        {
+            const auto rw = juce::jmin (230, ratePick->idealWidth());
+            ratePick->setBounds (l.control (rowFormat, rw));
+            if (bitKeys != nullptr)
+            {
+                auto a = l.rows[rowFormat].withTrimmedLeft (labelW + rw + 10);
+                const auto bw = juce::jmin (a.getWidth(), bitKeys->idealWidth());
+                bitKeys->setBounds (a.removeFromLeft (bw).withSizeKeepingCentre (bw, 26));
+            }
+        }
     }
     if (step == 1)
     {
@@ -595,6 +648,17 @@ void SetupWizard::paintDeviceLive (juce::Graphics& g, juce::Rectangle<int> body)
                          ? tr ("setup.device.rate.value", formatKhz (juce::roundToInt (devices.sampleRate)), rates.joinIntoString (" / "))
                          : juce::String ("-");
         row (rowRate, tr ("setup.device.rate"), value, colours::text);
+    }
+
+    // 録音形式（SR・ビット数）。選べる時は部品、簡単は自動の説明
+    if (ratePick != nullptr)
+    {
+        const auto controlRight = bitKeys != nullptr ? bitKeys.get() : static_cast<juce::Component*> (ratePick.get());
+        row (rowFormat, tr ("setup.device.format"), tr ("setup.device.format.note"), colours::textMute, controlRight);
+    }
+    else
+    {
+        row (rowFormat, tr ("setup.device.format"), tr ("setup.device.format.auto", formatBits (s.project.bitDepthExport)), colours::text);
     }
 
     // バッファ（プロは選べる。ほかは自動）

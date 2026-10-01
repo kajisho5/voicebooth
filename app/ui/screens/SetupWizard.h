@@ -52,7 +52,9 @@ private:
     audio::DeviceList devices;
     juce::String devicesKey;                    // 一覧の中身（変わった時だけ作り直す）
     std::unique_ptr<DeviceListView> inputList, outputList;
-    std::unique_ptr<Dropdown> driverPick, bufferPick, channelPick;
+    std::unique_ptr<Dropdown> driverPick, bufferPick, channelPick, ratePick;   // ratePick：録音の SR
+    std::unique_ptr<SegmentedKeys> bitKeys;                                      // 24bit / 32bit float
+    juce::Array<double> rateChoices;                                             // ratePick の並び（0 = 曲に合わせる）
     std::unique_ptr<SegmentedKeys> channelKeys;
     juce::String selectError;                   // 最後の切り替えの失敗（OS / ドライバの文言）
 };

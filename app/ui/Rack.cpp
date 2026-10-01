@@ -378,7 +378,7 @@ void RecordModule::paint (juce::Graphics& g)
 
     g.setColour (colours::textDim);
     g.setFont (mono (10.5f));
-    g.drawText (tr ("record.format", formatKhz (s.sampleRate()), s.project.bitDepthExport,
+    g.drawText (tr ("record.format", formatKhz (s.sampleRate()), formatBits (s.project.bitDepthExport),
                     formatTime (s.project.lengthSamples, s.sampleRate(), false)),
                 inner, juce::Justification::centredLeft, true);
 

@@ -17,7 +17,7 @@ namespace
     }
 
     /** モノラル 24bit の WAV を書く（テイクの代わり） */
-    void writeWav (const juce::File& f, double rate, const std::vector<float>& samples)
+    void writeWav (const juce::File& f, double rate, const std::vector<float>& samples, bool asFloat = false)
     {
         f.getParentDirectory().createDirectory();
         f.deleteFile();
@@ -25,7 +25,9 @@ namespace
         juce::WavAudioFormat wav;
         auto w = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (rate)
                                                                               .withNumChannels (1)
-                                                                              .withBitsPerSample (24));
+                                                                              .withBitsPerSample (asFloat ? 32 : 24)
+                                                                              .withSampleFormat (asFloat ? juce::AudioFormatWriterOptions::SampleFormat::floatingPoint
+                                                                                                         : juce::AudioFormatWriterOptions::SampleFormat::integral));
         const float* ch[] = { samples.data() };
         w->writeFromFloatArrays (ch, 1, (int) samples.size());
     }
@@ -34,6 +36,7 @@ namespace
     {
         double rate = 0.0;
         int bits = 0, channels = 0;
+        bool isFloat = false;
         std::vector<float> samples;
     };
 
@@ -48,6 +51,7 @@ namespace
         w.rate = r->sampleRate;
         w.bits = (int) r->bitsPerSample;
         w.channels = (int) r->numChannels;
+        w.isFloat = r->usesFloatingPointData;
         juce::AudioBuffer<float> b ((int) r->numChannels, (int) r->lengthInSamples);
         r->read (&b, 0, (int) r->lengthInSamples, 0, true, true);
         w.samples.assign (b.getReadPointer (0), b.getReadPointer (0) + b.getNumSamples());
@@ -193,6 +197,30 @@ public:
             expectWithinAbsoluteError (w.samples[200], 0.0f, 1.0e-7f);
             expectWithinAbsoluteError (w.samples[300], 0.995f, 1.0e-6f);
             dir.deleteRecursively();
+        }
+
+        beginTest ("recorder: 32-bit float at 96 / 192 / 384 kHz keeps values above 0 dBFS as they are");
+        {
+            for (auto r : { 96000.0, 192000.0, 384000.0 })
+            {
+                auto dir = tempFolder ("recf");
+                audio::TakeRecorder rec;
+                const auto file = dir.getChildFile ("f.wav");
+                expect (rec.begin (file, r, true).isEmpty());
+                std::vector<float> x (512);
+                for (size_t i = 0; i < x.size(); ++i) x[i] = i % 2 == 0 ? 1.5f : -0.123456789f;
+                rec.process (x.data(), 512, 0, 512, false);
+                const auto res = rec.finish();
+                expect (res.clipped);
+                const auto w = readWav (file);
+                expectEquals (w.rate, r);
+                expectEquals (w.bits, 32);
+                expect (w.isFloat);
+                expectEquals ((int) w.samples.size(), 512);
+                expectEquals (w.samples[0], 1.5f);                  // float は 0 dBFS を超えても潰さない
+                expectEquals (w.samples[1], -0.123456789f);         // そのままの値（24bit の丸めが無い）
+                dir.deleteRecursively();
+            }
         }
 
         beginTest ("recorder: a loop wrap ends the take; nothing is written if playback never started");
@@ -346,6 +374,42 @@ public:
             res = exporter::ExportService::exportTrackDry (ok, project::TrackType::main, dir, out, cancel);
             expect (! res.ok);
             expect (! out.exists());
+            dir.deleteRecursively();
+        }
+
+        beginTest ("export: 32-bit float at 96 kHz (record format) keeps the length and the values");
+        {
+            auto dir = tempFolder ("exp96");
+            project::Project p;
+            p.sampleRate = 96000;
+            p.bitDepthExport = 32;
+            p.lengthSamples = 400000;
+            project::Track t;
+            auto t1 = take ("take1", 96000, 192000);
+            writeWav (dir.getChildFile (t1.path), 96000, std::vector<float> (96000, 1.25f), true);
+            project::applyTake (t, t1);
+            p.tracks.push_back (t);
+            const auto out = dir.getChildFile ("v96.wav");
+            const auto res = exporter::ExportService::exportTrackDry (p, project::TrackType::main, dir, out);
+            expect (res.ok, res.message);
+            expect (res.clipped);
+            const auto w = readWav (out);
+            expectEquals (w.rate, 96000.0);
+            expectEquals (w.bits, 32);
+            expect (w.isFloat);
+            expectEquals ((int64) w.samples.size(), (int64) 400000);
+            expectEquals (w.samples[95999], 0.0f);
+            expectEquals (w.samples[96000], 1.25f);
+            expectEquals (w.samples[191999], 1.25f);
+            expectEquals (w.samples[192000], 0.0f);
+
+            // 24bit の書き出しでもテイクが float なら値を変えずに入れる（0 dBFS を超える分は 24bit の上限で止まる）
+            p.bitDepthExport = 24;
+            const auto out24 = dir.getChildFile ("v24.wav");
+            expect (exporter::ExportService::exportTrackDry (p, project::TrackType::main, dir, out24).ok);
+            const auto w24 = readWav (out24);
+            expectEquals (w24.bits, 24);
+            expect (! w24.isFloat);
             dir.deleteRecursively();
         }
 

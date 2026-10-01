@@ -129,7 +129,7 @@ void StatusBar::paint (juce::Graphics& g)
     item (tr ("status.latency"), latency, colours::text);
     item (tr ("status.recTo"), s.recMode == project::RecMode::delivery ? tr ("status.recTo.delivery") : tr ("status.recTo.practice"),
           s.isRecording ? colours::rec : colours::text);
-    item (tr ("status.export"), tr ("status.export.value", formatKhz (s.sampleRate()), s.project.bitDepthExport), colours::text);
+    item (tr ("status.export"), tr ("status.export.value", formatKhz (s.sampleRate()), formatBits (s.project.bitDepthExport)), colours::text);
     if (s.mode != project::Mode::easy)
         item (tr ("status.driver"), s.driver + " " + juce::String (s.bufferSize), colours::textDim);
 
