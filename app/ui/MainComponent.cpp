@@ -31,6 +31,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     setWantsKeyboardFocus (true);
     setSize (defaultWidth, defaultHeight);
 
+    deviceLostSeen = state().deviceLostCount;
     lastTick = juce::Time::getMillisecondCounterHiRes();
     startTimerHz (30);
 }
@@ -93,6 +94,9 @@ void MainComponent::timerCallback()
     if (! clockFrozen)
         session.tick (dt);
 
+    // 入力メーター（30 Hz）。時計を止めていても動かす
+    session.pollInput();
+
     if (toastUntil > 0.0 && now > toastUntil)
     {
         toastUntil = 0.0;
@@ -107,6 +111,13 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
 
     if (changes & change::transport)
         repaint();   // 録音中の赤枠
+
+    // 使っていた機器が外れた：再生は止まっている。選び直しを促す（DESIGN 13）
+    if ((changes & change::device) && state().deviceLostCount != deviceLostSeen)
+    {
+        deviceLostSeen = state().deviceLostCount;
+        showToast (tr ("device.lostToast"));
+    }
 }
 
 void MainComponent::resized()
