@@ -60,6 +60,10 @@ LyricsDoc parseLyrics (const juce::String& text);
 /** 1 行が区間の見出しだけなら、その名前（括弧を外したもの）を返す。違えば空 */
 juce::String sectionHeadingOf (const juce::String& line);
 
+/** 見出しの名前 → 区間の種類（"chorus" など。SongInfo.h の kind）。
+    「サビ2」「[Chorus]」「Aメロ」のような決まった語だけ。当てはまらなければ空（自由入力の名前として使う） */
+juce::String sectionKindOfHeading (const juce::String& heading);
+
 /** ファイルを読む（判定した文字コードも返す） */
 struct LoadedLyrics
 {

@@ -8,23 +8,24 @@
 
 namespace vb
 {
-/** 曲全体の概形シーク：オフボ概形 / 再生済み / ループ範囲 / 表示中ウィンドウ / 再生ヘッド
-    クリック・ドラッグで移動 */
+/** 曲全体の概形シーク：オフボ概形 / 再生済み / ループ範囲 / 表示中ウィンドウ / 再生ヘッド / 区間の帯と名前
+    クリック・ドラッグで移動。区間の頭の近く（5px）では頭に吸い付く（Alt / Option で吸い付かない。DESIGN 4.10.1） */
 class OverviewSeek : public juce::Component, private SessionView
 {
 public:
     explicit OverviewSeek (UiSession& u) : SessionView (u) { setMouseCursor (juce::MouseCursor::PointingHandCursor); }
 
     void paint (juce::Graphics&) override;
-    void mouseDown (const juce::MouseEvent& e) override { seekTo (e.position.x); }
-    void mouseDrag (const juce::MouseEvent& e) override { seekTo (e.position.x); }
+    void mouseDown (const juce::MouseEvent& e) override { seekTo (e.position.x, ! e.mods.isAltDown()); }
+    void mouseDrag (const juce::MouseEvent& e) override { seekTo (e.position.x, ! e.mods.isAltDown()); }
 
 private:
     void onSessionChanged (juce::uint32 c) override
     {
-        if (c & (change::playhead | change::range | change::view | change::transport)) repaint();
+        if (c & (change::playhead | change::range | change::view | change::transport | change::songInfo)) repaint();
     }
-    void seekTo (float x);
+    void seekTo (float x, bool snapToSections);
+    void drawSections (juce::Graphics&, const TimeMap&, juce::Rectangle<float>);
     juce::Rectangle<float> inner() const { return getLocalBounds().toFloat().reduced (8.0f, 5.0f); }
 };
 

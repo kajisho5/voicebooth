@@ -11,7 +11,7 @@ namespace vb
 /** ブースのロゴマーク（窓＋カプセル＋タリー） */
 void drawBoothMark (juce::Graphics&, juce::Rectangle<float>, bool recording);
 
-/** DESIGN 4.1 トップバー：ロゴ / 曲名 / モード / 入力デバイス / タリー / 書き出し / 設定 */
+/** DESIGN 4.1 トップバー：ロゴ / 曲名 / KEY・BPM（押すと曲の情報。B4b）/ モード / 入力デバイス / タリー / 書き出し / 設定 */
 class TopBar : public juce::Component, private SessionView
 {
 public:
@@ -29,6 +29,7 @@ private:
     Actions& actions;
     SegmentedKeys mode;
     KeyButton device { {}, KeyButton::Kind::ghost };
+    KeyButton songInfo { {}, KeyButton::Kind::ghost };   // 「KEY C  BPM 128」：押すとテンポ・キー・区間のパネル
     TallyLamp tally;
     KeyButton exportKey, settings;
 

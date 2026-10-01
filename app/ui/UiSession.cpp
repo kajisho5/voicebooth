@@ -214,6 +214,7 @@ void UiSession::seek (int64 sample)
 {
     s.playhead = juce::jlimit ((int64) 0, s.project.lengthSamples, sample);
     if (s.isRecording) s.recordStart = s.playhead;
+    if (s.lyricSyncing) s.lyricCursor = song::firstLineToSync (s.project.lyrics, s.playhead);   // 戻って合わせ直す（B4b）
     if (isEngineDriven()) engine->seek (s.playhead);
     keepPlayheadInView();
     notify (change::playhead);
