@@ -12,6 +12,12 @@ namespace vb::audio
     OS から接続方式は取らない（取れない OS がある）。外れても警告が出ないだけで、動作は変えない */
 bool looksLikeBluetooth (const juce::String& deviceName);
 
+/** 内蔵・外付けのスピーカーらしい名前か（モニターのハウリング対策。DESIGN 7.3 / Phase B4）
+    名前だけで見る当て推量：speaker / スピーカー / 扬声器 / 揚聲器 / 스피커。ただしヘッドホンの語も入っていれば違う
+    （Windows の "Speakers/Headphones (Realtek)" など、差したヘッドホンにも同じ名前を使う機器がある）。
+    当たったら自分の声のモニターを最初だけミュートにする（触れば鳴らせる）。外れても動作は変えない */
+bool looksLikeSpeakers (const juce::String& deviceName);
+
 /** 入力チャンネル（DESIGN 13：モノラル化。既定は L = 0）
     wanted が範囲外なら 0（L）。デバイスに入力が無ければ -1 */
 int resolveInputChannel (int wanted, int available);

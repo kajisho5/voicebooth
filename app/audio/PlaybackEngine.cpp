@@ -189,6 +189,17 @@ void PlaybackEngine::setBackingLevel (float fader, bool muted)
     core.setMuted (muted);
 }
 
+void PlaybackEngine::setSelfMonitor (float fader, bool muted)
+{
+    monitor.setGain (PlaybackCore::faderToGain (fader));
+    monitor.setMuted (muted);
+}
+
+void PlaybackEngine::setMonitorReverb (float fader)
+{
+    monitor.setReverb (PlaybackCore::faderToGain (fader));
+}
+
 OutputStatus PlaybackEngine::getOutputStatus() const
 {
     OutputStatus st;
@@ -449,17 +460,21 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
 {
     callbacks.fetch_add (1, std::memory_order_relaxed);
 
-    // 入力は 1 ch だけ開いている（inputs[0]）。メーターに通すだけで、出力には混ぜない（モニターは B4）
-    if (numInputs > 0 && inputs != nullptr && inputs[0] != nullptr)
-        meter.process (inputs[0], numSamples);
+    // 入力は 1 ch だけ開いている（inputs[0]）。メーターに通す（録音 B5 はここで、モニターより前で取る）
+    const float* input = numInputs > 0 && inputs != nullptr ? inputs[0] : nullptr;
+    if (input != nullptr)
+        meter.process (input, numSamples);
 
+    // オフボ（出力を全部書く）に、自分の声（とモニターリバーブ）を足す
     core.render (outputs, numOutputs, numSamples);
+    monitor.process (input, outputs, numOutputs, numSamples);
 }
 
 void PlaybackEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
 {
     core.prepare (device->getCurrentSampleRate());
     meter.prepare (device->getCurrentSampleRate());
+    monitor.prepare (device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
 }
 
 void PlaybackEngine::audioDeviceStopped()

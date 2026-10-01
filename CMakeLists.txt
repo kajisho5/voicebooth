@@ -92,6 +92,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/Mp4Gapless.cpp
     app/audio/PlaybackCore.cpp
     app/audio/InputMeter.cpp
+    app/audio/MonitorMixer.cpp
     app/audio/DeviceRules.cpp)
 
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
@@ -220,6 +221,7 @@ if(VOICEBOOTH_TESTS)
         tests/AlignTests.cpp
         tests/SkinTests.cpp
         tests/MotionTests.cpp
+        tests/MonitorMixerTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
         ${VOICEBOOTH_SKIN_SOURCES})

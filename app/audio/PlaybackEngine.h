@@ -4,10 +4,12 @@
 #include "AudioEngine.h"
 #include "PlaybackCore.h"
 #include "InputMeter.h"
+#include "MonitorMixer.h"
 #include "DeviceRules.h"
 
-/*  デバイスを開いて PlaybackCore を鳴らし、入力をメーターに通す（Phase B2 / B3）
-    - 入力は 1 ch（モノラル、既定 L）。メーターに使うだけで、出力には流さない（モニターは B4、録音は B5）
+/*  デバイスを開いて PlaybackCore を鳴らし、入力をメーターとモニターに通す（Phase B2 / B3 / B4）
+    - 入力は 1 ch（モノラル、既定 L）。メーターに通し、自分の声として出力の L / R に返す（MonitorMixer。録音は B5）
+    - 返す量・ミュート・モニターリバーブは UI から。録音バス（B5）はモニターの前で分ける
     - Mac はマイクの許可を先に確かめる。許可が無ければ出力だけ開く（DESIGN 13）
     - 入力が開けなくても出力だけで開き直す（オフボの再生は止めない）
     - 曲を開いたら、デバイスの SR を曲に合わせる。合わせられなければ試聴用に変換して鳴らす（DESIGN 13）
@@ -44,6 +46,8 @@ public:
     void  setLoop (int64 a, int64 b, bool on) override { core.setLoop (a, b, on); }
 
     void setBackingLevel (float fader, bool muted) override;
+    void setSelfMonitor (float fader, bool muted) override;
+    void setMonitorReverb (float fader) override;
     OutputStatus getOutputStatus() const override;
 
     DeviceList getDeviceList() const override;
@@ -88,6 +92,7 @@ private:
     juce::AudioDeviceManager manager;
     PlaybackCore core;
     InputMeter meter;
+    MonitorMixer monitor;
     juce::String openError, inputError;
     double songRate = 0.0;
     int wantedChannel = 0;                                  // 選んだ入力チャンネル（0 = L）

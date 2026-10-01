@@ -47,6 +47,7 @@ void UiSession::attachEngine (audio::AudioEngine* e)
         s.inputPeakDb = s.inputRmsDb = s.inputPeakHoldDb = audio::InputMeter::floorDb;
         s.inputClipped = false;
     }
+    pushMonitorToEngine();
     refreshOutputStatus();
     refreshInputStatus();
     notify (change::device | change::meter);
@@ -60,6 +61,8 @@ bool UiSession::isEngineDriven() const
 void UiSession::refreshOutputStatus()
 {
     s.output = engine != nullptr ? engine->getOutputStatus() : audio::OutputStatus {};
+    if (engine != nullptr)
+        checkSpeakerOutput();
 }
 
 void UiSession::refreshInputStatus()
@@ -166,6 +169,53 @@ void UiSession::setBackingMuted (bool m)
 {
     s.backingMuted = m;
     if (engine != nullptr) engine->setBackingLevel (s.offVocalGain, s.backingMuted);
+    notify (change::monitor);
+}
+
+void UiSession::setSelfMonitorLevel (float fader)
+{
+    s.monitorGain = juce::jlimit (0.0f, 1.0f, fader);
+    pushMonitorToEngine();
+    notify (change::monitor);
+}
+
+void UiSession::setSelfMonitorMuted (bool m)
+{
+    s.selfMuted = m;
+    pushMonitorToEngine();
+    notify (change::monitor);
+}
+
+void UiSession::setMonitorReverb (float fader)
+{
+    s.monitorReverb = juce::jlimit (0.0f, 1.0f, fader);
+    pushMonitorToEngine();
+    notify (change::monitor);
+}
+
+void UiSession::pushMonitorToEngine()
+{
+    if (engine == nullptr)
+        return;
+    engine->setSelfMonitor (s.monitorGain, s.selfMuted);
+    engine->setMonitorReverb (s.monitorReverb);
+}
+
+void UiSession::checkSpeakerOutput()
+{
+    // 出力の機器が替わった時だけ判定する（ミュートを自分で外したら、同じ機器のうちは尊重する）。
+    // 閉じている間は判定しない（抜けて同じ機器に戻っただけで、外したミュートをかけ直さない）
+    const auto name = s.output.open ? s.output.deviceName : juce::String();
+    if (name.isEmpty() || name == s.speakerCheckedFor)
+        return;
+
+    s.speakerCheckedFor = name;
+    s.speakerOutput = name.isNotEmpty() && audio::looksLikeSpeakers (name);
+    if (s.speakerOutput && ! s.selfMuted)
+    {
+        s.selfMuted = true;    // スピーカーから自分の声を返すとハウリングする（DESIGN 7.3 / B4）
+        pushMonitorToEngine();
+    }
     notify (change::monitor);
 }
 
