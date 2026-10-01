@@ -12,7 +12,13 @@
 - **音声デバイスは開かない**（`VOICEBOOTH_UI_MOCK=ON`、`juce_audio_*` をリンクしない構成）
 - 再生・録音ボタンは見た目のトグルのみ。音は出ない
 
-![Phase A3 メイン画面](docs/screenshots/phase-a3-main.png)
+![メイン画面](docs/screenshots/main.png)
+
+見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）。機能の参考にした TakyuPractice とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。
+
+部品ギャラリー（全部品を状態ごとに表示。開発用）: `VoiceBooth --gallery`
+
+![部品ギャラリー](docs/screenshots/parts-gallery.png)
 
 画面の状態一覧は [`docs/UI_STATES.md`](docs/UI_STATES.md)。
 
@@ -53,19 +59,21 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 ```text
 docs/DESIGN.md        仕様（唯一の正）
 docs/UI_STATES.md     画面状態一覧
-app/Main.cpp          アプリ / ウィンドウ（既定 1440x900）
-app/ui/               見た目専用。ダミーデータで描画
-  DummySession.*      固定ダミー（DESIGN 20）。結線時に差し替える
-  Theme.*             色トークン（DESIGN 4.9）とフォント
+app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800、--gallery）
+app/ui/Theme.*        色トークン・書体・描画の基本（キーキャップ / 表示窓 / LED）
+app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFader / LedMeter / Readout / TallyLamp / Icons
+app/ui/Gallery.*      部品ギャラリー
+app/ui/*.cpp          画面：TopBar / TransportBar / PitchLane / LyricsLane / WaveLane / TrackTabs / Rack / StatusBar
+app/ui/DummySession.* 固定ダミー（DESIGN 20）。結線時に差し替える
 app/audio/            音声エンジンのインターフェースのみ（中身は Phase B）
 app/project/          データモデル（形のみ）+ project.example.json
 app/export/           ExportService スタブ
-resources/fonts/      Noto Sans JP（SIL OFL 1.1）
+resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
 ```
 
 ## ライセンス上の注意（未決事項に関係）
 
 - **JUCE 8** は AGPLv3 と商用 JUCE ライセンスのデュアルライセンス。配布形態（有料/無料、ソース公開の有無）に応じてどちらで使うか決める必要がある（DESIGN 19 未決）
-- **Noto Sans JP** は SIL Open Font License 1.1（`resources/fonts/OFL.txt`）。アプリへの同梱・再配布可
+- **IBM Plex Sans JP / IBM Plex Mono** は SIL Open Font License 1.1（`resources/fonts/OFL-*.txt`）。アプリへの同梱・再配布可（フォント名 "Plex" は予約名なので、改変した場合は別名にする）
 - Utawave（AGPL）のソースはコピーしない（DESIGN 0）
 - ASIO SDK はリポジトリに入れない
