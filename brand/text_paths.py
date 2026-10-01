@@ -31,12 +31,12 @@ def _covers(name, index, ch):
     return ord(ch) in tt.getBestCmap()
 
 
-def _runs(text, font):
+def _runs(text, font, index=0):
     """同梱フォントに無い字を代替フォントの区間に分ける"""
     runs = []
     for ch in text:
-        src = (font, 0)
-        if not ch.isspace() and not _covers(font, 0, ch):
+        src = (font, index)
+        if not ch.isspace() and not _covers(font, index, ch):
             for fb in FALLBACKS:
                 if fb[0].exists() and _covers(fb[0], fb[1], ch):
                     src = fb
@@ -59,9 +59,9 @@ def _shape(text, size, src, tracking):
     return buf, tt, scale, width
 
 
-def text_path(text, size, x=0.0, baseline=0.0, font="IBMPlexSansJP-SemiBold.ttf", tracking=0.0, anchor="start"):
-    """戻り値: (SVG path の d, 幅 px)。tracking は em 比"""
-    shaped = [(_shape(t, size, src, tracking), src) for src, t in _runs(text, font)]
+def text_path(text, size, x=0.0, baseline=0.0, font="IBMPlexSansJP-SemiBold.ttf", tracking=0.0, anchor="start", font_index=0):
+    """戻り値: (SVG path の d, 幅 px)。tracking は em 比。font_index は TTC の中の番号（Noto Sans CJK：1=KR、2=SC、3=TC）"""
+    shaped = [(_shape(t, size, src, tracking), src) for src, t in _runs(text, font, font_index)]
     total = sum(sh[3] for sh, _ in shaped) - tracking * size
 
     if anchor == "middle":

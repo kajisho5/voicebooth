@@ -196,6 +196,7 @@ from text_paths import text_path  # noqa: E402
 
 TAGLINE_JA = "歌ってみた専用DAW — 見て直して、一本渡す。"
 TAGLINE_EN = "A vocal DAW for song covers. See it, fix it, hand over one take."
+NOTO_CJK_REGULAR = Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
 
 
 def svg_doc(w, h, body, tile=(0, 1)):
@@ -304,6 +305,66 @@ def grid(w, h, step, colour=C["line"], opacity=0.45):
     return f'<g stroke="{colour}" stroke-opacity="{opacity}" stroke-width="1">' + "".join(lines) + "</g>"
 
 
+# README ヘッダーの各言語版（README.<lang>.md 用）。肩書きはアプリの翻訳表（app.tagline）と同じ文。
+# 日本語は readme-banner.png。韓国語・中国語はその地域の字形にするため Noto Sans CJK の該当フェイスで組む
+README_LANGS = {
+    "en":      ("A vocal DAW for song covers. See it, fix it, hand over one take.", "IBMPlexSansJP-Medium.ttf", 0),
+    "ko":      ("커버곡 녹음 전용 DAW — 보면서 고치고, 한 트랙으로 넘긴다.", NOTO_CJK_REGULAR, 1),
+    "zh-Hans": ("翻唱专用 DAW —— 看着修正，交出一轨。", NOTO_CJK_REGULAR, 2),
+    "zh-Hant": ("翻唱專用 DAW —— 看著修正，交出一軌。", NOTO_CJK_REGULAR, 3),
+}
+
+
+def readme_banner_svg(tagline, font, index):
+    W, H = 1280, 320
+    wm, _ = wordmark(272, 168, 76, C["text"])
+    size = 24
+    tg, tw = text_path(tagline, size, 276, 218, font, font_index=index)
+    if 276 + tw > 1000:   # 長い文は少し小さく（右のピッチ線に重ねない）
+        size = 21
+        tg, tw = text_path(tagline, size, 276, 218, font, font_index=index)
+    motif_x = max(840, 276 + tw + 56)
+    body = f'''<rect width="{W}" height="{H}" fill="{C["bg0"]}"/>
+<rect width="{W}" height="{H}" fill="#000" filter="url(#grain)"/>
+{grid(W, H, 48)}
+<g opacity="1">{pitch_motif(motif_x, W + 20, 200, 8, seed=2)}</g>
+{mark(90, 90, 140)}
+{wm}
+<path d="{tg}" fill="{C["textDim"]}"/>'''
+    return svg_doc(W, H, body, (0, H)), W
+
+
+def build_readme_banners():
+    out = OUT / "marketing"
+    for lang, (tagline, font, index) in README_LANGS.items():
+        svg, W = readme_banner_svg(tagline, font, index)
+        png(write(f"readme-banner-{lang}.svg", svg), out / f"readme-banner-{lang}.png", W)
+
+
+# README 用の色見本（DESIGN 4.9 のトークン）。どの言語の README でも使えるよう、名前は英語
+PALETTE = [
+    ("Graphite", "#141311"), ("Panel", "#1B1A17"), ("Keycap", "#262420"), ("Warm white", "#F2EDE3"),
+    ("Signal", "#C6EE6A"), ("Reference", "#8CC1EE"), ("Amber", "#F4B942"), ("Coral", "#FF6B5E"), ("Tally", "#FF3B30"),
+]
+
+
+def build_palette():
+    W, H, pad, gap = 1280, 200, 40, 12
+    n = len(PALETTE)
+    sw = (W - pad * 2 - gap * (n - 1)) / n
+    parts = [f'<rect width="{W}" height="{H}" fill="{C["bg0"]}"/>']
+    for i, (name, hexv) in enumerate(PALETTE):
+        x = pad + i * (sw + gap)
+        parts.append(f'<rect x="{x:.1f}" y="{pad}" width="{sw:.1f}" height="80" rx="4" fill="{hexv}" stroke="{C["line"]}" stroke-width="1"/>')
+        if name in ("Signal", "Tally"):   # LED らしく、光る色には小さな光を
+            parts.append(f'<circle cx="{x + sw - 14:.1f}" cy="{pad + 14}" r="4" fill="#ffffff" fill-opacity="0.55"/>')
+        nm, _ = text_path(name, 15, x, pad + 108, "IBMPlexSansJP-Medium.ttf")
+        hx, _ = text_path(hexv, 13, x, pad + 130, "IBMPlexMono-Regular.ttf")
+        parts.append(f'<path d="{nm}" fill="{C["text"]}"/><path d="{hx}" fill="{C["textDim"]}"/>')
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">' + "".join(parts) + "</svg>"
+    png(write("palette.svg", svg), OUT / "marketing" / "palette.png", W)
+
+
 def build_banners():
     out = OUT / "marketing"
 
@@ -345,6 +406,9 @@ def build_banners():
   </linearGradient>
 </defs>''')
     png(write("readme-banner.svg", svg), out / "readme-banner.png", W)
+
+    build_readme_banners()
+    build_palette()
 
     # favicon（Web 用）
     p = write("favicon.svg", icon_small(32))
