@@ -6,7 +6,7 @@
 
 /*  音声エンジンの境界（DESIGN 7）
     UI はこのインターフェース越しにだけ音声へ触る。B2 で再生（オフボ）、B3 でデバイス列挙と入力メーター、
-    B4 で自分の声のモニター（入力 → 出力。リバーブはモニターだけ）を結線。録音は B5。
+    B4 で自分の声のモニター（入力 → 出力。リバーブはモニターだけ）、B5 で通し録音を結線。
 
     ルール（DESIGN 17）
       - オーディオスレッドでメモリ確保・ファイル I/O・長いロック待ちをしない
@@ -25,6 +25,17 @@ struct InputLevel
     float rmsDb  = -100.0f;
     float holdDb = -100.0f;     // ピークホールド（1.5 秒）
     bool  clipped = false;      // -0.1 dBFS 以上が来た（消すまで残る）
+};
+
+/** 録り終えたテイク（B5）。length が 0 なら何も録れていない */
+struct RecordedTake
+{
+    juce::File file;
+    juce::int64 startSample = 0;   // 曲頭基準（デバイスの遅れの補正は B6）
+    juce::int64 length = 0;
+    float peak = 0.0f;
+    bool clipped = false;          // -0.1 dBFS 以上が来た
+    bool dropped = false;          // 書き込みが追いつかず落ちた（使えない）
 };
 
 /** 出力デバイスの状態（ステータスバー用） */
@@ -121,6 +132,13 @@ public:
 
     /** デバイスが外から変わった（抜けた・OS で切り替えた）。メッセージスレッドで呼ばれる。lost = 使っていた機器が外れた */
     virtual void setDeviceChangeCallback (std::function<void (bool lost)>) {}
+
+    // 録音（B5）。素の声（モニターより前）を file に 24bit モノラルで書く。始まるのは次に曲が鳴ったブロックから。
+    // 曲が止まった・終わったら recordingEnded() が true になる（stopRecording() を呼ぶ合図）。戻り値は失敗の理由
+    virtual juce::String startRecording (const juce::File&) { return "not supported"; }
+    virtual RecordedTake stopRecording() { return {}; }
+    virtual bool isRecording() const { return false; }
+    virtual bool recordingEnded() const { return false; }
 
     // 入力（B3：メーターだけ）
     virtual InputStatus getInputStatus() const { return {}; }

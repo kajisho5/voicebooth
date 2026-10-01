@@ -23,6 +23,7 @@ struct Take
     int64 endSample   = 0;
     juce::Time created;
     bool clip = false;
+    float peak = 0.0f;               // 最大振幅（ノーマライズはしない。書き出しの表示・notes.txt 用）
     RecMode recMode = RecMode::delivery;
     int64 latencySamples = 0;        // 適用済みのレイテンシ補正
 };

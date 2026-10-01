@@ -16,19 +16,39 @@ ExportDialog::ExportDialog (UiSession& u)
     const auto& s = state();
     using project::TrackType;
 
+    // 曲を開いていれば録ったテイクから（B5）、無ければ見本のダミー
+    const bool real = s.backingWave != nullptr;
     auto add = [&] (TrackType t, bool clip, const char* peak)
     {
         if (! session.isTrackVisible (t)) return;
         const auto* tr_ = s.project.findTrack (t);
         const bool recorded = tr_ != nullptr && ! tr_->comp.empty();
-        rows.push_back ({ t, exporter::ExportService::dryFileName (s.songName, t),
-                          recorded, clip && recorded, recorded ? peak : "" });   // ピーク値はダミー（B15）
+        FileRow row { t, exporter::ExportService::dryFileName (s.songName, t), recorded, clip && recorded, recorded ? peak : "" };
+        if (real && recorded)
+        {
+            // 採用区間に使っているテイクの最大値とクリップ（ノーマライズしないので、そのまま書き出される値）
+            float pk = 0.0f;
+            juce::StringArray clipped;
+            for (auto& c : tr_->comp)
+                for (auto& k : tr_->takes)
+                    if (k.id == c.takeId)
+                    {
+                        pk = juce::jmax (pk, k.peak);
+                        if (k.clip) clipped.addIfNotAlreadyThere (k.id);
+                    }
+            row.peak = formatDb (juce::Decibels::gainToDecibels (pk, -100.0f));
+            row.clip = ! clipped.isEmpty();
+            row.clipTakes = clipped.joinIntoString (", ");
+        }
+        rows.push_back (row);
     };
     add (TrackType::main, true, "-0.1");
     add (TrackType::doubleTrack, false, "-4.8");
     add (TrackType::harm1, false, "");
     add (TrackType::harm2, false, "");
-    rows.push_back ({ TrackType::backing, s.songName + "_refmix.wav", true, false, "-1.2" });
+    FileRow refmix { TrackType::backing, s.songName + "_refmix.wav", ! real, false, real ? "" : "-1.2" };
+    refmix.later = real;   // 確認用ミックスは納品パックと一緒（B15）
+    rows.push_back (refmix);
 
     for (auto& r : rows)
     {
@@ -39,8 +59,8 @@ ExportDialog::ExportDialog (UiSession& u)
         addAndMakeVisible (k);
     }
 
-    // 簡単は通常 WAV のみ（DESIGN 2）
-    packMode.setVisible (s.mode != project::Mode::easy);
+    // 簡単は通常 WAV のみ（DESIGN 2）。曲を開いている時は、納品パック（B15）ができるまで個別 WAV だけ
+    packMode.setVisible (s.mode != project::Mode::easy && ! real);
     packMode.onChange = [this] (int) { repaint(); };
     addChildComponent (packMode);
 
@@ -124,8 +144,10 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
                 g.drawText (text, b, juce::Justification::centredLeft, false);
             };
 
-            if (! f.available)  chip (tr ("export.status.unrecorded"), colours::textMute, Icon::warning);
-            else if (f.clip)    chip (tr ("export.status.clip"), colours::bad, Icon::warning);
+            if (f.later)        chip (tr ("export.status.notYet"), colours::textMute, Icon::warning);
+            else if (! f.available)  chip (tr ("export.status.unrecorded"), colours::textMute, Icon::warning);
+            else if (f.clip)    chip (f.clipTakes.isNotEmpty() ? tr ("export.status.clipTakes", f.clipTakes) : tr ("export.status.clip"),
+                                      colours::bad, Icon::warning);
             else                chip (tr ("export.status.ok"), colours::signal, Icon::check);
         }
     }
@@ -202,7 +224,21 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         d.removeFromLeft (8.0f);
         g.setColour (colours::textDim);
         g.setFont (mono (11.0f));
-        g.drawText ("Projects/" + s.songName + "/export_20261001/", d, juce::Justification::centredLeft, true);
+        const auto dest = s.backingWave != nullptr && s.projectFolder != juce::File()
+                        ? s.projectFolder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d")).getFullPathName()
+                                + juce::File::getSeparatorString()
+                        : "Projects/" + s.songName + "/export_20261001/";
+        g.drawText (dest, d, juce::Justification::centredLeft, true);
     }
+}
+
+std::vector<project::TrackType> ExportDialog::selectedTracks() const
+{
+    std::vector<project::TrackType> out;
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (rows[i].available && ! rows[i].later && rows[i].type != project::TrackType::backing
+            && checks[(int) i]->getToggleState())
+            out.push_back (rows[i].type);
+    return out;
 }
 } // namespace vb

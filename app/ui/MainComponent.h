@@ -112,6 +112,7 @@ private:
     double lastTick = 0.0;
     bool clockFrozen = false;   // スクリーンショット用（--rec）
     int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
+    int noticeSeen = 0;         // UiSession の知らせ（録音・書き出しの結果など）を出した回数
 
     juce::String toastText;
     double toastUntil = 0.0;

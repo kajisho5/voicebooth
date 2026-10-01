@@ -2,6 +2,9 @@
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
+#include "project/Comp.h"
+#include "export/ExportService.h"
+#include "Timeline.h"
 
 namespace vb
 {
@@ -17,8 +20,10 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
                           std::shared_ptr<const audio::WaveformOverview> wave,
                           std::shared_ptr<const audio::SongAudio> audio)
 {
+    finishRecording();   // 録音中に別の曲を開いたら、そこまでのテイクは残す
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
+    s.projectFolder = projectFolderFor (s.songName);
 
     if (engine != nullptr)
     {
@@ -113,7 +118,9 @@ void UiSession::resetInputClip()
 
 void UiSession::deviceChanged (bool lost)
 {
-    // DESIGN 13「デバイス抜け：停止して再選択」。エンジン側はもう止まっている
+    // DESIGN 13「デバイス抜け：停止して再選択」。エンジン側はもう止まっている。
+    // 録音中なら、そこまでをテイクとして閉じる（録った声は捨てない）
+    finishRecording();
     if (engine != nullptr)
         engine->stop();
     s.isPlaying = s.isRecording = false;
@@ -229,7 +236,11 @@ void UiSession::setPlaying (bool p)
         seek (s.hasRange() && s.loopOn ? s.rangeIn : 0);
 
     s.isPlaying = p;
-    if (! p && s.isRecording) s.isRecording = false;   // 止めたら録音も止まる
+    if (! p && s.isRecording)
+    {
+        finishRecording();   // 止めたら録音も止まる（そこまでをテイクにする）
+        s.isRecording = false;
+    }
     if (isEngineDriven()) { if (p) engine->play(); else engine->stop(); }
     notify (change::transport);
 }
@@ -237,18 +248,232 @@ void UiSession::setPlaying (bool p)
 void UiSession::setRecording (bool r)
 {
     if (s.isRecording == r) return;
-    s.isRecording = r;
-    if (r)
+
+    if (! r)
     {
-        s.isPlaying = true;          // 録音は再生と同時（DESIGN 6.3）。録音そのものは B5
-        s.recordStart = s.playhead;
-        if (isEngineDriven()) engine->play();
+        finishRecording();
+        s.isRecording = false;
+        notify (change::transport | change::practice);
+        return;
     }
+
+    // UI_MOCK・デモ（曲を開いていない）：見た目だけ（Phase A）
+    if (! isEngineDriven())
+    {
+        s.isRecording = true;
+        s.isPlaying = true;          // 録音は再生と同時（DESIGN 6.3）
+        s.recordStart = s.playhead;
+        notify (change::transport | change::practice);
+        return;
+    }
+
+    // 通し録音（B5）。録れない時は理由を知らせて何もしない
+    if (const auto problem = recordProblem(); problem.isNotEmpty())
+    {
+        postNotice (problem == "record.problem.sampleRate" ? tr (problem.toRawUTF8(), formatKhz (s.sampleRate()))
+                                                          : tr (problem.toRawUTF8()));
+        return;
+    }
+
+    auto* armed = [this]() -> const dummy::TrackUi*
+    {
+        for (auto& t : s.trackUi) if (t.armed) return &t;
+        return nullptr;
+    }();
+    auto* track = const_cast<project::Track*> (s.project.findTrack (armed->type));
+
+    // 名前は take1, take2 …。同じ名前のファイルがフォルダにあれば番号を進める（前に録った声を上書きしない）
+    const bool practice = s.recMode == project::RecMode::practice;
+    const auto key = juce::String (project::trackKey (armed->type));
+    auto id = project::nextTakeId (*track);
+    auto rel = [&] { return (practice ? "Practice/" : "Audio/Takes/") + key + "_" + id + ".wav"; };
+    for (int n = id.substring (4).getIntValue(); s.projectFolder.getChildFile (rel()).exists(); )
+        id = "take" + juce::String (++n);
+
+    if (s.playhead >= s.project.lengthSamples)
+        seek (0);
+
+    // 録音中はループしない（通し録音。区間の録り直しは B10）
+    loopBeforeRecording = s.loopOn && s.hasRange();
+    engine->setLoop (s.rangeIn, s.rangeOut, false);
+
+    const auto error = engine->startRecording (s.projectFolder.getChildFile (rel()));
+    if (error.isNotEmpty())
+    {
+        syncLoopToEngine();
+        postNotice (tr ("record.problem.failed", error));
+        return;
+    }
+
+    s.recordingTake = id;
+    s.recordingTrack = armed->type;
+    s.recordingPath = rel();
+    s.isRecording = true;
+    s.isPlaying = true;
+    s.recordStart = s.playhead;
+    engine->play();
     notify (change::transport | change::practice);
+}
+
+juce::String UiSession::recordProblem() const
+{
+    if (engine == nullptr || ! engine->hasSong())     return "record.problem.noSong";
+    if (! s.input.open)                               return "record.problem.noInput";
+    bool armed = false;
+    for (auto& t : s.trackUi) armed = armed || t.armed;
+    if (! armed)                                      return "record.problem.noArm";
+    if (! s.output.open || s.output.converting)       return "record.problem.sampleRate";
+    return {};
+}
+
+void UiSession::finishRecording()
+{
+    if (engine == nullptr || ! engine->isRecording())
+        return;
+
+    const auto res = engine->stopRecording();
+    syncLoopToEngine();   // ループを元に戻す
+    juce::ignoreUnused (loopBeforeRecording);
+
+    const auto type = s.recordingTrack;
+    const auto id = s.recordingTake;
+    auto* track = const_cast<project::Track*> (s.project.findTrack (type));
+    if (track == nullptr || res.length <= 0)
+    {
+        res.file.deleteFile();   // 何も録れていない（0 サンプルの空ファイル）
+        return;
+    }
+    if (res.dropped)
+    {
+        postNotice (tr ("record.dropped"));
+        return;                  // ファイルは残す（消さない）が、採用しない
+    }
+
+    project::Take take;
+    take.id = id;
+    take.path = s.recordingPath;
+    take.startSample = res.startSample;
+    take.endSample = res.startSample + res.length;
+    take.created = juce::Time::getCurrentTime();
+    take.clip = res.clipped;
+    take.peak = res.peak;
+    take.recMode = s.recMode;
+    take.latencySamples = 0;     // 補正は B6
+
+    // 練習録音は納品の採用区間に入れない（DESIGN 6.1 / 13）
+    if (take.recMode == project::RecMode::delivery)
+        project::applyTake (*track, take);
+    else
+        track->takes.push_back (take);
+
+    loadTakeWave (type, take);
+
+    const auto name = [type]
+    {
+        switch (type)
+        {
+            case project::TrackType::doubleTrack: return tr ("track.double");
+            case project::TrackType::harm1:       return tr ("track.harm1");
+            case project::TrackType::harm2:       return tr ("track.harm2");
+            case project::TrackType::main:
+            case project::TrackType::backing:
+            case project::TrackType::guide:       break;
+        }
+        return tr ("track.main");
+    }();
+    const auto range = formatTime (take.startSample, s.sampleRate(), true) + " - " + formatTime (take.endSample, s.sampleRate(), true);
+    if (take.recMode == project::RecMode::practice) postNotice (tr ("record.donePractice", name, id, range));
+    else if (take.clip)                             postNotice (tr ("record.doneClip", name, id, range));
+    else                                            postNotice (tr ("record.done", name, id, range));
+    notify (change::takes | change::tracks);
+}
+
+void UiSession::loadTakeWave (project::TrackType type, const project::Take& take)
+{
+    // 録ったファイルを裏で読んで概形を作る（波形レーンに出す）。読み終わる前に UiSession が消えても安全に
+    const auto file = s.projectFolder.getChildFile (take.path);
+    const auto key = dummy::takeWaveKey (type, take.id);
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, file, key]
+    {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (file));
+        if (reader == nullptr)
+            return;
+        auto wave = std::make_shared<audio::WaveformOverview> ((int64) reader->lengthInSamples);
+        juce::AudioBuffer<float> buf (1, 65536);
+        for (int64 pos = 0; pos < (int64) reader->lengthInSamples; pos += buf.getNumSamples())
+        {
+            const auto n = (int) juce::jmin<int64> (buf.getNumSamples(), (int64) reader->lengthInSamples - pos);
+            reader->read (&buf, 0, n, pos, true, false);
+            const float* ch[] = { buf.getReadPointer (0) };
+            wave->append (ch, 1, n);
+        }
+        juce::MessageManager::callAsync ([this, weak, key, wave]
+        {
+            if (weak.expired())
+                return;
+            s.takeWaves[key] = wave;
+            notify (change::takes);
+        });
+    });
+}
+
+void UiSession::postNotice (const juce::String& text)
+{
+    s.noticeText = text;
+    ++s.noticeSerial;
+    notify (change::notice);
+}
+
+juce::File UiSession::projectFolderFor (const juce::String& songName)
+{
+    const auto name = juce::File::createLegalFileName (songName.isNotEmpty() ? songName : juce::String ("Untitled"));
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
+               .getChildFile ("VoiceBooth").getChildFile ("Projects").getChildFile (name);
+}
+
+void UiSession::exportTracks (const std::vector<project::TrackType>& types)
+{
+    if (s.exporting || s.project.lengthSamples <= 0 || s.projectFolder == juce::File() || types.empty())
+        return;
+
+    // 裏のスレッドで書く（曲の長さぶん読む・書くので、画面を止めない）。プロジェクトは値で渡す
+    const auto project = s.project;
+    const auto folder = s.projectFolder;
+    const auto dest = folder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d"));
+    const auto song = s.songName;
+    s.exporting = true;
+    notify (change::takes);
+
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, project, folder, dest, song, types]
+    {
+        juce::StringArray failed;
+        int written = 0;
+        for (auto t : types)
+        {
+            const auto res = exporter::ExportService::exportTrackDry (project, t, folder,
+                                                                      dest.getChildFile (exporter::ExportService::dryFileName (song, t)));
+            if (res.ok) ++written;
+            else        failed.add (exporter::ExportService::dryFileName (song, t) + " (" + res.message + ")");
+        }
+        juce::MessageManager::callAsync ([this, weak, dest, failed, written]
+        {
+            if (weak.expired())
+                return;
+            s.exporting = false;
+            if (failed.isEmpty()) postNotice (tr ("export.done", written, dest.getFullPathName()));
+            else                  postNotice (tr ("export.failed", failed.joinIntoString (", ")));
+            notify (change::takes);
+        });
+    });
 }
 
 void UiSession::stop()
 {
+    finishRecording();
     s.isPlaying = false;
     s.isRecording = false;
     if (engine != nullptr) engine->stop();
@@ -301,9 +526,11 @@ void UiSession::tick (double seconds)
         const bool ended = engine->consumeReachedEnd() || ! engine->isPlaying();
         s.playhead = pos;
         followPlayhead (seconds);
-        if (ended)
+        if (ended || (s.isRecording && engine->recordingEnded()))
         {
-            s.isPlaying = s.isRecording = false;
+            finishRecording();   // 曲の終わり・デバイスが止まった：そこまでをテイクにする
+            if (ended) s.isPlaying = false;
+            s.isRecording = false;
             notify (change::playhead | change::transport);
             return;
         }

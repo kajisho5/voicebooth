@@ -4,6 +4,7 @@
 #include "project/ProjectModel.h"
 #include "audio/WaveformOverview.h"
 #include "audio/AudioEngine.h"
+#include <map>
 
 /*  見た目フェーズ専用の固定ダミー（DESIGN 20）
     UI はこのヘッダ経由でのみダミーデータを読む。結線時（Phase B）に差し替える。
@@ -85,6 +86,17 @@ struct Session
     audio::OutputStatus output;
     bool engineAttached = false;
 
+    // 録音（B5）。テイクは曲ごとの作業フォルダに置く（.vbooth の保存は B14）
+    juce::File projectFolder;
+    juce::String recordingTake, recordingPath;          // 録音中のテイク（"take3"、フォルダ相対のパス）
+    TrackType recordingTrack = TrackType::main;
+    std::map<juce::String, std::shared_ptr<const audio::WaveformOverview>> takeWaves;   // "main/take3" → 概形（曲頭基準ではなくテイク頭から）
+    bool exporting = false;
+
+    // 画面下に一度だけ出す知らせ（トースト）。noticeSerial が増えたら出す
+    juce::String noticeText;
+    int noticeSerial = 0;
+
     // 新しいバージョンの知らせ（DESIGN 11.7。今はモックのみ。空なら出さない）
     juce::String updateVersion;
 
@@ -144,6 +156,12 @@ float backingRms (const Session&, int64 start, int64 end);
 
 /** ボーカル概形の振幅 0..1。1 を超えるとクリップ扱い */
 float vocalAmplitude (const Session&, TrackType, int64 sample);
+
+/** ボーカルの [start, end) の最大振幅（0..1。1 を超えたらクリップ）。録ったテイクがあればその概形、無ければダミー */
+float vocalPeak (const Session&, TrackType, int64 start, int64 end);
+
+/** テイクの概形の鍵（"main/take3"） */
+juce::String takeWaveKey (TrackType, const juce::String& takeId);
 
 /** 指定区間がテイクで覆われているか（未録音=斜線の判定用） */
 bool isRecorded (const Session&, TrackType, int64 sample);

@@ -24,6 +24,8 @@ namespace change
         song      = 1 << 8,   // 曲を開いた（全部が変わる）
         device    = 1 << 9,   // 出力 / 入力デバイスの状態・一覧
         meter     = 1 << 10,  // 入力メーターの値（30 Hz）
+        takes     = 1 << 20,  // テイク・採用区間・テイクの波形が変わった（B5）
+        notice    = 1 << 21,  // 知らせ（トースト）を出す（noticeText / noticeSerial）
         all       = 0xffffffff
     };
 }
@@ -114,6 +116,18 @@ public:
     void setSelfMonitorMuted (bool);
     void setMonitorReverb (float fader);  // 耳だけ。録音には入らない
 
+    // --- 録音・書き出し（B5） -------------------------------------------------
+    /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
+    juce::String recordProblem() const;
+
+    /** トラックの採用区間をフル尺の WAV に書き出す（裏のスレッドで。終わったら知らせる）。
+        書き出し先は曲のプロジェクトフォルダの export_YYYYMMDD/。曲が無ければ何もしない */
+    void exportTracks (const std::vector<project::TrackType>&);
+
+    /** 曲ごとの作業フォルダ（テイク・書き出し）。.vbooth の保存（B14）までの仮の置き場：
+        書類フォルダ/VoiceBooth/Projects/{曲名}/ */
+    static juce::File projectFolderFor (const juce::String& songName);
+
     // --- 練習 / モード ------------------------------------------------------
     void setTempo (int percent);
     void setKey (int semitones);
@@ -135,6 +149,9 @@ private:
     void refreshOutputStatus();
     void checkSpeakerOutput();
     void pushMonitorToEngine();
+    void finishRecording();
+    void loadTakeWave (project::TrackType, const project::Take&);
+    void postNotice (const juce::String& text);
     void refreshInputStatus();
     void deviceChanged (bool lost);
     juce::String afterDeviceSelect (juce::String error);
@@ -142,6 +159,8 @@ private:
     dummy::Session s;
     audio::AudioEngine* engine = nullptr;
     double sinceStatus = 0.0;
+    std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
+    bool loopBeforeRecording = false;
     juce::ListenerList<Listener> listeners;
 };
 
