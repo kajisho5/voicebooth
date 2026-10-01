@@ -856,7 +856,7 @@ Phase A だけやれ。音声デバイスは開くな。
 - Intel Mac を初回から出すか
 - コードサイン / 公証の主体
 - 有料か無料か（設計には影響させない）
-- m4a（AAC）の Windows 対応：JUCE 標準の読み手は Windows で m4a を読めない（mp3 は Windows Media、Mac は Core Audio で mp3 / m4a 可）。Media Foundation で読むか、変換を案内するか。B1 時点は「変換すると開けます」と表示
+- ~~m4a（AAC）の Windows 対応~~ → 対応する（2026-10-01 決定）。JUCE 標準の読み手は Windows で m4a を読めないため、OS 標準の Media Foundation で読む（app/audio/MediaFoundationFormat）。N エディションは Media Feature Pack が要る
 - JUCE 内蔵の MP3 デコーダ（`JUCE_USE_MP3AUDIOFORMAT`）は特許・権利の免責が付くため無効のまま。mp3 は OS の読み手に任せる
 - mp3 / m4a の頭のずれ（エンコーダ遅延・詰め物の扱い）：デコーダによって長さと頭の位置が変わる。
   実曲 3 本で確認（2026-10-01、実験ビルドの JUCE 内蔵デコーダ）：ffmpeg（gapless 処理あり）より 33〜52 ms 長い。

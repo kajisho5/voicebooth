@@ -12,7 +12,8 @@
       - 読むだけ。音声デバイスは開かない、再生しない（B2）
       - 内部 wav（float32）への変換・プロジェクトへのコピーは B14 で行う
       - 対応形式は OS の読み手しだい（wav / aiff / flac / ogg は全 OS。
-        mp3 は Win（Windows Media）と Mac（Core Audio）、m4a は Mac のみ） */
+        mp3 は Win（Windows Media）と Mac（Core Audio）、m4a は Win（Media Foundation）と Mac（Core Audio）。
+        読み手の一式は registerSongFormats()（MediaFoundationFormat.h） */
 
 namespace vb::audio
 {
