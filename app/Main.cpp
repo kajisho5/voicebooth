@@ -1,4 +1,5 @@
 #include "ui/MainComponent.h"
+#include "ui/Gallery.h"
 #include "ui/VoiceBoothLookAndFeel.h"
 
 #if ! VOICEBOOTH_UI_MOCK
@@ -10,16 +11,27 @@ namespace vb
 class MainWindow : public juce::DocumentWindow
 {
 public:
-    MainWindow()
+    /** gallery = true で部品ギャラリー（開発用）を開く */
+    explicit MainWindow (bool gallery)
         : DocumentWindow ("VoiceBooth", colours::bg0, DocumentWindow::allButtons)
     {
-        auto* content = new MainComponent();
-        setName (juce::String::fromUTF8 ("VoiceBooth — ") + content->getSongName());
-
         setUsingNativeTitleBar (true);
-        setContentOwned (content, true);
-        setResizable (true, true);
-        setResizeLimits (1280, 760, 4096, 2160);
+
+        if (gallery)
+        {
+            setName (jp ("VoiceBooth — 部品ギャラリー"));
+            setContentOwned (new Gallery(), true);
+            setResizable (true, true);
+        }
+        else
+        {
+            auto* content = new MainComponent();
+            setName (jp ("VoiceBooth — ") + content->getSongName());
+            setContentOwned (content, true);
+            setResizable (true, true);
+            setResizeLimits (MainComponent::minWidth, MainComponent::minHeight, 4096, 2160);
+        }
+
         centreWithSize (MainComponent::defaultWidth, MainComponent::defaultHeight);
         setVisible (true);
     }
@@ -40,10 +52,10 @@ public:
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
-    void initialise (const juce::String&) override
+    void initialise (const juce::String& commandLine) override
     {
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
-        window = std::make_unique<MainWindow>();
+        window = std::make_unique<MainWindow> (commandLine.contains ("--gallery"));
     }
 
     void shutdown() override

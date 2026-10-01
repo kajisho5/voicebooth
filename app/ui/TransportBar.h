@@ -1,16 +1,17 @@
 #pragma once
 
 #include "DummySession.h"
-#include "Widgets.h"
 #include "Timeline.h"
+#include "parts/KeyButton.h"
+#include "parts/Readout.h"
 
 namespace vb
 {
-/** 全体シーク：オフボ概形 + 再生済み + 範囲 + 表示中ウィンドウ */
-class SeekBar : public juce::Component
+/** 曲全体の概形シーク：オフボ概形 / 再生済み / ループ範囲 / 表示中ウィンドウ / 再生ヘッド */
+class OverviewSeek : public juce::Component
 {
 public:
-    explicit SeekBar (const dummy::Session& s) : session (s) {}
+    explicit OverviewSeek (const dummy::Session& s) : session (s) {}
     void paint (juce::Graphics&) override;
 
 private:
@@ -26,24 +27,18 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int height = 52;
+    static constexpr int height = 64;
 
 private:
     const dummy::Session& session;
 
-    IconButton toStart { jp ("先頭へ"), Icon::toStart };
-    IconButton play    { jp ("再生 / 停止 (Space)"), Icon::pause };
-    IconButton stop    { jp ("停止"), Icon::stop };
-    IconButton rec     { jp ("録音 (R)"), Icon::rec, colours::rec };
+    KeyButton toStart, play, stop, rec { {}, KeyButton::Kind::rec };
+    Readout time { "TIME" }, beat { "BAR.BEAT" };
+    KeyButton loop, rangeIn, rangeOut, clearRange;
+    OverviewSeek seek;
+    SegmentedKeys countIn;
+    KeyButton click;
 
-    ChipButton loop    { jp ("ループ") };
-    ChipButton rangeIn, rangeOut;
-    IconButton clearRange { jp ("範囲解除"), Icon::close };
-
-    SeekBar seek;
-    SegmentedControl countIn;
-    ChipButton click { jp ("クリック") };
-
-    juce::Rectangle<int> timeArea, beatArea, countInLabel;
+    juce::Rectangle<int> countLabel;
 };
 } // namespace vb

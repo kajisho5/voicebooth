@@ -4,9 +4,7 @@ namespace vb
 {
 LyricsLane::LyricsLane (const dummy::Session& s) : session (s)
 {
-    editButton.setLeadingIcon (Icon::edit);
-    editButton.setClickingTogglesState (false);
-    editButton.setFontSize (11.0f);
+    editButton.withIcon (Icon::edit).withFont (sans (11.5f, Weight::medium));
     editButton.setTooltip (jp ("歌詞を貼り付け・修正"));
     addAndMakeVisible (editButton);
 }
@@ -15,20 +13,19 @@ void LyricsLane::resized()
 {
     auto r = getLocalBounds();
     r.removeFromLeft (metrics::gutter);
-    auto right = r.removeFromRight (130).reduced (metrics::pad, 0);
-    editButton.setBounds (right.removeFromRight (editButton.idealWidth()).withSizeKeepingCentre (editButton.idealWidth(), 26));
-    textArea = r;
+    auto right = r.removeFromRight (140).reduced (metrics::pad, 0);
+    editButton.setSize (10, 28);
+    const auto w = editButton.idealWidth();
+    editButton.setBounds (right.removeFromRight (w).withSizeKeepingCentre (w, 28));
+    textArea = r.withTrimmedLeft (22);
 }
 
 void LyricsLane::paint (juce::Graphics& g)
 {
-    g.fillAll (colours::panel);
-    g.setColour (colours::border);
-    g.fillRect (getLocalBounds().removeFromBottom (1));
-
-    g.setColour (colours::textDim);
-    g.setFont (font (11.0f, FontWeight::bold));
-    g.drawText (jp ("歌詞"), getLocalBounds().withWidth (metrics::gutter).reduced (10, 0), juce::Justification::centredRight, false);
+    g.fillAll (colours::bg0);
+    paint::hline (g, (float) getHeight() - 1.0f, 0.0f, (float) getWidth());
+    paint::microLabel (g, getLocalBounds().withWidth (metrics::gutter).toFloat().withTrimmedLeft ((float) metrics::pad),
+                       "LYRIC", colours::textMute);
 
     const auto* cur = session.lyricAt (session.playhead);
     const auto* next = session.lyricAfter (session.playhead);
@@ -36,48 +33,48 @@ void LyricsLane::paint (juce::Graphics& g)
     if (cur == nullptr && next == nullptr)
     {
         g.setColour (colours::textMute);
-        g.setFont (font (13.0f));
-        g.drawText (jp ("歌詞なし（歌詞パッドから貼り付けできます）"), textArea, juce::Justification::centred, false);
+        g.setFont (sans (13.0f));
+        g.drawText (jp ("歌詞なし ― 歌詞パッドから貼り付けできます"), textArea, juce::Justification::centredLeft, false);
         return;
     }
 
-    // 現在フレーズ（歌った分だけ accent でワイプ）
+    auto r = textArea.toFloat();
+
     if (cur != nullptr)
     {
-        const auto f = font (24.0f, FontWeight::bold);
+        const auto f = sans (22.0f, Weight::semibold);
         const auto w = textWidth (f, cur->text);
-        const auto line = textArea.toFloat().withSizeKeepingCentre (w + 4.0f, 34.0f).withX (textArea.getCentreX() - w * 0.5f - 60.0f);
+        const auto line = r.removeFromLeft (w + 2.0f).withSizeKeepingCentre (w + 2.0f, 30.0f).translated (0.0f, -3.0f);
 
         const auto progress = juce::jlimit (0.0f, 1.0f, (float) (session.playhead - cur->startSample)
                                                           / (float) (cur->endSample - cur->startSample));
-        g.setFont (f);
-        g.setColour (colours::text.withAlpha (0.92f));
-        g.drawText (cur->text, line, juce::Justification::centredLeft, false);
+        const auto split = line.getX() + line.getWidth() * progress;
 
+        g.setFont (f);
+        g.setColour (colours::text);
+        g.drawText (cur->text, line, juce::Justification::centredLeft, false);
         {
             juce::Graphics::ScopedSaveState save (g);
-            g.reduceClipRegion (line.withWidth (line.getWidth() * progress).getSmallestIntegerContainer());
-            g.setColour (colours::accent);
+            g.reduceClipRegion (line.withRight (split).getSmallestIntegerContainer());
+            g.setColour (colours::signal);
             g.drawText (cur->text, line, juce::Justification::centredLeft, false);
         }
 
-        // 次のフレーズ
-        if (next != nullptr)
-        {
-            auto r = textArea.toFloat().withLeft (line.getRight() + 28.0f);
-            g.setColour (colours::textMute);
-            g.setFont (font (11.0f, FontWeight::bold));
-            g.drawText (jp ("次"), r.removeFromLeft (20.0f), juce::Justification::centredLeft, false);
-            g.setColour (colours::textDim);
-            g.setFont (font (15.0f));
-            g.drawText (next->text, r, juce::Justification::centredLeft, true);
-        }
+        // 進み具合（下線）
+        const auto uy = line.getBottom() + 3.0f;
+        paint::hline (g, uy, line.getX(), line.getRight(), colours::line);
+        g.setColour (colours::signal);
+        g.fillRect (juce::Rectangle<float> (line.getX(), uy - 0.5f, split - line.getX(), 2.0f));
+
+        r.removeFromLeft (36.0f);
     }
-    else if (next != nullptr)
+
+    if (next != nullptr)
     {
+        paint::microLabel (g, r.removeFromLeft (38.0f), "NEXT", colours::textMute);
         g.setColour (colours::textDim);
-        g.setFont (font (18.0f));
-        g.drawText (next->text, textArea, juce::Justification::centred, false);
+        g.setFont (sans (15.0f));
+        g.drawText (next->text, r, juce::Justification::centredLeft, true);
     }
 }
 } // namespace vb

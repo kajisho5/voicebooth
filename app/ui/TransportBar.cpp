@@ -2,91 +2,102 @@
 
 namespace vb
 {
-void SeekBar::paint (juce::Graphics& g)
+void OverviewSeek::paint (juce::Graphics& g)
 {
     const auto r = getLocalBounds().toFloat();
-    g.setColour (colours::bgDeep);
-    g.fillRoundedRectangle (r, 5.0f);
+    paint::inset (g, r);
 
-    const auto inner = r.reduced (6.0f, 4.0f);
+    const auto inner = r.reduced (8.0f, 5.0f);
     TimeMap map { 0, session.project.lengthSamples, inner.getX(), inner.getRight() };
+    const auto playX = map.x (session.playhead);
 
-    // 範囲（ループ）
+    // ループ範囲
     {
         const auto x0 = map.x (session.rangeIn), x1 = map.x (session.rangeOut);
-        g.setColour (colours::accent.withAlpha (session.loopOn ? 0.14f : 0.06f));
-        g.fillRect (juce::Rectangle<float> (x0, r.getY(), x1 - x0, r.getHeight()));
+        g.setColour (colours::signal.withAlpha (session.loopOn ? 0.10f : 0.04f));
+        g.fillRect (juce::Rectangle<float> (x0, r.getY() + 2.0f, x1 - x0, r.getHeight() - 4.0f));
+        g.setColour (colours::signal.withAlpha (0.6f));
+        g.fillRect (juce::Rectangle<float> (x0, r.getBottom() - 4.0f, x1 - x0, 2.0f));
     }
 
-    // オフボ概形
-    const auto cy = inner.getCentreY();
-    const auto playX = map.x (session.playhead);
-    for (int px = (int) inner.getX(); px < (int) inner.getRight(); px += 2)
+    // オフボ概形（下から伸びるバー：波形レーンと見え方を変える）
+    for (float px = inner.getX(); px < inner.getRight(); px += 2.0f)
     {
-        const auto s0 = map.sampleAt ((float) px), s1 = map.sampleAt ((float) px + 2.0f);
+        const auto s0 = map.sampleAt (px), s1 = map.sampleAt (px + 2.0f);
         float a = 0.0f;
         for (int k = 0; k < 4; ++k)
             a = juce::jmax (a, dummy::backingAmplitude (session, s0 + (s1 - s0) * k / 4));
 
         const auto h = juce::jmax (1.0f, a * inner.getHeight());
-        g.setColour ((float) px < playX ? colours::accent.withAlpha (0.55f) : colours::textDim.withAlpha (0.35f));
-        g.fillRect (juce::Rectangle<float> ((float) px, cy - h * 0.5f, 1.2f, h));
+        g.setColour (px < playX ? colours::text.withAlpha (0.55f) : colours::textMute.withAlpha (0.55f));
+        g.fillRect (juce::Rectangle<float> (px, inner.getBottom() - h, 1.0f, h));
     }
 
-    // 表示中ウィンドウ（ピッチ/波形レーンのズーム範囲）
+    // 表示中ウィンドウ
     {
         const auto x0 = map.x (session.viewStart), x1 = map.x (session.viewEnd);
+        const auto w = juce::Rectangle<float> (x0, r.getY() + 2.0f, x1 - x0, r.getHeight() - 4.0f);
+        g.setColour (colours::text.withAlpha (0.06f));
+        g.fillRect (w);
         g.setColour (colours::text.withAlpha (0.35f));
-        g.drawRoundedRectangle (juce::Rectangle<float> (x0, r.getY() + 1.0f, x1 - x0, r.getHeight() - 2.0f), 3.0f, 1.0f);
+        g.drawRect (w, 1.0f);
     }
 
-    // 範囲の境界
-    g.setColour (colours::accent.withAlpha (0.8f));
-    g.fillRect (juce::Rectangle<float> (map.x (session.rangeIn), r.getY(), 1.0f, r.getHeight()));
-    g.fillRect (juce::Rectangle<float> (map.x (session.rangeOut) - 1.0f, r.getY(), 1.0f, r.getHeight()));
-
     // 再生ヘッド
-    g.setColour (colours::accent);
-    g.fillRect (juce::Rectangle<float> (playX - 1.0f, r.getY(), 2.0f, r.getHeight()));
-    g.fillEllipse (juce::Rectangle<float> (9.0f, 9.0f).withCentre ({ playX, r.getY() + 2.0f }));
+    g.setColour (colours::signal);
+    g.fillRect (juce::Rectangle<float> (playX - 0.75f, r.getY() + 2.0f, 1.5f, r.getHeight() - 4.0f));
 }
 
 //==============================================================================
 TransportBar::TransportBar (const dummy::Session& s)
     : session (s),
-      rangeIn ("IN  " + formatTime (s.rangeIn, s.sampleRate(), true)),
-      rangeOut ("OUT  " + formatTime (s.rangeOut, s.sampleRate(), true)),
+      rangeIn ("IN " + formatTime (s.rangeIn, s.sampleRate(), true)),
+      rangeOut ("OUT " + formatTime (s.rangeOut, s.sampleRate(), true)),
       seek (s),
-      countIn ({ "Off", jp ("1小節"), jp ("2小節") }, s.countInBars)
+      countIn ({ "Off", "1", "2" }, s.countInBars),
+      click (jp ("クリック"))
 {
-    play.setIcon (s.isPlaying ? Icon::pause : Icon::play);
-    play.setToggleState (s.isPlaying, juce::dontSendNotification);
-    play.setRound (true);
+    toStart.withIcon (Icon::toStart);
+    toStart.setTooltip (jp ("先頭へ"));
+    play.withIcon (s.isPlaying ? Icon::pause : Icon::play);
+    play.setTooltip (jp ("再生 / 停止（Space）"));
+    if (s.isPlaying)
+        play.withIconColour (colours::signal);
+    stop.withIcon (Icon::stop);
+    stop.setTooltip (jp ("停止"));
+    rec.withIcon (Icon::rec);
+    rec.setTooltip (jp ("録音（R）"));
+    rec.setToggleState (s.isRecording, juce::dontSendNotification);   // Phase A: 見た目トグルのみ
 
-    rec.setRound (true);
-    rec.setIconColour (colours::rec);
-    rec.setFilled (true);
-    rec.setClickingTogglesState (true);   // Phase A: 見た目トグルのみ
-    rec.onClick = [this] { rec.setIconColour (rec.getToggleState() ? colours::text : colours::rec); };
+    time.setValue (formatTime (s.playhead, s.sampleRate(), true), "/ " + formatTime (s.project.lengthSamples, s.sampleRate(), false));
+    time.setMainSize (21.0f);
+    {
+        const auto beatLen = (int64) std::llround (60.0 / s.bpm() * s.sampleRate());
+        const auto beats = s.playhead / beatLen;
+        beat.setValue (juce::String (beats / s.beatsPerBar + 1) + "." + juce::String (beats % s.beatsPerBar + 1));
+        beat.setMainSize (21.0f);
+    }
 
-    loop.setLeadingIcon (Icon::loop);
+    loop.setButtonText (jp ("ループ"));
+    loop.withIcon (Icon::loop).withLed();
     loop.setToggleState (s.loopOn, juce::dontSendNotification);
+    loop.setTooltip (jp ("範囲リピート（L）"));
 
     for (auto* b : { &rangeIn, &rangeOut })
-    {
-        b->setClickingTogglesState (false);
-        b->setFontSize (12.0f);
-    }
-    rangeIn.setLeadingIcon (Icon::rangeIn);
-    rangeOut.setLeadingIcon (Icon::rangeOut);
-    rangeIn.setTooltip (jp ("範囲開始 ["));
-    rangeOut.setTooltip (jp ("範囲終了 ]"));
+        b->withFont (mono (11.5f, Weight::medium));
+    rangeIn.withIcon (Icon::rangeIn);
+    rangeOut.withIcon (Icon::rangeOut);
+    rangeIn.setTooltip (jp ("範囲の開始を現在位置に（[）"));
+    rangeOut.setTooltip (jp ("範囲の終了を現在位置に（]）"));
+    clearRange.withIcon (Icon::close);
+    clearRange.setTooltip (jp ("範囲を解除"));
 
-    click.setLeadingIcon (Icon::metronome);
+    countIn.setFont (mono (11.5f, Weight::medium));
+    click.withIcon (Icon::metronome).withLed();
     click.setToggleState (s.clickOn, juce::dontSendNotification);
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &toStart, &play, &stop, &rec, &loop, &rangeIn, &rangeOut, &clearRange, &seek, &countIn, &click })
+             &toStart, &play, &stop, &rec, &time, &beat, &loop, &rangeIn, &rangeOut, &clearRange, &seek, &countIn, &click })
         addAndMakeVisible (c);
 }
 
@@ -94,82 +105,45 @@ void TransportBar::resized()
 {
     auto r = getLocalBounds().reduced (metrics::pad, 0);
     auto centreH = [] (juce::Rectangle<int> a, int h) { return a.withSizeKeepingCentre (a.getWidth(), h); };
+    constexpr int keyH = 34;
 
-    toStart.setBounds (centreH (r.removeFromLeft (34), 34));
-    r.removeFromLeft (6);
-    play.setBounds (centreH (r.removeFromLeft (40), 40));
-    r.removeFromLeft (6);
-    stop.setBounds (centreH (r.removeFromLeft (34), 34));
-    r.removeFromLeft (10);
-    rec.setBounds (centreH (r.removeFromLeft (40), 40));
-    r.removeFromLeft (18);
-
-    timeArea = r.removeFromLeft (190);
+    toStart.setBounds (centreH (r.removeFromLeft (keyH), keyH));
     r.removeFromLeft (4);
-    beatArea = r.removeFromLeft (76);
+    play.setBounds (centreH (r.removeFromLeft (44), keyH));
+    r.removeFromLeft (4);
+    stop.setBounds (centreH (r.removeFromLeft (keyH), keyH));
+    r.removeFromLeft (10);
+    rec.setBounds (centreH (r.removeFromLeft (44), keyH));
+    r.removeFromLeft (16);
+
+    time.setBounds (centreH (r.removeFromLeft (172), 46));
+    r.removeFromLeft (6);
+    beat.setBounds (centreH (r.removeFromLeft (84), 46));
+    r.removeFromLeft (16);
+
+    for (auto* b : { &loop, &rangeIn, &rangeOut })
+    {
+        b->setSize (10, 30);
+        b->setBounds (centreH (r.removeFromLeft (b->idealWidth()), 30));
+        r.removeFromLeft (4);
+    }
+    clearRange.setBounds (centreH (r.removeFromLeft (30), 30));
     r.removeFromLeft (14);
 
-    loop.setBounds (centreH (r.removeFromLeft (loop.idealWidth()), 30));
-    r.removeFromLeft (6);
-    rangeIn.setBounds (centreH (r.removeFromLeft (rangeIn.idealWidth()), 30));
-    r.removeFromLeft (4);
-    rangeOut.setBounds (centreH (r.removeFromLeft (rangeOut.idealWidth()), 30));
-    r.removeFromLeft (4);
-    clearRange.setBounds (centreH (r.removeFromLeft (30), 30));
-
+    click.setSize (10, 30);
     click.setBounds (centreH (r.removeFromRight (click.idealWidth()), 30));
     r.removeFromRight (8);
-    const auto ciW = countIn.idealWidth();
-    countIn.setBounds (centreH (r.removeFromRight (ciW), 30));
-    countInLabel = r.removeFromRight (70);
-    r.removeFromRight (8);
+    countIn.setBounds (centreH (r.removeFromRight (132), 32));
+    countLabel = r.removeFromRight (52);
+    r.removeFromRight (6);
 
-    r.removeFromLeft (14);
-    seek.setBounds (centreH (r, 30));
+    seek.setBounds (centreH (r, 40));
 }
 
 void TransportBar::paint (juce::Graphics& g)
 {
     g.fillAll (colours::bg0);
-    g.setColour (colours::border);
-    g.fillRect (getLocalBounds().removeFromBottom (1));
-
-    // 現在時間 / 総時間
-    {
-        auto r = timeArea;
-        const auto cur = formatTime (session.playhead, session.sampleRate(), true);
-        const auto tot = " / " + formatTime (session.project.lengthSamples, session.sampleRate(), false);
-        const auto big = font (24.0f, FontWeight::bold);
-        g.setColour (colours::text);
-        g.setFont (big);
-        const auto w = textWidth (big, cur);
-        g.drawText (cur, r.removeFromLeft ((int) w + 2), juce::Justification::centredLeft, false);
-        g.setColour (colours::textDim);
-        g.setFont (font (14.0f));
-        g.drawText (tot, r, juce::Justification::centredLeft, false);
-    }
-
-    // 小節.拍
-    {
-        const auto beatLen = (int64) std::llround (60.0 / session.bpm() * session.sampleRate());
-        const auto beats = session.playhead / beatLen;
-        const auto bar = beats / session.beatsPerBar + 1;
-        const auto beat = beats % session.beatsPerBar + 1;
-
-        auto r = beatArea.toFloat().withSizeKeepingCentre ((float) beatArea.getWidth(), 34.0f);
-        g.setColour (colours::panelHi);
-        g.fillRoundedRectangle (r, 5.0f);
-        g.setColour (colours::text);
-        g.setFont (font (15.0f, FontWeight::bold));
-        g.drawText (juce::String (bar) + "." + juce::String (beat), r.removeFromTop (20.0f).translated (0, 1.0f),
-                    juce::Justification::centred, false);
-        g.setColour (colours::textDim);
-        g.setFont (font (10.0f));
-        g.drawText (jp ("小節.拍"), r.translated (0, -2.0f), juce::Justification::centred, false);
-    }
-
-    g.setColour (colours::textDim);
-    g.setFont (font (11.0f, FontWeight::bold));
-    g.drawText (jp ("カウントイン"), countInLabel, juce::Justification::centredRight, false);
+    paint::hline (g, (float) getHeight() - 1.0f, 0.0f, (float) getWidth());
+    paint::microLabel (g, countLabel.toFloat(), "COUNT", colours::textMute, juce::Justification::centredRight);
 }
 } // namespace vb
