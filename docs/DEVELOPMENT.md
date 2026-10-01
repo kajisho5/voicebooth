@@ -73,6 +73,28 @@ ctest --test-dir build -C Release --output-on-failure
 
 波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth らしい名前の判定を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
 
+### インストーラー（未署名。DESIGN 11.6）
+
+CI はテストが通ると `VoiceBooth-<版>-win-x64-setup.exe` と `VoiceBooth-<版>-mac-universal.dmg` を Actions の成果物に置く。手元で作る時は、Release ビルドの後に：
+
+```powershell
+# Windows：Inno Setup 6.5.2 以上（winget install JRSoftware.InnoSetup）
+# 配る exe は CI と同じく C++ ランタイムを静的リンクする（VC++ 再頒布パッケージの無い PC でも起動するように）
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+cmake --build build --config Release
+pwsh packaging/windows/build_installer.ps1      # → build/installer/VoiceBooth-<版>-win-x64-setup.exe
+```
+
+```bash
+# macOS：追加の道具は要らない（hdiutil / codesign / osascript）
+packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth-<版>-mac-universal.dmg
+```
+
+- 版は `build/CMakeCache.txt` の `CMAKE_PROJECT_VERSION`（`CMakeLists.txt` の `project(... VERSION ...)`）。`-Version` / `--version` で上書きできる
+- DMG の並び（背景・アイコン位置）は Finder が書く。初回はターミナルに「Finder を操作する許可」を求められる。
+  断った・操作できない時は素の DMG を作って警告を出す（`VB_DMG_REQUIRE_LAYOUT=1` で失敗扱い）
+- どちらも未署名。開き方は DESIGN 11.6
+
 ## 構成
 
 ```text
@@ -97,6 +119,7 @@ resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
 resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant
 tools/check_i18n.py   翻訳表と直書きの検査（CI でも実行）
 brand/                アイコン・ロゴ・README の画像（build_brand.py で生成）
+packaging/            インストーラー：windows/VoiceBooth.iss（Inno Setup）・build_installer.ps1、macos/make_dmg.sh（DMG）
 ```
 
 ## 多言語対応
