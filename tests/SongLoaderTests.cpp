@@ -34,10 +34,10 @@ namespace
         juce::ignoreUnused (ext);
         return true;
        #elif JUCE_WINDOWS
-        // mp3：Windows Media（wmvcore.dll）、m4a：Media Foundation と AAC デコーダ（msauddecmft.dll）
-        juce::DynamicLibrary lib;
-        if (ext == "mp3") return lib.open ("wmvcore.dll");
-        if (ext == "m4a") return lib.open ("msauddecmft.dll") && juce::DynamicLibrary().open ("mfreadwrite.dll");
+        // mp3：Media Foundation（無ければ Windows Media）、m4a：Media Foundation と AAC デコーダ（msauddecmft.dll）
+        const bool mf = juce::DynamicLibrary().open ("mfreadwrite.dll");
+        if (ext == "mp3") return mf || juce::DynamicLibrary().open ("wmvcore.dll");
+        if (ext == "m4a") return mf && juce::DynamicLibrary().open ("msauddecmft.dll");
         return false;
        #else
         juce::ignoreUnused (ext);
