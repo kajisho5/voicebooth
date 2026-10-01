@@ -34,6 +34,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Play the instrumental | Play, seek, loop a range, volume. Loops wrap with no gap | ✅ Works |
 | Input device and level | Pick your mic and set the level against a target band (-12 to -6 dB) | 🔧 In progress |
 | Reference pitch | The reference melody is drawn as a tolerance band, your voice as a line on top. Lime when you are on pitch, amber then red as you drift | ⬜ Planned |
+| Original + karaoke | Use the original song (with vocals) as the reference and sing over the karaoke / instrumental. Different intro lengths, slightly different speeds, cut versions and transposed karaoke are aligned automatically, with manual fine-tuning. Delivered files always start at the karaoke's first sample | 🔧 Alignment engine done (screens to come) |
 | Practice | Tempo 50–150%, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key | ⬜ Planned |
 | Retroactive recording | Recording starts quietly when playback starts, so pressing REC late never cuts off the first word | ⬜ Planned |
 | Punch-in | Select a range and re-record it, with an 8 ms crossfade at each edge | ⬜ Planned |
