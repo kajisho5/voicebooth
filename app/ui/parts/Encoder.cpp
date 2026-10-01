@@ -10,7 +10,7 @@ namespace
     constexpr float endAngle   =  juce::MathConstants<float>::pi * 0.75f;
 }
 
-Encoder::Encoder (double min, double max, double value, double step, bool bi, juce::Colour led)
+Encoder::Encoder (double min, double max, double value, double step, bool bi, colours::Tone led)
     : bipolar (bi), ledColour (led)
 {
     setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
@@ -47,7 +47,7 @@ void Encoder::paint (juce::Graphics& g)
 
         if (lit)
         {
-            g.setColour (ledColour.withAlpha (0.16f));
+            g.setColour (ledColour.get().withAlpha (0.16f));
             g.fillEllipse (juce::Rectangle<float> (dotR * 3.6f, dotR * 3.6f).withCentre (pt));
             g.setColour (ledColour);
         }
@@ -62,7 +62,7 @@ void Encoder::paint (juce::Graphics& g)
     const auto bodyR = ringR - dotR * 2.0f - 5.0f;
     const auto body = juce::Rectangle<float> (bodyR * 2.0f, bodyR * 2.0f).withCentre (c);
 
-    g.setColour (juce::Colours::black.withAlpha (0.45f));
+    g.setColour (colours::shadow (0.45f));
     g.fillEllipse (body.translated (0.0f, 2.0f).expanded (1.0f));
 
     const auto top = hover ? colours::raisedHi.brighter (0.05f) : colours::raisedHi;
@@ -70,16 +70,16 @@ void Encoder::paint (juce::Graphics& g)
     g.fillEllipse (body);
 
     // ローレット（外周の細かい刻み）
-    g.setColour (juce::Colours::black.withAlpha (0.28f));
+    g.setColour (colours::shadow (0.28f));
     for (int i = 0; i < 36; ++i)
     {
         const auto a = juce::MathConstants<float>::twoPi * (float) i / 36.0f;
         g.drawLine ({ c.getPointOnCircumference (bodyR - 2.5f, a), c.getPointOnCircumference (bodyR - 0.5f, a) }, 0.8f);
     }
 
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.setColour (colours::shadow (0.6f));
     g.drawEllipse (body, 1.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.07f));
+    g.setColour (colours::highlight (0.07f));
     g.drawEllipse (body.reduced (3.5f), 1.0f);
 
     // 指標
@@ -91,7 +91,7 @@ void Encoder::paint (juce::Graphics& g)
 //==============================================================================
 EncoderBlock::EncoderBlock (const juce::String& l, double min, double max, double value, double step,
                             std::function<juce::String (double)> fmt, const juce::String& u,
-                            bool bipolar, juce::Colour led)
+                            bool bipolar, colours::Tone led)
     : label (l), unit (u), format (std::move (fmt)), enc (min, max, value, step, bipolar, led)
 {
     enc.onValueChange = [this] { repaint(); if (onChange) onChange (enc.getValue()); };

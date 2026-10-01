@@ -11,7 +11,7 @@ public:
     explicit Readout (const juce::String& label);
 
     void setValue (const juce::String& main, const juce::String& sub = {});
-    void setValueColour (juce::Colour c) { valueColour = c; repaint(); }
+    void setValueColour (colours::Tone c) { valueColour = c; repaint(); }
     void setMainSize (float h) { mainSize = h; repaint(); }
 
     int idealWidth() const;
@@ -20,7 +20,7 @@ public:
 
 private:
     juce::String label, main, sub;
-    juce::Colour valueColour = colours::text;
+    colours::Tone valueColour = colours::text;
     float mainSize = 20.0f;
 };
 
