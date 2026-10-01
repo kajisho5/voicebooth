@@ -273,9 +273,11 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)
         float amp = 0.0f;
         if (backing)
         {
-            // ピーク（薄）＋ RMS（濃）
-            const auto peak = juce::jmin (1.0f, dummy::backingPeak (s, s0, s1));
-            const auto rms = juce::jmin (peak, dummy::backingRms (s, s0, s1));
+            // ピーク（薄）＋ RMS（濃）。細い行なので dB スケール（線形だと小さい音が潰れる）
+            const auto peak = audio::WaveformOverview::toDbScale (dummy::backingPeak (s, s0, s1));
+            const auto rms = juce::jmin (peak, audio::WaveformOverview::toDbScale (dummy::backingRms (s, s0, s1)));
+            if (peak <= 0.0f)
+                continue;
             const auto hp = juce::jmax (1.0f, peak * (a.getHeight() - 2.0f));
             const auto hr = juce::jmax (1.0f, rms * (a.getHeight() - 2.0f));
             g.setColour (colours::textMute.withAlpha (0.3f));
@@ -292,8 +294,13 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)
         if (amp <= 0.0f)
             continue;
 
+        // 大きい行（選択中）は線形：フレーズの抑揚・子音の立ち上がりが読める（dB だと壁になる）
+        // 細い行は dB：線形だと形が潰れて見えない。クリップの判定は線形の値で
         const bool clip = amp > 1.0f;
-        const auto h = juce::jmax (1.0f, juce::jmin (1.0f, amp) * (a.getHeight() - 2.0f));
+        const auto level = row.current ? juce::jmin (1.0f, amp) : audio::WaveformOverview::toDbScale (amp);
+        if (level <= 0.0f)
+            continue;
+        const auto h = juce::jmax (1.0f, level * (a.getHeight() - 2.0f));
         g.setColour (clip ? colours::bad : base);
         g.fillRect (juce::Rectangle<float> (px, cy - h * 0.5f, 1.0f, h));
 
