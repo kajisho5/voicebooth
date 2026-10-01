@@ -48,25 +48,63 @@ juce::Typeface::Ptr VoiceBoothLookAndFeel::getTypefaceForFont (const juce::Font&
     return sansTypeface (f.isBold() ? Weight::semibold : Weight::regular);
 }
 
-juce::Rectangle<int> VoiceBoothLookAndFeel::getTooltipBounds (const juce::String& text, juce::Point<int> pos, juce::Rectangle<int> parent)
+namespace
 {
-    const auto w = (int) textWidth (sans (12.0f), text) + 20;
+    /** ツールチップの文「説明\tショートカット」を分ける（KeyButton::withShortcut。DESIGN 4.10.1 TT） */
+    struct TooltipParts { juce::String text, shortcut; };
+
+    TooltipParts splitTooltip (const juce::String& s)
+    {
+        const auto tab = s.indexOfChar ('\t');
+        if (tab < 0) return { s, {} };
+        return { s.substring (0, tab), s.substring (tab + 1) };
+    }
+
+    constexpr float kbdPad = 5.0f, kbdGap = 8.0f;
+
+    float kbdWidth (const juce::String& shortcut)
+    {
+        return shortcut.isEmpty() ? 0.0f : textWidth (mono (11.0f), shortcut) + kbdPad * 2.0f + kbdGap;
+    }
+}
+
+juce::Rectangle<int> VoiceBoothLookAndFeel::getTooltipBounds (const juce::String& tip, juce::Point<int> pos, juce::Rectangle<int> parent)
+{
+    const auto parts = splitTooltip (tip);
+    const auto w = (int) std::ceil (textWidth (sans (12.0f), parts.text) + kbdWidth (parts.shortcut)) + 20;
     const auto h = 26;
     return juce::Rectangle<int> (pos.x > parent.getCentreX() ? pos.x - (w + 12) : pos.x + 18,
                                  pos.y > parent.getCentreY() ? pos.y - (h + 6) : pos.y + 6, w, h)
         .constrainedWithin (parent);
 }
 
-void VoiceBoothLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int width, int height)
+void VoiceBoothLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& tip, int width, int height)
 {
+    const auto parts = splitTooltip (tip);
     const auto r = juce::Rectangle<float> (0.0f, 0.0f, (float) width, (float) height);
     g.setColour (colours::raisedHi);
     g.fillRoundedRectangle (r, 4.0f);
     g.setColour (colours::lineHi);
     g.drawRoundedRectangle (r.reduced (0.5f), 4.0f, 1.0f);
+
+    auto content = r.reduced (10.0f, 0.0f);
+    if (parts.shortcut.isNotEmpty())
+    {
+        // ショートカットはキーの形（下辺を太く）で右に添える
+        const auto kf = mono (11.0f);
+        auto key = content.removeFromRight (textWidth (kf, parts.shortcut) + kbdPad * 2.0f).withSizeKeepingCentre (textWidth (kf, parts.shortcut) + kbdPad * 2.0f, 17.0f);
+        content.removeFromRight (kbdGap);
+        g.setColour (colours::lineHi);
+        g.drawRoundedRectangle (key.reduced (0.5f), 3.0f, 1.0f);
+        g.fillRect (key.withTop (key.getBottom() - 2.0f).reduced (2.0f, 0.0f));
+        g.setColour (colours::textDim);
+        g.setFont (kf);
+        g.drawText (parts.shortcut, key.withTrimmedBottom (1.0f), juce::Justification::centred, false);
+    }
+
     g.setColour (colours::text);
     g.setFont (sans (12.0f));
-    g.drawText (text, r, juce::Justification::centred, false);
+    g.drawText (parts.text, content, juce::Justification::centredLeft, false);
 }
 
 //==============================================================================

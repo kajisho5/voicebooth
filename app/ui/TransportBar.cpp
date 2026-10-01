@@ -74,14 +74,16 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
     toStart.onClick = [this] { session.goToStart(); };
 
     play.setTooltip (tr ("transport.play.tooltip"));
+    play.withShortcut ("Space");
     play.onClick = [this] { session.setPlaying (! state().isPlaying); };
 
     stop.withIcon (Icon::stop);
     stop.setTooltip (tr ("transport.stop.tooltip"));
     stop.onClick = [this] { session.stop(); };
 
-    rec.withIcon (Icon::rec).withToggle (false);
+    rec.withIcon (Icon::rec).withToggle (false).withBreathing();   // REC 中は ● がゆっくり呼吸
     rec.setTooltip (tr ("transport.rec.tooltip"));
+    rec.withShortcut ("R");
     rec.onClick = [this] { if (actions.toggleRecord) actions.toggleRecord(); };
 
     time.setMainSize (21.0f);
@@ -90,6 +92,7 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
     loop.setButtonText (tr ("transport.loop"));
     loop.withIcon (Icon::loop).withLed().withToggle (false);
     loop.setTooltip (tr ("transport.loop.tooltip"));
+    loop.withShortcut ("L");
     loop.onClick = [this] { session.setLoop (! state().loopOn); };
 
     for (auto* b : { &rangeIn, &rangeOut })
@@ -98,6 +101,8 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
     rangeOut.withIcon (Icon::rangeOut);
     rangeIn.setTooltip (tr ("transport.rangeIn.tooltip"));
     rangeOut.setTooltip (tr ("transport.rangeOut.tooltip"));
+    rangeIn.withShortcut ("[");
+    rangeOut.withShortcut ("]");
     rangeIn.onClick = [this] { session.setRangeInAtPlayhead(); };
     rangeOut.onClick = [this] { session.setRangeOutAtPlayhead(); };
 

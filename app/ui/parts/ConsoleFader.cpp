@@ -7,12 +7,86 @@ ConsoleFader::ConsoleFader (double value, colours::Tone line)
 {
     setSliderStyle (juce::Slider::LinearVertical);
     setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    setRange (0.0, 1.0, 0.01);
+    setRange (0.0, 1.0, 0.0);   // 値は丸めない（DESIGN 4.10）。表示だけ整数にする
     setValue (value, juce::dontSendNotification);
-    setDoubleClickReturnValue (true, value);
     setSliderSnapsToMousePosition (false);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
     setWantsKeyboardFocus (false);
+    shown.snap ((float) value);
+    unityGlow = isAtUnity() ? 1.0f : 0.0f;
+}
+
+void ConsoleFader::valueChanged()
+{
+    // ドラッグ・ホイール・外からの値：つまみはその場へ。ダブルクリックの戻りだけばねで動かす
+    if (! springing)
+        shown.snap ((float) getValue());
+    if (springing || ! juce::approximatelyEqual (unityGlow, isAtUnity() ? 1.0f : 0.0f))
+        startAnimating();
+}
+
+void ConsoleFader::mouseDown (const juce::MouseEvent& e)
+{
+    if (! isEnabled()) return;
+    springing = false;
+    shown.snap ((float) getValue());
+    raw = motion::fader::detent (travel()).toRaw (getValue());   // 掴んだ所から相対で動かす（飛ばない）
+    lastY = e.position.y;
+}
+
+void ConsoleFader::mouseDrag (const juce::MouseEvent& e)
+{
+    if (! isEnabled()) return;
+    const auto dy = e.position.y - lastY;
+    lastY = e.position.y;
+    raw += motion::fader::dragDelta (dy, travel(), e.mods.isShiftDown());
+    setValue (motion::fader::valueFromRaw (raw, motion::fader::detent (travel())), juce::sendNotificationSync);
+}
+
+void ConsoleFader::mouseUp (const juce::MouseEvent&)
+{
+    repaint();
+}
+
+void ConsoleFader::mouseDoubleClick (const juce::MouseEvent&)
+{
+    if (! isEnabled()) return;
+    // 値はすぐ 0 dB ちょうど。つまみはばねで戻る
+    springing = isShowing() && ! motion::prefersReducedMotion();
+    setValue (motion::fader::unity, juce::sendNotificationSync);
+    if (! springing) shown.snap ((float) motion::fader::unity);
+    startAnimating();
+}
+
+bool ConsoleFader::advanceAnimation (float dt)
+{
+    const bool reduced = motion::prefersReducedMotion();
+    const auto target = (float) getValue();
+    const auto glowTarget = isAtUnity() ? 1.0f : 0.0f;
+
+    if (! isShowing() || reduced)
+    {
+        shown.snap (target);
+        springing = false;
+        unityGlow = glowTarget;
+        repaint();
+        return false;
+    }
+
+    if (springing)
+    {
+        shown.step (target, dt, motion::fader::springK, motion::fader::springC);
+        if (shown.atRest (target, 0.0005f, 0.01f))
+        {
+            shown.snap (target);
+            springing = false;
+        }
+    }
+
+    unityGlow = motion::approach (unityGlow, glowTarget, 25.0f, dt);
+    if (std::abs (unityGlow - glowTarget) < 0.01f) unityGlow = glowTarget;
+    repaint();
+    return springing || ! juce::approximatelyEqual (unityGlow, glowTarget);
 }
 
 void ConsoleFader::paint (juce::Graphics& g)
@@ -21,7 +95,13 @@ void ConsoleFader::paint (juce::Graphics& g)
     const auto cx = std::round (b.getCentreX()) - (meter >= 0.0f ? 4.0f : 0.0f);
     const auto top = b.getY() + capH * 0.5f;
     const auto bottom = b.getBottom() - capH * 0.5f;
-    const auto pos = (float) valueToProportionOfLength (getValue());
+    // 外から通知なしで値が変わることもあるので、動いていない時は値そのものに合わせる
+    if (! isAnimating())
+    {
+        shown.snap ((float) getValue());
+        unityGlow = isAtUnity() ? 1.0f : 0.0f;
+    }
+    const auto pos = juce::jlimit (-0.05f, 1.05f, shown.x);   // ばねで少し行き過ぎてもよい
     const auto capY = bottom - pos * (bottom - top);
 
     // 目盛り（10% 刻み、0/50/100 は長く）
@@ -80,9 +160,12 @@ void ConsoleFader::paint (juce::Graphics& g)
     g.setColour (colours::shadow (0.6f));
     g.drawRoundedRectangle (cap, 2.5f, 1.0f);
 
-    // 中心線（チャンネル色）
-    g.setColour (capLine);
-    g.fillRect (juce::Rectangle<float> (cap.getX() + 3.0f, std::round (capY) - 1.0f, cap.getWidth() - 6.0f, 2.0f));
+    // 中心線（チャンネル色）。0 dB ちょうどの時は光る（作っておいた光の画像を重ねる）
+    const auto lineRect = juce::Rectangle<float> (cap.getX() + 3.0f, std::round (capY) - 1.0f, cap.getWidth() - 6.0f, 2.0f);
+    if (unityGlow > 0.0f)
+        paint::glow (g, lineRect.expanded (7.0f, 6.0f), capLine.get().withAlpha (0.55f * unityGlow));
+    g.setColour (capLine.get().withMultipliedAlpha (0.78f + 0.22f * unityGlow).brighter (0.25f * unityGlow));
+    g.fillRect (lineRect);
 }
 
 //==============================================================================

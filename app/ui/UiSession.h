@@ -127,6 +127,7 @@ public:
 private:
     void notify (juce::uint32 changes);
     void keepPlayheadInView();
+    void followPlayhead (double seconds);
     void syncLoopToEngine();
     void refreshOutputStatus();
     void refreshInputStatus();
