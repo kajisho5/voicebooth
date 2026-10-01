@@ -27,12 +27,15 @@ function Find-Iscc {
         "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
         "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*")
     foreach ($k in $keys) {
-        Get-ItemProperty $k -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like "Inno Setup*" -and $_.InstallLocation } |
-            ForEach-Object {
-                $candidates += (Join-Path $_.InstallLocation "ISCC.exe")
-                $registryVersions += [string]$_.DisplayVersion
-            }
+        # Set-StrictMode 下でも動くように、無い値は $null として読む（DisplayName の無い項目もある）
+        foreach ($item in @(Get-ItemProperty $k -ErrorAction SilentlyContinue)) {
+            $props = $item.PSObject.Properties
+            $name = if ($props['DisplayName']) { [string]$props['DisplayName'].Value } else { "" }
+            $loc  = if ($props['InstallLocation']) { [string]$props['InstallLocation'].Value } else { "" }
+            if (-not ($name -like "Inno Setup*" -and $loc)) { continue }
+            $candidates += (Join-Path $loc "ISCC.exe")
+            if ($props['DisplayVersion']) { $registryVersions += [string]$props['DisplayVersion'].Value }
+        }
     }
 
     $onPath = Get-Command ISCC.exe -ErrorAction SilentlyContinue
