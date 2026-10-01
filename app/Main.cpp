@@ -3,7 +3,7 @@
 #include "ui/VoiceBoothLookAndFeel.h"
 
 #if ! VOICEBOOTH_UI_MOCK
- #error "Phase A supports the UI_MOCK build only (DESIGN 11.1 / 16)"
+ #include "audio/PlaybackEngine.h"
 #endif
 
 /*  起動オプション（開発・スクリーンショット用）
@@ -162,6 +162,16 @@ public:
 
         session = std::make_unique<UiSession>();
 
+       #if ! VOICEBOOTH_UI_MOCK
+        // B2：既定の出力デバイスを開く（入力は開かない）。開けなくても画面は出す（ステータスバーに理由）
+        engine = std::make_unique<audio::PlaybackEngine>();
+        if (const auto err = engine->openDefaultOutput(); err.isNotEmpty())
+        {
+            DBG ("Output device: " << err);
+        }
+        session->attachEngine (engine.get());
+       #endif
+
         // 最後に使ったモード
         const auto savedMode = stored->getValue ("mode");
         if (savedMode == "easy")     session->setMode (project::Mode::easy);
@@ -196,6 +206,11 @@ public:
             session->removeListener (this);
         window = nullptr;
         gallery = nullptr;
+        if (session != nullptr)
+            session->attachEngine (nullptr);
+       #if ! VOICEBOOTH_UI_MOCK
+        engine = nullptr;   // 出力デバイスを閉じる
+       #endif
         session = nullptr;
         properties.closeFiles();
         juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
@@ -243,6 +258,9 @@ private:
     VoiceBoothLookAndFeel lookAndFeel;
     juce::ApplicationProperties properties;
     AppHooks hooks;
+   #if ! VOICEBOOTH_UI_MOCK
+    std::unique_ptr<audio::PlaybackEngine> engine;   // session より先に作り、後に消す
+   #endif
     std::unique_ptr<UiSession> session;
     std::unique_ptr<MainWindow> window;
     std::unique_ptr<GalleryWindow> gallery;

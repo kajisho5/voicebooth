@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DummySession.h"
+#include "audio/SongLoader.h"
 
 /*  画面の状態（Phase A）
     UI 部品はここから読み、ここを変更し、変更通知で描き直す。
@@ -21,6 +22,7 @@ namespace change
         mode      = 1 << 6,   // 簡単 / 標準 / プロ
         monitor   = 1 << 7,
         song      = 1 << 8,   // 曲を開いた（全部が変わる）
+        device    = 1 << 9,   // 出力デバイスの状態
         all       = 0xffffffff
     };
 }
@@ -45,7 +47,14 @@ public:
     // --- 曲 -----------------------------------------------------------------
     /** 開いた曲に差し替える（B1）。録音・再生は止まり、位置は頭へ */
     void loadSong (const juce::File&, int sampleRate, int64 lengthSamples,
-                   std::shared_ptr<const audio::WaveformOverview>);
+                   std::shared_ptr<const audio::WaveformOverview>,
+                   std::shared_ptr<const audio::SongAudio> = nullptr);
+
+    /** 音声エンジン（B2）。nullptr なら見た目だけ（UI_MOCK）。エンジンはこの UiSession より長く生きること */
+    void attachEngine (audio::AudioEngine*);
+
+    /** 再生位置をエンジンから取っているか（曲を開いていて、出力デバイスがある） */
+    bool isEngineDriven() const;
 
     // --- 輸送 ---------------------------------------------------------------
     void setPlaying (bool);
@@ -76,6 +85,10 @@ public:
     void setMute (int index, bool);
     void setSolo (int index, bool);
 
+    // --- モニター（B2：オフボだけ音が出る） ---------------------------------
+    void setBackingLevel (float fader);   // 0..1（0.75 = 0 dB）
+    void setBackingMuted (bool);
+
     // --- 練習 / モード ------------------------------------------------------
     void setTempo (int percent);
     void setKey (int semitones);
@@ -92,8 +105,12 @@ public:
 private:
     void notify (juce::uint32 changes);
     void keepPlayheadInView();
+    void syncLoopToEngine();
+    void refreshOutputStatus();
 
     dummy::Session s;
+    audio::AudioEngine* engine = nullptr;
+    double sinceStatus = 0.0;
     juce::ListenerList<Listener> listeners;
 };
 

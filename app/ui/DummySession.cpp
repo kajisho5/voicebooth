@@ -265,7 +265,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.countInBars         = prev.countInBars;
     s.clickOn             = prev.clickOn;
     s.loopOn              = prev.loopOn;
-    s.offVocalGain        = prev.offVocalGain;
+    // オフボは 0 dB（0.75）から。前も開いた曲なら、その音量を引き継ぐ
+    s.offVocalGain        = prev.backingWave != nullptr ? prev.offVocalGain : 0.75f;
+    s.backingMuted        = prev.backingWave != nullptr && prev.backingMuted;
     s.mainGain            = prev.mainGain;
     s.harmonyGain         = prev.harmonyGain;
     s.monitorGain         = prev.monitorGain;
@@ -279,6 +281,8 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.inputRmsDb      = prev.inputRmsDb;
     s.inputPeakHoldDb = prev.inputPeakHoldDb;
     s.latencySamples  = prev.latencySamples;
+    s.output          = prev.output;
+    s.engineAttached  = prev.engineAttached;
     return s;
 }
 

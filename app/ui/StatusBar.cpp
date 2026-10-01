@@ -50,20 +50,53 @@ void StatusBar::paint (juce::Graphics& g)
     if (s.mode != project::Mode::easy)
         item (tr ("status.driver"), s.driver + " " + juce::String (s.bufferSize), colours::textDim);
 
-    // Phase A であることを明示（音は出ない）
-    const auto mf = mono (10.0f, Weight::semibold, 0.1f);
-    const auto txt = tr ("status.uiMock");
-    const auto w = textWidth (mf, txt) + 22.0f;
-    const auto chip = r.removeFromRight (w).withSizeKeepingCentre (w, 18.0f);
-    g.setColour (colours::warn.withAlpha (0.14f));
-    g.fillRoundedRectangle (chip, 3.0f);
-    paint::led (g, { chip.getX() + 8.0f, chip.getCentreY() }, 2.3f, colours::warn, true);
-    g.setColour (colours::warn);
-    g.setFont (mf);
-    g.drawText (txt, chip.withTrimmedLeft (15.0f), juce::Justification::centredLeft, false);
+    // 右端：目立たせたい注意（UI MOCK / 入力はダミー / SR 変換中）を札で
+    auto chip = [&] (const juce::String& txt, juce::Colour c)
+    {
+        const auto mf = mono (10.0f, Weight::semibold, 0.1f);
+        const auto w = textWidth (mf, txt) + 22.0f;
+        const auto box = r.removeFromRight (w).withSizeKeepingCentre (w, 18.0f);
+        g.setColour (c.withAlpha (0.14f));
+        g.fillRoundedRectangle (box, 3.0f);
+        paint::led (g, { box.getX() + 8.0f, box.getCentreY() }, 2.3f, c, true);
+        g.setColour (c);
+        g.setFont (mf);
+        g.drawText (txt, box.withTrimmedLeft (15.0f), juce::Justification::centredLeft, false);
+        r.removeFromRight (8.0f);
+    };
 
-    g.setColour (colours::textMute);
-    g.setFont (sans (10.5f));
-    g.drawText (tr ("status.noAudio"), r.withTrimmedRight (8.0f), juce::Justification::centredRight, true);
+    if (! s.engineAttached)
+    {
+        // UI_MOCK ビルド：音は出ない
+        chip (tr ("status.uiMock"), colours::warn);
+        g.setColour (colours::textMute);
+        g.setFont (sans (10.5f));
+        g.drawText (tr ("status.noAudio"), r.withTrimmedRight (8.0f), juce::Justification::centredRight, true);
+        return;
+    }
+
+    // 入力（メーター・レイテンシ）は B3 までダミー
+    chip (tr ("status.inputMock"), colours::warn);
+
+    const auto& o = s.output;
+    if (! o.open)
+    {
+        g.setColour (colours::bad);
+        g.setFont (sans (10.5f));
+        g.drawText (tr ("status.noOutput", o.error), r.withTrimmedRight (8.0f), juce::Justification::centredRight, true);
+        return;
+    }
+
+    if (o.converting)
+        chip (tr ("status.converting"), colours::warn);
+
+    // 出力：デバイス名・SR・バッファ（右寄せ）
+    const auto value = o.deviceName + "   " + formatKhz (juce::roundToInt (o.sampleRate)) + " kHz   " + juce::String (o.bufferSize);
+    const auto vw = textWidth (vf, value) + 4.0f;
+    g.setColour (colours::text);
+    g.setFont (vf);
+    g.drawText (value, r.removeFromRight (vw), juce::Justification::centredRight, true);
+    const auto label = tr ("status.output");
+    paint::microLabel (g, r.removeFromRight (textWidth (lf, label) + 8.0f), label, colours::textMute);
 }
 } // namespace vb
