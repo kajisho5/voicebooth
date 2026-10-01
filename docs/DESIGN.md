@@ -644,7 +644,35 @@ Rubber Band（商用配布時はライセンス確認）。代替は事前に DE
 
 - Win: インストーラまたは portable zip。後でコードサイン
 - Mac: app bundle。公証しないと「壊れている」と出る。予算に入れる
+- Mac は **Apple シリコンと Intel の両方で動くユニバーサル版**（2026-10-01 決定。`CMAKE_OSX_ARCHITECTURES=arm64;x86_64`）。
+  CI で両方入っていることを `lipo` で確かめ、Intel 側のテストも Rosetta 2 で回す（実機の Intel Mac での確認は別途）
 - 未署名でも開発ビルドは動くようにする
+
+#### 11.6.1 動作環境（暫定。2026-10-01）
+
+README・配布ページ・アプリの設定画面に出す。数値は暫定で、B8（リアルタイムピッチ）と B16（分離）で実測して確定する。
+
+| | 最低 | 推奨 |
+|---|---|---|
+| Windows | Windows 10 64bit（バージョン 1607 以降） | Windows 11 |
+| Mac | macOS 11 Big Sur 以降（Apple シリコン / Intel） | 最新の macOS、Apple シリコン |
+| CPU | 64bit・4 コア | 6 コア以上（Apple M1 以降、ここ数年の Intel Core i5 / AMD Ryzen 5 クラス以上） |
+| メモリ | 8 GB | 16 GB |
+| 空き容量 | 2 GB | 10 GB 以上（SSD） |
+| 画面 | 1280×800 | 1440×900 以上 |
+| 音声 | 内蔵の入出力でも動く | オーディオインターフェース＋有線ヘッドホン（Win は ASIO 対応だと遅延が少ない） |
+| ネット | 初回のモデルのダウンロードだけ | — |
+
+根拠と注意：
+
+- OS の下限：JUCE 8 が Windows 10 1607 以降 / macOS 10.11 以降に対応し、本アプリは macOS 11 を下限にしている（CMakeLists.txt）。
+  macOS 11 が入る Mac は MacBook Air 2013 以降・MacBook Pro Late 2013 以降・iMac 2014 以降・Mac mini 2014 以降など（https://support.apple.com/en-us/103111）
+- メモリ：曲はデコードしてメモリに持つ（5 分のステレオで約 100 MB、上限 20 分で約 420 MB）。分離モデルは重みだけで 913 MB（Mel-Band RoFormer の配布ファイル、https://huggingface.co/KimberleyJSN/melbandroformer ）で、計算中はさらに使う
+- 空き容量：本体 約 20 MB＋モデル 約 1 GB＋曲・テイク（24bit モノラル 48 kHz の 5 分で約 43 MB／トラック）
+- 録音・再生・リアルタイムピッチは軽い。重いのは分離（B16）だけで、古い CPU・Intel Mac では時間がかかる。分離の前に、そのパソコンでのおおよその時間を出す
+- Bluetooth のイヤホン・ヘッドホンは遅延が大きく、録音のモニターには向かない（入力セットアップで警告済み）
+- Arm 版 Windows は未確認（x64 版がエミュレーションで動く可能性はあるが、試していない）
+- アプリでは設定画面に「このパソコン」（OS・CPU・コア数・メモリ）と上の表を並べ、最低を下回る項目に印を付ける（B3 の取り込み後に作る）
 
 ### 11.7 更新とモデルの配信（2026-10-01 決定）
 
@@ -912,7 +940,7 @@ Phase A だけやれ。音声デバイスは開くな。
 - ~~ソースを公開するか~~ → GitHub で公開する（2026-10-01 決定）。ライセンスは **AGPL-3.0-or-later**（JUCE 8 を AGPLv3 で使うため。`LICENSE`）。
   名前とロゴは改造版を別製品として配る時には使わせない（README）。録音・書き出した音声は利用者のもので、AGPL は及ばない
 - ~~Rubber Band のライセンス形態~~ → GPL（v2 以降）で使う。AGPL-3.0 のアプリと組み合わせられるので、商用ライセンスは買わない
-- Intel Mac を初回から出すか
+- ~~Intel Mac を初回から出すか~~ → 出す。ユニバーサル版（11.6）
 - コードサイン / 公証の主体
 - 有料か無料か（設計には影響させない）
 - ~~m4a（AAC）の Windows 対応~~ → 対応する（2026-10-01 決定）。JUCE 標準の読み手は Windows で m4a を読めないため、OS 標準の Media Foundation で読む（app/audio/MediaFoundationFormat）。N エディションは Media Feature Pack が要る

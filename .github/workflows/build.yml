@@ -33,6 +33,17 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure -V   # -V：mp3 / m4a の長さ・頭のずれをログに残す
 
+      # Mac はユニバーサル版（arm64 + x86_64）。両方入っていることと、Intel 側も Rosetta 2 でテストが通ることを確かめる
+      - name: Check universal binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          lipo -info build/VoiceBooth_artefacts/Release/VoiceBooth.app/Contents/MacOS/VoiceBooth
+          lipo build/VoiceBooth_artefacts/Release/VoiceBooth.app/Contents/MacOS/VoiceBooth -verify_arch arm64 x86_64
+          TESTS=$(find build -path '*VoiceBoothTests_artefacts*' -type f -name VoiceBoothTests -perm -u+x | head -1)
+          lipo "$TESTS" -verify_arch arm64 x86_64
+          arch -x86_64 /usr/bin/true 2>/dev/null || sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          arch -x86_64 "$TESTS"
+
       - uses: actions/upload-artifact@v4
         with:
           name: VoiceBooth-${{ runner.os }}

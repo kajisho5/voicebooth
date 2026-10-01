@@ -40,6 +40,24 @@
 
 画面の状態一覧は [`docs/UI_STATES.md`](docs/UI_STATES.md)。
 
+## 動作環境（暫定）
+
+| | 最低 | 推奨 |
+|---|---|---|
+| Windows | Windows 10 64bit（バージョン 1607 以降） | Windows 11 |
+| Mac | macOS 11 Big Sur 以降（Apple シリコン / Intel 両対応のユニバーサル版） | 最新の macOS、Apple シリコン |
+| CPU | 64bit・4 コア | 6 コア以上（Apple M1 以降、ここ数年の Intel Core i5 / AMD Ryzen 5 クラス以上） |
+| メモリ | 8 GB | 16 GB |
+| 空き容量 | 2 GB | 10 GB 以上（SSD） |
+| 画面 | 1280×800 | 1440×900 以上 |
+| 音声 | 内蔵の入出力でも動く | オーディオインターフェース＋有線ヘッドホン（Windows は ASIO 対応だと遅延が少ない） |
+| ネット | 初回の分離モデルのダウンロードだけ（つながらなくても分離以外は使える） | — |
+
+- 重いのはボーカル分離だけです。古い CPU や Intel Mac では分離に時間がかかります（実測して確定します）
+- Bluetooth のイヤホン・ヘッドホンは遅延が大きく、録音には向きません
+- Arm 版 Windows は未確認です
+- 数値は開発中の目安です。根拠は [`docs/DESIGN.md`](docs/DESIGN.md) 11.6.1
+
 ## ビルド
 
 必要なもの: CMake 3.22+、C++17 コンパイラ、Git（JUCE 8.0.15 を初回 configure 時に自動取得）
