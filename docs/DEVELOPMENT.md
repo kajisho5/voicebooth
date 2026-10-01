@@ -82,6 +82,7 @@ app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 128
 app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）
 app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
+app/song/             曲の情報（DESIGN 7.5）：歌詞の読み込み（LyricsImport、CP932 表は tools/gen_cp932_table.py で生成）、タップテンポ（Tempo.h）
 third_party/minimp3/  mp3 デコーダ（CC0。出典とコミットは README）
 tests/                VoiceBoothTests（ctest）
 app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定 / 更新・モデルのダウンロード

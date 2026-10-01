@@ -16,7 +16,10 @@ I18N = ROOT / "resources" / "i18n"
 SRC = ROOT / "app"
 
 # 非 ASCII のデータ（歌詞・曲名などの仮データ）を持つことが許されるファイル
-DATA_FILES = {"app/ui/DummySession.cpp"}
+DATA_FILES = {
+    "app/ui/DummySession.cpp",
+    "app/song/LyricsImport.cpp",   # 区間の見出しの語（サビ・Aメロ…）を照合するためのデータ
+}
 
 PLACEHOLDER = re.compile(r"\{(\d+)\}")
 KEY_LITERAL = re.compile(r'"([a-z][a-zA-Z0-9]*(?:\.[a-zA-Z0-9]+)+)"')
