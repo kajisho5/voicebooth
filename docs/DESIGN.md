@@ -831,6 +831,12 @@ JUCE の画面作りが初手で重い場合に限り、**見た目検証だけ*
 重い処理は別プロセスまたは別スレッド。UIを止めるな。
 
 - 音源分離: Demucs / MDX 系をローカル。結果wavだけ本体が読む
+  - 2026-10-01 実測（19.1 の第一候補 Mel-Band RoFormer）：C++ の解析プロセスで ONNX Runtime（CPU）を使って動かす。ONNX に入れるのは「スペクトログラム → ボーカルのスペクトログラム」だけで、STFT / iSTFT とチャンクの分割・重ね合わせは C++ で書く（下の約束）。PyTorch の元のモデルと SNR 87.8 dB（30 秒の波形）で一致を確認
+  - 入出力：`spec` float32 `[batch, 2, 1025, frames, 2]`（L/R・周波数ビン・フレーム・実部/虚部）→ 同じ形のボーカルの複素スペクトログラム（DC は 0）。伴奏 = 元の音 − ボーカル。opset 18・標準の op だけ（独自 op なし）
+  - STFT：44.1 kHz ステレオ（48 kHz の曲は変換してから）、n_fft 2048・hop 441・周期 Hann・正規化なし・center（両端 1024 サンプルを reflect）。チャンク 8 秒（352800 サンプル、801 フレーム）、MSST の demix と同じ重ね方（step = chunk / overlap、35280 サンプルの直線フェード、両端を reflect で延ばしてから重み付きで足す）
+  - モデルは int8（per-channel の動的量子化、233 MB）を第一候補。fp32（916 MB）との差は SNR 32.7 dB で、分離そのものの誤差より十分小さい見込み。正解の音源（MUSDB18-HQ など）で SDR を測ってから決める。だめなら「fp16 で保存し、読み込みで fp32」の版（460 MB）
+  - **メモリ：ONNX Runtime の既定のままだとピークが 6〜12 GB になる**（メモリ再利用 `enable_mem_reuse` が層の数だけ確保を増やす）。切れば fp32 で 2.8 GB、int8 で 1.9 GB、速さは同じ。ただしこの設定は Python の API にしか無い（C/C++ API に無いことを ORT のソースで確認）。C++ では (a) ORT に設定を足す小さなパッチを当ててビルドする、または (b) モデルを層ごとに分けて順に回す、のどちらかで再利用を切る。B16 の前に決めて検証する
+  - 時間の見込みは「最初のチャンク 1 個の実測 × チャンクの数」で出す（11.6.1）
 - 歌詞: Whisper small/medium
 - ピッチ事前解析: 本体または解析プロセス
 - リアルタイムピッチ: 本体オーディオスレッドに載せすぎない。リングバッファで検出スレッドへ
@@ -895,9 +901,11 @@ README・配布ページ・アプリの設定画面に出す。数値は暫定�
 
 - OS の下限：JUCE 8 が Windows 10 1607 以降 / macOS 10.11 以降に対応し、本アプリは macOS 11 を下限にしている（CMakeLists.txt）。
   macOS 11 が入る Mac は MacBook Air 2013 以降・MacBook Pro Late 2013 以降・iMac 2014 以降・Mac mini 2014 以降など（https://support.apple.com/en-us/103111）
-- メモリ：曲はデコードしてメモリに持つ（5 分のステレオで約 100 MB、上限 20 分で約 420 MB）。分離モデルは重みだけで 913 MB（Mel-Band RoFormer の配布ファイル、https://huggingface.co/KimberleyJSN/melbandroformer ）で、計算中はさらに使う
-- 空き容量：本体 約 20 MB＋モデル 約 1 GB＋曲・テイク（24bit モノラル 48 kHz の 5 分で約 43 MB／トラック）
+- メモリ：曲はデコードしてメモリに持つ（5 分のステレオで約 100 MB、上限 20 分で約 420 MB）。分離の解析プロセスはピーク約 1.9 GB（int8）／約 2.8 GB（fp32）で、ONNX Runtime のメモリ再利用を切ることが条件（11.3。既定のままだと 6〜12 GB になり、最低 8 GB を守れない）。2026-10-01 実測
+- 空き容量：本体 約 20 MB＋モデル 約 0.25 GB（int8。fp32 なら約 0.9 GB）＋曲・テイク（24bit モノラル 48 kHz の 5 分で約 43 MB／トラック）
 - 録音・再生・リアルタイムピッチは軽い。重いのは分離（B16）だけで、古い CPU・Intel Mac では時間がかかる。分離の前に、そのパソコンでのおおよその時間を出す
+  - 2026-10-01 実測（クラウドの 4 コア Xeon 2.1 GHz、AVX-512 / VNNI あり、4 スレッド）：8 秒チャンク 1 個が int8 で約 9 秒、fp32 で約 14 秒。5 分の曲で int8 が約 11〜12 分（overlap 2）／約 6 分（overlap 1）、fp32 が約 18 分／約 9 分
+  - AVX-512 / VNNI の無い一般的な 4 コアのノート PC では 1.5〜2 倍かかるかもしれない（未計測）。最低スペックの機械では「20〜30 分かかることがある」と出す。Apple シリコン・Intel Mac・Windows の実機は B16 で測る
 - Bluetooth のイヤホン・ヘッドホンは遅延が大きく、録音のモニターには向かない（入力セットアップで警告済み）
 - Arm 版 Windows は未確認（x64 版がエミュレーションで動く可能性はあるが、試していない）
 - アプリの設定画面に「このパソコン」：OS・CPU（アーキテクチャ）・物理コア数・メモリ・空き容量と判定（推奨を満たす＝ライム、推奨未満＝アンバー、最低未満＝コーラル。足りなくても止めず、知らせるだけ）。`app/system/SystemCheck`（2026-10-01 実装）。メモリの線は 8 GB 機が 7.8 GB 前後と出るので 7.5 GB / 15 GB で引く
@@ -1216,7 +1224,7 @@ Phase A だけやれ。音声デバイスは開くな。
 
 | 用途 | 候補 | 性能の目安 | ライセンス | 判断 |
 |---|---|---|---|---|
-| 分離：ボーカル / オフボ（B16） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記） | **第一候補** |
+| 分離：ボーカル / オフボ（B16） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記。モデルのコード・設定の MSST も MIT） | **第一候補**。ONNX Runtime（CPU）で動くことを確認済み（11.3） |
 | 〃 | BS PolarFormer（ZFTurbo） | 11.00 | 配布元リポジトリは MIT。重み単体の明記は未確認 | 確認できれば候補 |
 | 〃 | BS-RoFormer（viperx） | 10.87 | 明記なし | 使わない（許可待ち） |
 | 〃 | MVSEP の最新（BS Roformer 2026.07 など） | 12.33 | サービス側のモデル。重みの配布は未確認 | 使えない見込み |
@@ -1231,8 +1239,9 @@ Phase A だけやれ。音声デバイスは開くな。
 | 〃 | kotoba-whisper v2（日本語特化、large-v3 の蒸留） | 6.3 倍速い | Apache-2.0 | 日本語の第一候補（歌での精度は要検証） |
 
 実装の前に確かめること：
-- C++（ONNX Runtime）で動かせるか。RoFormer 系は PyTorch の重み。ONNX への書き出しと結果の一致を検証する（設計 11.3：GUI 本体を Python にしない）
-- 重みのファイルサイズ・必要メモリ・CPU だけでの処理時間（4〜5 分の曲で何分か）
+- ~~C++（ONNX Runtime）で動かせるか~~ → Mel-Band RoFormer は動く（2026-10-01）。opset 18・標準の op だけで書き出せ、PyTorch と SNR 87.8 dB で一致。条件は ONNX Runtime のメモリ再利用を切ること（11.3）。書き出しは `torch.onnx.export(dynamo=True)`（従来の書き出しは GLU・concat・Split の軸を誤った壊れたグラフを作る）
+- ~~重みのファイルサイズ・必要メモリ・CPU だけでの処理時間~~ → 11.3 / 11.6.1 に記載（int8 233 MB・ピーク約 1.9 GB・5 分の曲で約 11 分。4 コア Xeon での値）
+- まだ：正解の音源での SDR（int8・overlap 1・chunk 4 秒の影響）、Apple シリコン / Intel Mac / Windows の実機での速さ、メモリ再利用を切る方法（ORT のパッチか層ごとの分割）を C++ で、CoreML / DirectML で速くなるか
 - 有料配布にする場合（19 の未決）、商用利用の条件
 
 出典：MVSEP アルゴリズム一覧 https://mvsep.com/en/algorithms ／ MSST 学習済みモデル一覧 https://github.com/ZFTurbo/Music-Source-Separation-Training/blob/main/docs/pretrained_models.md ／
