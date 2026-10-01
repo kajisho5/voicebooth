@@ -288,8 +288,7 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)
         }
         else
         {
-            for (int k = 0; k < 6; ++k)
-                amp = juce::jmax (amp, dummy::vocalAmplitude (s, row.type, s0 + (s1 - s0) * k / 6));
+            amp = dummy::vocalPeak (s, row.type, s0, s1);
         }
         if (amp <= 0.0f)
             continue;

@@ -14,6 +14,9 @@ public:
 
     std::function<void()> onExport;
 
+    /** 書き出すトラック（チェックが入っていて、録ってあるボーカル）。確認用ミックスは B15 */
+    std::vector<project::TrackType> selectedTracks() const;
+
 protected:
     void layoutBody (juce::Rectangle<int>) override;
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
@@ -28,6 +31,8 @@ private:
         bool available;     // 録音がある
         bool clip;          // 採用区間にクリップ
         juce::String peak;
+        juce::String clipTakes;   // クリップしたテイク（"take2, take4"。曲を開いた時）
+        bool later = false;       // まだ書き出せない（確認用ミックスは B15）
     };
 
     std::vector<FileRow> rows;
