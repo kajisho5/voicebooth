@@ -148,6 +148,13 @@ namespace paint
     /** LED。消灯時もうっすら色を残す */
     void led (juce::Graphics&, juce::Point<float> centre, float radius, juce::Colour, bool lit);
 
+    /** LED（明るさ 0..1）。点く・消える途中（余韻）を描く。1 なら lit=true と同じ */
+    void led (juce::Graphics&, juce::Point<float> centre, float radius, juce::Colour, float level);
+
+    /** やわらかい光（グロー）。作っておいた画像を色で塗って重ねる（毎回ぼかさない。DESIGN 4.10.1）。
+        area は光の外形（楕円に収まる）。色のアルファがそのまま強さ */
+    void glow (juce::Graphics&, juce::Rectangle<float> area, juce::Colour);
+
     /** 角型 LED（メーターのセグメント等） */
     void ledBar (juce::Graphics&, juce::Rectangle<float>, juce::Colour, float level /*0=消灯 1=点灯*/);
 

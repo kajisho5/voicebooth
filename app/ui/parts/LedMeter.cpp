@@ -9,8 +9,47 @@ void LedMeter::setLevels (float p, float r, float h, bool c)
     if (juce::approximatelyEqual (p, peakDb) && juce::approximatelyEqual (r, rmsDb)
         && juce::approximatelyEqual (h, holdDb) && c == clipped)
         return;
+
+    const bool falling = p < peakDb || r < rmsDb || h < holdDb;
+    if (c && ! clipped) clipFlash = 1.0f;   // クリップが点いた：一度光る
+    const bool clipChanged = c != clipped;
     peakDb = p; rmsDb = r; holdDb = h; clipped = c;
     repaint();
+
+    // 下がった粒の余韻・クリップ LED の光（動きを減らす設定なら即）
+    if ((falling || clipChanged) && isShowing() && ! motion::prefersReducedMotion())
+        startAnimating();
+    else if (clipChanged)
+    {
+        clipLevel = clipped ? 1.0f : 0.0f;
+        clipFlash = 0.0f;
+    }
+}
+
+bool LedMeter::advanceAnimation (float dt)
+{
+    if (! isShowing() || motion::prefersReducedMotion())
+    {
+        afterglow.fill (0.0f);
+        clipLevel = clipped ? 1.0f : 0.0f;
+        clipFlash = 0.0f;
+        repaint();
+        return false;
+    }
+
+    bool moving = false;
+    const auto k = std::exp (-dt / 0.08f);   // 粒の余韻：約 0.1 秒
+    for (auto& a : afterglow)
+    {
+        if (a <= 0.0f) continue;
+        a = a * k < 0.02f ? 0.0f : a * k;
+        moving = moving || a > 0.0f;
+    }
+
+    clipLevel = motion::key::ledLevel (clipLevel, clipped, dt, false);
+    clipFlash = juce::jmax (0.0f, clipFlash - dt * 2.5f);
+    repaint();
+    return moving || clipFlash > 0.0f || ! juce::approximatelyEqual (clipLevel, clipped ? 1.0f : 0.0f);
 }
 
 void LedMeter::mouseEnter (const juce::MouseEvent&)
@@ -64,6 +103,7 @@ void LedMeter::paint (juce::Graphics& g)
         if (holdIndex < 0 && dbTop >= holdDb) holdIndex = i;
     }
 
+    const bool animated = isAnimating();
     for (int i = 0; i < n; ++i)
     {
         const auto dbLo = minDb + (float) i / (float) n * -minDb;
@@ -73,6 +113,15 @@ void LedMeter::paint (juce::Graphics& g)
         float level = 0.0f;
         if (dbMid <= rmsDb)       level = 1.0f;
         else if (dbMid <= peakDb) level = 0.45f;
+
+        // 下がった粒は余韻で暗くなる（上がる時は即）。余韻は描画のたびに今の明るさで覚え直す
+        if (i < maxSegments)
+        {
+            auto& a = afterglow[(size_t) i];
+            if (! animated) a = 0.0f;
+            level = juce::jmax (level, a);
+            a = level;
+        }
 
         auto c = zoneColour (dbMid);
         if (i == holdIndex) { c = colours::text; level = 1.0f; }
@@ -88,7 +137,10 @@ void LedMeter::paint (juce::Graphics& g)
     {
         const auto led = clipArea.withSizeKeepingCentre (clipArea.getWidth(), barH).withY (bar.getY());
         paint::inset (g, led.expanded (1.0f), 2.0f);
-        paint::ledBar (g, led.reduced (1.5f), colours::rec, clipped ? 1.0f : 0.0f);
+        if (! isAnimating()) { clipLevel = clipped ? 1.0f : 0.0f; clipFlash = 0.0f; }
+        paint::ledBar (g, led.reduced (1.5f), colours::rec, clipLevel);
+        if (clipFlash > 0.0f)
+            paint::glow (g, led.expanded (led.getWidth() * 0.8f, led.getHeight() * 0.6f), colours::rec.withAlpha (0.6f * clipFlash));
     }
 
     if (! full)

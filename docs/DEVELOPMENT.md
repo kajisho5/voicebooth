@@ -24,7 +24,7 @@
 |---|---|---|
 | ![](screenshots/recording.png) | ![](screenshots/export.png) | ![](screenshots/settings-zh-Hant.png) |
 
-見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）が既定で、スキンで色を着せ替えられる（[一覧](screenshots/skins/all.png)）。機能の参考にした TakyuPractice とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。動きは DESIGN 4.10。
+見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）が既定で、スキンで色を着せ替えられる（[一覧](screenshots/skins/all.png)）。機能の参考にした TakyuPractice とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。動きは DESIGN 4.10（キーのばね・LED の余韻・フェーダーとツマミの吸い付き・ダウンロードの LED の列・再生ヘッドの先回りなど。実装は 4.10.2。OS の「動きを減らす」に従う）。
 
 起動オプション（`--lang=en` `--mode=pro` `--screen=export` など）は [`UI_STATES.md`](UI_STATES.md)。
 
@@ -72,7 +72,7 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth らしい名前の判定、スキン（`.vbskin` の読み書きと 64 KB・64 文字・HEX の制限、base からの補い、コントラスト比・色差・rec の色相、内蔵 10 種がすべて自分の点検を通ること、`Skins/` の保存・削除）を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
+波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth らしい名前の判定、動きの計算（ばねが止まる・フレームの速さに左右されにくい、0 dB / 既定値の吸い付きでちょうどの値になりそれ以外は丸めない、ツマミの速さで変わる感度、LED の余韻、再生ヘッドが 7 割から先回りしてページ送りしない）、スキン（`.vbskin` の読み書きと 64 KB・64 文字・HEX の制限、base からの補い、コントラスト比・色差・rec の色相、内蔵 10 種がすべて自分の点検を通ること、`Skins/` の保存・削除）を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
 
 ### インストーラー（未署名。DESIGN 11.6）
 
@@ -111,6 +111,8 @@ third_party/minimp3/  mp3 デコーダ（CC0。出典とコミットは README�
 tests/                VoiceBoothTests（ctest）
 app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定 / 更新・モデルのダウンロード / スキン（テンプレート・エディタ）
 app/ui/Theme.*        色トークン（スキンで差し替わる）・書体・描画の基本（キーキャップ / 表示窓 / LED）
+app/ui/Motion.h       動きの計算（ばね・吸い付き・感度・余韻・再生ヘッドの先回り。DESIGN 4.10。テストあり）
+app/ui/Animator.*     動きの共通の時計（60 Hz のタイマー 1 つ。止まっていれば止まる）・OS の「動きを減らす」（ReducedMotion.cpp / .mm）
 app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFader / LedMeter / Readout / TallyLamp / Icons / Dropdown / ColourPad
 app/ui/Gallery.*      部品ギャラリー
 app/ui/*.cpp          画面：TopBar / TransportBar / PitchLane / LyricsLane / WaveLane / TrackTabs / Rack / StatusBar
