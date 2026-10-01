@@ -120,9 +120,24 @@ python3 tools/check_i18n.py
 
 アプリアイコン・ロゴ・SNS 画像・インストーラー画像は [`brand/`](brand/README.md)（`python3 brand/build_brand.py` で再生成）。
 
-## ライセンス上の注意（未決事項に関係）
+## ライセンス
 
-- **JUCE 8** は AGPLv3 と商用 JUCE ライセンスのデュアルライセンス。配布形態（有料/無料、ソース公開の有無）に応じてどちらで使うか決める必要がある（DESIGN 19 未決）
-- **IBM Plex Sans JP / IBM Plex Mono** は SIL Open Font License 1.1（`resources/fonts/OFL-*.txt`）。アプリへの同梱・再配布可（フォント名 "Plex" は予約名なので、改変した場合は別名にする）
-- Utawave（AGPL）のソースはコピーしない（DESIGN 0）
-- ASIO SDK はリポジトリに入れない
+VoiceBooth のソースコードは **GNU Affero General Public License v3.0 以降（AGPL-3.0-or-later）** で公開しています（[`LICENSE`](LICENSE)）。
+JUCE 8 を AGPLv3 で使っているため、アプリ全体を AGPL にしています（DESIGN 19）。
+
+- 使う・改造する・配る・売るのは自由。配る時（改造版をネット越しに使わせる時も）はソースも同じライセンスで公開する
+- **名前とロゴ**：「VoiceBooth」の名前とロゴ（`brand/`）は、改造版を別の製品として配る時には使わないでください（別の名前・ロゴにする）。元のままの再配布や、紹介・レビューでの使用は構いません
+- 録音・書き出した音声ファイルは利用者のもの。AGPL は作った作品には及ばない
+
+同梱・利用しているもの：
+
+| もの | ライセンス |
+|---|---|
+| JUCE 8 | AGPLv3 / 商用のデュアル（ここでは AGPLv3） |
+| minimp3（`third_party/minimp3`） | CC0 |
+| IBM Plex Sans JP / IBM Plex Mono（`resources/fonts`） | SIL Open Font License 1.1（改変したら "Plex" 以外の名前にする） |
+| 予定：Rubber Band（テンポ / キー、B11） | GPL v2 以降 / 商用のデュアル（ここでは GPL） |
+| 予定：ASIO SDK（Windows） | GPLv3 / 商用のデュアル（2025-10-15 から）。SDK 自体はリポジトリに入れない |
+| 予定：分離・ピッチ・歌詞のモデル | 重みのライセンスを確かめたものだけ（DESIGN 19.1）。アプリとは別に配る |
+
+- Utawave のソースはコピーしない（DESIGN 0。ライセンスの問題ではなく、独自に作る方針）
