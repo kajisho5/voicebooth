@@ -14,6 +14,27 @@ namespace
         return a;
     }
 
+    /** 「このパソコン」の 1 行目：OS · CPU · コア · メモリ · 空き（DESIGN 11.6.1） */
+    juce::String systemSummary (const system::Info& i)
+    {
+        juce::StringArray parts { i.osName, i.cpuModel + " (" + i.architecture + ")",
+                                  tr ("settings.system.cores").replace ("{0}", juce::String (i.physicalCores)),
+                                  tr ("settings.system.memory").replace ("{0}", juce::String ((double) i.memoryMB / 1024.0, 1)) };
+        if (i.freeDiskMB >= 0)
+            parts.add (tr ("settings.system.disk").replace ("{0}", juce::String (i.freeDiskMB / 1024)));
+        return parts.joinIntoString (utf8 (" \xc2\xb7 "));
+    }
+
+    juce::String itemNames (const juce::Array<system::Item>& items)
+    {
+        juce::StringArray names;
+        for (auto item : items)
+            names.add (tr (item == system::Item::cores  ? "settings.system.item.cores"
+                         : item == system::Item::memory ? "settings.system.item.memory"
+                                                        : "settings.system.item.disk"));
+        return names.joinIntoString (tr ("settings.system.sep"));
+    }
+
     int languageIndex (i18n::Language lang)
     {
         const auto& list = i18n::available();
@@ -33,7 +54,9 @@ SettingsDialog::SettingsDialog (UiSession& u)
       crossfade ({ "0", "5", "8", "20" }, 2),
       octaveAlign (tr ("pitch.octaveAlign")),
       openSetup (tr ("settings.device.open")),
-      cacheKey (tr ("settings.cache.change"))
+      cacheKey (tr ("settings.cache.change")),
+      supportKey (tr ("settings.support.open")),
+      systemInfo (system::gather (juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("VoiceBooth")))
 {
     language.onChange = [this] (int i) { if (onLanguage) onLanguage (i18n::available()[(size_t) i].id); };
     mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
@@ -45,6 +68,28 @@ SettingsDialog::SettingsDialog (UiSession& u)
     openSetup.withIcon (Icon::mic);
     openSetup.onClick = [this] { if (onOpenSetup) onOpenSetup(); };
     cacheKey.withIcon (Icon::folder);
+    supportKey.withIcon (Icon::globe);
+    supportKey.onClick = [] { juce::URL ("https://github.com/sponsors/kajisho5").launchInDefaultBrowser(); };
+
+    // このパソコンが動作環境を満たすか（DESIGN 11.6.1）。足りなくても止めない、知らせるだけ
+    const auto verdict = system::evaluate (systemInfo);
+    juce::String systemValue;
+    juce::Colour systemLed;
+    switch (verdict.level)
+    {
+        case system::Level::ok:
+            systemValue = tr ("settings.system.ok");
+            systemLed = colours::signal;
+            break;
+        case system::Level::belowRecommended:
+            systemValue = tr ("settings.system.belowRec").replace ("{0}", itemNames (verdict.belowRecommended));
+            systemLed = colours::warn;
+            break;
+        case system::Level::belowMinimum:
+            systemValue = tr ("settings.system.belowMin").replace ("{0}", itemNames (verdict.belowMinimum));
+            systemLed = colours::bad;
+            break;
+    }
 
     for (auto* s : { &tolerance, &countIn, &crossfade })
         s->setFont (mono (11.5f, Weight::medium));
@@ -58,7 +103,9 @@ SettingsDialog::SettingsDialog (UiSession& u)
         { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   240 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
         { tr ("settings.cache"),      utf8 ("~/Music/VoiceBooth/Cache"), &cacheKey,  0 },
-        { tr ("settings.theme"),      tr ("settings.theme.note"),      nullptr,      0 },
+        { tr ("settings.system"),     systemSummary (systemInfo),      nullptr,      330, systemValue, systemLed },
+        { tr ("settings.theme"),      tr ("settings.theme.note"),      nullptr,      0,   tr ("settings.theme.value") },
+        { tr ("settings.support"),    tr ("settings.support.note"),    &supportKey,  0 },
     };
 
     for (auto& r : rows)
@@ -129,11 +176,15 @@ void SettingsDialog::paintBody (juce::Graphics& g, juce::Rectangle<int>)
             g.drawText (rows[i].note, text, juce::Justification::topLeft, true);
         }
 
-        if (rows[i].control == nullptr)
+        if (rows[i].control == nullptr && rows[i].value.isNotEmpty())
         {
-            g.setColour (colours::textDim);
+            auto v = a.removeFromRight ((float) juce::jmax (260, rows[i].controlWidth));
             g.setFont (sans (12.0f));
-            g.drawText (tr ("settings.theme.value"), a.removeFromRight (260.0f), juce::Justification::centredRight, false);
+            const auto textW = juce::jmin (v.getWidth() - 18.0f, textWidth (g.getCurrentFont(), rows[i].value) + 2.0f);
+            if (! rows[i].led.isTransparent())
+                paint::led (g, { v.getRight() - textW - 12.0f, v.getCentreY() }, 4.0f, rows[i].led, true);
+            g.setColour (rows[i].led.isTransparent() ? colours::textDim : colours::text);
+            g.drawText (rows[i].value, v, juce::Justification::centredRight, true);
         }
     }
 
