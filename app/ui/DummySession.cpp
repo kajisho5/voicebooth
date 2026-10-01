@@ -293,6 +293,13 @@ float backingPeak (const Session& s, int64 start, int64 end)
     return a;
 }
 
+float backingRms (const Session& s, int64 start, int64 end)
+{
+    if (s.backingWave != nullptr)
+        return s.backingWave->getRms (start, end);
+    return backingPeak (s, start, end) * 0.5f;
+}
+
 float backingAmplitude (const Session& s, int64 sample)
 {
     const auto t = s.toSec (sample);

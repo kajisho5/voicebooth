@@ -172,7 +172,8 @@ if(VOICEBOOTH_TESTS)
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1
-        JUCE_MODAL_LOOPS_PERMITTED=1)   # 非同期の通知をテストで回すため
+        JUCE_MODAL_LOOPS_PERMITTED=1    # 非同期の通知をテストで回すため
+        VOICEBOOTH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
     if(MSVC)
         target_compile_options(VoiceBoothTests PRIVATE /utf-8)
     endif()

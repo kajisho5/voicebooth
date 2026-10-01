@@ -273,7 +273,16 @@ void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)
         float amp = 0.0f;
         if (backing)
         {
-            amp = dummy::backingPeak (s, s0, s1);
+            // ピーク（薄）＋ RMS（濃）
+            const auto peak = juce::jmin (1.0f, dummy::backingPeak (s, s0, s1));
+            const auto rms = juce::jmin (peak, dummy::backingRms (s, s0, s1));
+            const auto hp = juce::jmax (1.0f, peak * (a.getHeight() - 2.0f));
+            const auto hr = juce::jmax (1.0f, rms * (a.getHeight() - 2.0f));
+            g.setColour (colours::textMute.withAlpha (0.3f));
+            g.fillRect (juce::Rectangle<float> (px, cy - hp * 0.5f, 1.0f, hp));
+            g.setColour (colours::textDim.withAlpha (0.8f));
+            g.fillRect (juce::Rectangle<float> (px, cy - hr * 0.5f, 1.0f, hr));
+            continue;
         }
         else
         {

@@ -117,6 +117,9 @@ float backingAmplitude (const Session&, int64 sample);
 /** オフボの [start, end) の最大振幅 0..1。開いた曲があれば実波形、無ければダミー */
 float backingPeak (const Session&, int64 start, int64 end);
 
+/** オフボの [start, end) の RMS 0..1（曲の起伏。ピークだけでは市販曲は平らに見える） */
+float backingRms (const Session&, int64 start, int64 end);
+
 /** ボーカル概形の振幅 0..1。1 を超えるとクリップ扱い */
 float vocalAmplitude (const Session&, TrackType, int64 sample);
 

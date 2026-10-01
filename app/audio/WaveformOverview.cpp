@@ -23,7 +23,9 @@ WaveformOverview::WaveformOverview (int64 lengthSamples)
 {
     const auto fineCount = (size_t) ((length + samplesPerBin - 1) / samplesPerBin);
     fine.resize (fineCount);
+    fineSq.resize (fineCount);
     coarse.resize ((fineCount + binsPerCoarseBin - 1) / binsPerCoarseBin);
+    coarseSq.resize (coarse.size());
 }
 
 void WaveformOverview::append (const float* const* channels, int numChannels, int numSamples)
@@ -51,6 +53,11 @@ void WaveformOverview::append (const float* const* channels, int numChannels, in
                 current.min = juce::jmin (current.min, r.getStart());
                 current.max = juce::jmax (current.max, r.getEnd());
             }
+
+            double sq = 0.0;
+            for (int i = 0; i < n; ++i)
+                sq += (double) channels[c][offset + i] * channels[c][offset + i];
+            currentSq += sq / numChannels;
         }
 
         inCurrent += n;
@@ -70,6 +77,8 @@ void WaveformOverview::finishBin()
 
     const auto index = (size_t) ((appended - 1) / samplesPerBin);
     fine[index] = current;
+    fineSq[index] = (float) currentSq;
+    coarseSq[index / binsPerCoarseBin] += currentSq;
     overall = juce::jmax (overall, current.magnitude());
 
     // 粗い段：その粗いビンの最初の細かいビンなら上書き、それ以外は合わせる
@@ -85,7 +94,45 @@ void WaveformOverview::finishBin()
     }
 
     current = {};
+    currentSq = 0.0;
     inCurrent = 0;
+}
+
+int64 WaveformOverview::binCount (size_t fineIndex) const
+{
+    const auto start = (int64) fineIndex * samplesPerBin;
+    return juce::jlimit ((int64) 0, (int64) samplesPerBin, length - start);
+}
+
+float WaveformOverview::getRms (int64 start, int64 end) const
+{
+    start = juce::jmax ((int64) 0, start);
+    end = juce::jmin (length, end);
+    if (end <= start)
+        return 0.0f;
+
+    auto i = (size_t) (start / samplesPerBin);
+    const auto last = (size_t) ((end - 1) / samplesPerBin);
+
+    double sum = 0.0;
+    int64 count = 0;
+    while (i <= last)
+    {
+        if (i % binsPerCoarseBin == 0 && i + binsPerCoarseBin - 1 <= last)
+        {
+            sum += coarseSq[i / binsPerCoarseBin];
+            // 曲の最後の粗いビンは半端なことがある
+            count += juce::jmin (length, (int64) (i + binsPerCoarseBin) * samplesPerBin) - (int64) i * samplesPerBin;
+            i += binsPerCoarseBin;
+        }
+        else
+        {
+            sum += fineSq[i];
+            count += binCount (i);
+            ++i;
+        }
+    }
+    return count > 0 ? (float) std::sqrt (sum / (double) count) : 0.0f;
 }
 
 WaveformOverview::Peak WaveformOverview::getPeak (int64 start, int64 end) const
