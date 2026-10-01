@@ -1,12 +1,12 @@
 # 画面状態一覧（UI_STATES）
 
-Phase A（A1–A7）の実装状況。DESIGN 4 / 16 に対応。見た目は v2 "Booth"（DESIGN 4.9）、全画面 日本語 / English（DESIGN 10.1）。
+Phase A（A1–A7）の実装状況。DESIGN 4 / 16 に対応。見た目は v2 "Booth"（DESIGN 4.9）、全画面 日本語 / English / 한국어 / 简体中文 / 繁體中文（DESIGN 10.1）。
 
 ## 起動オプション（開発・スクリーンショット用）
 
 | オプション | 内容 |
 |---|---|
-| `--lang=ja` / `--lang=en` | 表示言語（保存した設定より優先） |
+| `--lang=ja` / `en` / `ko` / `zh-Hans` / `zh-Hant` | 表示言語（保存した設定より優先） |
 | `--mode=easy` / `standard` / `pro` | モード |
 | `--track=main` / `double` / `harm1` | 選択トラック |
 | `--play` | 再生中で開く（再生ヘッドが動く。音は出ない） |
