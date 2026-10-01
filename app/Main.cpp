@@ -11,8 +11,9 @@
       --lang=ja|en|ko|zh-Hans|zh-Hant   表示言語（保存された設定より優先）
       --skin=<id>            スキン（booth / studio-day / … / 自作の id。保存された設定より優先、保存はしない）
       --screen=<name>        start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
-                             skin-editor-borrow / confirm-rec
+                             skin-editor-borrow / confirm-rec / song-info / lyrics
       --open=<path>          その曲を開く（起動画面で読み込み → 波形。B1）
+      --lyrics=<path>        歌詞パッドをその .txt / .lrc で開く（B4b）
       --mode=easy|standard|pro
       --track=main|double|harm1
       --rec                  録音中の見た目で開く
@@ -219,6 +220,8 @@ public:
         o.playing = args.contains ("--play");
         if (const auto path = argValue (args, "open"); path.isNotEmpty())
             o.open = juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        if (const auto path = argValue (args, "lyrics"); path.isNotEmpty())
+            o.lyrics = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         if (auto* m = window->main())
             m->applyLaunchOptions (o);
 

@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include <vector>
+#include "song/SongInfo.h"
 
 /*  データモデル（DESIGN 8）
     Phase A では「形」だけ。保存/読み込み（JSON）は B14 で実装する。
@@ -43,36 +44,20 @@ struct Track
     std::vector<CompSegment> comp;
 };
 
-enum class MarkerKind { user, chorus };
-
-struct Marker
-{
-    int64 sample = 0;
-    juce::String name;                     // user のみ。自動マーカーは種類から表示名を引く（翻訳）
-    MarkerKind kind = MarkerKind::user;
-};
-
-struct LyricLine
-{
-    int64 startSample = 0;
-    int64 endSample   = 0;
-    juce::String text;
-};
-
 struct Project
 {
     juce::String songPath;
     int   sampleRate     = 48000;    // 時間軸の SR。既定は元曲。録音の SR を選んだらそれ（伴奏をそろえる。勝手には変えない）
     int   bitDepthExport = 24;       // 24（PCM）か 32（float）。録音形式で選ぶ。書き出しダイアログで 16（ディザー付き）にもできる
     int64 lengthSamples  = 0;
-    int   keyOriginal    = 0;
-    double tempoOriginal = 120.0;
+    song::KeyInfo   key;             // key_original（曲そのもののキー。練習用のキー変更とは別。DESIGN 7.5.1）
+    song::TempoInfo tempo;           // BPM・拍子・1 小節目の位置（DESIGN 7.5.1）
     juce::String cacheDir;
     Mode  modeLast = Mode::standard;
     juce::String inputProfileId;
     std::vector<Track>     tracks;
-    std::vector<Marker>    markers;
-    std::vector<LyricLine> lyrics;
+    song::Sections         sections;  // 区間（DESIGN 7.5.2）
+    song::Lyrics           lyrics;    // 歌詞と各行の時刻（DESIGN 7.5.3）
 
     const Track* findTrack (TrackType t) const
     {

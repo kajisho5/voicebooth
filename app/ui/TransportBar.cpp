@@ -1,12 +1,65 @@
 #include "TransportBar.h"
+#include "SongMarks.h"
 
 namespace vb
 {
-void OverviewSeek::seekTo (float x)
+void OverviewSeek::seekTo (float x, bool snapToSections)
 {
     const auto r = inner();
     const TimeMap map { 0, state().project.lengthSamples, r.getX(), r.getRight() };
-    session.seek (map.sampleAt (juce::jlimit (r.getX(), r.getRight(), x)));
+    x = juce::jlimit (r.getX(), r.getRight(), x);
+    auto target = map.sampleAt (x);
+
+    // 区間の頭（サビなど）の近くでは頭に吸い付く
+    if (snapToSections)
+    {
+        float best = 5.0f;
+        for (auto& sec : state().project.sections)
+        {
+            const auto d = std::abs (map.x (sec.startSample) - x);
+            if (d <= best)
+            {
+                best = d;
+                target = sec.startSample;
+            }
+        }
+    }
+    session.seek (target);
+}
+
+void OverviewSeek::drawSections (juce::Graphics& g, const TimeMap& map, juce::Rectangle<float> r)
+{
+    const auto& s = state();
+    const auto& list = s.project.sections;
+    const auto f = sans (9.5f, Weight::medium);
+
+    for (int i = 0; i < (int) list.size(); ++i)
+    {
+        const auto x0 = std::round (map.x (list[(size_t) i].startSample));
+        const auto x1 = std::round (map.x (song::sectionEnd (list, i, s.project.lengthSamples)));
+
+        // 帯：交互にわずかに明るく（どこからどこまでが 1 つの区間か）
+        if (i % 2 == 0)
+        {
+            g.setColour (colours::highlight (0.035f));
+            g.fillRect (juce::Rectangle<float> (x0, r.getY() + 2.0f, x1 - x0, r.getHeight() - 4.0f));
+        }
+        g.setColour (i == s.selectedSection ? colours::signal.withAlpha (0.8f) : colours::lineHi);
+        g.fillRect (juce::Rectangle<float> (x0, r.getY() + 2.0f, 1.0f, r.getHeight() - 4.0f));
+
+        // 名前（入る幅があれば）
+        const auto name = marks::sectionName (list, i);
+        const auto w = juce::jmin (textWidth (f, name) + 8.0f, x1 - x0 - 3.0f);
+        if (w >= 14.0f)
+        {
+            const auto tag = juce::Rectangle<float> (x0 + 2.0f, r.getY() + 3.0f, w, 12.0f);
+            g.setColour (colours::bgDeep.withAlpha (0.75f));
+            g.fillRoundedRectangle (tag, 2.0f);
+            g.setColour (list[(size_t) i].source == song::Source::confirmed ? colours::textDim : colours::textMute);
+            g.setFont (f);
+            g.drawText (name, tag.reduced (4.0f, 0.0f), juce::Justification::centredLeft, true);
+        }
+    }
 }
 
 void OverviewSeek::paint (juce::Graphics& g)
@@ -45,6 +98,8 @@ void OverviewSeek::paint (juce::Graphics& g)
         g.setColour ((played ? colours::text : colours::textDim).withAlpha (0.7f));
         g.fillRect (juce::Rectangle<float> (px, in.getBottom() - hr, 1.0f, hr));
     }
+
+    drawSections (g, map, r);
 
     // 表示中ウィンドウ
     {
@@ -137,18 +192,17 @@ void TransportBar::onSessionChanged (juce::uint32 changes)
         countIn.setSelected (s.countInBars, juce::dontSendNotification);
     }
 
-    if (changes & change::playhead)
+    if (changes & (change::playhead | change::songInfo))
     {
         time.setValue (formatTime (s.playhead, s.sampleRate(), true), "/ " + formatTime (s.project.lengthSamples, s.sampleRate(), false));
-        if (s.tempoKnown)
+        if (s.tempoKnown())
         {
-            const auto beatLen = (int64) std::llround (60.0 / s.bpm() * s.sampleRate());
-            const auto beats = s.playhead / beatLen;
-            beat.setValue (juce::String (beats / s.beatsPerBar + 1) + "." + juce::String (beats % s.beatsPerBar + 1));
+            const auto bb = s.barBeatAt (s.playhead);   // 1 小節目の位置から（それより前は 0、-1 …）
+            beat.setValue (juce::String (bb.bar) + "." + juce::String (bb.beat));
         }
         else
         {
-            beat.setValue ("-.-");   // テンポ推定前
+            beat.setValue ("-.-");   // テンポがまだ分からない（推定前・手入力前）
         }
     }
 

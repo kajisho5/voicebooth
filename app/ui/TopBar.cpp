@@ -36,6 +36,10 @@ TopBar::TopBar (UiSession& u, Actions& a)
     device.setTooltip (tr ("topbar.device.tooltip"));
     device.onClick = [this] { if (actions.openSetup) actions.openSetup(); };
 
+    songInfo.withIcon (Icon::note).withFont (mono (11.0f));
+    songInfo.setTooltip (tr ("topbar.songInfo.tooltip"));
+    songInfo.onClick = [this] { if (actions.openSongInfo) actions.openSongInfo(); };
+
     exportKey.withIcon (Icon::exportFile);
     exportKey.setTooltip (tr ("topbar.export.tooltip"));
     exportKey.onClick = [this] { if (actions.openExport) actions.openExport(); };
@@ -44,7 +48,7 @@ TopBar::TopBar (UiSession& u, Actions& a)
     settings.setTooltip (tr ("topbar.settings"));
     settings.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
 
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &tally, &exportKey, &settings })
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &songInfo, &tally, &exportKey, &settings })
         addAndMakeVisible (c);
 
     onSessionChanged (change::all);
@@ -54,6 +58,17 @@ void TopBar::onSessionChanged (juce::uint32 changes)
 {
     if (changes & change::song)
         repaint (songArea);   // 曲名・長さ・SR
+
+    // KEY / BPM（分からなければ「-」。B4b で手入力、B9b で推定）
+    if (changes & (change::song | change::songInfo))
+    {
+        const auto& s = state();
+        songInfo.setButtonText (tr ("topbar.songInfo",
+                                    s.keyKnown() ? s.project.key.shortName() : juce::String ("-"),
+                                    s.tempoKnown() ? song::formatBpm (s.bpm()) : juce::String ("-")));
+        resized();
+        repaint (songArea);
+    }
 
     // 入力デバイス名（無ければ警告色。DESIGN 4.1）
     if (changes & change::device)
@@ -100,6 +115,11 @@ void TopBar::resized()
     const auto mw = mode.idealWidth();
     mode.setBounds (centreH (r.removeFromRight (mw), 32));
     modeLabelArea = r.removeFromRight (48);
+    r.removeFromRight (6);
+
+    songInfo.setSize (10, 30);
+    songInfo.setBounds (centreH (r.removeFromRight (songInfo.idealWidth()), 30));
+    r.removeFromRight (6);
 
     songArea = r;
 }
@@ -139,13 +159,9 @@ void TopBar::paint (juce::Graphics& g)
         g.drawText (s.songName, r.removeFromLeft (tw + 2.0f), juce::Justification::centredLeft, true);
 
         r.removeFromLeft (14.0f);
-        // 44.1 kHz は小数で（44 と出さない）。キーとテンポは解析前なら「-」
+        // 44.1 kHz は小数で（44 と出さない）。キーとテンポは右のキー（songInfo）に出す
         const auto sr = s.sampleRate();
-        const auto meta = tr ("topbar.meta",
-                              formatKhz (sr),
-                              formatTime (s.project.lengthSamples, sr, false),
-                              s.keyKnown ? juce::String (s.project.keyOriginal) : juce::String ("-"),
-                              s.tempoKnown ? juce::String (juce::roundToInt (s.bpm())) : juce::String ("-"));
+        const auto meta = tr ("topbar.meta", formatKhz (sr), formatTime (s.project.lengthSamples, sr, false));
         g.setColour (colours::textMute);
         g.setFont (mono (11.0f));
         g.drawText (meta, r, juce::Justification::centredLeft, true);

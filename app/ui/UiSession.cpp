@@ -119,8 +119,11 @@ void UiSession::conformSong()
             s.rangeOut = scale (s.rangeOut);
             s.viewStart = scale (s.viewStart);
             s.viewEnd = scale (s.viewEnd);
-            for (auto& m : s.project.markers) m.sample = scale (m.sample);
-            for (auto& l : s.project.lyrics) { l.startSample = scale (l.startSample); l.endSample = scale (l.endSample); }
+            auto scaleTimed = [&scale] (int64 v) { return v >= 0 ? scale (v) : v; };   // -1（時刻なし）はそのまま
+            s.project.tempo.downbeatSample = scale (s.project.tempo.downbeatSample);
+            for (auto& b : s.project.tempo.beats) b = scale (b);
+            for (auto& sec : s.project.sections) sec.startSample = scale (sec.startSample);
+            for (auto& l : s.project.lyrics.lines) { l.startSample = scaleTimed (l.startSample); l.endSample = scaleTimed (l.endSample); }
             s.project.sampleRate = target;
             s.project.lengthSamples = audio->length();
             s.backingWave = wave;
@@ -596,6 +599,7 @@ void UiSession::seek (int64 sample)
 {
     s.playhead = juce::jlimit ((int64) 0, s.project.lengthSamples, sample);
     if (s.isRecording) s.recordStart = s.playhead;
+    if (s.lyricSyncing) s.lyricCursor = song::firstLineToSync (s.project.lyrics, s.playhead);   // 戻って合わせ直す（B4b）
     if (isEngineDriven()) engine->seek (s.playhead);
     keepPlayheadInView();
     notify (change::playhead);
