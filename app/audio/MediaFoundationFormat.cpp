@@ -75,9 +75,9 @@ namespace
             if (channels <= 0)
                 return false;
 
-            // 手元に無い位置へ飛ぶときだけシーク（頭から順に読むときはシークしない）
-            if (startSampleInFile < pendingStart || startSampleInFile > pendingEnd() + (juce::int64) sampleRate)
-                seekTo (startSampleInFile);
+            // 後ろへ戻るときは頭から読み直す（先へ進むときは読み進めて捨てる）
+            if (startSampleInFile < pendingStart)
+                rewind();
 
             auto pos = startSampleInFile;
             int done = 0;
@@ -98,15 +98,6 @@ namespace
                         for (int i = 0; i < n; ++i)
                             dst[i] = src[(size_t) i * (size_t) channels + (size_t) c];
                     }
-                    pos += n;
-                    done += n;
-                    continue;
-                }
-
-                if (pos < pendingStart)
-                {
-                    // シーク先が要求より後ろだった分は無音
-                    const auto n = (int) juce::jmin ((juce::int64) (numSamples - done), pendingStart - pos);
                     pos += n;
                     done += n;
                     continue;
@@ -178,7 +169,7 @@ namespace
             for (int attempt = 0; attempt < 64; ++attempt)   // 空の通知（ギャップ等）を読み飛ばす
             {
                 DWORD flags = 0;
-                LONGLONG timestamp = 0;
+                LONGLONG timestamp = 0;   // 使わない（位置はデコードした数で数える）
                 Com<IMFSample> sample;
                 if (FAILED (reader->ReadSample (audioStream, 0, nullptr, &flags, &timestamp, sample.put())))
                     return false;
@@ -199,30 +190,27 @@ namespace
                 pending.insert (pending.end(), f, f + bytes / sizeof (float));
                 buffer->Unlock();
 
-                // シーク直後（と最初）は時刻で位置を合わせる。以降は続けて並べる
-                if (needsTimestamp)
-                {
-                    pendingStart = (juce::int64) std::llround ((double) timestamp * sampleRate / hundredNs);
-                    needsTimestamp = false;
-                }
                 return true;
             }
             return false;
         }
 
-        void seekTo (juce::int64 sample)
+        /** 頭に戻る。位置は「頭からデコードしたサンプル数」だけで決める（時刻は使わない）
+            AAC / mp3 は先頭の詰め物の扱いで時刻とサンプル位置がずれ得るため、
+            どの順で読んでも同じサンプルが同じ位置に来ることを優先する（DESIGN 7.4 タイムコード精度）。
+            長い曲で後ろへ戻ると遅いが、再生（B2）では内部 WAV を使う前提（DESIGN 7.1） */
+        void rewind()
         {
             PROPVARIANT position;
             PropVariantInit (&position);
             position.vt = VT_I8;
-            position.hVal.QuadPart = (LONGLONG) ((double) sample * hundredNs / sampleRate);
+            position.hVal.QuadPart = 0;
             reader->SetCurrentPosition (GUID_NULL, position);
             PropVariantClear (&position);
 
             pending.clear();
-            pendingStart = sample;
+            pendingStart = 0;
             ended = false;
-            needsTimestamp = true;
         }
 
         HRESULT comResult = E_FAIL;
@@ -231,7 +219,7 @@ namespace
 
         std::vector<float> pending;       // インターリーブ
         juce::int64 pendingStart = 0;     // pending の先頭のサンプル位置
-        bool ended = false, needsTimestamp = true;
+        bool ended = false;
     };
 }
 
