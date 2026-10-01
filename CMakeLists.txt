@@ -110,9 +110,10 @@ target_sources(VoiceBooth PRIVATE
     ${VOICEBOOTH_AUDIO_SOURCES}
     ${VOICEBOOTH_SONG_SOURCES}
     ${VOICEBOOTH_SKIN_SOURCES}
-    # テーマ
+    # テーマ・動き（DESIGN 4.10：共通の時計は 1 つ）
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
+    app/ui/Animator.cpp
     # 部品
     app/ui/parts/Icons.cpp
     app/ui/parts/KeyButton.cpp
@@ -188,6 +189,13 @@ if(NOT VOICEBOOTH_UI_MOCK)
     endif()
 endif()
 
+# OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
+if(APPLE)
+    target_sources(VoiceBooth PRIVATE app/ui/ReducedMotion.mm)
+else()
+    target_sources(VoiceBooth PRIVATE app/ui/ReducedMotion.cpp)
+endif()
+
 # Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
 if(WIN32)
     target_link_libraries(VoiceBooth PRIVATE mfplat mfreadwrite mfuuid ole32)
@@ -211,6 +219,7 @@ if(VOICEBOOTH_TESTS)
         tests/SystemCheckTests.cpp
         tests/AlignTests.cpp
         tests/SkinTests.cpp
+        tests/MotionTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
         ${VOICEBOOTH_SKIN_SOURCES})

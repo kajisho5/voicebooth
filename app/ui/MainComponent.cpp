@@ -95,6 +95,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     using Stage = ModelDownloadDialog::Stage;
     if (o.screen == "model-download")     openModelDownload ((int) Stage::confirm, true);
     if (o.screen == "model-downloading")  openModelDownload ((int) Stage::downloading, false);
+    if (o.screen == "model-interrupted")  openModelDownload ((int) Stage::interrupted, true);   // 3 秒後に続きから再開
     if (o.screen == "model-done")         openModelDownload ((int) Stage::done, false);
     if (o.screen == "model-failed")       openModelDownload ((int) Stage::failed, false);
 }
@@ -195,9 +196,12 @@ void MainComponent::showToast (const juce::String& text)
 //==============================================================================
 bool MainComponent::keyPressed (const juce::KeyPress& key)
 {
-    // ダイアログ表示中は Esc で閉じる（確認ダイアログでは「キャンセル」と同じ）だけ
+    // ダイアログ表示中は Esc で閉じる（確認ダイアログでは「キャンセル」と同じ）だけ。
+    // Tab はダイアログのキーへフォーカスを移すので通す（DESIGN 4.10.1 FC）
     if (overlay.isShowing())
     {
+        if (key.getKeyCode() == juce::KeyPress::tabKey)
+            return false;
         if (key == juce::KeyPress::escapeKey)
             overlay.close();
         return true;
@@ -480,15 +484,19 @@ void MainComponent::openUpdate()
     overlay.show (std::move (dlg), true);
 }
 
-void MainComponent::openModelDownload (int stage, bool animate)
+void MainComponent::openModelDownload (int stage, bool animate, float from)
 {
-    auto dlg = std::make_unique<ModelDownloadDialog> ((ModelDownloadDialog::Stage) stage, animate);
+    auto dlg = std::make_unique<ModelDownloadDialog> ((ModelDownloadDialog::Stage) stage, animate, from);
     dlg->onCloseRequest = [this] { overlay.close(); };
     juce::Component::SafePointer<MainComponent> safe (this);
-    dlg->onStage = [safe] (ModelDownloadDialog::Stage next)
+    dlg->onStage = [safe] (ModelDownloadDialog::Stage next, float progress)
     {
-        // 開き直す（呼び出し元のダイアログを消すので次のメッセージで）
-        juce::MessageManager::callAsync ([safe, next] { if (safe != nullptr) safe->openModelDownload ((int) next, true); });
+        // 開き直す（呼び出し元のダイアログを消すので次のメッセージで）。届いた分から続ける
+        juce::MessageManager::callAsync ([safe, next, progress]
+        {
+            if (safe != nullptr)
+                safe->openModelDownload ((int) next, true, next == ModelDownloadDialog::Stage::downloading ? progress : -1.0f);
+        });
     };
     overlay.show (std::move (dlg), false);
 }

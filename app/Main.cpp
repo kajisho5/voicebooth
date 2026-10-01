@@ -19,6 +19,8 @@
       --play                 再生中で開く（再生ヘッドが動く）
       --first-run            初回起動の流れ（言語選択 → モードの質問）を必ず出す
       --no-first-run         初回起動の流れを出さない
+      --reduce-motion        動きを減らす（OS の設定に関係なく。ばね・明滅・揺れを止めて最終状態だけ。DESIGN 4.10）
+      --motion               動きを出す（OS で動きを減らす設定でも。確認用）
 
     アプリ設定（PropertiesFile）に保存するもの
       language      表示言語（初回に選び、以後は設定から変更）
@@ -159,6 +161,10 @@ public:
                 id = opt;
             applySkinById (id);
         }
+
+        // 動きを減らす（DESIGN 4.10）：起動オプション > OS の設定
+        if (args.contains ("--reduce-motion")) motion::setReducedMotionOverride (true);
+        if (args.contains ("--motion"))        motion::setReducedMotionOverride (false);
 
         if (args.contains ("--gallery"))
         {

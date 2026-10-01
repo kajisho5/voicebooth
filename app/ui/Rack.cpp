@@ -151,6 +151,8 @@ PracticeModule::PracticeModule (UiSession& u, Actions& a)
            [] (double v) { const auto k = juce::roundToInt (v); return (k > 0 ? "+" : "") + juce::String (k); },
            {}, true, colours::ref)
 {
+    tempo.encoder().setDefaultValue (100.0);   // 原速で吸い付く・ダブルクリックで原速（DESIGN 4.10）
+    key.encoder().setDefaultValue (0.0);
     tempo.onChange = [this] (double v) { if (! syncing && actions.requestTempo) actions.requestTempo (juce::roundToInt (v)); };
     key.onChange   = [this] (double v) { if (! syncing && actions.requestKey) actions.requestKey (juce::roundToInt (v)); };
 

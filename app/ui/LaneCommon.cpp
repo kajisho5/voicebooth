@@ -73,8 +73,18 @@ void drawRange (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
 
 void drawPlayhead (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> area)
 {
+    // 位置は丸めない（小数の座標でなめらかに進む。DESIGN 4.10.1 PH）
     const auto x = map.x (s.playhead);
     const auto c = playheadColour (s);
+
+    // REC 中は短い赤い尾
+    if (s.isRecording)
+    {
+        constexpr float tail = 70.0f;
+        g.setGradientFill (juce::ColourGradient (c.withAlpha (0.0f), x - tail, 0.0f, c.withAlpha (0.16f), x, 0.0f, false));
+        g.fillRect (juce::Rectangle<float> (x - tail, area.getY(), tail, area.getHeight()).getIntersection (area));
+    }
+
     g.setColour (c.withAlpha (0.12f));
     g.fillRect (juce::Rectangle<float> (x - 3.0f, area.getY(), 6.0f, area.getHeight()));
     g.setColour (c);

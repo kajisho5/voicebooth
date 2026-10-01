@@ -36,7 +36,7 @@ struct LaunchOptions
 {
     juce::String screen;          // start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
                                   // skin-editor-borrow / confirm-rec /
-                                  // update / update-notice / model-download / model-downloading / model-done / model-failed
+                                  // update / update-notice / model-download / model-downloading / model-interrupted / model-done / model-failed
     juce::File open;              // この曲を開く（--open=）
     bool recording = false;
     bool playing = false;
@@ -77,7 +77,7 @@ public:
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
-    void openModelDownload (int stage, bool animate);   // ModelDownloadDialog::Stage
+    void openModelDownload (int stage, bool animate, float from = -1.0f);   // ModelDownloadDialog::Stage、from：届いた割合
 
     void showToast (const juce::String&);
 
@@ -116,7 +116,7 @@ private:
     juce::String toastText;
     double toastUntil = 0.0;
 
-    juce::TooltipWindow tooltips { this, 600 };
+    juce::TooltipWindow tooltips { this, 500 };   // 少し待って出す。一度出たら隣へ移る時はすぐ（DESIGN 4.10.1 TT）
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
