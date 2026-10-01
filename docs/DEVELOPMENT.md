@@ -2,7 +2,7 @@
 
 利用者向けの説明は [README](../README.md)。仕様は [`DESIGN.md`](DESIGN.md) が唯一の正、画面の状態一覧は [`UI_STATES.md`](UI_STATES.md)。
 
-## 現在の状態：Phase B4（自分の声のモニター）— 手動確認待ち
+## 現在の状態：Phase B5（通し録音 → フル尺 WAV）— 手動確認待ち
 
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
 - **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
@@ -10,7 +10,8 @@
 - **スキン**（DESIGN 4.11）：色トークン 16 個の着せ替え。内蔵 10 種＋テンプレートから自作（`.vbskin`、`Skins/` に保存）。設定で選ぶと画面を作り直す。`--skin=<id>`
 - **B2**：開いた曲（オフボ）を既定の出力デバイスで再生・シーク・ループ。オフボのフェーダーと M が効く
 - **B3**：ドライバ・入出力の機器・SR・バッファを列挙し、入力セットアップで選べる（設定に保存）。入力は 1 ch（モノラル、既定 L）を開いてメーターだけ（ピーク・ホールド・RMS・クリップ）。レイテンシはデバイスの申告値（実測は B6）。Mac はマイクの許可を確かめる
-- **B4**：入力を自分の声として出力に返す（「自分」のフェーダーと M、耳だけのリバーブ）。スピーカー出力らしい時は最初だけ自分をミュート（ハウリング対策）、遅れが 40 ms を超えたら知らせる。録音はまだ（B5）
+- **B4**：入力を自分の声として出力に返す（「自分」のフェーダーと M、耳だけのリバーブ）。スピーカー出力らしい時は最初だけ自分をミュート（ハウリング対策）、遅れが 40 ms を超えたら知らせる
+- **B5**：REC でアームしたトラックに素の声を 24bit モノラルで録る（テイクは書類/VoiceBooth/Projects/{曲名}/Audio/Takes）。新しいテイクがその範囲の採用区間になる。書き出しダイアログから曲の 0 秒から最後までのフル尺 `{曲}_vocal_dry.wav`（未録音は無音、継ぎ目だけ 8 ms クロスフェード）。遅れの補正は B6、区間の録り直しは B10、納品パックは B15
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
 
 | 曲を読み込んだところ | 開いた曲の画面（実波形） |
@@ -73,7 +74,7 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth・スピーカーらしい名前の判定、自分の声のモニター（0 dB で入力そのまま、オフボと同じフェーダーの目盛り、ミュートのランプでプチッといわない、リバーブの尾が左右で違って消えていく、ミュートでリバーブへの送りも止まる、ブロック長によらない、±1 に収める）、動きの計算（ばねが止まる・フレームの速さに左右されにくい、0 dB / 既定値の吸い付きでちょうどの値になりそれ以外は丸めない、ツマミの速さで変わる感度、LED の余韻、再生ヘッドが 7 割から先回りしてページ送りしない）、スキン（`.vbskin` の読み書きと 64 KB・64 文字・HEX の制限、base からの補い、コントラスト比・色差・rec の色相、内蔵 10 種がすべて自分の点検を通ること、`Skins/` の保存・削除）を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
+波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、再生の中身（シーク・ループのつなぎ目・音量のなめらかさ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth・スピーカーらしい名前の判定、自分の声のモニター（0 dB で入力そのまま、オフボと同じフェーダーの目盛り、ミュートのランプでプチッといわない、リバーブの尾が左右で違って消えていく、ミュートでリバーブへの送りも止まる、ブロック長によらない、±1 に収める）、通し録音（曲が鳴ったブロックから録り始めて位置と中身がサンプル単位で一致、24bit モノラル、曲の終わり・停止・ループで閉じる、入力が消えたら無音で埋める、同じ名前のファイルは上書きしない）、採用区間（新しいテイクがその範囲を置き換え、前後は残り、隣の同じテイクはまとまる）、書き出し（曲と同じ長さ・未録音は無音・自動フェードなし・継ぎ目だけ 8 ms 等パワーで両方に音がある所へ・ブロックの境目をまたいでも同じ・SR の違うテイクや欠けたテイクは書かない・中止したら残さない）、動きの計算（ばねが止まる・フレームの速さに左右されにくい、0 dB / 既定値の吸い付きでちょうどの値になりそれ以外は丸めない、ツマミの速さで変わる感度、LED の余韻、再生ヘッドが 7 割から先回りしてページ送りしない）、スキン（`.vbskin` の読み書きと 64 KB・64 文字・HEX の制限、base からの補い、コントラスト比・色差・rec の色相、内蔵 10 種がすべて自分の点検を通ること、`Skins/` の保存・削除）を確かめる。CI（Win / Mac、Mac は Intel 側も Rosetta 2 で）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
 
 ### インストーラー（未署名。DESIGN 11.6）
 
@@ -105,7 +106,7 @@ docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
 app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）
-app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、自分の声のモニターとリバーブ（MonitorMixer）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
+app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、自分の声のモニターとリバーブ（MonitorMixer）、通し録音（TakeRecorder）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
 app/skin/             スキン（DESIGN 4.11）：内蔵 10 種・.vbskin の読み書き・見やすさの点検・自作の置き場（画面に依存しない）
 app/song/             曲の情報（DESIGN 7.5）：歌詞の読み込み（LyricsImport、CP932 表は tools/gen_cp932_table.py で生成）、タップテンポ（Tempo.h）
 third_party/minimp3/  mp3 デコーダ（CC0。出典とコミットは README）
@@ -118,8 +119,8 @@ app/ui/parts/         部品：KeyButton / SegmentedKeys / Encoder / ConsoleFade
 app/ui/Gallery.*      部品ギャラリー
 app/ui/*.cpp          画面：TopBar / TransportBar / PitchLane / LyricsLane / WaveLane / TrackTabs / Rack / StatusBar
 app/ui/DummySession.* 固定ダミー（DESIGN 20）。結線時に差し替える
-app/project/          データモデル（形のみ）+ project.example.json
-app/export/           ExportService スタブ
+app/project/          データモデル（保存は B14）+ project.example.json、テイクと採用区間（Comp）
+app/export/           書き出し（ExportService：フル尺の Dry。納品パックは B15）
 resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
 resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant
 tools/check_i18n.py   翻訳表と直書きの検査（CI でも実行）

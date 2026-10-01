@@ -200,6 +200,32 @@ void PlaybackEngine::setMonitorReverb (float fader)
     monitor.setReverb (PlaybackCore::faderToGain (fader));
 }
 
+juce::String PlaybackEngine::startRecording (const juce::File& file)
+{
+    auto* d = manager.getCurrentAudioDevice();
+    if (d == nullptr || ! d->isPlaying() || stalled)
+        return "no device";
+    if (d->getActiveInputChannels().isZero())
+        return "no input";
+    // 曲と SR が違う（試聴用に変換している）時は録らない。書き出しは元曲の SR のまま（DESIGN 6.5 / 13）
+    if (songRate <= 0.0 || std::abs (d->getCurrentSampleRate() - songRate) >= 0.5)
+        return "sample rate";
+    return recorder.begin (file, d->getCurrentSampleRate());
+}
+
+RecordedTake PlaybackEngine::stopRecording()
+{
+    const auto r = recorder.finish();
+    RecordedTake t;
+    t.file = r.file;
+    t.startSample = r.startSample;
+    t.length = r.length;
+    t.peak = r.peak;
+    t.clipped = r.clipped;
+    t.dropped = r.dropped;
+    return t;
+}
+
 OutputStatus PlaybackEngine::getOutputStatus() const
 {
     OutputStatus st;
@@ -465,8 +491,11 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
     if (input != nullptr)
         meter.process (input, numSamples);
 
-    // オフボ（出力を全部書く）に、自分の声（とモニターリバーブ）を足す
-    core.render (outputs, numOutputs, numSamples);
+    // オフボ（出力を全部書く）。鳴らした曲の範囲に合わせて素の声を録る（B5）
+    const auto played = core.render (outputs, numOutputs, numSamples);
+    recorder.process (input, numSamples, played.start, played.played, played.wrapped);
+
+    // 自分の声（とモニターリバーブ）を足す
     monitor.process (input, outputs, numOutputs, numSamples);
 }
 

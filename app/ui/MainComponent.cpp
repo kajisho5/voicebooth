@@ -34,6 +34,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     setSize (defaultWidth, defaultHeight);
 
     deviceLostSeen = state().deviceLostCount;
+    noticeSeen = state().noticeSerial;
     lastTick = juce::Time::getMillisecondCounterHiRes();
     startTimerHz (30);
 }
@@ -135,6 +136,13 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         deviceLostSeen = state().deviceLostCount;
         showToast (tr ("device.lostToast"));
     }
+
+    // 録音・書き出しの結果、録れない理由（B5）
+    if ((changes & change::notice) && state().noticeSerial != noticeSeen)
+    {
+        noticeSeen = state().noticeSerial;
+        showToast (state().noticeText);
+    }
 }
 
 void MainComponent::resized()
@@ -189,7 +197,8 @@ void MainComponent::paintOverChildren (juce::Graphics& g)
 void MainComponent::showToast (const juce::String& text)
 {
     toastText = text;
-    toastUntil = juce::Time::getMillisecondCounterHiRes() + 2600.0;
+    // 長い知らせ（書き出し先のパスなど）は長めに出す
+    toastUntil = juce::Time::getMillisecondCounterHiRes() + juce::jlimit (2600.0, 6500.0, 1400.0 + 45.0 * text.length());
     repaint();
 }
 
@@ -386,8 +395,17 @@ void MainComponent::openSetup (int step)
 void MainComponent::openExport()
 {
     auto dlg = std::make_unique<ExportDialog> (session);
+    auto* d = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onExport = [this] { overlay.close(); showToast (tr ("export.mockToast")); };
+    dlg->onExport = [this, d]
+    {
+        // 曲を開いていれば本当に書き出す（B5：個別のフル尺 Dry）。見本（UI_MOCK・デモ）は書かない
+        const auto tracks = d->selectedTracks();
+        const bool real = state().backingWave != nullptr;
+        overlay.close();   // d はここで消える
+        if (real) session.exportTracks (tracks);
+        else      showToast (tr ("export.mockToast"));
+    };
     overlay.show (std::move (dlg), true);
 }
 
