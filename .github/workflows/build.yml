@@ -1,6 +1,7 @@
 name: build
 
-# Win / Mac でビルドとテストが通ること、翻訳表がそろっていることを確認する（UI_MOCK：音声デバイスは開かない）
+# Win / Mac でビルドとテストが通ること、翻訳表がそろっていること、
+# 音声デバイスを開かない UI_MOCK ビルドも通ること（Linux）を確認する
 on:
   pull_request:
   workflow_dispatch:
@@ -37,3 +38,25 @@ jobs:
           name: VoiceBooth-${{ runner.os }}
           path: build/VoiceBooth_artefacts/Release
           retention-days: 7
+
+  # 音声デバイスを一切開かないビルド（DESIGN 11.1 / 14）が壊れていないこと。テストも Linux で回す
+  ui-mock-linux:
+    needs: i18n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev \
+                                  libfreetype-dev libfontconfig1-dev libasound2-dev ninja-build
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DVOICEBOOTH_UI_MOCK=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -V

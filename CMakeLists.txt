@@ -10,16 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # ---------------------------------------------------------------------------
-# 音声デバイスを一切開かないビルド（DESIGN 11.1 UI_MOCK=1）
-#   B1（曲ファイルを読んで波形を出す）まではこれで足りる。デバイスは B2 / B3 で結線する
+# 既定：出力デバイスを開いてオフボを鳴らす（B2）
+# -DVOICEBOOTH_UI_MOCK=ON：音声デバイスを一切開かないビルド（DESIGN 11.1 / 14「UI_MOCK で開く」）
 # ---------------------------------------------------------------------------
-option(VOICEBOOTH_UI_MOCK "Never opens audio devices (Phase A / B1)" ON)
+option(VOICEBOOTH_UI_MOCK "Never opens audio devices (screenshots / UI checks)" OFF)
 option(VOICEBOOTH_TESTS "Build VoiceBoothTests (ctest)" ON)
-
-if(NOT VOICEBOOTH_UI_MOCK)
-    message(FATAL_ERROR
-        "音声デバイスの結線（B2 以降）は未実装です。-DVOICEBOOTH_UI_MOCK=ON でビルドしてください。")
-endif()
 
 # ---------------------------------------------------------------------------
 # JUCE 8
@@ -91,7 +86,8 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/SongLoader.cpp
     app/audio/MediaFoundationFormat.cpp
     app/audio/Mp3Format.cpp
-    app/audio/Mp4Gapless.cpp)
+    app/audio/Mp4Gapless.cpp
+    app/audio/PlaybackCore.cpp)
 
 target_sources(VoiceBooth PRIVATE
     app/Main.cpp
@@ -134,7 +130,7 @@ target_sources(VoiceBooth PRIVATE
 target_include_directories(VoiceBooth PRIVATE app)
 
 target_compile_definitions(VoiceBooth PRIVATE
-    VOICEBOOTH_UI_MOCK=1
+    VOICEBOOTH_UI_MOCK=$<BOOL:${VOICEBOOTH_UI_MOCK}>
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_PRODUCT_NAME>"
@@ -145,8 +141,7 @@ if(MSVC)
     target_compile_options(VoiceBooth PRIVATE /utf-8)
 endif()
 
-# UI_MOCK では juce_audio_devices をリンクしない（音声デバイスを開けない構成にする）
-#   juce_audio_formats はファイルを読むだけ（B1）。mp3 は同梱の minimp3（CC0、third_party/minimp3）で読み、
+#   juce_audio_formats はファイルを読むだけ。mp3 は同梱の minimp3（CC0、third_party/minimp3）で読み、
 #   JUCE 内蔵の MP3 デコーダ（JUCE_USE_MP3AUDIOFORMAT）は有効にしない
 target_link_libraries(VoiceBooth
     PRIVATE
@@ -158,6 +153,12 @@ target_link_libraries(VoiceBooth
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# 出力デバイス（B2）。UI_MOCK では juce_audio_devices をリンクしない
+if(NOT VOICEBOOTH_UI_MOCK)
+    target_sources(VoiceBooth PRIVATE app/audio/PlaybackEngine.cpp)
+    target_link_libraries(VoiceBooth PRIVATE juce::juce_audio_devices)
+endif()
 
 # Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
 if(WIN32)
@@ -174,6 +175,7 @@ if(VOICEBOOTH_TESTS)
         tests/TestMain.cpp
         tests/WaveformOverviewTests.cpp
         tests/SongLoaderTests.cpp
+        tests/PlaybackCoreTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES})
     target_include_directories(VoiceBoothTests PRIVATE app)
     target_compile_definitions(VoiceBoothTests PRIVATE

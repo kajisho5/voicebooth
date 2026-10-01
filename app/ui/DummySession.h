@@ -3,6 +3,7 @@
 #include "Theme.h"
 #include "project/ProjectModel.h"
 #include "audio/WaveformOverview.h"
+#include "audio/AudioEngine.h"
 
 /*  見た目フェーズ専用の固定ダミー（DESIGN 20）
     UI はこのヘッダ経由でのみダミーデータを読む。結線時（Phase B）に差し替える。
@@ -73,6 +74,11 @@ struct Session
     project::RecMode recMode = project::RecMode::delivery;
     float offVocalGain = 0.51f, mainGain = 0.72f, harmonyGain = 0.40f, monitorGain = 0.64f;
     float monitorReverb = 0.25f;
+    bool backingMuted = false;
+
+    // 出力デバイス（B2。UI_MOCK では open = false のまま）
+    audio::OutputStatus output;
+    bool engineAttached = false;
 
     // 入力
     juce::String inputDevice, driver;

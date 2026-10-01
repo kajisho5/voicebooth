@@ -10,7 +10,7 @@
 
     B1 の範囲
       - 読むだけ。音声デバイスは開かない、再生しない（B2）
-      - 内部 wav（float32）への変換・プロジェクトへのコピーは B14 で行う
+      - デコードした音はメモリに持つ（B2 の再生用）。内部 wav（float32）への変換・プロジェクトへのコピーは B14
       - 対応形式は OS の読み手しだい（wav / aiff / flac / ogg は全 OS。
         mp3 は全 OS で同梱の minimp3（頭の位置を OS で変えない）、
         m4a は Win（Media Foundation）と Mac（Core Audio）。読み手の一式は registerSongFormats() */
@@ -30,13 +30,28 @@ struct SongInfo
     juce::String extension() const { return file.getFileExtension().trimCharactersAtStart (".").toLowerCase(); }
 };
 
+/** デコード済みの曲（再生用。B2）
+    再生中にディスクを読まないようメモリに持つ（オーディオスレッドでファイル I/O をしない。DESIGN 17）。
+    5 分のステレオで約 100 MB。B14 で内部 WAV（DESIGN 7.1）に置き換える */
+struct SongAudio
+{
+    juce::AudioBuffer<float> buffer;
+    double sampleRate = 0.0;
+
+    juce::int64 length() const { return buffer.getNumSamples(); }
+};
+
+/** メモリに持つ曲の長さの上限（分） */
+constexpr int maxSongMinutes = 20;
+
 struct LoadResult
 {
-    enum class Error { none, notFound, unsupported, empty, readFailed, cancelled };
+    enum class Error { none, notFound, unsupported, empty, readFailed, cancelled, tooLong };
 
     Error error = Error::none;
     SongInfo info;
     std::shared_ptr<const WaveformOverview> overview;
+    std::shared_ptr<const SongAudio> audio;
 
     bool ok() const { return error == Error::none; }
 };

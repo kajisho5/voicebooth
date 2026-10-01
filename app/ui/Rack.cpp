@@ -161,7 +161,7 @@ void PracticeModule::resized()
 MonitorModule::MonitorModule (UiSession& u)
     : RackModule (tr ("rack.monitor"), tr ("rack.monitor.sub")), SessionView (u)
 {
-    strips.add (new ChannelStrip (tr ("monitor.backing"), u->offVocalGain, 0.62f));
+    backingStrip = strips.add (new ChannelStrip (tr ("monitor.backing"), u->offVocalGain, 0.62f));
     strips.add (new ChannelStrip (tr ("monitor.refMain"), u->mainGain, 0.48f, colours::ref));
     harmStrip = strips.add (new ChannelStrip (tr ("monitor.refHarm"), u->harmonyGain, 0.22f, colours::ref));
     strips.add (new ChannelStrip (tr ("monitor.self"), u->monitorGain, 0.70f));
@@ -169,6 +169,23 @@ MonitorModule::MonitorModule (UiSession& u)
 
     for (auto* st : strips)
         addAndMakeVisible (st);
+
+    // オフボのフェーダーとミュートは再生の音量に効く（B2）。ほかは B4 / B12 まで見た目だけ
+    backingStrip->fader().onValueChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
+    backingStrip->muteKey().onClick = [this] { session.setBackingMuted (backingStrip->muteKey().getToggleState()); };
+    onSessionChanged (change::monitor);
+}
+
+void MonitorModule::onSessionChanged (juce::uint32 c)
+{
+    if (c & change::mode)
+        resized();
+
+    if (c & change::monitor)
+    {
+        backingStrip->fader().setValue (state().offVocalGain, juce::dontSendNotification);
+        backingStrip->muteKey().setToggleState (state().backingMuted, juce::dontSendNotification);
+    }
 }
 
 void MonitorModule::resized()

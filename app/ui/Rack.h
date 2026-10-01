@@ -69,9 +69,10 @@ public:
     void resized() override;
 
 private:
-    void onSessionChanged (juce::uint32 c) override { if (c & change::mode) resized(); }
+    void onSessionChanged (juce::uint32 c) override;
 
     juce::OwnedArray<ChannelStrip> strips;
+    ChannelStrip* backingStrip = nullptr;   // B2：これだけ音が出る
     ChannelStrip* harmStrip = nullptr;
 };
 
