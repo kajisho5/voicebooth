@@ -5,7 +5,7 @@
 
 namespace vb
 {
-/** DESIGN 4.5 波形レーン。現在トラックを大きく、他は薄く小さく。全トラック同じ高さで並べない */
+/** DESIGN 4.5 波形レーン。現在トラックを大きく、他は細く。全トラック同じ高さで並べない */
 class WaveLane : public juce::Component
 {
 public:
@@ -13,7 +13,7 @@ public:
 
     void paint (juce::Graphics&) override;
 
-    static constexpr int height = 140;
+    static constexpr int height = 142;
 
 private:
     struct Row { project::TrackType type; juce::String name; juce::Rectangle<float> area; bool current; };

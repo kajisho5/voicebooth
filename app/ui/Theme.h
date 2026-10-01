@@ -2,8 +2,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-/*  見た目トークン（DESIGN 4.9）
-    色はここ以外にハードコードしない。派生色もここで定義する。 */
+/*  見た目トークン v2 "Booth"（DESIGN 4.9）
+    コンセプト: 夜の録音ブース。暖色グラファイトに機材の LED とタリーランプが灯る。
+    色・書体・寸法はここ以外にハードコードしない。 */
 
 namespace vb
 {
@@ -14,44 +15,76 @@ inline juce::String jp (const char* utf8) { return juce::String::fromUTF8 (utf8)
 
 namespace colours
 {
-    // --- DESIGN 4.9 のトークン ---
-    inline const juce::Colour bg0      { 0xff0e141b };
-    inline const juce::Colour panel    { 0xff151c25 };
-    inline const juce::Colour grid     { 0xff1e2733 };
-    inline const juce::Colour text     { 0xffe8eef4 };
-    inline const juce::Colour textDim  { 0xff8b97a6 };
-    inline const juce::Colour accent   { 0xff5eead4 };   // 自分ピッチ、シーク
-    inline const juce::Colour refPitch { 0xffa78bfa };   // お手本
-    inline const juce::Colour warn     { 0xfffbbf24 };
-    inline const juce::Colour bad      { 0xfff43f5e };
-    inline const juce::Colour rec      { 0xffef4444 };
-    inline const juce::Colour ok       { 0xff34d399 };
-
-    // --- 派生（トークンから作った中間色） ---
-    inline const juce::Colour bgDeep   { 0xff0a0f15 };   // レーン内背景
-    inline const juce::Colour panelHi  { 0xff1a2330 };   // ボタン地・ホバー
-    inline const juce::Colour border   { 0xff243041 };   // パネル境界
-    inline const juce::Colour textMute { 0xff5b6676 };   // さらに弱い文字
+    inline const juce::Colour bg0      { 0xff141311 };   // 地
+    inline const juce::Colour bgDeep   { 0xff0d0c0b };   // レーン・表示窓の内側
+    inline const juce::Colour panel    { 0xff1b1a17 };   // ラック・バー
+    inline const juce::Colour raised   { 0xff262420 };   // キーキャップ
+    inline const juce::Colour raisedHi { 0xff302d28 };   // キーキャップ（ホバー）
+    inline const juce::Colour grid     { 0xff24221e };   // 罫線
+    inline const juce::Colour line     { 0xff34312b };   // 境界
+    inline const juce::Colour lineHi   { 0xff4a463e };
+    inline const juce::Colour text     { 0xfff2ede3 };   // 暖かい白
+    inline const juce::Colour textDim  { 0xffa9a295 };
+    inline const juce::Colour textMute { 0xff6f6a60 };
+    inline const juce::Colour signal   { 0xffc6ee6a };   // ライム：自分ピッチ OK / 再生ヘッド / 点灯 LED / 選択
+    inline const juce::Colour ref      { 0xff8cc1ee };   // アイスブルー：お手本
+    inline const juce::Colour warn     { 0xfff4b942 };   // アンバー
+    inline const juce::Colour bad      { 0xffff6b5e };   // コーラル
+    inline const juce::Colour rec      { 0xffff3b30 };   // タリー赤（録音のみ）
 }
 
 namespace metrics
 {
-    constexpr int gutter  = 72;   // ピッチ/波形レーン左の固定幅（時間軸を揃える）
-    constexpr int pad     = 16;   // 画面端の余白
-    constexpr float radius = 6.0f;
+    constexpr int pad        = 14;    // 画面端の余白
+    constexpr int gutter     = 64;    // ピッチ/波形レーン左の固定幅（時間軸を揃える）
+    constexpr int rackWidth  = 312;   // 右ラック
+    constexpr float keyRadius    = 4.0f;
+    constexpr float windowRadius = 3.0f;
 }
 
-enum class FontWeight { regular, bold };
+//==============================================================================
+enum class Weight { regular, medium, semibold };
 
-juce::Typeface::Ptr typeface (FontWeight);
-juce::Font font (float height, FontWeight = FontWeight::regular);
+/** 本文・ラベル（IBM Plex Sans JP） */
+juce::Font sans (float height, Weight = Weight::regular);
 
-/** テキスト幅（px） */
+/** 数値・時間・英字の小見出し（IBM Plex Mono。日本語は入れない） */
+juce::Font mono (float height, Weight = Weight::medium, float tracking = 0.0f);
+
+juce::Typeface::Ptr sansTypeface (Weight);
+
 float textWidth (const juce::Font&, const juce::String&);
 
-/** パネル（カード）の共通描画 */
-void drawCard (juce::Graphics&, juce::Rectangle<float>, juce::Colour fill = colours::panel);
+//==============================================================================
+/** 部品の描画状態。ギャラリーで状態を固定表示するのにも使う */
+struct KeyState
+{
+    bool over = false, down = false, on = false, enabled = true;
+};
 
-/** カード左上の小見出し */
-void drawCardTitle (juce::Graphics&, juce::Rectangle<int> area, const juce::String&);
+namespace paint
+{
+    /** キーキャップ本体（押すと沈む） */
+    void keycap (juce::Graphics&, juce::Rectangle<float>, const KeyState&, float radius = metrics::keyRadius);
+
+    /** 沈んだ表示窓（LCD・メーター・レーンの枠） */
+    void inset (juce::Graphics&, juce::Rectangle<float>, float radius = metrics::windowRadius);
+
+    /** LED。消灯時もうっすら色を残す */
+    void led (juce::Graphics&, juce::Point<float> centre, float radius, juce::Colour, bool lit);
+
+    /** 角型 LED（メーターのセグメント等） */
+    void ledBar (juce::Graphics&, juce::Rectangle<float>, juce::Colour, float level /*0=消灯 1=点灯*/);
+
+    /** ラックの見出し：英字（Mono・大文字）＋日本語 */
+    void sectionHeader (juce::Graphics&, juce::Rectangle<int>, const juce::String& en, const juce::String& ja);
+
+    /** 小さな英字ラベル（Mono・大文字・字間広め） */
+    void microLabel (juce::Graphics&, juce::Rectangle<float>, const juce::String&, juce::Colour,
+                     juce::Justification = juce::Justification::centredLeft);
+
+    /** 1px の水平・垂直の細線 */
+    void hline (juce::Graphics&, float y, float x0, float x1, juce::Colour = colours::line);
+    void vline (juce::Graphics&, float x, float y0, float y1, juce::Colour = colours::line);
+}
 } // namespace vb

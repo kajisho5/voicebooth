@@ -2,20 +2,17 @@
 
 namespace vb
 {
-TrackTab::TrackTab (const dummy::Session& s, const dummy::TrackUi& t, bool sel)
+TrackCard::TrackCard (const dummy::Session& s, const dummy::TrackUi& t, bool sel)
     : session (s), track (t), selected (sel)
 {
-    arm.setRound (true);
-    arm.setFilled (true);
-    arm.setClickingTogglesState (true);
+    arm.withIcon (Icon::rec);
     arm.setToggleState (t.armed, juce::dontSendNotification);
-    arm.setIconColour (t.armed ? colours::text : colours::rec.withAlpha (0.6f));
-    arm.onClick = [this] { arm.setIconColour (arm.getToggleState() ? colours::text : colours::rec.withAlpha (0.6f)); };
+    arm.setTooltip (jp ("録音対象（アーム）"));
 
+    mute.withLatch (colours::warn).withFont (mono (10.5f, Weight::semibold));
+    solo.withLatch (colours::signal).withFont (mono (10.5f, Weight::semibold));
     mute.setToggleState (t.mute, juce::dontSendNotification);
     solo.setToggleState (t.solo, juce::dontSendNotification);
-    for (auto* b : { &mute, &solo })
-        b->setFontSize (10.0f);
 
     addAndMakeVisible (arm);
     addAndMakeVisible (mute);
@@ -23,46 +20,55 @@ TrackTab::TrackTab (const dummy::Session& s, const dummy::TrackUi& t, bool sel)
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
 }
 
-void TrackTab::resized()
+void TrackCard::resized()
 {
-    auto r = getLocalBounds().reduced (10, 0);
-    arm.setBounds (r.removeFromLeft (26).withSizeKeepingCentre (26, 26));
+    auto r = getLocalBounds().reduced (10, 0).withTrimmedLeft (selected ? 3 : 0);
+    arm.setBounds (r.removeFromLeft (30).withSizeKeepingCentre (30, 28));
     r.removeFromLeft (10);
 
-    auto right = r.removeFromRight (50);
-    solo.setBounds (right.removeFromRight (22).withSizeKeepingCentre (22, 20));
+    auto right = r.removeFromRight (52);
+    solo.setBounds (right.removeFromRight (24).withSizeKeepingCentre (24, 22));
     right.removeFromRight (4);
-    mute.setBounds (right.removeFromRight (22).withSizeKeepingCentre (22, 20));
+    mute.setBounds (right.removeFromRight (24).withSizeKeepingCentre (24, 22));
     r.removeFromRight (8);
 
-    gainArea = r.removeFromBottom (14).withTrimmedBottom (6);
-    textArea = r;
+    gainArea = r.removeFromBottom (12).withTrimmedBottom (7);
+    textArea = r.withTrimmedTop (5);
 }
 
-void TrackTab::paint (juce::Graphics& g)
+void TrackCard::paint (juce::Graphics& g)
 {
-    const auto r = getLocalBounds().toFloat().reduced (0.5f);
+    const auto b = getLocalBounds().toFloat();
     const bool over = isMouseOver (true);
 
-    g.setColour (selected ? colours::panelHi : (over ? colours::panelHi.withAlpha (0.6f) : colours::panel));
-    g.fillRoundedRectangle (r, 6.0f);
-    g.setColour (selected ? colours::accent.withAlpha (0.65f) : colours::border);
-    g.drawRoundedRectangle (r, 6.0f, selected ? 1.5f : 1.0f);
+    if (selected)
+    {
+        paint::keycap (g, b, { over, false, true, true });
+        g.setColour (colours::signal);
+        g.fillRoundedRectangle (b.reduced (1.5f).withWidth (3.0f), 1.5f);
+    }
+    else
+    {
+        g.setColour (over ? colours::raised.withAlpha (0.6f) : colours::panel);
+        g.fillRoundedRectangle (b.reduced (0.5f), metrics::keyRadius);
+        g.setColour (colours::line);
+        g.drawRoundedRectangle (b.reduced (0.5f), metrics::keyRadius, 1.0f);
+    }
 
     // 名前 + ホットキー
     auto t = textArea;
-    auto top = t.removeFromTop (t.getHeight() / 2 + 3);
-    g.setColour (selected ? colours::text : colours::text.withAlpha (0.85f));
-    g.setFont (font (14.0f, FontWeight::bold));
-    const auto nameW = (int) textWidth (font (14.0f, FontWeight::bold), track.name) + 2;
-    g.drawText (track.name, top.removeFromLeft (nameW), juce::Justification::bottomLeft, false);
+    auto top = t.removeFromTop (t.getHeight() / 2 + 2);
+    const auto nf = sans (13.5f, Weight::semibold);
+    g.setColour (selected ? colours::text : colours::text.withAlpha (0.82f));
+    g.setFont (nf);
+    const auto nw = (int) textWidth (nf, track.name) + 2;
+    g.drawText (track.name, top.removeFromLeft (nw), juce::Justification::bottomLeft, false);
 
-    top.removeFromLeft (6);
-    const auto key = top.removeFromLeft (16).withTrimmedTop (top.getHeight() - 16).toFloat().reduced (0.5f);
-    g.setColour (colours::border);
-    g.drawRoundedRectangle (key, 3.0f, 1.0f);
+    top.removeFromLeft (7);
+    const auto key = top.removeFromLeft (15).withTrimmedTop (top.getHeight() - 15).toFloat();
+    paint::inset (g, key, 2.0f);
     g.setColour (colours::textDim);
-    g.setFont (font (10.0f, FontWeight::bold));
+    g.setFont (mono (9.5f, Weight::semibold));
     g.drawText (juce::String (track.hotkey), key, juce::Justification::centred, false);
 
     // テイク情報
@@ -70,19 +76,23 @@ void TrackTab::paint (juce::Graphics& g)
     const auto takes = tr != nullptr ? (int) tr->takes.size() : 0;
     const auto segs  = tr != nullptr ? (int) tr->comp.size() : 0;
 
-    juce::String info;
-    if (takes == 0) info = jp ("未録音");
-    else            info = juce::String (takes) + jp (" テイク · 採用 ") + juce::String (segs) + jp (" 区間");
+    g.setFont (sans (11.0f));
+    if (takes == 0)
+    {
+        g.setColour (colours::textMute);
+        g.drawText (jp ("未録音"), t, juce::Justification::topLeft, true);
+    }
+    else
+    {
+        g.setColour (colours::textDim);
+        g.drawText (juce::String (takes) + jp (" テイク ・ 採用 ") + juce::String (segs) + jp (" 区間"), t, juce::Justification::topLeft, true);
+    }
 
-    g.setColour (takes == 0 ? colours::textMute : colours::textDim);
-    g.setFont (font (11.0f));
-    g.drawText (info, t, juce::Justification::topLeft, true);
-
-    // モニター音量（細いバー）
+    // モニター量
     const auto gr = gainArea.toFloat().withSizeKeepingCentre ((float) gainArea.getWidth(), 3.0f);
-    g.setColour (colours::grid);
+    g.setColour (colours::bgDeep);
     g.fillRoundedRectangle (gr, 1.5f);
-    g.setColour ((selected ? colours::accent : colours::textDim).withAlpha (0.8f));
+    g.setColour ((selected ? colours::signal : colours::textDim).withAlpha (0.85f));
     g.fillRoundedRectangle (gr.withWidth (gr.getWidth() * track.monitorGain), 1.5f);
 }
 
@@ -95,26 +105,26 @@ TrackTabs::TrackTabs (const dummy::Session& s) : session (s)
         if (t.type == project::TrackType::harm2 && s.mode != project::Mode::pro)
             continue;   // 標準は Harm 1 本まで（DESIGN 2）
 
-        addAndMakeVisible (tabs.add (new TrackTab (s, t, (int) i == s.selectedTrack)));
+        addAndMakeVisible (cards.add (new TrackCard (s, t, (int) i == s.selectedTrack)));
     }
 
-    compare.setLeadingIcon (Icon::compare);
-    compare.setFontSize (12.0f);
+    compare.withIcon (Icon::compare).withToggle (false);
     addAndMakeVisible (compare);
 }
 
 void TrackTabs::resized()
 {
-    auto r = getLocalBounds().reduced (metrics::pad, 8);
+    auto r = getLocalBounds().reduced (metrics::pad, 9);
     r.removeFromLeft (metrics::gutter - metrics::pad);
 
-    compare.setBounds (r.removeFromRight (compare.idealWidth()).withSizeKeepingCentre (compare.idealWidth(), 32));
+    compare.setSize (10, 34);
+    compare.setBounds (r.removeFromRight (compare.idealWidth()).withSizeKeepingCentre (compare.idealWidth(), 34));
     r.removeFromRight (16);
 
-    const auto w = juce::jmin (270, (r.getWidth() - 8 * (tabs.size() - 1)) / juce::jmax (1, tabs.size()));
-    for (auto* t : tabs)
+    const auto w = juce::jmin (264, (r.getWidth() - 8 * (cards.size() - 1)) / juce::jmax (1, cards.size()));
+    for (auto* c : cards)
     {
-        t->setBounds (r.removeFromLeft (w));
+        c->setBounds (r.removeFromLeft (w));
         r.removeFromLeft (8);
     }
 }
@@ -122,8 +132,7 @@ void TrackTabs::resized()
 void TrackTabs::paint (juce::Graphics& g)
 {
     g.fillAll (colours::bg0);
-    g.setColour (colours::textDim);
-    g.setFont (font (11.0f, FontWeight::bold));
-    g.drawText (jp ("トラック"), getLocalBounds().withWidth (metrics::gutter).reduced (10, 0), juce::Justification::centredRight, false);
+    paint::microLabel (g, getLocalBounds().withWidth (metrics::gutter).toFloat().withTrimmedLeft ((float) metrics::pad),
+                       "TRACK", colours::textMute);
 }
 } // namespace vb

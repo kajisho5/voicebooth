@@ -1,11 +1,11 @@
 #pragma once
 
 #include "DummySession.h"
-#include "Widgets.h"
+#include "parts/LedMeter.h"
 
 namespace vb
 {
-/** 最下段：入力 / レイテンシ / 録音先 / SR・bit / ドライバ */
+/** 最下段：入力 / レイテンシ / 録音先 / 書き出し形式 / ドライバ / UI MOCK 表示 */
 class StatusBar : public juce::Component
 {
 public:
@@ -18,7 +18,7 @@ public:
 
 private:
     const dummy::Session& session;
-    InputMeter mini { true };
+    LedMeter mini { LedMeter::Style::compact };
     juce::Rectangle<int> meterArea;
 };
 } // namespace vb
