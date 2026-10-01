@@ -8,17 +8,22 @@
 
 仕様は [`docs/DESIGN.md`](docs/DESIGN.md) が唯一の正。
 
-## 現在の状態：Phase B2（オフボ再生）— 手動確認待ち
+## 現在の状態：Phase B3（デバイス列挙＋入力メーター）— 手動確認待ち
 
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
 - **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
 - **日本語 / English / 한국어 / 简体中文 / 繁體中文**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
-- **B2**：開いた曲（オフボ）を既定の出力デバイスで再生・シーク・ループ。オフボのフェーダーと M が効く。入力（マイク）はまだ開かない（B3 以降）
+- **B2**：開いた曲（オフボ）を既定の出力デバイスで再生・シーク・ループ。オフボのフェーダーと M が効く
+- **B3**：ドライバ・入出力の機器・SR・バッファを列挙し、入力セットアップで選べる（設定に保存）。入力は 1 ch（モノラル、既定 L）を開いてメーターだけ（ピーク・ホールド・RMS・クリップ）。レイテンシはデバイスの申告値（実測は B6）。Mac はマイクの許可を確かめる。モニター・録音はまだ（B4 / B5）
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
 
 | 曲を読み込んだところ | 開いた曲の画面（実波形） |
 |---|---|
 | ![](docs/screenshots/b1-loaded.png) | ![](docs/screenshots/b1-main.png) |
+
+| 入力セットアップ（実デバイス、B3） | レベル（実メーター） |
+|---|---|
+| ![](docs/screenshots/b3-setup.png) | ![](docs/screenshots/b3-level.png) |
 
 ![メイン画面](docs/screenshots/main-ja.png)
 
@@ -78,7 +83,7 @@ JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）と、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）を確かめる。CI（Win / Mac）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
+波形の概形（ピーク・RMS、ビン境界・全チャンネル・粗い段と総当たりの一致）と、曲の読み込み（WAV / FLAC の長さがサンプル単位で一致、日本語と空白を含むパス、壊れた / 空のファイル、中止、非同期の通知、mp3 / m4a を OS の読み手で開けるか・長さと頭のずれ）、入力メーター（-12 dBFS の正弦波でピーク -12 / RMS -15、ホールド 1.5 秒と下がる速さ、RMS 300 ms、クリップの保持、SR とブロック長によらないこと）、入力チャンネルの選び方（既定 L）と Bluetooth らしい名前の判定を確かめる。CI（Win / Mac）でも実行。テスト用音声は `tests/data/make_fixtures.sh` で作る自作の合成音。
 
 ## 構成
 
@@ -88,7 +93,8 @@ docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
 app/i18n/             多言語対応 tr("key")（5 言語）
 app/ui/UiSession.*    画面の状態と変更通知（Phase B で音声エンジンにつなぐ）
-app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）と波形の概形（WaveformOverview）
+app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）と波形の概形（WaveformOverview）、
+                      再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、デバイスの決まりごと（DeviceRules）
 third_party/minimp3/  mp3 デコーダ（CC0。出典とコミットは README）
 tests/                VoiceBoothTests（ctest）
 app/ui/screens/       起動画面 / 入力セットアップ / 書き出し / 設定
