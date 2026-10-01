@@ -289,7 +289,7 @@ void SkinEditor::showGroupMenu (int group)
     if (! juce::isPositiveAndBelow (group, (int) groups().size()))
         return;
 
-    constexpr int resetId = 1, borrowBase = 100;
+    static constexpr int resetId = 1, borrowBase = 100;   // static：MSVC はラムダから暗黙に使えない
 
     juce::PopupMenu menu;
     menu.addSectionHeader (tr (groups()[(size_t) group].label));
