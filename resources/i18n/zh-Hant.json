@@ -49,6 +49,7 @@
   "export.done": "已匯出 {0} 個檔案：{1}",
   "export.failed": "無法匯出：{0}",
   "export.format": "FORMAT",
+  "export.format.dither": "（TPDF 抖動，靜音處保持靜音）",
   "export.format.value": "{0} kHz · {1} · 單聲道 · 從 0:00 開始 · 不做標準化",
   "export.micro": "EXPORT",
   "export.mockToast": "UI 原型：暫不寫入檔案（Phase B 實作）",

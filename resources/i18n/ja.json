@@ -49,6 +49,7 @@
   "export.done": "{0} 個のファイルを書き出しました：{1}",
   "export.failed": "書き出せませんでした：{0}",
   "export.format": "FORMAT",
+  "export.format.dither": "（TPDF ディザー。無音の所は無音のまま）",
   "export.format.value": "{0} kHz ・ {1} ・ モノラル ・ 曲頭 0:00 から ・ ノーマライズなし",
   "export.micro": "EXPORT",
   "export.mockToast": "UI モックのため書き出しは行いません（Phase B で実装）",
