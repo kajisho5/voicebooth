@@ -49,7 +49,9 @@ Gallery::Gallery()
 
     // --- Encoders -----------------------------------------------------------
     make<EncoderBlock> ("unipolar", tr ("practice.tempo"), 50.0, 150.0, 100.0, 1.0, pct, "%").setCaption (tr ("practice.tempo.original", 120));
-    make<EncoderBlock> ("slow", tr ("practice.tempo"), 50.0, 150.0, 75.0, 1.0, pct, "%").setCaption (tr ("practice.key.shifted"));
+    auto& slow = make<EncoderBlock> ("slow", tr ("practice.tempo"), 50.0, 150.0, 75.0, 1.0, pct, "%");
+    slow.setCaption (tr ("practice.key.shifted"));
+    slow.encoder().setDefaultValue (100.0);
     make<EncoderBlock> ("bipolar 0", tr ("practice.key"), -6.0, 6.0, 0.0, 1.0,
                         [] (double v) { const auto k = juce::roundToInt (v); return (k > 0 ? "+" : "") + juce::String (k); },
                         "", true, colours::ref).setCaption (tr ("practice.key.original"));
@@ -63,7 +65,7 @@ Gallery::Gallery()
 
     // --- Faders -------------------------------------------------------------
     make<ChannelStrip> ("", tr ("monitor.backing"), 0.51, 0.62f);
-    make<ChannelStrip> ("", tr ("monitor.refMain"), 0.72, 0.48f, colours::ref);
+    make<ChannelStrip> ("", tr ("monitor.refMain"), 0.75, 0.48f, colours::ref);   // 0 dB：つまみの線が光る
     make<ChannelStrip> ("", tr ("monitor.refHarm"), 0.40, 0.30f, colours::ref);
     auto& me = make<ChannelStrip> ("", tr ("monitor.self"), 0.64, 0.80f);
     me.soloKey().setToggleState (true, juce::dontSendNotification);

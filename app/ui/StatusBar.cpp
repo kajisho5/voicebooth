@@ -20,6 +20,18 @@ void StatusBar::onSessionChanged (juce::uint32 c)
     }
     if (c & (change::transport | change::practice | change::mode | change::device | change::song | change::meter))
         repaint();
+
+    // 新しいバージョンの知らせが出た：右から滑り込み、LED が 2 回点滅
+    if ((c & change::device) && state().updateVersion != noticeVersion)
+    {
+        noticeVersion = state().updateVersion;
+        if (noticeVersion.isNotEmpty())
+        {
+            chipSlide.snap (0.0f);
+            chipShownAt = motion::now();
+            startAnimating();
+        }
+    }
 }
 
 void StatusBar::mouseUp (const juce::MouseEvent& e)
@@ -30,8 +42,49 @@ void StatusBar::mouseUp (const juce::MouseEvent& e)
 
 void StatusBar::mouseMove (const juce::MouseEvent& e)
 {
-    setMouseCursor (updateChip.contains (e.position) ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
-    repaint();
+    const bool over = updateChip.contains (e.position);
+    setMouseCursor (over ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+    setChipHover (over);
+}
+
+void StatusBar::mouseExit (const juce::MouseEvent&)
+{
+    setChipHover (false);
+}
+
+void StatusBar::setChipHover (bool h)
+{
+    if (h == chipHover) return;
+    chipHover = h;
+    startAnimating();
+}
+
+bool StatusBar::advanceAnimation (float dt)
+{
+    const bool reduced = motion::prefersReducedMotion();
+    if (! isShowing() || reduced)
+    {
+        chipSlide.snap (1.0f);
+        chipLift = chipHover ? 1.0f : 0.0f;
+        chipShownAt = -10.0;
+        repaint();
+        return false;
+    }
+
+    chipSlide.step (1.0f, dt, motion::notice::springK, motion::notice::springC);
+    const bool landed = chipSlide.atRest (1.0f, 0.002f, 0.02f);
+    if (landed) chipSlide.snap (1.0f);
+    chipLift = motion::approach (chipLift, chipHover ? 1.0f : 0.0f, 22.0f, dt);
+    if (std::abs (chipLift - (chipHover ? 1.0f : 0.0f)) < 0.01f) chipLift = chipHover ? 1.0f : 0.0f;
+    const bool blinking = motion::now() - chipShownAt < motion::notice::blinkSeconds + 0.05;
+
+    // 知らせの所だけ描き直す（滑り込む前の右側も含めて）
+    if (! updateChip.isEmpty())
+        repaint (updateChip.withRight ((float) getWidth()).expanded (8.0f, 4.0f).getSmallestIntegerContainer());
+    else
+        repaint();
+
+    return ! landed || blinking || ! juce::approximatelyEqual (chipLift, chipHover ? 1.0f : 0.0f);
 }
 
 void StatusBar::resized()
@@ -101,14 +154,30 @@ void StatusBar::paint (juce::Graphics& g)
     {
         const auto txt = tr ("update.notice", s.updateVersion);
         const auto uf = sans (11.0f, Weight::semibold);
-        const auto w = textWidth (uf, txt) + 34.0f;
+        const auto w = textWidth (uf, txt) + 44.0f;
         updateChip = r.removeFromRight (w).withSizeKeepingCentre (w, 20.0f);
         r.removeFromRight (8.0f);
-        const bool hover = updateChip.contains (getMouseXYRelative().toFloat());
-        g.setColour (colours::signal.withAlpha (hover ? 0.28f : 0.16f));
-        g.fillRoundedRectangle (updateChip, 3.0f);
-        auto inner = updateChip;
-        drawIcon (g, Icon::download, inner.removeFromLeft (24.0f).withSizeKeepingCentre (12.0f, 12.0f), colours::signal);
+
+        // 滑り込み（自分の場所の中だけで見せる：隣の札に重ならない）・ホバーで少し浮く
+        const auto slide = isAnimating() ? chipSlide.x : 1.0f;
+        const auto lift = isAnimating() ? chipLift : (chipHover ? 1.0f : 0.0f);
+        // 行き過ぎ（ばね）は左の札に重ならない 6 px まで
+        const auto box = updateChip.translated (juce::jmax (-6.0f, (1.0f - slide) * (w + 8.0f)), -1.0f * lift);
+
+        juce::Graphics::ScopedSaveState saved (g);
+        g.reduceClipRegion (updateChip.withRight ((float) getWidth()).withTrimmedLeft (-6.0f).expanded (0.0f, 4.0f).getSmallestIntegerContainer());
+        g.setOpacity (juce::jlimit (0.0f, 1.0f, slide * 1.4f));
+
+        if (lift > 0.0f)
+            paint::glow (g, box.expanded (8.0f, 6.0f).translated (0.0f, 3.0f), colours::signal.withAlpha (0.10f * lift));
+        g.setColour (colours::signal.withAlpha (0.16f + 0.10f * lift));
+        g.fillRoundedRectangle (box, 3.0f);
+
+        auto inner = box;
+        const auto blink = isAnimating() ? motion::notice::led (motion::now() - chipShownAt) : 1.0f;
+        paint::led (g, { inner.getX() + 9.0f, inner.getCentreY() }, 2.3f, colours::signal, blink);
+        inner.removeFromLeft (14.0f);
+        drawIcon (g, Icon::download, inner.removeFromLeft (20.0f).withSizeKeepingCentre (12.0f, 12.0f), colours::signal);
         g.setColour (colours::signal);
         g.setFont (uf);
         g.drawText (txt, inner, juce::Justification::centredLeft, false);
