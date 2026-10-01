@@ -74,24 +74,21 @@ jobs:
         shell: pwsh
         run: |
           $need = [version]'6.5.2'
-          function Find-Iscc {
-            foreach ($p in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
-              if (Test-Path $p) {
-                $vi = (Get-Item $p).VersionInfo
-                return @{ Path = $p; Version = [version]::new($vi.FileMajorPart, $vi.FileMinorPart, $vi.FileBuildPart) }
-              }
-            }
-            return $null
-          }
+          . ./packaging/windows/find_iscc.ps1
           $found = Find-Iscc
           if ($found -and $found.Version -ge $need) {
             Write-Host "Inno Setup already on the runner: $($found.Path) ($($found.Version))"
           } else {
+            # choco に「入っている」と記録されていても実体が見つからないことがあるので --force で入れ直す
             Write-Host "Inno Setup missing or older than $need ($($found.Version)); installing via choco"
-            choco upgrade innosetup -y --no-progress
+            choco install innosetup -y --force --no-progress
             if ($LASTEXITCODE -ne 0) { throw "choco failed ($LASTEXITCODE)" }
             $found = Find-Iscc
-            if (-not $found -or $found.Version -lt $need) { throw "Inno Setup $need+ not available after install" }
+            if (-not $found -or $found.Version -lt $need) {
+              Get-ItemProperty "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*","HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+                Where-Object { $_.DisplayName -like "Inno Setup*" } | Format-List DisplayName, DisplayVersion, InstallLocation
+              throw "Inno Setup $need+ not available after install"
+            }
             Write-Host "Installed: $($found.Path) ($($found.Version))"
           }
 
