@@ -1,0 +1,36 @@
+#pragma once
+
+#include "Theme.h"
+
+namespace vb
+{
+/** サンプル位置 ↔ X 座標。ピッチと波形でズームを共有するために使う */
+struct TimeMap
+{
+    int64 start = 0, end = 1;
+    float x0 = 0.0f, x1 = 1.0f;
+
+    float x (int64 sample) const
+    {
+        return x0 + (float) ((double) (sample - start) / (double) (end - start)) * (x1 - x0);
+    }
+
+    int64 sampleAt (float px) const
+    {
+        return start + (int64) ((double) (px - x0) / (double) (x1 - x0) * (double) (end - start));
+    }
+};
+
+/** m:ss / m:ss.mmm（表示専用。内部はサンプルが真実） */
+inline juce::String formatTime (int64 samples, int sampleRate, bool withMillis)
+{
+    const auto totalMs = samples * 1000 / sampleRate;
+    const auto m  = totalMs / 60000;
+    const auto s  = (totalMs / 1000) % 60;
+    const auto ms = totalMs % 1000;
+    auto str = juce::String (m) + ":" + juce::String (s).paddedLeft ('0', 2);
+    if (withMillis)
+        str << "." << juce::String (ms).paddedLeft ('0', 3);
+    return str;
+}
+} // namespace vb
