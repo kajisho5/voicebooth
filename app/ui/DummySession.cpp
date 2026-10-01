@@ -272,6 +272,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.harmonyGain         = prev.harmonyGain;
     s.monitorGain         = prev.monitorGain;
     s.monitorReverb       = prev.monitorReverb;
+    s.selfMuted           = prev.selfMuted;
+    s.speakerOutput       = prev.speakerOutput;
+    s.speakerCheckedFor   = prev.speakerCheckedFor;
 
     // 入力（デバイスは曲と関係ないので引き継ぐ）
     s.inputDevice     = prev.inputDevice;

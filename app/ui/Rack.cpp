@@ -1,4 +1,5 @@
 #include "Rack.h"
+#include "audio/PlaybackCore.h"
 
 namespace vb
 {
@@ -198,16 +199,60 @@ MonitorModule::MonitorModule (UiSession& u)
     backingStrip = strips.add (new ChannelStrip (tr ("monitor.backing"), u->offVocalGain, 0.62f));
     strips.add (new ChannelStrip (tr ("monitor.refMain"), u->mainGain, 0.48f, colours::ref));
     harmStrip = strips.add (new ChannelStrip (tr ("monitor.refHarm"), u->harmonyGain, 0.22f, colours::ref));
-    strips.add (new ChannelStrip (tr ("monitor.self"), u->monitorGain, 0.70f));
-    strips.add (new ChannelStrip (tr ("monitor.reverb"), u->monitorReverb, -1.0f, colours::textDim, false, tr ("monitor.reverb.note")));
+    selfStrip = strips.add (new ChannelStrip (tr ("monitor.self"), u->monitorGain, 0.70f));
+    reverbStrip = strips.add (new ChannelStrip (tr ("monitor.reverb"), u->monitorReverb, -1.0f, colours::textDim, false, tr ("monitor.reverb.note")));
 
     for (auto* st : strips)
         addAndMakeVisible (st);
 
-    // オフボのフェーダーとミュートは再生の音量に効く（B2）。ほかは B4 / B12 まで見た目だけ
+    // オフボ（B2）と自分の声・モニターリバーブ（B4）は音に効く。お手本は B9 / B12 まで見た目だけ
     backingStrip->fader().onValueChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
     backingStrip->muteKey().onClick = [this] { session.setBackingMuted (backingStrip->muteKey().getToggleState()); };
-    onSessionChanged (change::monitor);
+    selfStrip->fader().onValueChange = [this] { session.setSelfMonitorLevel ((float) selfStrip->fader().getValue()); };
+    selfStrip->muteKey().onClick = [this] { session.setSelfMonitorMuted (selfStrip->muteKey().getToggleState()); };
+    selfStrip->muteKey().setTooltip (tr ("monitor.self.mute.tooltip"));
+    selfStrip->fader().setTooltip (tr ("monitor.self.tooltip"));
+    reverbStrip->fader().onValueChange = [this] { session.setMonitorReverb ((float) reverbStrip->fader().getValue()); };
+    reverbStrip->fader().setTooltip (tr ("monitor.reverb.tooltip"));
+    onSessionChanged (change::monitor | change::meter);
+}
+
+MonitorModule::Notice MonitorModule::noticeFor (const dummy::Session& s)
+{
+    // スピーカーから自分の声を返すとハウリングする。ミュート中は理由を、鳴らしている時は注意を出す
+    if (s.output.open && s.speakerOutput)
+        return s.selfMuted ? Notice { tr ("monitor.notice.speakerMuted"), colours::warn }
+                           : Notice { tr ("monitor.notice.speakerLive"), colours::bad };
+
+    // 自分の声の遅れ（デバイスの申告値。実測は B6）。歌いにくいほど遅い時だけ
+    if (s.inputLive() && ! s.selfMuted)
+    {
+        const auto ld = latencyDisplay (s);
+        if (ld.known && ld.ms > lateMonitorMs)
+            return { tr ("monitor.notice.late", juce::String (juce::roundToInt (ld.ms))), colours::warn };
+    }
+    return {};
+}
+
+void MonitorModule::updateSelfMeter()
+{
+    // 自分のフェーダーの横：耳に返っている量（入力のピーク＋フェーダー）。-48〜0 dBFS を 0..1 に
+    const auto& s = state();
+    float level = -1.0f;
+    if (s.engineAttached)
+    {
+        level = 0.0f;
+        if (s.inputLive() && ! s.selfMuted && s.monitorGain > 0.0f)
+        {
+            const auto gainDb = juce::Decibels::gainToDecibels (audio::PlaybackCore::faderToGain (s.monitorGain), -100.0f);
+            level = juce::jmap (juce::jlimit (-48.0f, 0.0f, s.inputPeakDb + gainDb), -48.0f, 0.0f, 0.0f, 1.0f);
+        }
+    }
+    else
+    {
+        level = 0.70f;   // UI_MOCK：見本の値
+    }
+    selfStrip->fader().setMeter (level);
 }
 
 void MonitorModule::onSessionChanged (juce::uint32 c)
@@ -217,9 +262,46 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
 
     if (c & change::monitor)
     {
-        backingStrip->fader().setValue (state().offVocalGain, juce::dontSendNotification);
-        backingStrip->muteKey().setToggleState (state().backingMuted, juce::dontSendNotification);
+        const auto& s = state();
+        backingStrip->fader().setValue (s.offVocalGain, juce::dontSendNotification);
+        backingStrip->muteKey().setToggleState (s.backingMuted, juce::dontSendNotification);
+        selfStrip->fader().setValue (s.monitorGain, juce::dontSendNotification);
+        selfStrip->muteKey().setToggleState (s.selfMuted, juce::dontSendNotification);
+        reverbStrip->fader().setValue (s.monitorReverb, juce::dontSendNotification);
     }
+
+    if (c & (change::meter | change::monitor | change::device))
+        updateSelfMeter();
+
+    if (c & (change::monitor | change::device))
+    {
+        // 知らせが出る・消える時は並べ直す
+        const bool has = noticeFor (state()).text.isNotEmpty();
+        if (has != hadNotice)
+        {
+            resized();
+            repaint();   // 消えた知らせの跡も消す
+        }
+        else
+        {
+            repaint (noticeArea);
+        }
+    }
+}
+
+void MonitorModule::paint (juce::Graphics& g)
+{
+    RackModule::paint (g);
+
+    const auto n = noticeFor (state());
+    if (n.text.isEmpty() || noticeArea.isEmpty())
+        return;
+
+    auto r = noticeArea.toFloat();
+    paint::led (g, { r.getX() + 3.0f, r.getCentreY() }, 2.6f, n.tone, true);
+    g.setColour (n.tone);
+    g.setFont (sans (10.5f));
+    g.drawFittedText (n.text, r.withTrimmedLeft (11.0f).toNearestInt(), juce::Justification::centredLeft, 2, 0.9f);
 }
 
 void MonitorModule::resized()
@@ -231,6 +313,8 @@ void MonitorModule::resized()
     for (auto* st : strips) visible += st->isVisible() ? 1 : 0;
 
     auto r = content();
+    hadNotice = noticeFor (state()).text.isNotEmpty();
+    noticeArea = hadNotice ? r.removeFromBottom (28).withTrimmedTop (4) : juce::Rectangle<int>();
     const auto w = r.getWidth() / juce::jmax (1, visible);
     for (auto* st : strips)
         if (st->isVisible())

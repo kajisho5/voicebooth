@@ -76,6 +76,11 @@ struct Session
     float monitorReverb = 0.25f;
     bool backingMuted = false;
 
+    // 自分の声のモニター（B4）。出力がスピーカーらしい機器に替わったら、ハウリングしないよう最初だけミュート
+    bool selfMuted = false;
+    bool speakerOutput = false;           // いまの出力がスピーカーらしい（DeviceRules::looksLikeSpeakers）
+    juce::String speakerCheckedFor;       // 最後に判定した出力の機器名（同じ機器では二度ミュートしない）
+
     // 出力デバイス（B2。UI_MOCK では open = false のまま）
     audio::OutputStatus output;
     bool engineAttached = false;

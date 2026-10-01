@@ -66,14 +66,27 @@ class MonitorModule : public RackModule, private SessionView
 {
 public:
     explicit MonitorModule (UiSession&);
+    void paint (juce::Graphics&) override;
     void resized() override;
+
+    /** モジュールの下に出す知らせ（スピーカー出力・モニターの遅れ）。無ければ空 */
+    struct Notice { juce::String text; colours::Tone tone = colours::textDim; };
+    static Notice noticeFor (const dummy::Session&);
+
+    /** 遅れの目安（DESIGN 7.3：往復 20–40 ms）。これを超えたら知らせる */
+    static constexpr double lateMonitorMs = 40.0;
 
 private:
     void onSessionChanged (juce::uint32 c) override;
+    void updateSelfMeter();
 
     juce::OwnedArray<ChannelStrip> strips;
-    ChannelStrip* backingStrip = nullptr;   // B2：これだけ音が出る
+    ChannelStrip* backingStrip = nullptr;   // B2：オフボ
     ChannelStrip* harmStrip = nullptr;
+    ChannelStrip* selfStrip = nullptr;      // B4：自分の声
+    ChannelStrip* reverbStrip = nullptr;    // B4：モニターリバーブ（耳だけ）
+    juce::Rectangle<int> noticeArea;
+    bool hadNotice = false;
 };
 
 class RecordModule : public RackModule, private SessionView

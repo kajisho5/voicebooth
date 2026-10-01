@@ -107,9 +107,12 @@ public:
     /** 新しいバージョンの知らせ（ステータスバー）。空で消す */
     void setUpdateAvailable (const juce::String& version) { s.updateVersion = version; notify (change::device); }
 
-    // --- モニター（B2：オフボだけ音が出る） ---------------------------------
+    // --- モニター（B2：オフボ、B4：自分の声とモニターリバーブ） --------------
     void setBackingLevel (float fader);   // 0..1（0.75 = 0 dB）
     void setBackingMuted (bool);
+    void setSelfMonitorLevel (float fader);
+    void setSelfMonitorMuted (bool);
+    void setMonitorReverb (float fader);  // 耳だけ。録音には入らない
 
     // --- 練習 / モード ------------------------------------------------------
     void setTempo (int percent);
@@ -130,6 +133,8 @@ private:
     void followPlayhead (double seconds);
     void syncLoopToEngine();
     void refreshOutputStatus();
+    void checkSpeakerOutput();
+    void pushMonitorToEngine();
     void refreshInputStatus();
     void deviceChanged (bool lost);
     juce::String afterDeviceSelect (juce::String error);

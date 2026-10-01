@@ -21,6 +21,22 @@ public:
                 expect (! looksLikeBluetooth (deviceName), deviceName);
         }
 
+        beginTest ("speaker-looking output names (monitor feedback guard)");
+        {
+            for (auto* deviceName : { "MacBook Pro Speakers", "Speakers (Realtek(R) Audio)", "Galaxy BT Speaker",
+                                      "Built-in Speaker", "SPEAKERS (USB Audio)" })
+                expect (looksLikeSpeakers (deviceName), deviceName);
+            for (auto* utf8 : { "スピーカー (Realtek(R) Audio)", "扬声器 (Realtek)", "揚聲器 (USB)", "스피커 (Realtek)" })
+                expect (looksLikeSpeakers (juce::String::fromUTF8 (utf8)), juce::String::fromUTF8 (utf8));
+
+            // ヘッドホンの語があれば違う（差したヘッドホンにも同じ機器名を使うドライバがある）
+            for (auto* deviceName : { "Speakers/Headphones (Realtek(R) Audio)", "External Headphones", "Headset Earphone",
+                                      "AirPods Pro", "Scarlett 2i2 USB", "MacBook Pro Microphone", "Realtek(R) Audio", "" })
+                expect (! looksLikeSpeakers (deviceName), deviceName);
+            for (auto* utf8 : { "ヘッドホン (Realtek(R) Audio)", "スピーカー/ヘッドホン (Realtek)", "耳机 (USB)" })
+                expect (! looksLikeSpeakers (juce::String::fromUTF8 (utf8)), juce::String::fromUTF8 (utf8));
+        }
+
         beginTest ("input channel: default L, selectable, falls back to L");
         {
             expectEquals (resolveInputChannel (0, 2), 0);    // L

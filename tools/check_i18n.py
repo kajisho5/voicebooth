@@ -19,6 +19,7 @@ SRC = ROOT / "app"
 DATA_FILES = {
     "app/ui/DummySession.cpp",
     "app/song/LyricsImport.cpp",   # 区間の見出しの語（サビ・Aメロ…）を照合するためのデータ
+    "app/audio/DeviceRules.cpp",   # 機器名の語（スピーカー・ヘッドホン…）を照合するためのデータ
 }
 
 PLACEHOLDER = re.compile(r"\{(\d+)\}")
