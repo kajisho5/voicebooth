@@ -231,6 +231,16 @@ void UiSession::deviceChanged (bool lost)
     if (engine != nullptr)
         engine->stop();
     s.isPlaying = s.isRecording = false;
+    if (s.latencyMeasuring)
+    {
+        // 測っている途中で機器が変わった：やめて、失敗として出す
+        if (engine != nullptr)
+            engine->cancelLatencyProbe();
+        s.latencyMeasuring = false;
+        s.latencyResult = {};
+        s.latencyHasResult = true;
+        notify (change::latency);
+    }
     if (lost)
         ++s.deviceLostCount;
 
@@ -404,7 +414,10 @@ void UiSession::setRecording (bool r)
     loopBeforeRecording = s.loopOn && s.hasRange();
     engine->setLoop (s.rangeIn, s.rangeOut, false);
 
-    const auto error = engine->startRecording (s.projectFolder.getChildFile (rel()), s.recordFloat);
+    // 往復の遅れ（B6）：テイクの頭をこの分だけ前にずらす。曲の終わりの後もこの分だけ録り足す
+    const auto ld = latencyDisplay (s);
+    s.recordingLatency = ld.known ? juce::jmax ((int64) 0, ld.samples) : 0;
+    const auto error = engine->startRecording (s.projectFolder.getChildFile (rel()), s.recordFloat, s.recordingLatency);
     if (error.isNotEmpty())
     {
         syncLoopToEngine();
@@ -430,6 +443,7 @@ juce::String UiSession::recordProblem() const
     for (auto& t : s.trackUi) armed = armed || t.armed;
     if (! armed)                                      return "record.problem.noArm";
     if (s.conforming)                                 return "record.problem.conforming";
+    if (s.latencyMeasuring)                           return "record.problem.measuring";
     if (! s.output.open || s.output.converting)       return "record.problem.sampleRate";
     return {};
 }
@@ -460,13 +474,13 @@ void UiSession::finishRecording()
     project::Take take;
     take.id = id;
     take.path = s.recordingPath;
-    take.startSample = res.startSample;
-    take.endSample = res.startSample + res.length;
+    take.startSample = res.startSample - s.recordingLatency;   // 歌い手が聞いた伴奏の位置にそろえる（ファイルは切らない）
+    take.endSample = take.startSample + res.length;
     take.created = juce::Time::getCurrentTime();
     take.clip = res.clipped;
     take.peak = res.peak;
     take.recMode = s.recMode;
-    take.latencySamples = 0;     // 補正は B6
+    take.latencySamples = s.recordingLatency;
 
     // 練習録音は納品の採用区間に入れない（DESIGN 6.1 / 13）
     if (take.recMode == project::RecMode::delivery)
@@ -489,7 +503,8 @@ void UiSession::finishRecording()
         }
         return tr ("track.main");
     }();
-    const auto range = formatTime (take.startSample, s.sampleRate(), true) + " - " + formatTime (take.endSample, s.sampleRate(), true);
+    const auto range = formatTime (juce::jmax ((int64) 0, take.startSample), s.sampleRate(), true) + " - "
+                     + formatTime (juce::jmin (s.project.lengthSamples, take.endSample), s.sampleRate(), true);
     if (take.recMode == project::RecMode::practice) postNotice (tr ("record.donePractice", name, id, range));
     else if (take.clip)                             postNotice (tr ("record.doneClip", name, id, range));
     else                                            postNotice (tr ("record.done", name, id, range));
@@ -526,6 +541,134 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
             notify (change::takes);
         });
     });
+}
+
+//==============================================================================
+void UiSession::measureLatency()
+{
+    if (engine == nullptr || s.latencyMeasuring || s.isRecording)
+        return;
+    if (! s.input.open || ! s.output.open)
+    {
+        postNotice (tr ("latency.problem.noDevice"));
+        return;
+    }
+
+    // 測定音は出力を占有する：再生・録音は止める
+    setPlaying (false);
+    if (const auto error = engine->startLatencyProbe(); error.isNotEmpty())
+    {
+        postNotice (tr ("latency.problem.failed", error));
+        return;
+    }
+    s.latencyMeasuring = true;
+    s.latencyHasResult = false;
+    latencyStartMs = juce::Time::getMillisecondCounter();
+    notify (change::latency | change::transport);
+}
+
+void UiSession::cancelLatencyMeasure()
+{
+    if (! s.latencyMeasuring || analysingLatency)
+        return;
+    if (engine != nullptr)
+        engine->cancelLatencyProbe();
+    s.latencyMeasuring = false;
+    notify (change::latency);
+}
+
+void UiSession::pollLatencyProbe()
+{
+    if (! s.latencyMeasuring || engine == nullptr || analysingLatency)
+        return;
+
+    if (! engine->latencyProbeFinished())
+    {
+        // 機器が止まって測定音が進まない：8 秒でやめて失敗として出す
+        if (juce::Time::getMillisecondCounter() - latencyStartMs > 8000)
+        {
+            engine->cancelLatencyProbe();
+            latencyMeasured ({}, {});
+        }
+        return;
+    }
+
+    // 録り終えた：裏で解析して、戻ってきたらこの機器の組み合わせに覚える
+    audio::latency::Plan plan;
+    auto captured = std::make_shared<std::vector<float>> (engine->latencyProbeCapture (plan));
+    const auto key = latencyProfileKey (s);
+    std::weak_ptr<bool> weak = alive;
+    analysingLatency = true;
+    juce::Thread::launch ([this, weak, captured, plan, key]
+    {
+        const auto r = audio::latency::analyse (captured->data(), (int64) captured->size(), plan);
+        juce::MessageManager::callAsync ([this, weak, r, key]
+        {
+            if (! weak.expired())
+                latencyMeasured (r, key);
+        });
+    });
+}
+
+void UiSession::latencyMeasured (const audio::latency::Result& r, const juce::String& key)
+{
+    analysingLatency = false;
+    s.latencyMeasuring = false;
+    s.latencyResult = r;
+    s.latencyHasResult = true;
+    if (r.ok() && key.isNotEmpty())
+    {
+        auto& p = s.latencyProfiles[key];
+        p.measured = r.samples;
+        p.manualMs = -1.0;   // 測れたら手入力より実測を使う
+    }
+    notify (change::latency);
+}
+
+void UiSession::setLatencyManualMs (double ms)
+{
+    if (! s.input.open)
+        return;
+    s.latencyProfiles[latencyProfileKey (s)].manualMs = juce::jlimit (0.0, 1000.0, ms);
+    notify (change::latency);
+}
+
+void UiSession::clearLatencyManual()
+{
+    const auto it = s.latencyProfiles.find (latencyProfileKey (s));
+    if (it == s.latencyProfiles.end() || it->second.manualMs < 0.0)
+        return;
+    it->second.manualMs = -1.0;
+    notify (change::latency);
+}
+
+void UiSession::restoreLatencyProfiles (const juce::String& json)
+{
+    s.latencyProfiles.clear();
+    const auto v = juce::JSON::parse (json);
+    if (auto* obj = v.getDynamicObject())
+        for (auto& prop : obj->getProperties())
+        {
+            dummy::Session::LatencyProfile p;
+            p.measured = prop.value.hasProperty ("measured") ? (int64) prop.value["measured"] : -1;
+            p.manualMs = prop.value.hasProperty ("manualMs") ? (double) prop.value["manualMs"] : -1.0;
+            if (p.measured >= 0 || p.manualMs >= 0.0)
+                s.latencyProfiles[prop.name.toString()] = p;
+        }
+    notify (change::latency);
+}
+
+juce::String UiSession::latencyProfilesJson() const
+{
+    auto* root = new juce::DynamicObject();
+    for (auto& [key, p] : s.latencyProfiles)
+    {
+        auto* o = new juce::DynamicObject();
+        if (p.measured >= 0)   o->setProperty ("measured", p.measured);
+        if (p.manualMs >= 0.0) o->setProperty ("manualMs", p.manualMs);
+        root->setProperty (key, juce::var (o));
+    }
+    return juce::JSON::toString (juce::var (root), true);
 }
 
 void UiSession::postNotice (const juce::String& text)
@@ -625,6 +768,8 @@ void UiSession::tick (double seconds)
             notify (change::device | change::meter);
     }
 
+    pollLatencyProbe();
+
     if (! s.isPlaying) return;
 
     // 曲を開いていれば、位置は鳴っている音（エンジン）から取る
@@ -637,6 +782,21 @@ void UiSession::tick (double seconds)
         const bool ended = engine->consumeReachedEnd() || ! engine->isPlaying();
         s.playhead = pos;
         followPlayhead (seconds);
+
+        // 曲の終わりの後も、遅れて届く歌の終わり（補正量の分）を録り足してから閉じる。機器が止まっても 1.5 秒で閉じる
+        if (ended && s.isRecording && engine->isRecording() && ! engine->recordingEnded())
+        {
+            const auto now = juce::Time::getMillisecondCounter();
+            if (tailWaitStart == 0)
+                tailWaitStart = now;
+            if (now - tailWaitStart < 1500)
+            {
+                notify (change::playhead);
+                return;
+            }
+        }
+        tailWaitStart = 0;
+
         if (ended || (s.isRecording && engine->recordingEnded()))
         {
             finishRecording();   // 曲の終わり・デバイスが止まった：そこまでをテイクにする
@@ -835,13 +995,21 @@ juce::String inputProblemShort (const dummy::Session& s)
     return tr ("status.input.none");
 }
 
+juce::String latencyProfileKey (const dummy::Session& s)
+{
+    const auto& in = s.input;
+    return in.typeName + "|" + in.deviceName + "|" + s.output.deviceName + "|"
+         + juce::String (juce::roundToInt (in.sampleRate)) + "|" + juce::String (in.bufferSize);
+}
+
 LatencyDisplay latencyDisplay (const dummy::Session& s)
 {
     LatencyDisplay d;
     if (! s.engineAttached)
     {
-        // UI_MOCK：ダミーの補正量
+        // UI_MOCK：ダミーの実測値
         d.known = true;
+        d.measured = true;
         d.samples = s.latencySamples;
         d.ms = (double) s.latencySamples * 1000.0 / s.sampleRate();
         return d;
@@ -849,12 +1017,31 @@ LatencyDisplay latencyDisplay (const dummy::Session& s)
     if (! s.input.open || s.input.sampleRate <= 0.0)
         return d;
 
-    const auto r = audio::reportedLatency (s.input.inputLatency, s.input.outputLatency, s.input.bufferSize);
+    const auto rate = s.input.sampleRate;
     d.known = true;
+    if (const auto it = s.latencyProfiles.find (latencyProfileKey (s)); it != s.latencyProfiles.end())
+    {
+        if (it->second.manualMs >= 0.0)
+        {
+            d.manual = true;
+            d.samples = (int64) std::llround (it->second.manualMs * 0.001 * rate);
+            d.ms = it->second.manualMs;
+            return d;
+        }
+        if (it->second.measured >= 0)
+        {
+            d.measured = true;
+            d.samples = it->second.measured;
+            d.ms = (double) d.samples * 1000.0 / rate;
+            return d;
+        }
+    }
+
+    const auto r = audio::reportedLatency (s.input.inputLatency, s.input.outputLatency, s.input.bufferSize);
     d.reported = true;
     d.estimated = r.estimated;
     d.samples = r.samples;
-    d.ms = (double) r.samples * 1000.0 / s.input.sampleRate;
+    d.ms = (double) r.samples * 1000.0 / rate;
     return d;
 }
 } // namespace vb

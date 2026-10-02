@@ -129,7 +129,7 @@ void InputModule::paint (juce::Graphics& g)
             g.drawText (text, chip.withTrimmedLeft (16.0f), juce::Justification::centredLeft, false);
         }
 
-        // レイテンシ：実デバイスは申告値（実測は B6）と明記。UI_MOCK はダミー
+        // レイテンシ（録音位置の補正に使う値）：申告値・手入力はそう書く。UI_MOCK はダミー
         r.removeFromTop (4);
         const auto ld = latencyDisplay (s);
         auto lat = r.removeFromTop (16).toFloat();
@@ -138,6 +138,7 @@ void InputModule::paint (juce::Graphics& g)
         g.setFont (mono (11.0f));
         const auto text = ! ld.known  ? juce::String ("-")
                         : ld.reported ? tr ("meter.latency.reported", juce::String (ld.ms, 1), ld.samples)
+                        : ld.manual   ? tr ("meter.latency.manual", juce::String (ld.ms, 1), ld.samples)
                                       : tr ("meter.latency.value", juce::String (ld.ms, 1), ld.samples);
         g.drawText (text, lat, juce::Justification::centredLeft, true);
     }
@@ -224,7 +225,7 @@ MonitorModule::Notice MonitorModule::noticeFor (const dummy::Session& s)
         return s.selfMuted ? Notice { tr ("monitor.notice.speakerMuted"), colours::warn }
                            : Notice { tr ("monitor.notice.speakerLive"), colours::bad };
 
-    // 自分の声の遅れ（デバイスの申告値。実測は B6）。歌いにくいほど遅い時だけ
+    // 自分の声の遅れ（往復。実測・手入力があればそれ、無ければデバイスの申告値）。歌いにくいほど遅い時だけ
     if (s.inputLive() && ! s.selfMuted)
     {
         const auto ld = latencyDisplay (s);

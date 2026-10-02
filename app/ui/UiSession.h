@@ -28,6 +28,7 @@ namespace change
         takes     = 1 << 20,  // テイク・採用区間・テイクの波形が変わった（B5）
         notice    = 1 << 21,  // 知らせ（トースト）を出す（noticeText / noticeSerial）
         recordFormat = 1 << 22,  // 録音形式（SR・ビット数）が変わった
+        latency   = 1 << 23,  // 往復の遅れ（実測・手入力・測定中）が変わった（B6）
         all       = 0xffffffff
     };
 }
@@ -123,6 +124,18 @@ public:
         テイクがある曲は SR を変えない（次に開く曲から）。ビット数はいつでも変えられる（次のテイク・書き出しから） */
     void setRecordFormat (double rate, bool floatSamples);
 
+    // --- 往復の遅れ（B6。DESIGN 5 Step 3） --------------------------------------
+    /** 測定音を鳴らして往復の遅れを測る（約 3.6 秒。再生・録音は止める）。結果はこの機器の組み合わせに保存し、録音位置の補正に使う */
+    void measureLatency();
+    void cancelLatencyMeasure();
+    /** 手入力（ms）。測れない時に使う。0〜1000 ms。この機器の組み合わせに保存 */
+    void setLatencyManualMs (double ms);
+    /** 手入力をやめる（実測があれば実測、無ければデバイスの申告値に戻る） */
+    void clearLatencyManual();
+    /** アプリ設定との受け渡し（機器ごとの実測・手入力。JSON） */
+    void restoreLatencyProfiles (const juce::String& json);
+    juce::String latencyProfilesJson() const;
+
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
     juce::String recordProblem() const;
@@ -200,6 +213,8 @@ private:
     juce::String afterDeviceSelect (juce::String error);
 
     void songInfoChanged (juce::uint32 also = 0);
+    void pollLatencyProbe();
+    void latencyMeasured (const audio::latency::Result&, const juce::String& key);
 
     dummy::Session s;
     song::TapTempo tapper;
@@ -207,6 +222,9 @@ private:
     double sinceStatus = 0.0;
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
+    juce::uint32 tailWaitStart = 0;
+    juce::uint32 latencyStartMs = 0;  // 測定音を鳴らし始めた時刻
+    bool analysingLatency = false;    // 録り終えた測定音を裏で解析している   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
     juce::ListenerList<Listener> listeners;
 };
 
@@ -220,16 +238,21 @@ juce::String inputDisplayName (const dummy::Session&);
 /** 入力が使えない理由（短い文。ステータスバー用）。使えていれば空 */
 juce::String inputProblemShort (const dummy::Session&);
 
-/** 表示するレイテンシ。実デバイスならデバイスの申告値（実測は B6）、UI_MOCK はダミー */
+/** 録音位置の補正に使う往復の遅れ（B6）。優先順：手入力 → 実測 → デバイスの申告値。UI_MOCK はダミーの実測 */
 struct LatencyDisplay
 {
     bool known = false;       // 入力が無いと出せない
     bool reported = false;    // デバイスの申告値（実測ではない）
     bool estimated = false;   // 申告が無く、バッファから推定
+    bool measured = false;    // この機器の組み合わせで測った値
+    bool manual = false;      // 手入力
     int64 samples = 0;
     double ms = 0.0;
 };
 LatencyDisplay latencyDisplay (const dummy::Session&);
+
+/** 機器の組み合わせ（ドライバ・入力・出力・SR・バッファ）の名前。遅れはこの組み合わせごとに覚える */
+juce::String latencyProfileKey (const dummy::Session&);
 
 /** UiSession を購読する部品の共通部分（登録・解除の書き忘れを防ぐ） */
 class SessionView : private UiSession::Listener

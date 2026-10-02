@@ -12,7 +12,8 @@ namespace vb::project
 juce::String nextTakeId (const Track&);
 
 /** テイクを足し、その範囲 [startSample, endSample) を採用区間で置き換える。
-    隣り合う同じテイクの区間はまとめる。長さ 0 のテイクは足さない */
+    曲の頭より前（遅れの補正で負になった所）は採用区間に入れない。隣り合う同じテイクの区間はまとめる。
+    曲の中に長さが無いテイクは採用区間に入れない（テイクとしては残す） */
 void applyTake (Track&, const Take&);
 
 /** 採用区間が正しい形か（重ならない・start の順・長さ > 0・テイクがある）。テストと読み込みの点検用 */

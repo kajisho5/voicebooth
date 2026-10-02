@@ -113,7 +113,19 @@ struct Session
     int bufferSize = 256;
     float inputPeakDb = -12.0f, inputRmsDb = -18.4f, inputPeakHoldDb = -9.6f;
     bool inputClipped = false;
-    int64 latencySamples = 538;           // 録音位置の補正量（実測は B6。いまはダミー）
+    int64 latencySamples = 538;           // UI_MOCK のダミーの実測値（実デバイスでは latencyProfiles）
+
+    // 往復の遅れ（B6）。機器の組み合わせ（latencyProfileKey）ごとに、実測と手入力を覚える（アプリ設定に保存）
+    struct LatencyProfile
+    {
+        int64 measured = -1;              // 実測（サンプル。-1 = 測っていない）
+        double manualMs = -1.0;           // 手入力（ms。-1 = 使わない）。実測より優先
+    };
+    std::map<juce::String, LatencyProfile> latencyProfiles;
+    bool latencyMeasuring = false;        // 測定音を鳴らしている・解析している
+    bool latencyHasResult = false;        // この画面を開いてから測った（結果を出す）
+    audio::latency::Result latencyResult; // 最後の測定の結果（失敗の理由を出す）
+    int64 recordingLatency = 0;           // 録音を始めた時の補正量（テイクの頭をこの分だけ前へ）
 
     // 入力デバイス（B3。UI_MOCK では open = false のまま）
     audio::InputStatus input;
