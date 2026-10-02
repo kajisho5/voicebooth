@@ -1,5 +1,6 @@
 #include "StatusBar.h"
 #include "parts/Icons.h"
+#include "../models/ModelDownloader.h"
 
 namespace vb
 {
@@ -18,7 +19,7 @@ void StatusBar::onSessionChanged (juce::uint32 c)
         const auto& s = state();
         mini.setLevels (s.inputPeakDb, s.inputRmsDb, s.inputPeakHoldDb, s.inputClipped);
     }
-    if (c & (change::transport | change::practice | change::mode | change::device | change::song | change::meter))
+    if (c & (change::transport | change::view | change::practice | change::mode | change::device | change::song | change::meter))
         repaint();
 
     // 新しいバージョンの知らせが出た：右から滑り込み、LED が 2 回点滅
@@ -190,6 +191,17 @@ void StatusBar::paint (juce::Graphics& g)
         const auto pct = juce::roundToInt (s.separationProgress * 100.0f);
         chip (s.separationEta > 0.0 ? tr ("status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
                                     : tr ("status.separating", pct), colours::ref);
+    }
+
+    // 分離モデルのダウンロード（B16。画面を閉じても裏で続く）
+    {
+        using DS = models::DownloadStatus::Stage;
+        const auto st = s.modelDl.stage;
+        if (st == (int) DS::downloading || st == (int) DS::verifying || st == (int) DS::waiting || st == (int) DS::interrupted)
+        {
+            const auto pct = s.modelDl.size > 0 ? (int) (100 * s.modelDl.received / s.modelDl.size) : 0;
+            chip (tr (s.modelDl.paused ? "status.modelDlPaused" : "status.modelDl", pct), colours::ref);
+        }
     }
 
     if (! s.engineAttached)

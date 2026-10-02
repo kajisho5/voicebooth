@@ -83,7 +83,7 @@ void UpdateDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
 //==============================================================================
 namespace
 {
-    constexpr double modelMB = 220.0;   // ダミー
+    constexpr double sampleModelMB = 220.0;   // 見本（モック）
 
     juce::String modelsFolderText()
     {
@@ -106,24 +106,63 @@ namespace
 ModelDownloadDialog::ModelDownloadDialog (Stage s, bool anim, float from)
     : DialogPanel (tr ("model.title"), tr ("model.micro")), stage (s), animate (anim)
 {
+    modelMB = sampleModelMB;
+    build (from);
+}
+
+ModelDownloadDialog::ModelDownloadDialog (Stage s, UiSession& session)
+    : DialogPanel (tr ("model.title"), tr ("model.micro")), stage (s), animate (false), live (&session)
+{
+    const auto& m = session->modelDl;
+    modelMB = juce::jmax (1.0, (double) m.size / (1024.0 * 1024.0));
+    if (m.title.isNotEmpty()) modelName = m.title;
+    if (m.license.isNotEmpty()) modelLicense = m.license;
+    build (-1.0f);
+    readLive();
+}
+
+void ModelDownloadDialog::readLive()
+{
+    // 本物：UiSession が持つダウンロードの状態をそのまま見せる
+    const auto& m = (*live)->modelDl;
+    using DS = models::DownloadStatus::Stage;
+    gotMB = (double) m.received / (1024.0 * 1024.0);
+    speed = juce::jmax (0.0, m.bytesPerSecond / (1024.0 * 1024.0));
+    verifying = m.stage == (int) DS::verifying;
+    waitLeft = (float) m.retryIn;
+    retry = juce::jmax (1, m.attempt);
+    if (stage == Stage::done) gotMB = modelMB;
+}
+
+void ModelDownloadDialog::build (float from)
+{
     switch (stage)
     {
         case Stage::confirm:
             addFooterKey (tr ("model.download", juce::roundToInt (modelMB)), KeyRole::primary,
-                          [this] { handOff (Stage::downloading); });
+                          [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
             addFooterKey (tr ("model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
             break;
 
         case Stage::downloading:
-            addFooterKey (tr ("model.pause"), KeyRole::normal, [] {});
-            addFooterKey (tr ("common.cancel"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+            if (live == nullptr)
+                addFooterKey (tr ("model.pause"), KeyRole::normal, [] {});   // 本物は再生・録音の間だけ自動で止まる
+            addFooterKey (tr ("common.cancel"), KeyRole::normal, [this]
+            {
+                if (live != nullptr) live->cancelModelDownload();   // 届いた分は残す（次は続きから）
+                if (onCloseRequest) onCloseRequest();
+            });
             gotMB = modelMB * (from >= 0.0f ? from : (animate ? 0.0f : 0.62f));
             break;
 
         case Stage::interrupted:
             // 届いた分は保存済み。少し待って続きから自動で再開（DESIGN 4.10「失敗と再開」）
-            addFooterKey (tr ("model.resumeNow"), KeyRole::primary, [this] { handOff (Stage::downloading); });
-            addFooterKey (tr ("common.cancel"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr ("model.resumeNow"), KeyRole::primary, [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
+            addFooterKey (tr ("common.cancel"), KeyRole::normal, [this]
+            {
+                if (live != nullptr) live->cancelModelDownload();
+                if (onCloseRequest) onCloseRequest();
+            });
             gotMB = std::floor (modelMB * (from >= 0.0f ? from : 0.38f));
             break;
 
@@ -134,7 +173,7 @@ ModelDownloadDialog::ModelDownloadDialog (Stage s, bool anim, float from)
             break;
 
         case Stage::failed:
-            addFooterKey (tr ("model.retry"), KeyRole::primary, [this] { handOff (Stage::downloading); });
+            addFooterKey (tr ("model.retry"), KeyRole::primary, [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
             addFooterKey (tr ("model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
             gotMB = modelMB;
             shakeT = 0.0;     // 開いた時に小さく揺れる
@@ -201,7 +240,9 @@ bool ModelDownloadDialog::advanceAnimation (float dt)
 
     const bool reduced = motion::prefersReducedMotion();
     clock += dt;
-    if (animate && ! handedOff)
+    if (live != nullptr)
+        readLive();
+    else if (animate && ! handedOff)
         simulate (dt);
 
     // 数値はなめらかに追う（動きを減らす設定なら即）
@@ -223,8 +264,8 @@ bool ModelDownloadDialog::advanceAnimation (float dt)
     repaint();
 
     // 取得中・照合中・再開待ちは明滅し続ける。完了・失敗は光・揺れが終われば止まる
-    const bool live = stage == Stage::downloading || stage == Stage::interrupted;
-    return live || flash > 0.0f || shakeT >= 0.0;
+    const bool running = stage == Stage::downloading || stage == Stage::interrupted;
+    return running || flash > 0.0f || shakeT >= 0.0;
 }
 
 //==============================================================================
@@ -332,7 +373,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
         g.drawText (juce::String (juce::roundToInt (modelMB)) + " MB", top.removeFromRight (90.0f), juce::Justification::centredRight, false);
         g.setColour (colours::text);
         g.setFont (mono (14.0f, Weight::semibold));
-        const auto name = juce::String ("Mel-Band RoFormer");
+        const auto name = modelName;
         g.drawText (name, top.removeFromLeft (textWidth (mono (14.0f, Weight::semibold), name) + 14.0f), juce::Justification::centredLeft, false);
         g.setColour (colours::textDim);
         g.setFont (sans (12.0f));
@@ -340,7 +381,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
 
         g.setColour (colours::textMute);
         g.setFont (sans (11.0f));
-        g.drawText (tr ("model.meta", "MIT"), card, juce::Justification::centredLeft, true);
+        g.drawText (tr ("model.meta", modelLicense), card, juce::Justification::centredLeft, true);
     }
     r.removeFromTop (18.0f);
 
@@ -380,7 +421,9 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
                 g.setColour (colours::warn);
                 g.setFont (sans (12.0f));
                 const auto secs = juce::jmax (1, (int) std::ceil (waitLeft));
-                g.drawText (tr ("model.resumeIn", secs, retry), line, juce::Justification::centredRight, false);
+                // 本物で自動の再開を使い切った時は秒を出さない（「今すぐ再開」で続きから）
+                if (live == nullptr || (*live)->modelDl.retryIn > 0)
+                    g.drawText (tr ("model.resumeIn", secs, retry), line, juce::Justification::centredRight, false);
                 r.removeFromTop (16.0f);
                 infoLine (g, r, Icon::check, colours::signal, tr ("model.kept", juce::roundToInt (gotMB)));
                 infoLine (g, r, Icon::shield, colours::signal, tr ("model.verifyAfter"));

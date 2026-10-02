@@ -69,6 +69,30 @@ if(APPLE)
 endif()
 
 # ---------------------------------------------------------------------------
+# Monocypher 4.0.3（CC0 / BSD-2-Clause）：モデルの一覧（manifest）の Ed25519 署名を確かめる（DESIGN 11.7 / B16）
+#   Ed25519（SHA-512）は optional/monocypher-ed25519.c。持ち主は標準の Ed25519 の道具（openssl / Python）で署名できる
+# ---------------------------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(monocypher
+    GIT_REPOSITORY https://github.com/LoupVaillant/Monocypher.git
+    GIT_TAG        4.0.3
+    GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  no-cmake)
+FetchContent_MakeAvailable(monocypher)
+add_library(vb_monocypher STATIC "${monocypher_SOURCE_DIR}/src/monocypher.c" "${monocypher_SOURCE_DIR}/src/optional/monocypher-ed25519.c")
+target_include_directories(vb_monocypher SYSTEM PUBLIC "${monocypher_SOURCE_DIR}/src")
+set_target_properties(vb_monocypher PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Linux（開発用）：モデルのダウンロード（juce::URL）に libcurl を使う。Win / Mac は OS の仕組み（curl は使わない）
+set(VB_USE_CURL 0)
+if(UNIX AND NOT APPLE)
+    find_package(CURL QUIET)
+    if(CURL_FOUND)
+        set(VB_USE_CURL 1)
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # 埋め込みフォント（IBM Plex Sans JP / IBM Plex Mono、SIL OFL 1.1）
 # ---------------------------------------------------------------------------
 juce_add_binary_data(VoiceBoothFonts
@@ -103,7 +127,14 @@ else()
     set(VOICEBOOTH_ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/brand/out/icons/juce_icon_big_win.png")
 endif()
 
+if(VB_USE_CURL)
+    set(VB_NEEDS_CURL TRUE)
+else()
+    set(VB_NEEDS_CURL FALSE)
+endif()
+
 juce_add_gui_app(VoiceBooth
+    NEEDS_CURL   ${VB_NEEDS_CURL}
     ICON_BIG     "${VOICEBOOTH_ICON_BIG}"
     ICON_SMALL   "${CMAKE_CURRENT_SOURCE_DIR}/brand/out/icons/juce_icon_small.png"
     PRODUCT_NAME "VoiceBooth"
@@ -147,7 +178,9 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
     app/analysis/Separation.cpp
-    app/separation/SeparatorClient.cpp)
+    app/separation/SeparatorClient.cpp
+    app/models/ModelManifest.cpp
+    app/models/ModelDownloader.cpp)
 
 # スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SKIN_SOURCES
@@ -208,7 +241,6 @@ target_include_directories(VoiceBooth PRIVATE app)
 target_compile_definitions(VoiceBooth PRIVATE
     VOICEBOOTH_UI_MOCK=$<BOOL:${VOICEBOOTH_UI_MOCK}>
     JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_PRODUCT_NAME>"
     JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_VERSION>")
 
@@ -224,6 +256,8 @@ target_link_libraries(VoiceBooth
         VoiceBoothFonts
         VoiceBoothI18n
         vb_rubberband
+        vb_monocypher
+        juce::juce_cryptography
         juce::juce_gui_basics
         juce::juce_audio_formats
     PUBLIC
@@ -351,7 +385,7 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
     juce_add_console_app(VoiceBoothSeparator PRODUCT_NAME "VoiceBoothSeparator")
     target_sources(VoiceBoothSeparator PRIVATE app/separator/SeparatorMain.cpp app/analysis/Separation.cpp)
     target_include_directories(VoiceBoothSeparator PRIVATE app)
-    target_compile_definitions(VoiceBoothSeparator PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
+    target_compile_definitions(VoiceBoothSeparator PRIVATE JUCE_WEB_BROWSER=0 JUCE_STANDALONE_APPLICATION=1)
     if(MSVC)
         target_compile_options(VoiceBoothSeparator PRIVATE /utf-8)
     endif()
@@ -389,7 +423,7 @@ endif()
 # ---------------------------------------------------------------------------
 if(VOICEBOOTH_TESTS)
     enable_testing()
-    juce_add_console_app(VoiceBoothTests PRODUCT_NAME "VoiceBoothTests")
+    juce_add_console_app(VoiceBoothTests PRODUCT_NAME "VoiceBoothTests" NEEDS_CURL ${VB_NEEDS_CURL})
     target_sources(VoiceBoothTests PRIVATE
         tests/TestMain.cpp
         tests/WaveformOverviewTests.cpp
@@ -415,6 +449,7 @@ if(VOICEBOOTH_TESTS)
         tests/ProjectFileTests.cpp
         tests/DeliveryPackTests.cpp
         tests/SeparationTests.cpp
+        tests/ModelDownloadTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
@@ -422,7 +457,6 @@ if(VOICEBOOTH_TESTS)
     target_include_directories(VoiceBoothTests PRIVATE app)
     target_compile_definitions(VoiceBoothTests PRIVATE
         JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
         JUCE_STANDALONE_APPLICATION=1
         JUCE_MODAL_LOOPS_PERMITTED=1    # 非同期の通知をテストで回すため
         VOICEBOOTH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
@@ -432,6 +466,8 @@ if(VOICEBOOTH_TESTS)
     target_link_libraries(VoiceBoothTests
         PRIVATE
             vb_rubberband
+            vb_monocypher
+            juce::juce_cryptography
             juce::juce_audio_formats
             juce::juce_events
         PUBLIC

@@ -3,6 +3,7 @@
 #include "DummySession.h"
 #include "project/ProjectFile.h"
 #include "separation/SeparatorClient.h"
+#include "models/ModelDownloader.h"
 #include "audio/SongLoader.h"
 
 /*  画面の状態（Phase A）
@@ -162,6 +163,12 @@ public:
     /** お手本の原曲から声を分離して、お手本の線を作る（B16。引き算では取れない時）。裏で進む */
     void separateGuide();
     void stopSeparation();
+    /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。押した時だけ呼ぶ */
+    void requestSeparationModel();
+    void startModelDownload();
+    void cancelModelDownload();
+    /** 「声を分離して取り出しますか？」を出す（モデルが入った後など） */
+    void offerSeparation() { if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); } }
     /** 分離に要る物（分離プロセスとモデル）がそろっている */
     bool separationAvailable() const;
     /** 分離にかかる時間の目安（秒。このパソコンで測る前の見込み） */
@@ -275,6 +282,8 @@ private:
     bool stemsDirty = false;
     juce::uint32 stemGeneration = 0, stemSlotGeneration[4] {};
     juce::String stemSignature[4];
+    std::unique_ptr<models::ModelDownloader> modelDownloader;   // B16
+    std::unique_ptr<models::ModelEntry> modelEntry;             // 署名を確かめた一覧の中の分離モデル
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか

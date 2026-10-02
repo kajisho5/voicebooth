@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Overlay.h"
+#include "../UiSession.h"
 
 namespace vb
 {
@@ -35,6 +36,8 @@ public:
     /** animate：ダウンロード中・再開待ちを進める（スクリーンショット用は false で止める）
         from：届いている割合（0..1。再開の時の続き）。負なら状態ごとの見本の値 */
     ModelDownloadDialog (Stage, bool animate, float from = -1.0f);
+    /** 本物（B16）：live の状態（UiSession の modelDl）を表示し、キーで本当に始める・止める */
+    ModelDownloadDialog (Stage, UiSession& live);
     ~ModelDownloadDialog() override;
 
     /** 次の状態へ（開き直してもらう）。progress：届いている割合 */
@@ -55,6 +58,11 @@ private:
 
     Stage stage;
     bool animate;
+    UiSession* live = nullptr;
+    void readLive();
+    void build (float from);
+    double modelMB = 220.0;
+    juce::String modelName { "Mel-Band RoFormer" }, modelLicense { "MIT" };
     bool verifying = false;     // ダウンロード中の最後：照合（青が走る）
     bool handedOff = false;
 

@@ -141,6 +141,7 @@ VoiceBooth는 무료입니다. 마음에 드셨다면 [GitHub Sponsors](https://
 | minimp3(`third_party/minimp3`) | CC0 |
 | IBM Plex Sans JP / IBM Plex Mono(`resources/fonts`) | SIL Open Font License 1.1 |
 | ONNX Runtime 1.22.0(보컬 분리용 별도 프로세스에서만. 빌드할 때 공식 빌드본을 가져옴) | MIT |
+| Monocypher 4.0.3(모델 목록의 Ed25519 서명 확인. 빌드할 때 가져옴) | CC0 / BSD-2-Clause 듀얼 |
 | Rubber Band Library 4(연습용 템포 / 키. 빌드할 때 가져옴) | GPL v2 이상 / 상용 듀얼(여기서는 GPL) |
 | Steinberg ASIO SDK 2.3.4(Windows 빌드만. 빌드할 때 공식 배포본을 가져옴) | GPLv3 / 상용 듀얼(여기서는 GPLv3). SDK 자체는 저장소에 넣지 않음. ASIO는 Steinberg Media Technologies GmbH의 상표 |
 | 예정: 분리·음정·가사 모델 | 가중치 라이선스를 확인한 것만. 앱과 별도로 배포 |
