@@ -68,6 +68,21 @@ public:
                 expectWithinAbsoluteError (it.offsetMs, 40.0, 10.0);
         }
 
+        beginTest ("entries: a short blip or the end of the last phrase just before an entry isn't taken as the entry");
+        {
+            auto take = frames (melody, 40.0);
+            for (auto& f : take)   // 入りの 200 ms 前に 30 ms だけ同じ音の息、2 つ目の入りの 150 ms 前に前のフレーズの残り（同じ音で 120 ms）
+            {
+                if (f.songSample >= ms (800) && f.songSample < ms (830))   { f.midi = 64.0f; f.confidence = 0.9f; }
+                if (f.songSample >= ms (2730) && f.songSample < ms (2850)) { f.midi = 72.0f; f.confidence = 0.9f; }
+            }
+            const auto s = onsetStats (frames (melody), take, rate, 0, ms (12000));
+            expectEquals ((int) s.items.size(), 3);
+            expectWithinAbsoluteError (s.items[0].offsetMs, 40.0, 10.0);   // 息（30 ms）は入りにしない
+            expectWithinAbsoluteError (s.items[1].offsetMs, 40.0, 10.0);   // 近い方（本当の入り）を取る
+            expectWithinAbsoluteError (s.medianMs, 40.0, 10.0);
+        }
+
         beginTest ("entries: early, and a phrase that wasn't sung is left out");
         {
             auto take = frames ({ melody[0], melody[1], melody[2], melody[6] }, -60.0);   // フレーズ 2 を歌っていない、60 ms 早い

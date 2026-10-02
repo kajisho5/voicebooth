@@ -1,6 +1,10 @@
 {
   "analysis.onset": "ONSET",
+  "analysis.onset.early": "早 {0} ms",
+  "analysis.onset.onTime": "剛好",
   "analysis.onset.value": "晚 {0} ms",
+  "analysis.pitch": "PITCH",
+  "analysis.pitch.value": "帶內 {0}%",
   "analysis.vibrato": "VIB",
   "analysis.vibrato.value": "{0} Hz ±{1}c",
   "analyze.chooseAnother": "選擇其他歌曲",

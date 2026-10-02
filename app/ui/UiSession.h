@@ -167,6 +167,11 @@ public:
         進み具合は separating / separationProgress）。終わったら done（作ったファイル、失敗なら空と理由）。stopSeparation で中止 */
     void makeOffVocal (const juce::File& original, std::function<void (juce::File, juce::String)> done);
     void stopSeparation();
+    // --- テイクの解析（B18） ---------------------------------------------------
+    /** お手本と比べた結果を作り直す（onlyKey があればそのテイクだけ） */
+    void updateTakeStats (const juce::String& onlyKey = {});
+    /** いま選んでいるトラックのいちばん新しいテイクの結果（無ければ nullptr） */
+    const dummy::Session::TakeStats* latestTakeStats() const;
     /** お手本から取り出した声（オフボの時間、16 kHz モノラル）。歌詞の自動合わせ（B17）に使う。お手本を合わせ終えると作られる */
     juce::File guideVocalsFile() const { return s.projectFolder == juce::File() ? juce::File() : s.projectFolder.getChildFile ("Cache/lyrics/guide-vocals-16k.wav"); }
     /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。押した時だけ呼ぶ */

@@ -1,6 +1,10 @@
 {
   "analysis.onset": "ONSET",
+  "analysis.onset.early": "{0} ms early",
+  "analysis.onset.onTime": "on time",
   "analysis.onset.value": "{0} ms late",
+  "analysis.pitch": "PITCH",
+  "analysis.pitch.value": "{0}% in band",
   "analysis.vibrato": "VIB",
   "analysis.vibrato.value": "{0} Hz ±{1}c",
   "analyze.chooseAnother": "Choose another song",

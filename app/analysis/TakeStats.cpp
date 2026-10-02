@@ -116,6 +116,8 @@ OnsetStats onsetStats (const std::vector<audio::PitchFrame>& guide, const std::v
     OnsetStats out;
     const auto notes = segmentNotes (guide, sampleRate);
     const auto rest = (int64) (0.15 * sampleRate), search = (int64) (0.25 * sampleRate);
+    const auto hold = (int64) (0.06 * sampleRate);
+    constexpr int holdFrames = 5;   // 10 ms ごとの点で 60 ms のうち 5 点以上
     std::vector<float> offsets;
     int64 prevEnd = std::numeric_limits<int64>::min() / 2;
     for (auto& n : notes)
@@ -126,21 +128,34 @@ OnsetStats onsetStats (const std::vector<audio::PitchFrame>& guide, const std::v
             continue;
         ++out.entries;
 
-        // テイクで、前後 250 ms の中で最初に「同じ音」で声が出た所（その前は声が無いこと：歌い続けている所は入りと言わない）
+        // テイクで、前後 250 ms の中の「声が無い → 同じ音で声が出て 60 ms 以上その音が続く」所のうち、お手本の頭にいちばん近い所。
+        // （いちばん早い所を取ると、手前の息・前のフレーズの残りを拾って大きく早めに出る）
         auto it = std::lower_bound (take.begin(), take.end(), n.start - search,
                                     [] (const audio::PitchFrame& f, int64 s) { return f.songSample < s; });
         bool wasSilent = it == take.begin() || ! voiced (*std::prev (it));
+        double best = 0.0;
+        bool found = false;
         for (; it != take.end() && it->songSample <= n.start + search; ++it)
         {
             if (! voiced (*it)) { wasSilent = true; continue; }
             if (wasSilent && std::abs (centsApart (it->midi, n.midi)) <= 150.0f)
             {
-                const auto ms = (double) (it->songSample - n.start) * 1000.0 / sampleRate;
-                out.items.push_back ({ n.start, ms });
-                offsets.push_back ((float) ms);
-                break;
+                int held = 0;
+                for (auto k = it; k != take.end() && voiced (*k) && std::abs (centsApart (k->midi, n.midi)) <= 150.0f
+                                  && k->songSample - it->songSample < hold; ++k)
+                    ++held;
+                if (held >= holdFrames)
+                {
+                    const auto ms = (double) (it->songSample - n.start) * 1000.0 / sampleRate;
+                    if (! found || std::abs (ms) < std::abs (best)) { best = ms; found = true; }
+                }
             }
             wasSilent = false;
+        }
+        if (found)
+        {
+            out.items.push_back ({ n.start, best });
+            offsets.push_back ((float) best);
         }
     }
     out.medianMs = offsets.empty() ? 0.0 : (double) median (offsets);

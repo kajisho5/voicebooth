@@ -487,9 +487,9 @@ void PitchLane::drawFooter (juce::Graphics& g)
         label (tr ("pitch.legend.mainGhost"), colours::textDim);
     }
 
-    // 入りタイミング（標準以上）/ 解析（プロ）— ダミー値。歌っていない（自分のピッチが無い）曲では出さない
-    // 入りの早さ・ビブラートはまだ見本の値（解析は B18）。実際の声（お手本と比べていない点）では出さない
-    if (! analysisArea.isEmpty() && ! s.myPitch.empty() && s.myPitch.front().judged)
+    // 入りタイミング（標準以上）/ 解析（プロ）。本物のアプリはいまのトラックのいちばん新しいテイクをお手本と比べた値（B18）。
+    // 見本（UI_MOCK）は見本の値。お手本・テイクが無ければ出さない
+    if (! analysisArea.isEmpty())
     {
         auto a = analysisArea.toFloat();
         auto chip = [&] (const juce::String& name, const juce::String& value, juce::Colour c)
@@ -497,6 +497,8 @@ void PitchLane::drawFooter (juce::Graphics& g)
             const auto lf2 = mono (9.5f, Weight::medium, 0.12f);
             const auto vf = mono (11.0f, Weight::semibold);
             const auto w = textWidth (lf2, name) + textWidth (vf, value) + 22.0f;
+            if (w > a.getWidth())
+                return;
             auto box = a.removeFromLeft (w).withSizeKeepingCentre (w, 24.0f);
             a.removeFromLeft (6.0f);
             paint::inset (g, box);
@@ -507,9 +509,37 @@ void PitchLane::drawFooter (juce::Graphics& g)
             g.drawText (value, box, juce::Justification::centredLeft, false);
         };
 
-        chip (tr ("analysis.onset"), tr ("analysis.onset.value", "+40"), colours::warn);
-        if (s.mode == project::Mode::pro)
-            chip (tr ("analysis.vibrato"), tr ("analysis.vibrato.value", "5.5", "28"), colours::text);
+        if (! s.engineAttached)
+        {
+            if (! s.myPitch.empty() && s.myPitch.front().judged)
+            {
+                chip (tr ("analysis.onset"), tr ("analysis.onset.value", "+40"), colours::warn);
+                if (s.mode == project::Mode::pro)
+                    chip (tr ("analysis.vibrato"), tr ("analysis.vibrato.value", "5.5", "28"), colours::text);
+            }
+        }
+        else if (const auto* st = session.latestTakeStats())
+        {
+            if (st->matched > 0)
+            {
+                const auto ms = juce::roundToInt (st->onsetMs);
+                const auto absMs = std::abs (ms);
+                const auto value = absMs <= 15 ? tr ("analysis.onset.onTime")
+                                 : ms > 0     ? tr ("analysis.onset.value", "+" + juce::String (ms))
+                                              : tr ("analysis.onset.early", juce::String (absMs));
+                chip (tr ("analysis.onset"), value, absMs <= 30 ? colours::signal : (absMs <= 80 ? colours::warn : colours::bad));
+            }
+            if (s.mode == project::Mode::pro)
+            {
+                if (st->pitchFrames > 50)
+                {
+                    const auto pct = juce::roundToInt (st->inBand * 100.0f);
+                    chip (tr ("analysis.pitch"), tr ("analysis.pitch.value", pct), pct >= 80 ? colours::signal : (pct >= 60 ? colours::warn : colours::bad));
+                }
+                if (st->vibNotes > 0)
+                    chip (tr ("analysis.vibrato"), tr ("analysis.vibrato.value", juce::String (st->vibRateHz, 1), juce::roundToInt (st->vibDepthCents)), colours::text);
+            }
+        }
     }
 }
 } // namespace vb

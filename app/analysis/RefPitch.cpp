@@ -8,6 +8,7 @@ namespace
     constexpr double blockSeconds = 0.5;
     constexpr float cleanLimitDb = -15.0f;     // 伴奏だけの所で、残りがこれより小さければ「引けた」
     constexpr double quietBlock = 1.0e-5;      // 平均の 2 乗がこれ未満（約 -50 dBFS）のブロックは判定に使わない
+    constexpr float residualGateDb = 24.0f;    // 残りの山が原曲の山よりこれ以上小さい点は声が無いとみなす（mp3 / m4a の符号化の残りを拾わない）
 
     struct Block
     {
@@ -149,6 +150,29 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
                 result.status = RefPitchResult::Status::cancelled;
                 return result;
             }
+        }
+    }
+
+    // 声の無い所（前奏・間奏）に残る符号化の差の音程を消す：同じ時刻の原曲の山（±10 ms）と比べて小さすぎる点
+    {
+        const auto half = (int64) (0.01 * sampleRate);
+        for (auto& p : result.points)
+        {
+            if (p.confidence <= 0.0f)
+                continue;
+            float peak = 0.0f;
+            const auto k = p.songSample;
+            for (const auto& c : align.covered)
+            {
+                if (k < c.karaokeStart || k >= c.karaokeEnd)
+                    continue;
+                for (auto j = juce::jmax ((int64) 0, k + c.offsetSamples - half); j < juce::jmin (referenceLength, k + c.offsetSamples + half); ++j)
+                    peak = juce::jmax (peak, std::abs (reference[j]));
+                break;
+            }
+            const auto refDb = peak > 0.0f ? 20.0f * std::log10 (peak) : -100.0f;
+            if (p.levelDb < refDb - residualGateDb)
+                p.confidence = 0.0f;
         }
     }
 
