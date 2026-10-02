@@ -168,6 +168,23 @@ public:
             expect (project::takeAt (t, 16000)->id == "take3");
             expect (project::takeAt (t, 16600)->id == "take1");
         }
+
+        beginTest ("comp: choosing an existing take again (take compare) changes only the range, adds no take");
+        {
+            project::Track t;
+            project::applyTake (t, take ("take1", 0, 20000));
+            project::applyTake (t, take ("take2", 6000, 14000), 8000, 12000);
+            const auto takesBefore = t.takes.size();
+            project::useTake (t, t.takes[0], 8000, 12000);   // 範囲を take1 に戻す
+            expectEquals (t.takes.size(), takesBefore);
+            expectEquals ((int) t.comp.size(), 1);   // まとまって 1 本
+            expect (t.comp[0].takeId == "take1" && t.comp[0].startSample == 0 && t.comp[0].endSample == 20000);
+            project::useTake (t, t.takes[1], 0, 20000);       // take2 を全体に：録れている所（6000–14000）だけ
+            expect (project::takeAt (t, 7000)->id == "take2");
+            expect (project::takeAt (t, 5000)->id == "take1");
+            expect (project::takeAt (t, 15000)->id == "take1");
+            expect (project::compIsValid (t));
+        }
     }
 
     //==========================================================================

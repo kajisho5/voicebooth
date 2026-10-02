@@ -22,6 +22,9 @@ void applyTake (Track&, const Take&, int64 useFrom);
 /** 区間の録り直し（パンチイン。B10）：採用は [useFrom, useTo) だけ。前後のプリロール・余韻はファイルに残す */
 void applyTake (Track&, const Take&, int64 useFrom, int64 useTo);
 
+/** もうあるテイクを [useFrom, useTo) で採用し直す（テイクは足さない。テイク比較の選び直し。B18） */
+void useTake (Track&, const Take&, int64 useFrom, int64 useTo);
+
 /** 採用区間が正しい形か（重ならない・start の順・長さ > 0・テイクがある）。テストと読み込みの点検用 */
 bool compIsValid (const Track&);
 
