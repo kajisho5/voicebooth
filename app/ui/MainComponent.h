@@ -130,6 +130,7 @@ private:
     bool clockFrozen = false;   // スクリーンショット用（--rec）
     int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
     void maybeOpenSetup();      // 初めての機器なら入力セットアップを開く（B13）
+    int separationOfferSeen = 0;   // 「分離しますか？」を出した回数（B16）
     int noticeSeen = 0;         // UiSession の知らせ（録音・書き出しの結果など）を出した回数
 
     juce::String toastText;

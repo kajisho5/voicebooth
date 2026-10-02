@@ -4,7 +4,7 @@
 
     使い方：
       VoiceBoothSeparator --model <フォルダ> --in <44.1 kHz ステレオの WAV> --vocals <出力 WAV> --backing <出力 WAV>
-                          [--overlap 2] [--threads 0]
+                          [--overlap 2] [--threads 0] [--parent-pid <本体の PID>] [--stdin-control]
     出力（標準出力、1 行ずつ）：
       ready <チャンクの数>        モデルを読んだ
       chunk <秒>                 最初のチャンクにかかった秒（時間の見込み = これ × チャンクの数。11.6.1）
@@ -23,6 +23,19 @@
 #include "analysis/Separation.h"
 #include <atomic>
 #include <iostream>
+#include <thread>
+#if JUCE_WINDOWS
+ #ifndef NOMINMAX
+  #define NOMINMAX
+ #endif
+ #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+ #endif
+ #include <windows.h>
+#else
+ #include <signal.h>
+ #include <cerrno>
+#endif
 
 namespace
 {
@@ -33,6 +46,21 @@ std::atomic<bool> stopRequested { false };
 void say (const juce::String& line)
 {
     std::cout << line.toStdString() << std::endl;   // 1 行ずつ flush（本体が読む）
+}
+
+/** 本体（--parent-pid）が生きているか（落ちたら分離も止める） */
+bool parentAlive (juce::int64 pid)
+{
+    if (pid <= 0) return true;
+   #if JUCE_WINDOWS
+    auto h = OpenProcess (SYNCHRONIZE, FALSE, (DWORD) pid);
+    if (h == nullptr) return false;
+    const bool running = WaitForSingleObject (h, 0) == WAIT_TIMEOUT;
+    CloseHandle (h);
+    return running;
+   #else
+    return ::kill ((pid_t) pid, 0) == 0 || errno != ESRCH;
+   #endif
 }
 
 int fail (const juce::String& why)
@@ -134,6 +162,19 @@ int main (int argc, char* argv[])
     const int threads = juce::jmax (0, arg (args, "--threads", "0").getIntValue());
     if (! modelDir.isDirectory() || ! in.existsAsFile() || outVocals == juce::File() || outBacking == juce::File())
         return fail ("usage: --model <dir> --in <wav> --vocals <wav> --backing <wav> [--overlap 2] [--threads 0]");
+
+    // 本体が落ちたら止める
+    if (const auto parent = arg (args, "--parent-pid").getLargeIntValue(); parent > 0)
+    {
+        std::thread ([parent]
+        {
+            while (! stopRequested.load())
+            {
+                if (! parentAlive (parent)) { stopRequested = true; break; }
+                std::this_thread::sleep_for (std::chrono::seconds (1));
+            }
+        }).detach();
+    }
 
     // 本体からの中止（stop の行、または標準入力が閉じた）
     if (args.contains ("--stdin-control"))
