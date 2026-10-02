@@ -29,13 +29,18 @@ void applyTake (Track& t, const Take& take)
 
 void applyTake (Track& t, const Take& take, int64 useFrom)
 {
+    applyTake (t, take, useFrom, take.endSample);
+}
+
+void applyTake (Track& t, const Take& take, int64 useFrom, int64 useTo)
+{
     if (take.endSample <= take.startSample)
         return;
 
     t.takes.push_back (take);
 
     // 採用するのは曲の中だけ（頭より前は補正で出た分。ファイルは切らない）
-    const auto start = std::max ({ (int64) 0, take.startSample, useFrom }), end = take.endSample;
+    const auto start = std::max ({ (int64) 0, take.startSample, useFrom }), end = std::min (take.endSample, useTo);
     if (end <= start)
         return;
 

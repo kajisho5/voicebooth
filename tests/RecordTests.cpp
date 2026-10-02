@@ -152,6 +152,22 @@ public:
             expectEquals (t.takes[1].startSample, (int64) 2000);        // ファイルの頭はそのまま
             expect (project::compIsValid (t));
         }
+
+        beginTest ("comp: a punch-in take (pre-roll and tail in the file) is used only inside the range");
+        {
+            project::Track t;
+            project::applyTake (t, take ("take1", 0, 20000));
+            project::applyTake (t, take ("take2", 6000, 14000), 8000, 12000);   // プリロール 2000・余韻 2000
+            expectEquals ((int) t.comp.size(), 3);
+            expect (t.comp[0].takeId == "take1" && t.comp[0].endSample == 8000);
+            expect (t.comp[1].takeId == "take2" && t.comp[1].startSample == 8000 && t.comp[1].endSample == 12000);
+            expect (t.comp[2].takeId == "take1" && t.comp[2].startSample == 12000 && t.comp[2].endSample == 20000);
+            expect (project::compIsValid (t));
+
+            project::applyTake (t, take ("take3", 15000, 16500), 15000, 17000);   // 範囲の途中で止めた：録れた所まで
+            expect (project::takeAt (t, 16000)->id == "take3");
+            expect (project::takeAt (t, 16600)->id == "take1");
+        }
     }
 
     //==========================================================================

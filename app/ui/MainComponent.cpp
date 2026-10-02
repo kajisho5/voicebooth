@@ -237,6 +237,13 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     const auto c = key.getTextCharacter();
     const auto& s = state();
 
+    // Ctrl / ⌘+Z：直前のテイクを採用から外す（B10）
+    if (key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0))
+    {
+        session.undoTake();
+        return true;
+    }
+
     if (key == juce::KeyPress::spaceKey)
     {
         transport.playKey().flash();
