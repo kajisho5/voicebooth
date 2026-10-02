@@ -1,6 +1,7 @@
 #include "ExportDialog.h"
 #include "../WaveLane.h"
 #include "export/ExportService.h"
+#include "export/DeliveryPack.h"
 
 namespace vb
 {
@@ -24,7 +25,8 @@ ExportDialog::ExportDialog (UiSession& u)
         if (! session.isTrackVisible (t)) return;
         const auto* tr_ = s.project.findTrack (t);
         const bool recorded = tr_ != nullptr && ! tr_->comp.empty();
-        FileRow row { t, exporter::ExportService::dryFileName (s.songName, t), recorded, clip && recorded, recorded ? peak : "", {}, false };
+        FileRow row { t, exporter::ExportService::dryFileName (s.songName, t), recorded, clip && recorded, recorded ? peak : "", {}, false, {} };
+        row.packFile = exporter::DeliveryPack::packFileName (t);
         if (real && recorded)
         {
             // 採用区間に使っているテイクの最大値とクリップ（ノーマライズしないので、そのまま書き出される値）
@@ -47,8 +49,8 @@ ExportDialog::ExportDialog (UiSession& u)
     add (TrackType::doubleTrack, false, "-4.8");
     add (TrackType::harm1, false, "");
     add (TrackType::harm2, false, "");
-    FileRow refmix { TrackType::backing, s.songName + "_refmix.wav", ! real, false, real ? "" : "-1.2", {}, false };
-    refmix.later = real;   // 確認用ミックスは納品パックと一緒（B15）
+    FileRow refmix { TrackType::backing, s.songName + "_refmix.wav", true, false, real ? "" : "-1.2", {}, true, {} };
+    refmix.packFile = "refmix.wav";   // 確認用ミックスは納品パックに入る（B15。いま聞いている音量で）
     rows.push_back (refmix);
 
     for (auto& r : rows)
@@ -56,14 +58,26 @@ ExportDialog::ExportDialog (UiSession& u)
         auto* k = checks.add (new KeyButton());
         k->withLed().withToggle (true);
         k->setToggleState (r.available, juce::dontSendNotification);
-        k->setEnabled (r.available);
+        k->setEnabled (r.available && ! r.packOnly);
+        k->onClick = [this] { repaint(); };
         addAndMakeVisible (k);
     }
 
-    // 簡単は通常 WAV のみ（DESIGN 2）。曲を開いている時は、納品パック（B15）ができるまで個別 WAV だけ
-    packMode.setVisible (s.mode != project::Mode::easy && ! real);
-    packMode.onChange = [this] (int) { repaint(); };
+    // 簡単は通常 WAV のみ（DESIGN 2）。標準・プロは個別 WAV か納品パック（B15）
+    packMode.setVisible (s.mode != project::Mode::easy);
+    packMode.onChange = [this] (int)
+    {
+        // 確認用ミックスはパックの時だけ（入れるかどうかは選べる）
+        for (size_t i = 0; i < rows.size(); ++i)
+            if (rows[i].packOnly)
+            {
+                checks[(int) i]->setEnabled (packSelected());
+                checks[(int) i]->setToggleState (packSelected(), juce::dontSendNotification);
+            }
+        repaint();
+    };
     addChildComponent (packMode);
+    packMode.onChange (packMode.getSelected());
 
     // ビット数（既定は録音形式。依頼先が 16bit を指定する時など）。16bit はディザー付き
     bitKeys.setFont (mono (11.0f));
@@ -151,7 +165,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
                 g.drawText (text, b, juce::Justification::centredLeft, false);
             };
 
-            if (f.later)        chip (tr ("export.status.notYet"), colours::textMute, Icon::warning);
+            if (f.packOnly && ! packSelected()) chip (tr ("export.status.packOnly"), colours::textMute, Icon::warning);
             else if (! f.available)  chip (tr ("export.status.unrecorded"), colours::textMute, Icon::warning);
             else if (f.clip)    chip (f.clipTakes.isNotEmpty() ? tr ("export.status.clipTakes", f.clipTakes) : tr ("export.status.clip"),
                                       colours::bad, Icon::warning);
@@ -186,18 +200,23 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         paint::inset (g, p);
         p.reduce (14.0f, 10.0f);
 
-        const bool zip = packMode.isVisible() && packMode.getSelected() == 1;
+        const bool zip = packSelected();
+        const bool real = s.backingWave != nullptr && s.projectFolder != juce::File();
+        const auto packName = real ? exporter::DeliveryPack::nextFolder (s.projectFolder, juce::Time::getCurrentTime()).getFileName()
+                                   : juce::String ("export_20261001");
         juce::StringArray lines;
         if (zip)
         {
-            lines.add ("export_20261001/");
-            for (auto& f : rows) if (f.available) lines.add ("  " + f.file);
+            lines.add (packName + "/   (+ " + packName + ".zip)");
+            for (size_t i = 0; i < rows.size(); ++i)
+                if (rows[i].available && checks[(int) i]->getToggleState()) lines.add ("  " + rows[i].packFile);
             lines.add ("  notes.txt");
             if (s.mode == project::Mode::pro) lines.add ("  take_map.txt");
         }
         else
         {
-            for (auto& f : rows) if (f.available) lines.add (f.file);
+            for (size_t i = 0; i < rows.size(); ++i)
+                if (rows[i].available && ! rows[i].packOnly && checks[(int) i]->getToggleState()) lines.add (rows[i].file);
         }
 
         auto col = p.removeFromLeft (p.getWidth() * 0.45f);
@@ -211,13 +230,16 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         {
             p.removeFromLeft (16.0f);
             paint::microLabel (g, p.removeFromTop (14.0f), "notes.txt", colours::textMute);
+            const auto bits = selectedBitDepth();
+            juce::String peak = "-";
+            for (auto& f : rows) if (f.type == project::TrackType::main && f.available) peak = f.peak;
             const juce::StringArray notes {
                 "title: " + s.songName,
                 "sr: " + juce::String (s.sampleRate()),
-                "bit: 24",
-                "key: " + juce::String (s.keyShift),
+                "bit: " + (bits >= 32 ? juce::String ("32 float") : juce::String (bits)),
+                "key: 0",          // 納品は原キー・原速（練習のテンポ・キーは入らない）
                 "tempo: 100",
-                "peak_vocal_dbfs: -0.1",
+                "peak_vocal_dbfs: " + peak,
                 "normalized: no",
                 "latency_compensation_ms: " + juce::String (latencyDisplay (s).ms, 1),   // いま補正に使っている値（B6）
             };
@@ -236,7 +258,8 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         g.setColour (colours::textDim);
         g.setFont (mono (11.0f));
         const auto dest = s.backingWave != nullptr && s.projectFolder != juce::File()
-                        ? s.projectFolder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d")).getFullPathName()
+                        ? (packSelected() ? exporter::DeliveryPack::nextFolder (s.projectFolder, juce::Time::getCurrentTime())
+                                          : s.projectFolder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d"))).getFullPathName()
                                 + juce::File::getSeparatorString()
                         : "Projects/" + s.songName + "/export_20261001/";
         g.drawText (dest, d, juce::Justification::centredLeft, true);
@@ -253,11 +276,24 @@ int ExportDialog::selectedBitDepth() const
     }
 }
 
+bool ExportDialog::packSelected() const
+{
+    return packMode.isVisible() && packMode.getSelected() == 1;
+}
+
+bool ExportDialog::refmixSelected() const
+{
+    for (size_t i = 0; i < rows.size(); ++i)
+        if (rows[i].packOnly)
+            return packSelected() && checks[(int) i]->getToggleState();
+    return false;
+}
+
 std::vector<project::TrackType> ExportDialog::selectedTracks() const
 {
     std::vector<project::TrackType> out;
     for (size_t i = 0; i < rows.size(); ++i)
-        if (rows[i].available && ! rows[i].later && rows[i].type != project::TrackType::backing
+        if (rows[i].available && ! rows[i].packOnly && rows[i].type != project::TrackType::backing
             && checks[(int) i]->getToggleState())
             out.push_back (rows[i].type);
     return out;

@@ -9,6 +9,8 @@
 #include "audio/InputMeter.h"
 #include "project/Comp.h"
 #include "export/ExportService.h"
+#include "export/DeliveryPack.h"
+#include "SongMarks.h"
 #include "audio/PlaybackCore.h"
 #include "Timeline.h"
 #include "audio/Resample.h"
@@ -89,6 +91,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     for (auto& f : s.projectFolder.getChildFile ("Audio/Takes").findChildFiles (juce::File::findFiles, false, ".retro-*.wav"))
         f.deleteFile();
     s.songOriginal = audio;
+    s.songCurrent = audio;
 
     if (engine != nullptr)
     {
@@ -426,6 +429,7 @@ void UiSession::conformSong()
             s.project.sampleRate = target;
             s.project.lengthSamples = audio->length();
             s.backingWave = wave;
+            s.songCurrent = audio;
 
             if (engine != nullptr)
             {
@@ -1422,6 +1426,61 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
             s.exporting = false;
             if (failed.isEmpty()) postNotice (tr ("export.done", written, dest.getFullPathName()));
             else                  postNotice (tr ("export.failed", failed.joinIntoString (", ")));
+            notify (change::takes);
+        });
+    });
+}
+
+void UiSession::exportPack (const std::vector<project::TrackType>& types, int bitDepth, bool refmix)
+{
+    if (s.exporting || s.project.lengthSamples <= 0 || s.projectFolder == juce::File() || types.empty())
+        return;
+
+    exporter::PackOptions o;
+    o.songName = s.songName;
+    o.tracks = types;
+    o.bitDepth = bitDepth == 16 || bitDepth == 24 || bitDepth == 32 ? bitDepth : s.project.bitDepthExport;
+    o.takeMap = s.mode == project::Mode::pro;   // 標準は WAV + 基本、プロはフルパック（DESIGN 2）
+    o.zip = true;
+    if (s.project.key.known())   o.songKey = s.project.key.shortName();
+    if (s.project.tempo.known()) o.bpm = s.project.tempo.bpm;
+
+    // 確認用ミックスは「いま聞いている音量」で（オフボのフェーダーと M、トラックの音量・M / S）
+    if (refmix && s.songCurrent != nullptr && s.songCurrent->length() == s.project.lengthSamples)
+        o.backing = std::shared_ptr<const juce::AudioBuffer<float>> (s.songCurrent, &s.songCurrent->buffer);
+    o.backingGain = s.backingMuted ? 0.0f : audio::PlaybackCore::faderToGain (s.offVocalGain);
+    bool anySolo = false;
+    for (auto& t : s.trackUi) anySolo = anySolo || t.solo;
+    for (auto& t : s.trackUi)
+        o.vocalGains[t.type] = (! t.mute && (! anySolo || t.solo)) ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
+
+    // take_map の区間名（いまの言語で。裏のスレッドから読むので写しを渡す）
+    const auto sections = s.project.sections;
+    o.sectionAt = [sections] (int64 sample)
+    {
+        int index = -1;
+        for (int i = 0; i < (int) sections.size(); ++i)
+            if (sections[(size_t) i].startSample <= sample)
+                index = i;
+        return index >= 0 ? marks::sectionName (sections, index) : juce::String();
+    };
+
+    auto project = s.project;
+    const auto folder = s.projectFolder;
+    s.exporting = true;
+    notify (change::takes);
+
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, project, folder, o]
+    {
+        const auto r = exporter::DeliveryPack::write (project, folder, o);
+        juce::MessageManager::callAsync ([this, weak, r]
+        {
+            if (weak.expired())
+                return;
+            s.exporting = false;
+            if (r.ok) postNotice (tr ("export.pack.done", r.files.size(), r.zipFile.getFullPathName()));
+            else      postNotice (tr ("export.failed", r.message));
             notify (change::takes);
         });
     });

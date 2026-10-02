@@ -164,6 +164,8 @@ public:
     /** トラックの採用区間をフル尺の WAV に書き出す（裏のスレッドで。終わったら知らせる）。
         書き出し先は曲のプロジェクトフォルダの export_YYYYMMDD/。曲が無ければ何もしない */
     void exportTracks (const std::vector<project::TrackType>&, int bitDepth = 0);   // bitDepth：16 / 24 / 32（0 = 録音形式）
+    /** 納品パック（B15。DESIGN 9）：export_YYYYMMDD/ に各トラックの Dry・確認用ミックス・notes.txt（プロは take_map.txt）と zip */
+    void exportPack (const std::vector<project::TrackType>&, int bitDepth = 0, bool refmix = true);
 
     /** 曲ごとの作業フォルダ（テイク・書き出し）。.vbooth の保存（B14）までの仮の置き場：
         書類フォルダ/VoiceBooth/Projects/{曲名}/ */
