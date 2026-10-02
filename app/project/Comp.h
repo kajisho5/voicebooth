@@ -16,6 +16,9 @@ juce::String nextTakeId (const Track&);
     曲の中に長さが無いテイクは採用区間に入れない（テイクとしては残す） */
 void applyTake (Track&, const Take&);
 
+/** 同じだが、採用は useFrom から（遡及録音で、裏で録っていた頭のうち REC で採る所から。B7）。テイク自体の位置は変えない */
+void applyTake (Track&, const Take&, int64 useFrom);
+
 /** 採用区間が正しい形か（重ならない・start の順・長さ > 0・テイクがある）。テストと読み込みの点検用 */
 bool compIsValid (const Track&);
 

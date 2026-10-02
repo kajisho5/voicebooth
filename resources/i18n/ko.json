@@ -241,6 +241,7 @@
   "record.problem.noSong": "곡을 열면 녹음할 수 있습니다",
   "record.problem.sampleRate": "기기를 곡과 같은 {0} kHz로 열 수 없어 녹음할 수 없습니다. 입력 설정에서 기기나 SR을 바꾸세요",
   "record.recordingTo": "RECORDING TO",
+  "record.renameFailed": "테이크 이름을 바꾸지 못했습니다({0} 그대로). 곡을 다시 열기 전에 폴더에서 옮겨 주세요",
   "record.target": "TARGET",
   "record.target.delivery": "드라이 보컬 / 납품",
   "record.target.deliveryWhole": "드라이 보컬 / 납품(통째로)",

@@ -24,13 +24,18 @@ juce::String nextTakeId (const Track& t)
 
 void applyTake (Track& t, const Take& take)
 {
+    applyTake (t, take, take.startSample);
+}
+
+void applyTake (Track& t, const Take& take, int64 useFrom)
+{
     if (take.endSample <= take.startSample)
         return;
 
     t.takes.push_back (take);
 
     // 採用するのは曲の中だけ（頭より前は補正で出た分。ファイルは切らない）
-    const auto start = juce::jmax ((int64) 0, take.startSample), end = take.endSample;
+    const auto start = std::max ({ (int64) 0, take.startSample, useFrom }), end = take.endSample;
     if (end <= start)
         return;
 

@@ -1,4 +1,5 @@
 #include "TakeRecorder.h"
+#include "Retro.h"
 
 namespace vb::audio
 {
@@ -51,6 +52,10 @@ juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool f
     peak = 0.0f;
     tail = juce::jmax ((juce::int64) 0, tailSamples);
     tailLeft = -1;
+    envelopeFrames = 0;
+    envelopeHop = retro::frameLength (sampleRate);
+    envelopeCount = 0;
+    envelopePeak = 0.0f;
     file = f;
     {
         const juce::SpinLock::ScopedLockType sl (lock);
@@ -148,5 +153,29 @@ void TakeRecorder::write (const float* input, int offset, int n) noexcept
     if (! ok)
         dropped = true;   // 裏の書き込みが追いつかない（このテイクは壊れている）
     recorded += n;
+    addToEnvelope (input != nullptr ? input + offset : nullptr, n);
+}
+
+void TakeRecorder::addToEnvelope (const float* p, int n) noexcept
+{
+    auto frames = envelopeFrames.load (std::memory_order_relaxed);
+    for (int i = 0; i < n; ++i)
+    {
+        envelopePeak = juce::jmax (envelopePeak, p != nullptr ? std::abs (p[i]) : 0.0f);
+        if (++envelopeCount < envelopeHop)
+            continue;
+        if (frames < envelopeCapacity)
+            envelope[(size_t) frames++] = envelopePeak;
+        envelopeCount = 0;
+        envelopePeak = 0.0f;
+    }
+    envelopeFrames.store (frames, std::memory_order_release);
+}
+
+int TakeRecorder::copyEnvelope (std::vector<float>& out) const
+{
+    const auto frames = envelopeFrames.load (std::memory_order_acquire);
+    out.assign (envelope.begin(), envelope.begin() + frames);
+    return envelopeHop;
 }
 } // namespace vb::audio

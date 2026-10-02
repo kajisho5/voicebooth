@@ -241,6 +241,7 @@
   "record.problem.noSong": "Open a song to record",
   "record.problem.sampleRate": "Can't record: the device can't run at the song's {0} kHz. Change the device or sample rate in the input setup",
   "record.recordingTo": "RECORDING TO",
+  "record.renameFailed": "Couldn't rename the take (kept as {0}). Move it out of the folder before opening the song again",
   "record.target": "TARGET",
   "record.target.delivery": "Dry vocal / delivery",
   "record.target.deliveryWhole": "Dry vocal / delivery (full take)",

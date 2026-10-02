@@ -241,6 +241,7 @@
   "record.problem.noSong": "開啟歌曲後即可錄音",
   "record.problem.sampleRate": "裝置無法以與歌曲相同的 {0} kHz 運作，不能錄音。請在輸入設定中更換裝置或取樣率",
   "record.recordingTo": "RECORDING TO",
+  "record.renameFailed": "無法重新命名這條錄音（仍為 {0}）。再次開啟歌曲前請把它移出該資料夾",
   "record.target": "TARGET",
   "record.target.delivery": "乾聲 / 交付",
   "record.target.deliveryWhole": "乾聲 / 交付（整首）",
