@@ -46,6 +46,29 @@ inline float hzToMidi (double hz) { return hz > 0.0 ? (float) (69.0 + 12.0 * std
 inline int decimation (double sampleRate) { return juce::jmax (1, juce::roundToInt (sampleRate / analysisRate)); }
 } // namespace pitch
 
+/** 検出の本体（スレッドを持たない）。リアルタイム（PitchTracker）と、曲全体の解析（お手本。B9）で同じものを使う */
+class PitchAnalyzer
+{
+public:
+    void prepare (double sampleRate);
+    /** pos はそのサンプルの曲の位置（-1 = 止まっている）。出た点は out に足す */
+    void process (const float* in, const int64* pos, int n, std::vector<PitchFrame>& out);
+
+private:
+    double rate = 0.0;
+    int decim = 3, hop = 160, window = 512, minLag = 14, maxLag = 290;
+    std::vector<float> taps;               // 間引きの低域通過
+    std::vector<float> history;            // 低域通過の入力の履歴（taps と同じ長さ、循環）
+    int historyPos = 0, phase = 0;
+    std::vector<float> buf;                // 間引いた後の最近の音（window + maxLag）
+    std::vector<int64> bufPos;
+    int sinceHop = 0, filled = 0;
+    std::vector<float> scratch, frameIn;
+    std::vector<int64> frameInPos;
+    PitchFrame recent[5];
+    int recentCount = 0;
+};
+
 class PitchTracker : private juce::Thread
 {
 public:
@@ -69,7 +92,6 @@ public:
 private:
     static double windowSeconds() { return pitch::windowSeconds; }
     void run() override;
-    void analyse (const float* in, const int64* pos, int n);
 
     // オーディオスレッド → 検出スレッド。prepare / release の作り直しとオーディオスレッドが重ならないよう lock（オーディオ側は try-lock）
     juce::SpinLock pushLock;
@@ -81,17 +103,8 @@ private:
     std::atomic<int> overflow { 0 };
 
     // 検出スレッド
-    int decim = 3, hop = 160, window = 512, minLag = 14, maxLag = 290;
-    std::vector<float> taps;               // 間引きの低域通過
-    std::vector<float> history;            // 低域通過の入力の履歴（taps と同じ長さ、循環）
-    int historyPos = 0, phase = 0;
-    std::vector<float> buf;                // 間引いた後の最近の音（window + maxLag）
-    std::vector<int64> bufPos;
-    int sinceHop = 0, filled = 0;
-    std::vector<float> scratch, frameIn;
-    std::vector<int64> frameInPos;
-    PitchFrame recent[5];
-    int recentCount = 0;
+    PitchAnalyzer analyzer;
+    std::vector<PitchFrame> found;
 
     // 検出スレッド → メッセージスレッド
     juce::CriticalSection outLock;
