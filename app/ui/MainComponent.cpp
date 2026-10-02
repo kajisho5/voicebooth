@@ -179,6 +179,54 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         showToast (tr ("device.lostToast"));
     }
 
+    // 分離モデルのダウンロード（B16）：確認を開く・段階が変わったら開き直す
+    if (changes & change::notice)
+    {
+        const auto& m = state().modelDl;
+        using DS = models::DownloadStatus::Stage;
+        using MS = ModelDownloadDialog::Stage;
+        if (m.dialogSerial != modelDialogSeen)
+        {
+            modelDialogSeen = m.dialogSerial;
+            openLiveModelDownload ((int) MS::confirm);
+        }
+        else if (modelStageShown != -2 && m.stage != modelStageShown)
+        {
+            const auto ds = m.stage;
+            int next = -1;
+            if (ds == (int) DS::downloading || ds == (int) DS::verifying) next = (int) MS::downloading;
+            else if (ds == (int) DS::waiting || ds == (int) DS::interrupted) next = (int) MS::interrupted;
+            else if (ds == (int) DS::done)   next = (int) MS::done;
+            else if (ds == (int) DS::failed) next = (int) MS::failed;
+            if (next >= 0 && dynamic_cast<ModelDownloadDialog*> (overlay.getContent()) != nullptr)
+            {
+                // 同じ見た目の段階（取得中 ↔ 照合中）は開き直さない
+                const bool sameLook = next == (int) MS::downloading && (modelStageShown == (int) DS::downloading || modelStageShown == (int) DS::verifying);
+                modelStageShown = ds;
+                if (! sameLook) openLiveModelDownload (next);
+            }
+            else
+                modelStageShown = ds;
+        }
+        else if (modelStageShown == -2 && m.stage != modelStageBehind)
+        {
+            // 画面を閉じても裏で続く（進み具合は状態バー）。終わったら知らせる
+            modelStageBehind = m.stage;
+            juce::Component::SafePointer<MainComponent> safe (this);
+            if (m.stage == (int) DS::done)
+            {
+                if (state().guideNeedsSeparation && session.separationAvailable())
+                    showToast (tr ("model.readyToast"), tr ("separation.confirm.yes"),
+                               [safe] { if (safe != nullptr) safe->session.offerSeparation(); });
+                else
+                    showToast (tr ("model.readyToast"));
+            }
+            else if (m.stage == (int) DS::failed)
+                showToast (tr ("model.failedToast"), tr ("model.details"),
+                           [safe] { if (safe != nullptr) safe->openLiveModelDownload ((int) MS::failed); });
+        }
+    }
+
     // 引き算では声が取れない：分離するか尋ねる（B16）
     if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen)
     {
@@ -196,7 +244,9 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     {
         noticeSeen = state().noticeSerial;
         const auto& s = state();
-        if (s.rescueNoticeSerial == s.noticeSerial)
+        if (s.modelDl.noticeSerial == s.noticeSerial)
+            showToast (s.noticeText, tr ("model.getButton"), [this] { session.requestSeparationModel(); });   // 押した時だけ一覧を見に行く
+        else if (s.rescueNoticeSerial == s.noticeSerial)
         {
             // リハーサルで録ったテイク（原速・原キー）：本番のつもりだったらその場で入れられる
             const auto type = s.rescueTrack;
@@ -767,6 +817,24 @@ void MainComponent::openUpdate()
     dlg->onInstall = [this] { overlay.close(); showToast (tr ("update.title")); };   // モック：何もしない
     dlg->onSkip = [this] { overlay.close(); session.setUpdateAvailable ({}); };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openLiveModelDownload (int stage)
+{
+    auto dlg = std::make_unique<ModelDownloadDialog> ((ModelDownloadDialog::Stage) stage, session);
+    modelStageShown = state().modelDl.stage;
+    juce::Component::SafePointer<MainComponent> safe (this);
+    const bool done = stage == (int) ModelDownloadDialog::Stage::done;
+    dlg->onCloseRequest = [this, safe, done]
+    {
+        modelStageShown = -2;
+        modelStageBehind = state().modelDl.stage;
+        overlay.close();
+        // 入ったら、待っていた分離を勧める（お手本の原曲が引き算で取れなかった時）
+        if (done && state().guideNeedsSeparation && session.separationAvailable())
+            juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.offerSeparation(); });
+    };
+    overlay.show (std::move (dlg), false);
 }
 
 void MainComponent::openModelDownload (int stage, bool animate, float from)
