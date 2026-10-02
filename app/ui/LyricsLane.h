@@ -32,7 +32,7 @@ private:
     void paintNext (juce::Graphics&, juce::Rectangle<float>, const juce::String& text, float soon = 0.0f);
 
     Actions& actions;
-    KeyButton syncKey;
+    KeyButton syncKey, autoKey;   // タップで合わせる / 自動で合わせる（B17）
     KeyButton editButton { {}, KeyButton::Kind::ghost };
     juce::Rectangle<int> textArea;
 };
