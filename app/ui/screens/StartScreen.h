@@ -10,7 +10,7 @@ namespace vb
     - 2 つの枠（DESIGN 7.1.1）：オフボ（カラオケ。時間の基準）と、お手本（声入りの原曲。任意）。
       ドロップした位置の枠に入る。オフボを読み込んだら解析画面へ。お手本が入っていれば、オフボを開いた後に重ねる（B9）
       B1：形式・長さ・SR・チャンネルを読み、波形の概形を作るところまで本物。ほかの解析は SKIP
-    - 最近のプロジェクト（B14 まではダミー）
+    - 最近のプロジェクト（B14：アプリ設定の一覧。見本（UI_MOCK）はダミー）。「プロジェクトを開く」で .vbooth を選ぶ
     - 初回だけ「まず歌う / 録って渡す / 細かくやる」（DESIGN 2） */
 class StartScreen : public juce::Component,
                     public juce::FileDragAndDropTarget,
@@ -40,10 +40,13 @@ public:
 private:
     enum class Phase { home, loading, loaded, failed };
 
-    void onSessionChanged (juce::uint32) override {}
+    void onSessionChanged (juce::uint32 c) override { if (c & change::project) { refreshRecents(); resized(); repaint(); } }
     void timerCallback() override { repaint(); }
     void setPhase (Phase);
     void chooseFile (bool guide = false);
+    void chooseProject();
+    bool openProject (const juce::File&);
+    void refreshRecents();
     void setGuide (const juce::File&);
     void paintSlot (juce::Graphics&, juce::Rectangle<int>, Icon, const juce::String& title, const juce::String& sub,
                     const juce::String& note, bool dropping, bool done);
@@ -64,6 +67,10 @@ private:
     juce::File file;
     audio::SongInfo info;
     audio::LoadResult::Error error = audio::LoadResult::Error::none;
+    juce::String projectError;                 // .vbooth を開けなかった理由（翻訳キー）
+
+    struct RecentRow { juce::String name, date, length; project::Mode mode = project::Mode::standard; juce::File file; };
+    std::vector<RecentRow> recents;
 
     juce::Rectangle<int> panel, dropArea, guideArea, recentArea, firstRunArea;
     std::vector<juce::Rectangle<int>> recentRows;

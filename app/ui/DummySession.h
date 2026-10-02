@@ -98,8 +98,11 @@ struct Session
     int deviceFallbackRate = 0;           // 「曲に合わせる」なのに機器が曲の SR で開けない時に、代わりに録る機器の SR（曲ごと。0 = 使わない）
     int targetRate() const { return recordRate > 0.0 ? juce::roundToInt (recordRate) : (deviceFallbackRate > 0 ? deviceFallbackRate : songRate); }
 
-    // 録音（B5）。テイクは曲ごとの作業フォルダに置く（.vbooth の保存は B14）
+    // 録音（B5）・保存（B14）。曲ごとのプロジェクトフォルダ（書類/VoiceBooth/Projects/{曲名}/）に曲のコピー・テイク・{曲名}.vbooth
     juce::File projectFolder;
+    juce::File projectFile;                             // {曲名}.vbooth（自動保存。B14）
+    juce::String guidePath;                             // お手本（声入りの原曲）のコピー。プロジェクトフォルダ相対（B9 / B14）
+    juce::StringArray recentProjects;                   // 最近のプロジェクト（.vbooth のフルパス。新しい順、8 件まで）
     juce::String recordingTake, recordingPath;          // 録音中のテイク（"take3"、フォルダ相対のパス）
     TrackType recordingTrack = TrackType::main;
     std::map<juce::String, std::shared_ptr<const audio::WaveformOverview>> takeWaves;   // "main/take3" → 概形（曲頭基準ではなくテイク頭から）

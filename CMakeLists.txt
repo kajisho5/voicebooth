@@ -80,6 +80,7 @@ juce_add_gui_app(VoiceBooth
     COMPANY_NAME "SEVENTHWELL"
     BUNDLE_ID    "com.seventhwell.voicebooth"   # TODO: 署名主体の決定後に確定（DESIGN 19）
     VERSION      ${PROJECT_VERSION}
+    DOCUMENT_EXTENSIONS vbooth                      # プロジェクトファイル（B14）。Mac の Info.plist に入る
     MICROPHONE_PERMISSION_ENABLED TRUE
     MICROPHONE_PERMISSION_TEXT "VoiceBooth はボーカル録音のためにマイクを使用します。")
 

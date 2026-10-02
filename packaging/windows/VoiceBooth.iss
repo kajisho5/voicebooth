@@ -92,10 +92,8 @@ SolidCompression=yes
 CloseApplications=yes
 RestartApplications=no
 
-; TODO(B14): .vbooth file association (DESIGN 8) with its document icon, e.g.
-;   ChangesAssociations=yes
-;   [Registry] Root: HKA; Subkey: "Software\Classes\.vbooth\OpenWithProgids"; ValueType: string; ValueName: "VoiceBooth.Project"; ValueData: ""; Flags: uninsdeletevalue
-;   [Registry] Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""; Flags: uninsdeletekey
+; .vbooth (project file, DESIGN 8 / B14) opens in VoiceBooth; the document uses the app icon
+ChangesAssociations=yes
 
 [Languages]
 ; Picked from the Windows UI language; the language dialog appears only when it matches neither.
@@ -121,3 +119,11 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; F
 
 ; Settings, takes and downloaded models live in the user's data folder and are kept on uninstall
 ; (the user's recordings must never be deleted by the uninstaller).
+
+[Registry]
+; .vbooth association (per user or per machine, following the install mode)
+Root: HKA; Subkey: "Software\Classes\.vbooth"; ValueType: string; ValueName: ""; ValueData: "VoiceBooth.Project"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.vbooth\OpenWithProgids"; ValueType: string; ValueName: "VoiceBooth.Project"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project"; ValueType: string; ValueName: ""; ValueData: "VoiceBooth Project"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExeName},0"
+Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""

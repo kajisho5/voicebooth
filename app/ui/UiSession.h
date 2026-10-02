@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DummySession.h"
+#include "project/ProjectFile.h"
 #include "audio/SongLoader.h"
 
 /*  画面の状態（Phase A）
@@ -29,6 +30,7 @@ namespace change
         notice    = 1 << 21,  // 知らせ（トースト）を出す（noticeText / noticeSerial）
         recordFormat = 1 << 22,  // 録音形式（SR・ビット数）が変わった
         latency   = 1 << 23,  // 往復の遅れ（実測・手入力・測定中）が変わった（B6）
+        project   = 1 << 24,  // プロジェクトを保存した・最近の一覧が変わった（B14）
         all       = 0xffffffff
     };
 }
@@ -136,6 +138,14 @@ public:
     void restoreLatencyProfiles (const juce::String& json);
     juce::String latencyProfilesJson() const;
 
+    // --- プロジェクトの保存・開く（B14。DESIGN 8） ---------------------------------
+    /** 次に開く曲を、この .vbooth の続きとして開く（起動画面が曲を読み込む前に呼ぶ） */
+    void setPendingProject (const juce::File& vboothFile, const project::LoadedProject&);
+    /** いま変更があれば保存する（終了時など）。自動保存は変更から 1.5 秒後 */
+    void flushSave();
+    /** アプリ設定との受け渡し（最近のプロジェクト） */
+    void restoreRecentProjects (const juce::StringArray&);
+
     // --- 区間の録り直し（パンチイン。B10） ------------------------------------------
     /** 直前のテイクを採用から外して、前の採用に戻す（テイクとファイルは残す）。戻せたら true */
     bool undoTake();
@@ -227,6 +237,10 @@ private:
     void pollLatencyProbe();
     void updateShadow();
     void pollPitch();
+    void saveProject();
+    void restoreProject();
+    void markDirty();
+    void copyIntoProject (const juce::File& source, const juce::String& relativePath);
     int64 prerollSamples() const;
     void judge (dummy::PitchPoint&) const;
     void rejudgeAll();
@@ -248,6 +262,12 @@ private:
     juce::File shadowFile;
     int shadowSerial = 0;
     std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）
+
+    // 保存（B14）
+    bool dirty = false, restoring = false;
+    juce::uint32 dirtySince = 0, lastBackupMs = 0;
+    std::unique_ptr<project::LoadedProject> pendingProject;   // 開く途中のプロジェクト（伴奏の SR をそろえてから戻す）
+    juce::File pendingProjectFile;
 
     // 直前のテイクを採用する前の採用区間（Ctrl / ⌘+Z で戻す。B10）
     std::vector<project::CompSegment> compBeforeTake;
