@@ -310,6 +310,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.output          = prev.output;
     s.engineAttached  = prev.engineAttached;
     s.updateVersion   = prev.updateVersion;
+    s.modelDl         = prev.modelDl;           // モデルのダウンロードは曲と関係ない（続いている物を開き直さない）
     return s;
 }
 

@@ -162,6 +162,9 @@ public:
     void loadGuide (const juce::File&);
     /** お手本の原曲から声を分離して、お手本の線を作る（B16。引き算では取れない時）。裏で進む */
     void separateGuide();
+    /** 原曲だけ（B16。DESIGN 7.1.1）：原曲を分離して、声を引いたオフボ（原曲と同じ SR・長さの WAV）を作る。曲を開く前に使う（裏で進む。
+        進み具合は separating / separationProgress）。終わったら done（作ったファイル、失敗なら空と理由）。stopSeparation で中止 */
+    void makeOffVocal (const juce::File& original, std::function<void (juce::File, juce::String)> done);
     void stopSeparation();
     /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。押した時だけ呼ぶ */
     void requestSeparationModel();

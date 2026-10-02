@@ -93,7 +93,16 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     }
 
     if (o.open != juce::File())     openSong (o.open);
-    if (o.guide != juce::File())    pendingGuide = o.guide;
+    if (o.guide != juce::File())
+    {
+        // --open と一緒なら開いた後に重ねる。--guide だけなら起動画面のお手本の枠に入れる（原曲だけで始める。B16）
+        if (o.open != juce::File())
+            pendingGuide = o.guide;
+        else if (auto* start = dynamic_cast<StartScreen*> (overlay.getContent()))
+            start->setGuide (o.guide);
+        else
+            openStart()->setGuide (o.guide);
+    }
     if (o.lyrics != juce::File())   openLyrics (o.lyrics);
     if (o.screen == "song-info")    openSongInfo();
     if (o.screen == "lyrics")       openLyrics();
@@ -215,7 +224,13 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
             juce::Component::SafePointer<MainComponent> safe (this);
             if (m.stage == (int) DS::done)
             {
-                if (state().guideNeedsSeparation && session.separationAvailable())
+                if (pendingOriginal != juce::File() && state().songOriginal == nullptr && session.separationAvailable())
+                {
+                    const auto original = std::exchange (pendingOriginal, juce::File());
+                    showToast (tr ("model.readyToast"), tr ("start.fromOriginal"),
+                               [safe, original] { if (safe != nullptr) safe->openStart()->startFromOriginal (original); });
+                }
+                else if (state().guideNeedsSeparation && session.separationAvailable())
                     showToast (tr ("model.readyToast"), tr ("separation.confirm.yes"),
                                [safe] { if (safe != nullptr) safe->session.offerSeparation(); });
                 else
@@ -604,6 +619,18 @@ StartScreen* MainComponent::openStart (bool firstRun)
     auto screen = std::make_unique<StartScreen> (session, songLoader, firstRun);
     auto* raw = screen.get();
     screen->onDone = [this] { overlay.close(); };
+    juce::Component::SafePointer<MainComponent> safe (this);
+    screen->onNeedModel = [safe] (const juce::File& original)
+    {
+        // 起動画面を閉じてモデルの確認へ（押した時だけ。11.7）。入ったら起動画面に戻って続ける
+        juce::MessageManager::callAsync ([safe, original]
+        {
+            if (safe == nullptr) return;
+            safe->pendingOriginal = original;
+            safe->overlay.close();
+            safe->session.requestSeparationModel();
+        });
+    };
     overlay.show (std::move (screen), false);
     return raw;
 }
@@ -830,6 +857,20 @@ void MainComponent::openLiveModelDownload (int stage)
         modelStageShown = -2;
         modelStageBehind = state().modelDl.stage;
         overlay.close();
+        // 原曲だけで始めようとしていた（曲はまだ無い）：起動画面に戻る。入っていればそのまま分離へ
+        if (pendingOriginal != juce::File() && state().songOriginal == nullptr)
+        {
+            const auto original = pendingOriginal;
+            if (done) pendingOriginal = juce::File();
+            juce::MessageManager::callAsync ([safe, original, done]
+            {
+                if (safe == nullptr) return;
+                auto* start = safe->openStart();
+                if (done) start->startFromOriginal (original);
+                else      start->setGuide (original);
+            });
+            return;
+        }
         // 入ったら、待っていた分離を勧める（お手本の原曲が引き算で取れなかった時）
         if (done && state().guideNeedsSeparation && session.separationAvailable())
             juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.offerSeparation(); });

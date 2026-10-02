@@ -5,6 +5,7 @@
 #include "analysis/RefPitch.h"
 #include "analysis/MusicInfo.h"
 #include "analysis/Separation.h"
+#include "analysis/OffVocal.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -1155,7 +1156,8 @@ namespace
 
 bool UiSession::separationAvailable() const
 {
-    return isEngineDriven() && separation::SeparatorClient::available();
+    // 本物のアプリ（UI_MOCK でない）で、分離プロセスとモデルがある。曲はまだ無くてよい（原曲だけで始める時）
+    return engine != nullptr && separation::SeparatorClient::available();
 }
 
 double UiSession::separationEstimateSeconds() const
@@ -1182,7 +1184,7 @@ namespace
 
 void UiSession::requestSeparationModel()
 {
-    if (! isEngineDriven())
+    if (engine == nullptr)
         return;
     const auto keys = models::trustedKeys();
     if (keys.empty())
@@ -1366,6 +1368,98 @@ void UiSession::separateGuide()
             };
             if (! separator->start (mix, vocals, backing, std::move (cb)))
                 fail (tr ("separation.failed", "busy"));
+        });
+    });
+}
+
+void UiSession::makeOffVocal (const juce::File& original, std::function<void (juce::File, juce::String)> done)
+{
+    auto fail = [done] (const juce::String& why) { if (done) done ({}, why); };
+    if (! separationAvailable()) { fail (tr ("separation.noModelOriginal")); return; }
+    if (s.separating)            { fail (tr ("separation.failed", "busy")); return; }
+
+    // 作ったオフボはアプリのデータの Cache/offvocal/ に置く（曲を開くとプロジェクトの中にコピーされる）。同じ原曲・モデルなら作り直さない
+    const auto key = juce::String::toHexString ((juce::int64) (original.getFullPathName() + "|" + juce::String (original.getSize()) + "|"
+                                                               + juce::String (original.getLastModificationTime().toMilliseconds()) + "|"
+                                                               + separation::SeparatorClient::modelId()).hashCode64());
+    const auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                         .getChildFile ("VoiceBooth/Cache/offvocal/" + key);
+    const auto out = dir.getChildFile (juce::File::createLegalFileName (original.getFileNameWithoutExtension() + " (off vocal)") + ".wav");
+    if (out.existsAsFile())
+    {
+        if (done) done (out, {});
+        return;
+    }
+    const auto mix = dir.getChildFile ("mix.wav"), vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav");
+
+    s.separating = true;
+    s.separationProgress = 0.0f;
+    s.separationEta = -1.0;
+    notify (change::view);
+
+    std::weak_ptr<bool> weak = alive;
+    auto finish = [this, weak, done, mix, vocals, backing] (const juce::File& made, const juce::String& error)
+    {
+        if (weak.expired()) return;
+        mix.deleteFile();
+        vocals.deleteFile();   // 声は残さない（お手本の線は開いた後に「原曲 − オフボ」で出す）
+        backing.deleteFile();
+        s.separating = false;
+        notify (change::view);
+        if (done) done (made, error);
+    };
+
+    // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
+    juce::Thread::launch ([this, weak, original, mix, vocals, backing, out, finish]
+    {
+        bool ok = false;
+        if (auto a = readAudio (original))
+        {
+            std::shared_ptr<const audio::SongAudio> at44 = a;
+            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
+                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
+            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
+        }
+        juce::MessageManager::callAsync ([this, weak, ok, original, mix, vocals, backing, out, finish]
+        {
+            if (weak.expired()) return;
+            if (! ok) { finish ({}, tr ("separation.failed", "can't read the original")); return; }
+
+            if (separator == nullptr)
+                separator = std::make_unique<separation::SeparatorClient>();
+            separation::SeparatorClient::Callbacks cb;
+            cb.progress = [this, weak] (float p, double eta)
+            {
+                if (weak.expired()) return;
+                s.separationProgress = p;
+                s.separationEta = eta;
+                notify (change::view);
+            };
+            cb.done = [weak, original, vocals, out, finish] (bool separated, const juce::String& error)
+            {
+                if (weak.expired()) return;
+                if (! separated)
+                {
+                    finish ({}, error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", error));
+                    return;
+                }
+                // 原曲の SR・長さのまま、声を引いてオフボにする（裏で）
+                juce::Thread::launch ([original, vocals, out, finish]
+                {
+                    bool wrote = false;
+                    auto a = readAudio (original);
+                    auto v = readAudio (vocals);
+                    if (a != nullptr && v != nullptr)
+                        wrote = writeFloatWav (out, analysis::offVocalFrom (*a, *v), a->sampleRate);
+                    juce::MessageManager::callAsync ([wrote, out, finish]
+                    {
+                        if (wrote) finish (out, {});
+                        else       finish ({}, tr ("separation.failed", "can't write the off vocal"));
+                    });
+                });
+            };
+            if (! separator->start (mix, vocals, backing, std::move (cb)))
+                finish ({}, tr ("separation.failed", "busy"));
         });
     });
 }
