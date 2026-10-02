@@ -103,6 +103,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
 # テイクと採用区間・書き出し（DESIGN 6 / 8 / 9：Phase B5〜）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_RECORD_SOURCES
     app/project/Comp.cpp
+    app/project/ProjectFile.cpp
     app/export/ExportService.cpp)
 
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
@@ -248,6 +249,7 @@ if(VOICEBOOTH_TESTS)
         tests/PitchTests.cpp
         tests/RefPitchTests.cpp
         tests/MusicInfoTests.cpp
+        tests/ProjectFileTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
