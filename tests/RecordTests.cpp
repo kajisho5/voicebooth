@@ -123,6 +123,22 @@ public:
             broken.comp.push_back ({ 0, 10, "nope" });
             expect (! project::compIsValid (broken));
         }
+
+        beginTest ("comp: a take moved before the song start by latency compensation is used only from sample 0");
+        {
+            project::Track t;
+            project::applyTake (t, take ("take1", -538, 10000));
+            expectEquals ((int) t.comp.size(), 1);
+            expectEquals (t.comp[0].startSample, (int64) 0);
+            expectEquals (t.comp[0].endSample, (int64) 10000);
+            expectEquals (t.takes[0].startSample, (int64) -538);    // テイク自体の位置はそのまま（ファイルは切らない）
+            expect (project::compIsValid (t));
+
+            project::applyTake (t, take ("take2", -900, -100));     // 曲の中に何も無い：テイクだけ残す
+            expectEquals ((int) t.takes.size(), 2);
+            expectEquals ((int) t.comp.size(), 1);
+            expect (t.comp[0].takeId == "take1");
+        }
     }
 
     //==========================================================================
@@ -197,6 +213,47 @@ public:
             expectEquals ((int) w.samples.size(), 306);
             expectWithinAbsoluteError (w.samples[200], 0.0f, 1.0e-7f);
             expectWithinAbsoluteError (w.samples[300], 0.995f, 1.0e-6f);
+            dir.deleteRecursively();
+        }
+
+        beginTest ("recorder: after the song ends it keeps the tail (latency) from the same input, then ends; a stop with no tail ends at once");
+        {
+            auto dir = tempFolder ("rec-tail");
+            audio::TakeRecorder r;
+            const auto file = dir.getChildFile ("t.wav");
+            expect (r.begin (file, rate, false, 300).isEmpty());
+
+            std::vector<float> ramp (256);
+            int64 counter = 0;
+            auto next = [&]
+            {
+                for (auto& v : ramp) v = (float) (counter++ % 1000) * 0.0005f;
+                return ramp.data();
+            };
+            r.process (next(), 256, 1000, 256, false);
+            r.process (next(), 256, 1256, 100, false);              // 曲の終わり（100 サンプル）→ 残り 156 は後ろの分
+            expect (! r.hasEnded());
+            r.process (next(), 256, 1356, 0, false);                // 曲は止まっている：後ろの分の残り 144
+            expect (r.hasEnded());
+            r.process (next(), 256, 1356, 0, false);                // もう書かない
+
+            const auto res = r.finish();
+            expectEquals (res.startSample, (int64) 1000);
+            expectEquals (res.length, (int64) (256 + 100 + 300));
+            const auto w = readWav (file);
+            expectEquals ((int) w.samples.size(), 656);
+            float worst = 0.0f;
+            for (int i = 0; i < 656; ++i)                            // 入力の流れが途切れず、そのまま入っている
+                worst = juce::jmax (worst, std::abs (w.samples[(size_t) i] - (float) (i % 1000) * 0.0005f));
+            expectLessThan (worst, 1.0e-6f);
+
+            audio::TakeRecorder r2;
+            const auto file2 = dir.getChildFile ("t2.wav");
+            expect (r2.begin (file2, rate, false, 0).isEmpty());
+            r2.process (next(), 256, 0, 256, false);
+            r2.process (next(), 256, 256, 0, false);                // 止めた（後ろの分なし）
+            expect (r2.hasEnded());
+            expectEquals (r2.finish().length, (int64) 256);
             dir.deleteRecursively();
         }
 

@@ -201,7 +201,7 @@ void PlaybackEngine::setMonitorReverb (float fader)
     monitor.setReverb (PlaybackCore::faderToGain (fader));
 }
 
-juce::String PlaybackEngine::startRecording (const juce::File& file, bool floatSamples)
+juce::String PlaybackEngine::startRecording (const juce::File& file, bool floatSamples, int64 tailSamples)
 {
     auto* d = manager.getCurrentAudioDevice();
     if (d == nullptr || ! d->isPlaying() || stalled)
@@ -211,7 +211,22 @@ juce::String PlaybackEngine::startRecording (const juce::File& file, bool floatS
     // 曲と SR が違う（試聴用に変換している）時は録らない。書き出しは元曲の SR のまま（DESIGN 6.5 / 13）
     if (songRate <= 0.0 || std::abs (d->getCurrentSampleRate() - songRate) >= 0.5)
         return "sample rate";
-    return recorder.begin (file, d->getCurrentSampleRate(), floatSamples);
+    return recorder.begin (file, d->getCurrentSampleRate(), floatSamples, tailSamples);
+}
+
+juce::String PlaybackEngine::startLatencyProbe()
+{
+    auto* d = manager.getCurrentAudioDevice();
+    if (d == nullptr || ! d->isPlaying() || stalled)
+        return "no device";
+    if (d->getActiveInputChannels().isZero())
+        return "no input";
+    if (d->getActiveOutputChannels().isZero())
+        return "no output";
+    if (recorder.isActive())
+        return "recording";
+    probe.start (d->getCurrentSampleRate());
+    return {};
 }
 
 RecordedTake PlaybackEngine::stopRecording()
@@ -493,6 +508,10 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
     const float* input = numInputs > 0 && inputs != nullptr ? inputs[0] : nullptr;
     if (input != nullptr)
         meter.process (input, numSamples);
+
+    // 往復の遅れを測っている間（B6）は、出力は測定音だけ（曲・自分の声は鳴らさない。自分の声を返すと測定音が回り込む）
+    if (probe.process (input, outputs, numOutputs, numSamples))
+        return;
 
     // オフボ（出力を全部書く）。鳴らした曲の範囲に合わせて素の声を録る（B5）
     const auto played = core.render (outputs, numOutputs, numSamples);

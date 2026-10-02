@@ -28,6 +28,8 @@
       mode          最後に使ったモード（簡単 / 標準 / プロ）
       firstRunDone  初回の言語選択を終えたか
       skin          スキンの id（DESIGN 4.11。無い・消えた時は booth）。自作スキンは同じフォルダの Skins/ に .vbskin で置く
+      recordRate / recordFloat  録音形式（SR・32bit float）
+      latencyProfiles  往復の遅れ（B6）。機器の組み合わせ（ドライバ|入力|出力|SR|バッファ）ごとの実測（サンプル）と手入力（ms）。JSON
       audioDevice   オーディオデバイスの設定（AudioDeviceManager の XML。ドライバ・入出力の機器・入力チャンネル・SR・バッファ）。
                     戻せなければ既定のデバイスで開く */
 
@@ -202,6 +204,7 @@ public:
 
         // 録音形式（SR：0 = 曲に合わせる、ビット数：24 / 32bit float）
         session->setRecordFormat (stored->getDoubleValue ("recordRate", 0.0), stored->getBoolValue ("recordFloat", false));
+        session->restoreLatencyProfiles (stored->getValue ("latencyProfiles"));
 
         // 最後に使ったモード
         const auto savedMode = stored->getValue ("mode");
@@ -277,6 +280,16 @@ private:
             settings()->setValue ("recordRate", session->get().recordRate);
             settings()->setValue ("recordFloat", session->get().recordFloat);
             settings()->saveIfNeeded();
+        }
+
+        if (changes & change::latency)
+        {
+            const auto json = session->latencyProfilesJson();
+            if (json != settings()->getValue ("latencyProfiles"))
+            {
+                settings()->setValue ("latencyProfiles", json);
+                settings()->saveIfNeeded();
+            }
         }
 
         if ((changes & change::mode) == 0) return;

@@ -11,7 +11,7 @@ class DeviceListView;
 
 /** DESIGN 5 入力セットアップ（デバイス → レベル → レイテンシ）
     エンジンがあれば（B3）実デバイスの一覧・入力メーター・申告レイテンシを出し、選ぶと切り替わる。
-    UI_MOCK では静的モックのまま。レイテンシの実測は B6（いまはデバイスの申告値を出すだけ） */
+    UI_MOCK では静的モックのまま。レイテンシ（B6）：測定音で往復の遅れを測る・ms を手入力する。値は機器の組み合わせごとに保存 */
 class SetupWizard : public DialogPanel, private SessionView
 {
 public:
@@ -44,6 +44,10 @@ private:
     int step = 0;
     LedMeter meter;
     KeyButton measure;
+    juce::TextEditor manualField;               // 手入力（ms）
+    KeyButton manualUse, manualClear;
+    void commitManual();
+    void refreshLatencyControls();
     KeyButton* back = nullptr;
     KeyButton* next = nullptr;
     juce::Rectangle<int> meterArea, measureArea;

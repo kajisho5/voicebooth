@@ -119,10 +119,11 @@ void StatusBar::paint (juce::Graphics& g)
         r.removeFromLeft (13.0f);
     };
 
-    // レイテンシ：実デバイスは申告値（実測は B6）と明記。UI_MOCK はダミー
+    // レイテンシ（録音位置の補正に使う値）：申告値・手入力はそう書く。実測はそのまま。UI_MOCK はダミー
     const auto ld = latencyDisplay (s);
     const auto latency = ! ld.known  ? juce::String ("-")
                        : ld.reported ? tr ("status.latency.reported", juce::String (ld.ms, 1))
+                       : ld.manual   ? tr ("status.latency.manual", juce::String (ld.ms, 1))
                                      : juce::String (ld.ms, 1) + " ms";
 
     item ({}, formatDb (s.inputPeakDb) + " dBFS", colours::text);

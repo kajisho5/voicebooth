@@ -48,7 +48,7 @@ public:
 
     void setBackingLevel (float fader, bool muted) override;
     void setSelfMonitor (float fader, bool muted) override;
-    juce::String startRecording (const juce::File&, bool floatSamples) override;
+    juce::String startRecording (const juce::File&, bool floatSamples, int64 tailSamples) override;
     RecordedTake stopRecording() override;
     bool isRecording() const override      { return recorder.isActive(); }
     bool recordingEnded() const override   { return recorder.hasEnded(); }
@@ -67,6 +67,12 @@ public:
     InputStatus getInputStatus() const override;
     InputLevel getInputLevel() const override { return meter.read(); }
     void resetInputClip() override            { meter.resetClip(); }
+
+    juce::String startLatencyProbe() override;
+    void cancelLatencyProbe() override              { probe.cancel(); }
+    bool isLatencyProbeRunning() const override     { return probe.isRunning(); }
+    bool latencyProbeFinished() const override      { return probe.isFinished(); }
+    std::vector<float> latencyProbeCapture (latency::Plan& plan) const override { plan = probe.plan(); return probe.captured(); }
 
 private:
     void audioDeviceIOCallbackWithContext (const float* const* inputs, int numInputs,
@@ -99,6 +105,7 @@ private:
     InputMeter meter;
     MonitorMixer monitor;
     TakeRecorder recorder;
+    latency::Probe probe;
     juce::String openError, inputError;
     double songRate = 0.0;
     int wantedChannel = 0;                                  // 選んだ入力チャンネル（0 = L）
