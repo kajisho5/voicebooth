@@ -175,10 +175,6 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
              &toStart, &play, &stop, &rec, &time, &beat, &loop, &rangeIn, &rangeOut, &clearRange, &seek, &countIn, &click })
         addAndMakeVisible (c);
 
-    // クリック（メトロノーム）とカウントインの音はまだ鳴らせないので、本物のアプリでは出さない（見本だけ）
-    countIn.setVisible (! u->engineAttached);
-    click.setVisible (! u->engineAttached);
-
     onSessionChanged (change::all);
 }
 
@@ -196,12 +192,20 @@ void TransportBar::onSessionChanged (juce::uint32 changes)
         countIn.setSelected (s.countInBars, juce::dontSendNotification);
     }
 
-    if (changes & (change::playhead | change::songInfo))
+    if (changes & (change::transport | change::songInfo))
+    {
+        // クリック・カウントインは曲のテンポで鳴る（2026-10-02）。テンポが分からない間は、なぜ鳴らないかをツールチップで
+        click.setTooltip (s.tempoKnown() ? tr ("transport.click.tooltip") : tr ("transport.click.noTempo"));
+        countIn.setTooltip (s.tempoKnown() ? tr ("transport.countIn.tooltip") : tr ("transport.countIn.noTempo"));
+    }
+
+    if (changes & (change::playhead | change::songInfo | change::transport))
     {
         time.setValue (formatTime (s.playhead, s.sampleRate(), true), "/ " + formatTime (s.project.lengthSamples, s.sampleRate(), false));
         if (s.tempoKnown())
         {
-            const auto bb = s.barBeatAt (s.playhead);   // 1 小節目の位置から（それより前は 0、-1 …）
+            // 1 小節目の位置から（それより前は 0、-1 …）。カウントイン中は数えている拍（曲の位置はまだ動かない）
+            const auto bb = s.barBeatAt (s.countingIn ? s.countInPosition : s.playhead);
             beat.setValue (juce::String (bb.bar) + "." + juce::String (bb.beat));
         }
         else
@@ -250,16 +254,12 @@ void TransportBar::resized()
     clearRange.setBounds (centreH (r.removeFromLeft (30), 30));
     r.removeFromLeft (14);
 
-    countLabel = {};
-    if (click.isVisible())   // 本物のアプリでは出さない（クリック・カウントインの音はまだ無い）。空いた分は全体の位置に回す
-    {
-        click.setSize (10, 30);
-        click.setBounds (centreH (r.removeFromRight (click.idealWidth()), 30));
-        r.removeFromRight (8);
-        countIn.setBounds (centreH (r.removeFromRight (juce::jmax (132, countIn.idealWidth())), 32));
-        countLabel = r.removeFromRight (52);
-        r.removeFromRight (6);
-    }
+    click.setSize (10, 30);
+    click.setBounds (centreH (r.removeFromRight (click.idealWidth()), 30));
+    r.removeFromRight (8);
+    countIn.setBounds (centreH (r.removeFromRight (juce::jmax (132, countIn.idealWidth())), 32));
+    countLabel = r.removeFromRight (52);
+    r.removeFromRight (6);
 
     seek.setBounds (centreH (r, 40));
 }

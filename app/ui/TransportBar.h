@@ -58,6 +58,6 @@ private:
     SegmentedKeys countIn;
     KeyButton click;
 
-    juce::Rectangle<int> countLabel;
+    juce::Rectangle<int> countLabel;   // COUNT の文字
 };
 } // namespace vb

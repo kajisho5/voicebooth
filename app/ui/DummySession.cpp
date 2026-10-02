@@ -277,6 +277,10 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.pitchToleranceCents = prev.pitchToleranceCents;
     s.countInBars         = prev.countInBars;
     s.clickOn             = prev.clickOn;
+    s.clickLevel          = prev.clickLevel;
+    s.backingMeterDb      = prev.backingMeterDb;
+    s.guideMeterDb        = prev.guideMeterDb;
+    s.clickMeterDb        = prev.clickMeterDb;
     s.loopOn              = prev.loopOn;
     // オフボは 0 dB（0.75）から。前も開いた曲なら、その音量を引き継ぐ
     s.offVocalGain        = prev.backingWave != nullptr ? prev.offVocalGain : 0.75f;

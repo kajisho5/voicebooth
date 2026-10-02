@@ -55,6 +55,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Escuchar la guía | Escucha la voz guía extraída de la original, con el instrumental o en solo (se aplican el tempo y el tono de práctica). La principal y los coros no se pueden separar, así que es una sola pista |
 | Tesitura y tono sugerido | Mide tu tesitura (nota más grave y más aguda) con el micrófono y obtén un tono en el que quepan la nota más grave y la más aguda de la guía. Se aplica con un clic; si no cabe, indica cuántos semitonos se sale |
 | Grabación | Grabación de principio a fin, grabación retroactiva (pulsar REC tarde nunca corta la primera palabra), regrabación de un rango (fundido de 8 ms en cada borde; 0–20 ms en Pro), medición y compensación de latencia |
+| Clic y cuenta previa | Clic al pulso de la canción (más agudo en el tiempo 1; sigue el tempo de práctica). Cuenta 1–2 compases antes de REC; al regrabar un rango, cuenta antes del rango. Solo en los auriculares: nunca se graba ni se exporta |
 | Main / Double / Armonía | Graba dobles y armonías con la misma duración y reprodúcelas juntas |
 | Entrada a tiempo | Comparado con la referencia, muestra cuántos ms entras antes o después (Estándar en adelante). Pro también muestra cuánto tiempo estás afinado y el vibrato |
 | Exportar | WAV de duración completa desde el inicio de la canción, y un paquete de entrega (un WAV por pista, una mezcla de referencia, notas, zip) |
@@ -66,7 +67,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 Esto todavía no está en la beta (y no aparece en la app).
 
 - Una línea de referencia para las armonías (al seleccionar una pista de armonía se sigue mostrando la línea de referencia principal)
-- Sonidos de metrónomo y cuenta previa, comparar tomas de oído, separar algo que no sea la voz (guitarra, batería, etc.)
+- Comparar tomas de oído, separar algo que no sea la voz (guitarra, batería, etc.)
 
 > [!IMPORTANT]
 > El modelo de separación **todavía se está preparando para su distribución** (a la espera de que se publique la lista de modelos firmada). Mientras tanto, puedes usar un par original + karaoke para mostrar la línea de referencia, grabar y exportar.

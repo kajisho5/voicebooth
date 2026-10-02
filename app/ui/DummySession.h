@@ -58,8 +58,11 @@ struct Session
     int64 recordStart = 0;                // 今回の録音を始めた位置（採用はここから。遡及録音ならフレーズの頭。B7）
     int64 recordEnd = -1;                 // 区間の録り直し（パンチイン。B10）の終わり。-1 = 通し
     bool canUndoTake = false;             // 直前のテイクを採用から外せる（Ctrl / ⌘+Z。B10）
-    int countInBars = 1;
-    bool clickOn = false;
+    int countInBars = 1;                  // 録音の前に数える小節（0 = Off）。範囲の録り直しでは助走の小節（設定に保存）
+    bool clickOn = false;                 // クリック（メトロノーム）。テンポが分かっている時だけ鳴る（設定に保存）
+    float clickLevel = 0.62f;             // クリック・カウントインの音量（フェーダー 0..1、0.75 = 0 dB。設定に保存）
+    bool countingIn = false;              // 録音の前のカウントイン中（曲はまだ鳴っていない）
+    int64 countInPosition = 0;            // その時に聞こえている拍の位置（BAR.BEAT に出す。曲の頭より前は負）
 
     // 表示（ピッチ・波形で共有）
     int64 viewStart = 0, viewEnd = 0;
@@ -78,6 +81,8 @@ struct Session
     project::RecMode recMode = project::RecMode::delivery;
     float offVocalGain = 0.51f, mainGain = 0.72f, harmonyGain = 0.40f, monitorGain = 0.64f;
     float monitorReverb = 0.25f;
+    // モニターの帯のメーター（フェーダー後のピーク、dBFS。2026-10-02）。エンジンがあれば 30 Hz で上書き、UI_MOCK はこの見本の値
+    float backingMeterDb = -18.2f, guideMeterDb = -23.0f, clickMeterDb = -20.0f;
     bool backingMuted = false;
     // お手本の声を聴く（2026-10-02）。取り出した声（オフボの時間・オフボの元の SR・モノラル）。無ければ nullptr。
     // 音量は mainGain。S（ソロ）はオフボ・お手本・録ったトラックのうち、それだけを鳴らす

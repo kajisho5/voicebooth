@@ -250,11 +250,13 @@ MonitorModule::MonitorModule (UiSession& u)
     harmStrip = strips.add (new ChannelStrip (tr ("monitor.refHarm"), u->harmonyGain, 0.22f, colours::ref));
     selfStrip = strips.add (new ChannelStrip (tr ("monitor.self"), u->monitorGain, 0.70f));
     reverbStrip = strips.add (new ChannelStrip (tr ("monitor.reverb"), u->monitorReverb, -1.0f, colours::textDim, false, tr ("monitor.reverb.note")));
+    // クリック・カウントインの音量（2026-10-02）。入り切りは輸送バーの「クリック」なので M / S は持たない。耳だけ
+    clickStrip = strips.add (new ChannelStrip (tr ("monitor.click"), u->clickLevel, 0.0f, colours::textDim, false, tr ("monitor.click.note")));
 
     for (auto* st : strips)
         addAndMakeVisible (st);
 
-    // オフボ（B2）と自分の声・モニターリバーブ（B4）は音に効く。お手本を聴く・S（ソロ）はまだ無いので、本物のアプリでは出さない（見本だけ）
+    // オフボ（B2）・自分の声とモニターリバーブ（B4）・お手本の声とクリック（2026-10-02）は音に効く。ハモリだけのお手本・自分の S は無いので、本物のアプリでは出さない（見本だけ）
     if (u->engineAttached)
     {
         // お手本：取り出した声（メインとハモリは分けられないので 1 本）。ハモリだけのお手本はまだ無い
@@ -267,8 +269,6 @@ MonitorModule::MonitorModule (UiSession& u)
         mainStrip->soloKey().setTooltip (tr ("monitor.guide.solo"));
         backingStrip->soloKey().onClick = [this] { session.setBackingSolo (backingStrip->soloKey().getToggleState()); };
         backingStrip->soloKey().setTooltip (tr ("monitor.backing.solo"));
-        mainStrip->fader().setMeter (-1.0f);
-        backingStrip->fader().setMeter (-1.0f);   // オフボの量はまだ測っていない（見本の値を出さない）
     }
     backingStrip->onFaderChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
     backingStrip->muteKey().onClick = [this] { session.setBackingMuted (backingStrip->muteKey().getToggleState()); };
@@ -278,6 +278,8 @@ MonitorModule::MonitorModule (UiSession& u)
     selfStrip->fader().setTooltip (tr ("monitor.self.tooltip"));
     reverbStrip->onFaderChange = [this] { session.setMonitorReverb ((float) reverbStrip->fader().getValue()); };
     reverbStrip->fader().setTooltip (tr ("monitor.reverb.tooltip"));
+    clickStrip->onFaderChange = [this] { session.setClickLevel ((float) clickStrip->fader().getValue()); };
+    clickStrip->fader().setTooltip (tr ("monitor.click.tooltip"));
     onSessionChanged (change::monitor | change::meter | change::takes);
 }
 
@@ -298,7 +300,7 @@ MonitorModule::Notice MonitorModule::noticeFor (const dummy::Session& s)
     return {};
 }
 
-void MonitorModule::updateSelfMeter()
+void MonitorModule::updateMeters()
 {
     // 自分のフェーダーの横：耳に返っている量（入力のピーク＋フェーダー）。-48〜0 dBFS を 0..1 に
     const auto& s = state();
@@ -309,7 +311,7 @@ void MonitorModule::updateSelfMeter()
         if (s.inputLive() && ! s.selfMuted && s.monitorGain > 0.0f)
         {
             const auto gainDb = juce::Decibels::gainToDecibels (audio::PlaybackCore::faderToGain (s.monitorGain), -100.0f);
-            level = juce::jmap (juce::jlimit (-48.0f, 0.0f, s.inputPeakDb + gainDb), -48.0f, 0.0f, 0.0f, 1.0f);
+            level = audio::meterFraction (s.inputPeakDb + gainDb);
         }
     }
     else
@@ -317,6 +319,11 @@ void MonitorModule::updateSelfMeter()
         level = 0.70f;   // UI_MOCK：見本の値
     }
     selfStrip->fader().setMeter (level);
+
+    // オフボ・お手本・クリック：エンジンがフェーダーの後で測った量（2026-10-02。ミュート・ソロ込み）。UI_MOCK は見本の値
+    backingStrip->fader().setMeter (audio::meterFraction (s.backingMeterDb));
+    mainStrip->fader().setMeter (audio::meterFraction (s.guideMeterDb));
+    clickStrip->fader().setMeter (audio::meterFraction (s.clickMeterDb));
 }
 
 void MonitorModule::onSessionChanged (juce::uint32 c)
@@ -332,6 +339,7 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
         selfStrip->fader().setValue (s.monitorGain, juce::dontSendNotification);
         selfStrip->muteKey().setToggleState (s.selfMuted, juce::dontSendNotification);
         reverbStrip->fader().setValue (s.monitorReverb, juce::dontSendNotification);
+        clickStrip->fader().setValue (s.clickLevel, juce::dontSendNotification);
         if (s.engineAttached)
         {
             mainStrip->fader().setValue (s.mainGain, juce::dontSendNotification);
@@ -350,7 +358,7 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
     }
 
     if (c & (change::meter | change::monitor | change::device))
-        updateSelfMeter();
+        updateMeters();
 
     if (c & (change::monitor | change::device))
     {

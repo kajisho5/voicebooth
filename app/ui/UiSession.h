@@ -99,8 +99,14 @@ public:
     void clearRange();
     void setRangeInAtPlayhead();
     void setRangeOutAtPlayhead();
+    /** 録音の前に数える小節（0 = Off、1、2）。範囲の録り直しでは助走の小節。テンポが分からない間は数えない（2026-10-02） */
     void setCountIn (int bars);
+    /** クリック（メトロノーム）。テンポが分からない時は入れずに、理由を知らせる（2026-10-02） */
     void setClick (bool);
+    /** クリック・カウントインの音量（フェーダーと同じ 0..1、0.75 = 0 dB）。耳だけ */
+    void setClickLevel (float fader);
+    /** 起動時に設定から戻す（テンポを見ない。鳴るのはテンポの分かる曲を開いてから） */
+    void restoreClickOn (bool on) { s.clickOn = on; notify (change::transport); }
 
     // --- 表示 ---------------------------------------------------------------
     void setView (int64 start, int64 end);
@@ -298,6 +304,13 @@ private:
     void markDirty();
     void copyIntoProject (const juce::File& source, const juce::String& relativePath);
     int64 prerollSamples() const;
+    void startWithCountIn (bool punch);   // 止まった所から録る時の再生の頭（カウントイン。2026-10-02）
+    void syncClickToEngine();
+    void pollMonitorLevels();
+    double sentClickSpb = -1.0;            // エンジンに渡したクリックの拍の並び（変わった時だけ渡し直す）
+    int sentClickPerBar = 0;
+    int64 sentClickDownbeat = 0;
+    int countInWarnedSong = -1;            // 「テンポが分からないので数えません」を出した曲（songSerial。曲ごとに 1 度）
     void judge (dummy::PitchPoint&) const;
     void rejudgeAll();
     int64 retroStart (int64 pressSample) const;

@@ -36,6 +36,9 @@ void UiSession::notify (juce::uint32 changes)
         if ((changes & (change::tracks | change::transport | change::practice)) != 0)
             syncStemGains();
     }
+    // クリックの拍は曲のテンポ・拍子・1 小節目から（直したらすぐ鳴る位置も変わる。2026-10-02）
+    if ((changes & (change::songInfo | change::song | change::transport | change::monitor)) != 0)
+        syncClickToEngine();
     listeners.call ([changes] (Listener& l) { l.sessionChanged (changes); });
 }
 
@@ -475,7 +478,10 @@ void UiSession::attachEngine (audio::AudioEngine* e)
         // ここからはダミーの値を出さない（入力が開くまでメーターは消灯）
         s.inputPeakDb = s.inputRmsDb = s.inputPeakHoldDb = audio::InputMeter::floorDb;
         s.inputClipped = false;
+        s.backingMeterDb = s.guideMeterDb = s.clickMeterDb = audio::LevelFollower::floorDb;
     }
+    sentClickSpb = -1.0;
+    syncClickToEngine();
     pushMonitorToEngine();
     refreshOutputStatus();
     refreshInputStatus();
@@ -516,6 +522,7 @@ void UiSession::refreshInputStatus()
 
 void UiSession::pollInput()
 {
+    pollMonitorLevels();
     if (engine == nullptr || ! s.input.open)
         return;
 
@@ -530,6 +537,30 @@ void UiSession::pollInput()
     s.inputPeakHoldDb = l.holdDb;
     s.inputClipped = l.clipped;
     notify (change::meter);
+}
+
+void UiSession::pollMonitorLevels()
+{
+    // モニターの帯のメーター（オフボ・お手本・クリックのフェーダー後。2026-10-02）。帯の目盛りは -48 dB までなので、
+    // それより下は -60 にまとめる（消えていく間に毎回描き直さない）
+    if (engine == nullptr)
+        return;
+    const auto l = engine->getMonitorLevels();
+    bool changed = false;
+    auto take = [&changed] (float& v, float db)
+    {
+        db = juce::jmax (-60.0f, db);
+        if (std::abs (db - v) >= 0.05f)
+        {
+            v = db;
+            changed = true;
+        }
+    };
+    take (s.backingMeterDb, l.backingDb);
+    take (s.guideMeterDb, l.guideDb);
+    take (s.clickMeterDb, l.clickDb);
+    if (changed)
+        notify (change::meter);
 }
 
 void UiSession::resetInputClip()
@@ -778,6 +809,7 @@ void UiSession::setRecording (bool r)
     // 録音中はループしない（通し録音。区間の録り直しは B10）
     loopBeforeRecording = s.loopOn && s.hasRange();
     engine->setLoop (s.rangeIn, s.rangeOut, false);
+    const bool fromStop = ! s.isPlaying;   // 鳴っている途中から録る時は数えない（もう拍が聞こえている）
 
     // 往復の遅れ（B6）：テイクの頭をこの分だけ前にずらす。曲の終わりの後もこの分だけ録り足す
     const auto ld = latencyDisplay (s);
@@ -799,8 +831,38 @@ void UiSession::setRecording (bool r)
     s.isPlaying = true;
     s.recordStart = punch ? s.rangeIn : s.playhead;
     s.recordEnd = punch ? s.rangeOut : -1;
-    engine->play();
+    if (fromStop)
+        startWithCountIn (punch);
+    else
+        engine->play();
     notify (change::transport | change::practice);
+}
+
+void UiSession::startWithCountIn (bool punch)
+{
+    // カウントイン（2026-10-02）。歌い始める所（通しは今の位置、範囲の録り直しは範囲の頭）の小節の 1 拍目から COUNT 小節前で数え始め、
+    // 歌い始める所で数え終わる（song::countInStart。拍は曲の目盛りと同じ所に鳴るので、そのまま曲の拍につながる）
+    //   - 通し：曲は止めたまま、クリックだけで数える。数え終わった所から曲と録音が始まる（数えている間の声は録らない）
+    //   - 範囲の録り直し：助走（prerollSamples）の曲を鳴らしながら、範囲の頭まで拍を鳴らす。曲の頭より前にはみ出す分は無音で数える
+    // テンポが分からなければ数えられない：そのまま始めて、曲ごとに 1 度だけ理由を知らせる
+    if (s.countInBars > 0 && ! s.tempoKnown())
+    {
+        if (countInWarnedSong != s.songSerial)
+        {
+            countInWarnedSong = s.songSerial;
+            postNotice (tr ("record.countIn.noTempo"));
+        }
+        engine->play();
+        return;
+    }
+    if (s.countInBars <= 0)
+    {
+        engine->play();
+        return;
+    }
+    const auto target = punch ? s.rangeIn : s.playhead;
+    const auto from = song::countInStart (s.project.tempo, target, s.countInBars, s.sampleRate());
+    engine->playWithCountIn (juce::jmax ((int64) 0, s.playhead - from), target);
 }
 
 juce::String UiSession::recordProblem() const
@@ -1725,13 +1787,13 @@ void UiSession::pollPitch()
 //==============================================================================
 int64 UiSession::prerollSamples() const
 {
-    // 区間の録り直し（B10）の前に鳴らす長さ：テンポが分かれば COUNT の小節数（最低 1 小節）、分からなければ 2 秒。どちらも 2 秒以上
+    // 区間の録り直し（B10）の前に鳴らす長さ（2026-10-02）：COUNT が 1 / 2 でテンポが分かれば、範囲の頭の小節の 1 拍目から数えてその小節数
+    // （その間は拍を鳴らして数える。startWithCountIn）。Off・テンポが分からなければ 2 秒の助走（数えない。クリック On なら拍は鳴る）。
+    // 曲の頭より前にはみ出す分は、呼ぶ側で 0 から鳴らし、はみ出した分を無音で数える
     const auto rate = s.sampleRate();
-    auto pre = (int64) (2.0 * rate);
-    if (s.project.tempo.known())
-        pre = juce::jmax (pre, (int64) std::llround (s.project.tempo.samplesPerBeat (rate) * s.project.tempo.signature.beatsPerBar()
-                                                        * juce::jmax (1, s.countInBars)));
-    return pre;
+    if (s.countInBars > 0 && s.tempoKnown())
+        return s.rangeIn - song::countInStart (s.project.tempo, s.rangeIn, s.countInBars, rate);
+    return (int64) (2.0 * rate);
 }
 
 bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::String& takeId)
@@ -2159,6 +2221,16 @@ void UiSession::tick (double seconds)
     if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500)
         saveProject();
 
+    // カウントイン中（2026-10-02）：BAR.BEAT は数えている拍を出す（曲の位置は数え終わるまで動かない）
+    const bool counting = s.isPlaying && isEngineDriven() && engine->isCountingIn();
+    if (counting)
+        s.countInPosition = engine->getCountInPosition();
+    if (counting != s.countingIn)
+    {
+        s.countingIn = counting;
+        notify (change::transport | change::playhead);
+    }
+
     if (! s.isPlaying) return;
 
     // 曲を開いていれば、位置は鳴っている音（エンジン）から取る
@@ -2254,7 +2326,43 @@ void UiSession::keepPlayheadInView()
 
 void UiSession::setLoop (bool l)          { if (s.loopOn != l) { s.loopOn = l; syncLoopToEngine(); notify (change::transport | change::range); } }
 void UiSession::setCountIn (int bars)     { s.countInBars = juce::jlimit (0, 2, bars); notify (change::transport); }
-void UiSession::setClick (bool c)         { s.clickOn = c; notify (change::transport); }
+
+void UiSession::setClick (bool c)
+{
+    // テンポが分からなければ拍の位置が無い：入れずに理由を知らせる（押して何も起きないキーにしない）
+    if (c && ! s.tempoKnown())
+    {
+        postNotice (tr ("transport.click.noTempo"));
+        notify (change::transport);   // キーの見た目を戻す
+        return;
+    }
+    s.clickOn = c;
+    notify (change::transport);
+}
+
+void UiSession::setClickLevel (float fader)
+{
+    s.clickLevel = juce::jlimit (0.0f, 1.0f, fader);
+    notify (change::monitor);
+}
+
+void UiSession::syncClickToEngine()
+{
+    if (engine == nullptr)
+        return;
+    // 拍の並びは曲のサンプル（時間軸の SR）。変わった時だけ渡す（渡すと次の拍を探し直す）
+    const auto& t = s.project.tempo;
+    const auto spb = t.known() ? t.samplesPerBeat (s.sampleRate()) : 0.0;
+    const auto perBar = t.signature.beatsPerBar();
+    if (! juce::exactlyEqual (spb, sentClickSpb) || perBar != sentClickPerBar || t.downbeatSample != sentClickDownbeat)
+    {
+        sentClickSpb = spb;
+        sentClickPerBar = perBar;
+        sentClickDownbeat = t.downbeatSample;
+        engine->setClickGrid (spb, perBar, t.downbeatSample);
+    }
+    engine->setClick (s.clickOn && t.known(), audio::PlaybackCore::faderToGain (s.clickLevel));
+}
 
 void UiSession::setRange (int64 in, int64 out)
 {

@@ -239,6 +239,10 @@ public:
         if (savedMode == "pro")      session->setMode (project::Mode::pro);
         session->setShowLyrics (stored->getBoolValue ("showLyrics", false));
         session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));
+        // クリック・カウントイン（2026-10-02）。クリックの入り切りは、曲を開いてテンポが分かってから効く（setClick はテンポを見るので、値だけ戻す）
+        session->setCountIn (stored->getIntValue ("countInBars", 1));
+        session->setClickLevel ((float) stored->getDoubleValue ("clickLevel", 0.62));
+        session->restoreClickOn (stored->getBoolValue ("clickOn", false));
         session->setVoiceRange (stored->getIntValue ("voiceLow", -1), stored->getIntValue ("voiceHigh", -1));   // 声域（おすすめのキー）   // 歌詞レーン（既定は出さない）
         session->addListener (this);
 
@@ -346,6 +350,20 @@ private:
             {
                 settings()->setValue ("voiceLow", st.voiceLow);
                 settings()->setValue ("voiceHigh", st.voiceHigh);
+                settings()->saveIfNeeded();
+            }
+        }
+
+        // クリック・カウントイン（2026-10-02）：値が変わった時だけ書く
+        if (changes & (change::transport | change::monitor))
+        {
+            const auto& st = session->get();
+            if (st.countInBars != settings()->getIntValue ("countInBars", 1) || st.clickOn != settings()->getBoolValue ("clickOn", false)
+                || std::abs (st.clickLevel - (float) settings()->getDoubleValue ("clickLevel", 0.62)) > 1.0e-4f)
+            {
+                settings()->setValue ("countInBars", st.countInBars);
+                settings()->setValue ("clickOn", st.clickOn);
+                settings()->setValue ("clickLevel", st.clickLevel);
                 settings()->saveIfNeeded();
             }
         }

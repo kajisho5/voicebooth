@@ -73,6 +73,7 @@ private:
 /** スライドスイッチ型の択一（モード / カウントイン / 録音モード）
     動き（DESIGN 4.10「切り替え」）：キーキャップごとばねで滑り、少し行き過ぎて戻る。止まってから LED が点く */
 class SegmentedKeys : public juce::Component,
+                      public juce::SettableTooltipClient,
                       private motion::Animated
 {
 public:

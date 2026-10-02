@@ -154,6 +154,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/Mp3Format.cpp
     app/audio/Mp4Gapless.cpp
     app/audio/PlaybackCore.cpp
+    app/audio/Metronome.cpp
     app/audio/InputMeter.cpp
     app/audio/MonitorMixer.cpp
     app/audio/TakeRecorder.cpp
@@ -459,6 +460,7 @@ if(VOICEBOOTH_TESTS)
         tests/TakeStatsTests.cpp
         tests/KeySuggestTests.cpp
         tests/GuideCleanTests.cpp
+        tests/ClickTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
