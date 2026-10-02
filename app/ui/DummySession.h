@@ -91,6 +91,7 @@ struct Session
     bool recordFloat = false;             // 32bit float（false = 24bit PCM）
     int songRate = 0;                     // 曲ファイルの SR（project.sampleRate は時間軸）
     std::shared_ptr<const audio::SongAudio> songOriginal;   // そろえ直す時の元の伴奏
+    std::shared_ptr<const audio::SongAudio> songCurrent;    // いまの伴奏（プロジェクトの SR。確認用ミックス B15）
     bool conforming = false;              // 伴奏の SR をそろえている途中（録音できない）
     int songSerial = 0;                   // 曲を開くたびに増える（裏の作業が古い曲に戻ってこないように）
 
