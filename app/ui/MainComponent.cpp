@@ -32,6 +32,19 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
         addAndMakeVisible (c);
+    toastKey.onClick = [this]
+    {
+        auto action = std::move (toastAction);
+        toastAction = nullptr;
+        toastUntil = 0.0;
+        toastLayer.setVisible (false);
+        repaint();
+        if (action) action();
+    };
+    toastLayer.setInterceptsMouseClicks (false, true);
+    toastLayer.painter = [this] (juce::Graphics& g) { paintToast (g, toastLayer.getPosition().toFloat()); };
+    toastLayer.addAndMakeVisible (toastKey);
+    addChildComponent (toastLayer);
     addChildComponent (overlay);
     overlay.onClosed = [this]
     {
@@ -134,6 +147,8 @@ void MainComponent::timerCallback()
     if (toastUntil > 0.0 && now > toastUntil)
     {
         toastUntil = 0.0;
+        toastAction = nullptr;
+        toastLayer.setVisible (false);
         repaint();
     }
 }
@@ -180,7 +195,16 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     if ((changes & change::notice) && state().noticeSerial != noticeSeen)
     {
         noticeSeen = state().noticeSerial;
-        showToast (state().noticeText);
+        const auto& s = state();
+        if (s.rescueNoticeSerial == s.noticeSerial)
+        {
+            // リハーサルで録ったテイク（原速・原キー）：本番のつもりだったらその場で入れられる
+            const auto type = s.rescueTrack;
+            const auto id = s.rescueTakeId;
+            showToast (s.noticeText, tr ("rescue.button"), [this, type, id] { session.promoteRehearsalTake (type, id); });
+        }
+        else
+            showToast (s.noticeText);
     }
 }
 
@@ -217,25 +241,61 @@ void MainComponent::paintOverChildren (juce::Graphics& g)
         g.drawRect (canvasArea, 2);
     }
 
-    if (toastUntil > 0.0)
-    {
-        const auto f = sans (12.5f, Weight::medium);
-        const auto w = textWidth (f, toastText) + 48.0f;
-        const auto box = juce::Rectangle<float> (w, 36.0f).withCentre ({ (float) canvasArea.getCentreX(), (float) canvasArea.getBottom() - 90.0f });
-        g.setColour (colours::raisedHi);
-        g.fillRoundedRectangle (box, 6.0f);
-        g.setColour (colours::lineHi);
-        g.drawRoundedRectangle (box.reduced (0.5f), 6.0f, 1.0f);
-        paint::led (g, { box.getX() + 16.0f, box.getCentreY() }, 2.8f, colours::warn, true);
-        g.setColour (colours::text);
-        g.setFont (f);
-        g.drawText (toastText, box.withTrimmedLeft (28.0f), juce::Justification::centredLeft, false);
-    }
+    if (toastUntil > 0.0 && ! toastAction)
+        paintToast (g, {});
+}
+
+void MainComponent::paintToast (juce::Graphics& g, juce::Point<float> origin)
+{
+    // origin：描く部品の左上（MainComponent の座標）。キー付きの時は toastLayer の中に描く
+    juce::Graphics::ScopedSaveState saved (g);
+    g.addTransform (juce::AffineTransform::translation (-origin.x, -origin.y));
+    const auto f = sans (12.5f, Weight::medium);
+    const auto box = toastBox();
+    g.setColour (colours::raisedHi);
+    g.fillRoundedRectangle (box, 6.0f);
+    g.setColour (colours::lineHi);
+    g.drawRoundedRectangle (box.reduced (0.5f), 6.0f, 1.0f);
+    paint::led (g, { box.getX() + 16.0f, box.getCentreY() }, 2.8f, colours::warn, true);
+    g.setColour (colours::text);
+    g.setFont (f);
+    auto textArea = box.withTrimmedLeft (28.0f);
+    if (toastAction) textArea.removeFromRight ((float) toastKey.idealWidth() + 14.0f);
+    g.drawText (toastText, textArea, juce::Justification::centredLeft, true);
+}
+
+juce::Rectangle<float> MainComponent::toastBox() const
+{
+    const auto f = sans (12.5f, Weight::medium);
+    const auto keyW = toastAction ? (float) toastKey.idealWidth() + 14.0f : 0.0f;
+    const auto w = juce::jmin ((float) canvasArea.getWidth() - 24.0f, textWidth (f, toastText) + 48.0f + keyW);
+    const auto h = toastAction ? 44.0f : 36.0f;
+    return juce::Rectangle<float> (w, h).withCentre ({ (float) canvasArea.getCentreX(), (float) canvasArea.getBottom() - 90.0f });
+}
+
+void MainComponent::showToast (const juce::String& text, const juce::String& actionLabel, std::function<void()> action)
+{
+    toastText = text;
+    toastAction = std::move (action);
+    toastKey.setButtonText (actionLabel);
+    const auto box = toastBox();
+    const auto area = box.getSmallestIntegerContainer();
+    toastLayer.setBounds (area);
+    toastKey.setBounds (juce::Rectangle<int> (toastKey.idealWidth(), area.getHeight() - 14)
+                            .withPosition (area.getWidth() - toastKey.idealWidth() - 8, 7));
+    toastKey.setVisible (true);
+    toastLayer.setVisible (true);
+    toastLayer.toFront (false);
+    toastLayer.repaint();
+    toastUntil = juce::Time::getMillisecondCounterHiRes() + 12000.0;   // 押す時間を取る
+    repaint();
 }
 
 void MainComponent::showToast (const juce::String& text)
 {
     toastText = text;
+    toastAction = nullptr;
+    toastLayer.setVisible (false);
     // 長い知らせ（書き出し先のパスなど）は長めに出す
     toastUntil = juce::Time::getMillisecondCounterHiRes() + juce::jlimit (2600.0, 6500.0, 1400.0 + 45.0 * text.length());
     repaint();

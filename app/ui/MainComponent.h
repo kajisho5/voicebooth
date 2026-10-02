@@ -90,6 +90,8 @@ public:
     void openSectionName (int index);
 
     void showToast (const juce::String&);
+    /** 押せるキー付きの知らせ（長めに出す。録り間違いの救済など） */
+    void showToast (const juce::String&, const juce::String& actionLabel, std::function<void()> action);
 
     static constexpr int defaultWidth = 1440, defaultHeight = 900;
     static constexpr int minWidth = 1280, minHeight = 800;
@@ -135,6 +137,16 @@ private:
 
     juce::String toastText;
     double toastUntil = 0.0;
+    KeyButton toastKey;                       // 知らせの右のキー（ある時だけ）
+    std::function<void()> toastAction;
+    juce::Rectangle<float> toastBox() const;
+    /** キー付きの知らせ：ほかの部品より上に置く板（キー以外のクリックは下へ通す） */
+    struct ToastLayer : juce::Component
+    {
+        std::function<void (juce::Graphics&)> painter;
+        void paint (juce::Graphics& g) override { if (painter) painter (g); }
+    } toastLayer;
+    void paintToast (juce::Graphics&, juce::Point<float> origin);
 
     juce::TooltipWindow tooltips { this, 500 };   // 少し待って出す。一度出たら隣へ移る時はすぐ（DESIGN 4.10.1 TT）
 

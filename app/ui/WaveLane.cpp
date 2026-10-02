@@ -78,12 +78,54 @@ std::vector<WaveLane::Row> WaveLane::layoutRows() const
 void WaveLane::mouseDown (const juce::MouseEvent& e)
 {
     if (e.x < metrics::gutter) return;
+    menuGesture = e.mods.isPopupMenu();
+    if (menuGesture)
+    {
+        showTakeMenu();
+        return;
+    }
     gesture.down (session, map(), e.position.x);
+}
+
+void WaveLane::showTakeMenu()
+{
+    // 録り間違いの救済：いまのトラックのリハーサルのテイクを本番に入れる（原速・原キーで録った物だけ）
+    const auto& s = state();
+    const auto type = s.currentTrack().type;
+    const auto* track = s.project.findTrack (type);
+    juce::PopupMenu menu;
+    std::vector<juce::String> ids;
+    if (track != nullptr && ! s.isRecording)
+        for (auto& k : track->takes)
+        {
+            if (k.recMode != project::RecMode::practice)
+                continue;
+            if (k.tempoPercent == 100 && k.keyShift == 0)
+            {
+                const auto from = k.useFrom >= 0 ? k.useFrom : juce::jmax ((project::int64) 0, k.startSample);
+                const auto to = k.useTo > from ? k.useTo : k.endSample;
+                ids.push_back (k.id);
+                menu.addItem ((int) ids.size(), tr ("rescue.menu", k.id, formatTime (from, s.sampleRate(), true) + " - "
+                                                                          + formatTime (juce::jmin (s.project.lengthSamples, to), s.sampleRate(), true)));
+            }
+            else
+                menu.addItem (-1, tr ("rescue.menuNotOriginal", k.id, k.tempoPercent, (k.keyShift > 0 ? "+" : "") + juce::String (k.keyShift)), false);
+        }
+    if (ids.empty() && menu.getNumItems() == 0)
+        menu.addItem (-1, tr ("rescue.menuNone"), false);
+
+    juce::Component::SafePointer<WaveLane> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition().withStandardItemHeight (28),
+                        [safe, type, ids] (int chosen)
+                        {
+                            if (safe != nullptr && chosen > 0 && chosen <= (int) ids.size())
+                                safe->session.promoteRehearsalTake (type, ids[(size_t) chosen - 1]);
+                        });
 }
 
 void WaveLane::mouseDrag (const juce::MouseEvent& e)
 {
-    if (e.getMouseDownX() < metrics::gutter) return;
+    if (e.getMouseDownX() < metrics::gutter || menuGesture) return;
     gesture.drag (session, map(), e.position.x);
 }
 
@@ -98,6 +140,7 @@ void WaveLane::mouseUp (const juce::MouseEvent& e)
                 session.selectTrack (row.trackIndex);
         return;
     }
+    if (menuGesture) { menuGesture = false; return; }
     gesture.up (session, map(), e.position.x);
 }
 
