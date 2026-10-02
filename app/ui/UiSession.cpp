@@ -1,5 +1,8 @@
 #include "UiSession.h"
 #include "audio/Retro.h"
+#include "audio/SongLoader.h"
+#include "audio/Resample.h"
+#include "analysis/RefPitch.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -128,6 +131,7 @@ void UiSession::conformSong()
             for (auto& b : s.project.tempo.beats) b = scale (b);
             for (auto& sec : s.project.sections) sec.startSample = scale (sec.startSample);
             for (auto& p : s.myPitch) p.sample = scale (p.sample);
+            for (auto& p : s.refPitch) p.sample = scale (p.sample);
             for (auto& l : s.project.lyrics.lines) { l.startSample = scaleTimed (l.startSample); l.endSample = scaleTimed (l.endSample); }
             s.project.sampleRate = target;
             s.project.lengthSamples = audio->length();
@@ -593,6 +597,171 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
 }
 
 //==============================================================================
+namespace
+{
+    /** お手本の解析の結果（裏のスレッド → メッセージスレッド） */
+    struct GuideOutcome
+    {
+        enum class Kind { ok, loadFailed, notAligned, needsSeparation, keyShift };
+        Kind kind = Kind::notAligned;
+        juce::String error;                        // loadFailed の翻訳キー
+        std::vector<audio::PitchFrame> points;     // オフボ（曲の SR）の時間
+        double offsetSeconds = 0.0;                // 原曲の位置 = オフボの位置 + offset
+        int keyShift = 0;
+    };
+
+    std::vector<float> mono (const audio::SongAudio& a)
+    {
+        const auto n = a.buffer.getNumSamples(), ch = juce::jmax (1, a.buffer.getNumChannels());
+        std::vector<float> m ((size_t) n, 0.0f);
+        for (int c = 0; c < a.buffer.getNumChannels(); ++c)
+        {
+            const auto* x = a.buffer.getReadPointer (c);
+            for (int i = 0; i < n; ++i)
+                m[(size_t) i] += x[i] / (float) ch;
+        }
+        return m;
+    }
+
+    GuideOutcome analyseGuide (const juce::File& file, const audio::SongAudio& backing)
+    {
+        GuideOutcome out;
+        juce::AudioFormatManager formats;
+        audio::registerSongFormats (formats);
+        auto loaded = audio::loadSong (file, formats);
+        if (! loaded.ok() || loaded.audio == nullptr)
+        {
+            out.kind = GuideOutcome::Kind::loadFailed;
+            out.error = audio::errorKey (loaded.error);
+            return out;
+        }
+
+        // 同じ SR でそろえる（オフボの元の SR に）
+        auto guide = loaded.audio;
+        if (std::abs (guide->sampleRate - backing.sampleRate) > 0.5)
+            guide = audio::resampleSong (*guide, backing.sampleRate);
+        if (guide == nullptr)
+        {
+            out.kind = GuideOutcome::Kind::loadFailed;
+            out.error = "load.error.readFailed";
+            return out;
+        }
+
+        const auto ref = mono (*guide), kar = mono (backing);
+        const auto rate = backing.sampleRate;
+        const auto align = analysis::alignReference (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
+        if (! align.found())
+            return out;   // notAligned
+        out.offsetSeconds = (double) align.offsetSamples / rate;
+
+        // キー違いのカラオケは引けない（音程は分かっても声が取り出せない）
+        const auto key = analysis::estimateKeyShift (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
+        if (key.semitones != 0 && key.confidence > 0.3)
+        {
+            out.kind = GuideOutcome::Kind::keyShift;
+            out.keyShift = key.semitones;
+            return out;
+        }
+
+        auto r = analysis::referencePitch (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate, align);
+        switch (r.status)
+        {
+            case analysis::RefPitchResult::Status::ok:
+                out.kind = GuideOutcome::Kind::ok;
+                out.points = std::move (r.points);
+                break;
+            case analysis::RefPitchResult::Status::needsSeparation: out.kind = GuideOutcome::Kind::needsSeparation; break;
+            case analysis::RefPitchResult::Status::notAligned:
+            case analysis::RefPitchResult::Status::cancelled:       out.kind = GuideOutcome::Kind::notAligned; break;
+        }
+        return out;
+    }
+}
+
+void UiSession::loadGuide (const juce::File& file)
+{
+    if (! isEngineDriven() || s.songOriginal == nullptr)
+    {
+        postNotice (tr ("guide.problem.noBacking"));
+        return;
+    }
+    if (s.guideBusy)
+        return;
+
+    s.guideBusy = true;
+    s.guideName = file.getFileName();
+    postNotice (tr ("guide.analysing", s.guideName));
+    notify (change::view);
+
+    const auto backing = s.songOriginal;
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, file, backing, serial]
+    {
+        auto out = std::make_shared<GuideOutcome> (analyseGuide (file, *backing));
+        juce::MessageManager::callAsync ([this, weak, out, serial, songRate = backing->sampleRate]
+        {
+            if (weak.expired() || serial != s.songSerial)
+                return;   // 消えた・別の曲を開いた
+            s.guideBusy = false;
+            using Kind = GuideOutcome::Kind;
+            switch (out->kind)
+            {
+                case Kind::ok:
+                {
+                    // オフボの元の SR → いまの時間軸の SR（録音形式で SR をそろえていれば）
+                    const auto ratio = (double) s.sampleRate() / songRate;
+                    s.refPitch.clear();
+                    s.refPitch.reserve (out->points.size());
+                    for (auto& f : out->points)
+                        s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
+                    rejudgeAll();
+                    postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
+                    break;
+                }
+                case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
+                case Kind::notAligned:      postNotice (tr ("guide.problem.notAligned")); break;
+                case Kind::needsSeparation: postNotice (tr ("guide.problem.needsSeparation")); break;
+                case Kind::keyShift:        postNotice (tr ("guide.problem.keyShift", (out->keyShift > 0 ? "+" : "") + juce::String (out->keyShift))); break;
+            }
+            notify (change::view);
+        });
+    });
+}
+
+void UiSession::judge (dummy::PitchPoint& p) const
+{
+    // 同じ位置（10 ms 以内）のお手本の点と比べる。どちらかに声が無ければ「比べていない」
+    p.judged = false;
+    p.centsOff = 0.0f;
+    if (s.refPitch.empty() || p.confidence < 0.5f)
+        return;
+    const auto tolerance = (int64) (audio::pitch::hopSeconds * s.sampleRate());
+    auto it = std::lower_bound (s.refPitch.begin(), s.refPitch.end(), p.sample - tolerance,
+                                [] (const dummy::PitchPoint& r, int64 v) { return r.sample < v; });
+    const dummy::PitchPoint* best = nullptr;
+    for (; it != s.refPitch.end() && it->sample <= p.sample + tolerance; ++it)
+        if (best == nullptr || std::abs (it->sample - p.sample) < std::abs (best->sample - p.sample))
+            best = &*it;
+    if (best == nullptr || best->confidence < 0.5f)
+        return;
+
+    auto cents = (p.midi - best->midi) * 100.0f;
+    if (s.octaveAlign)   // オクターブ違い（男女・裏声）は同じ音として比べる
+        cents -= 1200.0f * std::round (cents / 1200.0f);
+    p.centsOff = cents;
+    p.judged = true;
+}
+
+void UiSession::rejudgeAll()
+{
+    if (! isEngineDriven())
+        return;   // 見本（UI_MOCK・デモ）の線は見本のずれのまま
+    for (auto& p : s.myPitch)
+        judge (p);
+}
+
+//==============================================================================
 void UiSession::pollPitch()
 {
     if (! isEngineDriven())
@@ -621,7 +790,11 @@ void UiSession::pollPitch()
         {
             const auto& f = pitchFrames[i];
             if (f.songSample - lat >= 0)
-                pts.push_back ({ f.songSample - lat, f.midi, f.confidence, 0.0f, false });
+            {
+                dummy::PitchPoint p { f.songSample - lat, f.midi, f.confidence, 0.0f, false };
+                judge (p);
+                pts.push_back (p);
+            }
         }
         a = line.erase (a, b);
         line.insert (a, pts.begin(), pts.end());
@@ -1033,7 +1206,7 @@ void UiSession::setView (int64 start, int64 end)
     notify (change::view);
 }
 
-void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; notify (change::view); }
+void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; rejudgeAll(); notify (change::view); }
 void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; notify (change::view); }
 
 void UiSession::setFullRange (bool b)

@@ -43,6 +43,7 @@ struct LaunchOptions
     juce::String mode;            // easy / standard / pro
     juce::String track;           // main / double / harm1
     juce::File lyrics;            // 歌詞パッドをこのファイルで開く（--lyrics=。B4b）
+    juce::File guide;             // 曲を開いたら、このお手本（声入りの原曲）を重ねる（--guide=。B9）
 };
 
 /** DESIGN 4 メイン画面（練習兼録音）。左にキャンバス、右にラック。
@@ -93,6 +94,7 @@ public:
 private:
     void timerCallback() override;
     void onSessionChanged (juce::uint32) override;
+    juce::File pendingGuide;   // 曲が開いたら重ねるお手本（--guide=）
 
     void toggleRecord();
     void requestTempo (int);

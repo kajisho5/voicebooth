@@ -136,6 +136,11 @@ public:
     void restoreLatencyProfiles (const juce::String& json);
     juce::String latencyProfilesJson() const;
 
+    // --- お手本（声入りの原曲。B9。DESIGN 7.1.1） ---------------------------------
+    /** 原曲を読み、オフボと時間を合わせて声を取り出し（原曲 − カラオケ）、お手本の音程を重ねる（裏で）。
+        結果は知らせで出す。引けない組（別のミックス・キー違い・別の曲）では線を出さない */
+    void loadGuide (const juce::File&);
+
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
     juce::String recordProblem() const;
@@ -216,6 +221,8 @@ private:
     void pollLatencyProbe();
     void updateShadow();
     void pollPitch();
+    void judge (dummy::PitchPoint&) const;
+    void rejudgeAll();
     int64 retroStart (int64 pressSample) const;
     void latencyMeasured (const audio::latency::Result&, const juce::String& key);
 

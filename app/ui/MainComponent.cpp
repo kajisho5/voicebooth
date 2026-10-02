@@ -74,6 +74,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     }
 
     if (o.open != juce::File())     openSong (o.open);
+    if (o.guide != juce::File())    pendingGuide = o.guide;
     if (o.lyrics != juce::File())   openLyrics (o.lyrics);
     if (o.screen == "song-info")    openSongInfo();
     if (o.screen == "lyrics")       openLyrics();
@@ -133,6 +134,14 @@ void MainComponent::timerCallback()
 
 void MainComponent::onSessionChanged (juce::uint32 changes)
 {
+    // 曲が開いたら、--guide= のお手本を重ねる（B9）
+    if ((changes & change::song) && pendingGuide != juce::File() && state().backingWave != nullptr)
+    {
+        const auto guide = std::exchange (pendingGuide, juce::File());
+        juce::Component::SafePointer<MainComponent> safe (this);
+        juce::MessageManager::callAsync ([safe, guide] { if (safe != nullptr) safe->session.loadGuide (guide); });
+    }
+
     if (changes & change::mode)
         resized();   // 波形レーンの高さがモードで変わる
 
@@ -476,9 +485,16 @@ bool MainComponent::isInterestedInFileDrag (const juce::StringArray& files)
     return true;
 }
 
-void MainComponent::filesDropped (const juce::StringArray& files, int, int)
+void MainComponent::filesDropped (const juce::StringArray& files, int x, int y)
 {
     const juce::File f (files[0]);
+
+    // 曲を開いている時にピッチレーンへ落とした曲は、お手本（声入りの原曲。B9）
+    if (state().backingWave != nullptr && getLocalArea (&pitch, pitch.getLocalBounds()).contains (x, y) && audio::hasSongExtension (f))
+    {
+        session.loadGuide (f);
+        return;
+    }
 
     // .txt / .lrc は歌詞（DESIGN 7.5.3：ウィンドウへのドロップ）
     if (LyricsDialog::isLyricsFile (f))
