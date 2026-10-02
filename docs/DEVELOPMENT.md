@@ -6,7 +6,7 @@
 
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
 - **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
-- **日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
+- **日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
 - **スキン**（DESIGN 4.11）：色トークン 16 個の着せ替え。内蔵 10 種＋テンプレートから自作（`.vbskin`、`Skins/` に保存）。設定で選ぶと画面を作り直す。`--skin=<id>`
 - **B2**：開いた曲（オフボ）を既定の出力デバイスで再生・シーク・ループ。オフボのフェーダーと M が効く
 - **B3**：ドライバ・入出力の機器・SR・バッファを列挙し、入力セットアップで選べる（設定に保存）。入力は 1 ch（モノラル、既定 L）を開いてメーターだけ（ピーク・ホールド・RMS・クリップ）。レイテンシはデバイスの申告値（実測は B6）。Mac はマイクの許可を確かめる
@@ -132,7 +132,7 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 docs/DESIGN.md        仕様（唯一の正）
 docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
-app/i18n/             多言語対応 tr("key")（6 言語）
+app/i18n/             多言語対応 tr("key")（12 言語）
 app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）。曲の情報の操作は UiSessionSong.cpp（B4b）
 app/ui/SongMarks.*    区間の名前・区間とルーラーのメニュー（B4b）
 app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、自分の声のモニターとリバーブ（MonitorMixer）、通し録音（TakeRecorder）、往復の遅れの実測（LatencyProbe）、遡及録音のフレーズの頭（Retro）、自分の声のピッチ（PitchTracker）、伴奏の SR 変換（Resample）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
@@ -154,7 +154,7 @@ app/ui/DummySession.* 固定ダミー（DESIGN 20）。結線時に差し替え�
 app/project/          データモデル（保存は B14）+ project.example.json、テイクと採用区間（Comp）
 app/export/           書き出し（ExportService：フル尺の Dry。納品パックは B15）
 resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
-resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant / es
+resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant / es / pt-BR / id / vi / tr / de / fr
 tools/check_i18n.py   翻訳表と直書きの検査（CI でも実行）
 brand/                アイコン・ロゴ・README の画像（build_brand.py で生成）
 packaging/            インストーラー：windows/VoiceBooth.iss（Inno Setup）・build_installer.ps1、macos/make_dmg.sh（DMG）
@@ -162,16 +162,16 @@ packaging/            インストーラー：windows/VoiceBooth.iss（Inno Setu
 
 ## 多言語対応
 
-画面の文字は必ず `tr("key")` で引き、`resources/i18n/` の全言語（ja / en / ko / zh-Hans / zh-Hant / es）にキーを足す。
+画面の文字は必ず `tr("key")` で引き、`resources/i18n/` の全言語（ja / en / ko / zh-Hans / zh-Hant / es / pt-BR / id / vi / tr / de / fr）にキーを足す。
 
 ```bash
 python3 tools/check_i18n.py
 ```
 
 言語を足す時は `app/i18n/I18n.cpp` の `available()` に 1 行、JSON を 1 枚、`CMakeLists.txt` の埋め込みに 1 行（DESIGN 10.1）。
-韓国語・中国語は OS の標準フォントで表示する（Linux で確認する場合は `fonts-noto-cjk` を入れる）。
+韓国語・中国語・ベトナム語・トルコ語は OS の標準フォントで表示する（Linux で確認する場合は `fonts-noto-cjk` を入れる。ベトナム語・トルコ語は DejaVu Sans などで表示）。
 
-README は 6 言語（`README.md` が日本語、`README.<lang>.md`）。内容を変えたら全言語をそろえる。
+README は 12 言語（`README.md` が日本語、`README.<lang>.md`）。内容を変えたら全言語をそろえる。
 
 ## ブランド素材
 

@@ -72,6 +72,12 @@ const std::vector<LanguageInfo>& available()
         { Language::zhHans, "zh-Hans", "\xe7\xae\x80\xe4\xbd\x93\xe4\xb8\xad\xe6\x96\x87",   false },   // 简体中文
         { Language::zhHant, "zh-Hant", "\xe7\xb9\x81\xe9\xab\x94\xe4\xb8\xad\xe6\x96\x87",   false },   // 繁體中文
         { Language::es,     "es",      "Espa\xc3\xb1ol",                                       true  },   // Español（ラテン文字は同梱の Plex で足りる）
+        { Language::ptBR,   "pt-BR",   "Portugu\xc3\xaas (Brasil)",                             true  },   // Português (Brasil)
+        { Language::id,     "id",      "Bahasa Indonesia",                                          true  },
+        { Language::vi,     "vi",      "Ti\xe1\xba\xbfng Vi\xe1\xbb\x87t",                      false },   // Tiếng Việt（ă ơ ư đ と声調の合成字が Plex Sans JP に無い）
+        { Language::tr,     "tr",      "T\xc3\xbcrk\xc3\xa7" "e",                                false },   // Türkçe（ğ ş İ が Plex Sans JP に無い）
+        { Language::de,     "de",      "Deutsch",                                                   true  },
+        { Language::fr,     "fr",      "Fran\xc3\xa7" "ais",                                      true  },   // Français
     };
     return list;
 }
@@ -102,6 +108,12 @@ Language fromCode (const juce::String& raw, Language fallback)
             return Language::zhHant;
         return Language::zhHans;
     }
+
+    // ポルトガル語はブラジル以外（pt-PT など）も pt-BR で表示する。インドネシア語は旧コード "in" も
+    if (code == "pt" || code.startsWith ("pt-"))
+        return Language::ptBR;
+    if (code == "in" || code.startsWith ("in-"))
+        return Language::id;
 
     for (auto& i : available())
         if (code == juce::String (i.code).toLowerCase() || code.startsWith (juce::String (i.code).toLowerCase() + "-"))

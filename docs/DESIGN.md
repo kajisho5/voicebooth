@@ -876,7 +876,7 @@ X API の料金 https://postproxy.dev/blog/x-api-pricing-2026/ 、Instagram の�
 - クロスフェード
 - ~~テーマはダーク固定でよい~~ → スキンで選べる・作れる（4.11。内蔵 10 種＋テンプレートから自作）
 - キャッシュ場所
-- 表示言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español。既定は OS の表示言語、対応外は英語）→ 10.1
+- 表示言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français。既定は OS の表示言語、対応外は英語）→ 10.1
 
 ### 10.1 多言語対応（2026-10-01 決定。最初から入れる）
 
@@ -888,16 +888,19 @@ X API の料金 https://postproxy.dev/blog/x-api-pricing-2026/ 、Instagram の�
 - 英大文字の小見出し（INPUT / PRACTICE / TIME 等）はデザイン要素として全言語で英語のままでもよいが、必ず表から引く
 - 曲名・歌詞・機器名・ファイル名はデータなので翻訳しない
 - `tools/check_i18n.py` を CI で実行：全言語のキー一致、差し込みの一致、未定義キー、非 ASCII 文字列の直書きを検出
-- 対応言語：日本語 `ja` / English `en` / 한국어 `ko` / 简体中文 `zh-Hans` / 繁體中文 `zh-Hant` / Español `es`（2026-10-02 追加。スペインと中南米の両方で通じる中立的な表現、「tú」）
+- 対応言語：日本語 `ja` / English `en` / 한국어 `ko` / 简体中文 `zh-Hans` / 繁體中文 `zh-Hant` / Español `es`（2026-10-02 追加。スペインと中南米の両方で通じる中立的な表現、「tú」） / Português (Brasil) `pt-BR`（「você」）/ Bahasa Indonesia `id`（「Anda」）/ Tiếng Việt `vi`（「bạn」）/ Türkçe `tr`（丁寧な -in 形）/ Deutsch `de`（「du」）/ Français `fr`（「vous」、: ; ? ! « » の前後は改行しない空白）（この 6 言語は 2026-10-02 追加）
+  - OS の言語が pt（pt-PT など）はどれも pt-BR、インドネシア語の旧コード in は id
   - OS の言語が zh-TW / zh-HK / zh-MO / zh-Hant は繁体、それ以外の zh は簡体
 - フォント
-  - 日本語・英語・スペイン語：同梱の IBM Plex Sans JP（数値は IBM Plex Mono。á é í ó ú ñ ü ¿ ¡ も収録）
+  - 日本語・英語・スペイン語・ポルトガル語・インドネシア語・ドイツ語・フランス語：同梱の IBM Plex Sans JP（数値は IBM Plex Mono。á é í ó ú ñ ü ¿ ¡ ã õ ç ä ö ß œ « » „ “ も収録）
+  - ベトナム語・トルコ語：OS の標準フォント（Mac: Helvetica Neue、Win: Segoe UI、ほか Arial / Noto Sans / DejaVu Sans）。IBM Plex Sans JP にベトナム語の ă ơ ư đ と声調の合成字（U+1EA0–U+1EF9）、トルコ語の ğ ş İ が無いため。候補のフォントがその字を持つか確かめてから使う（1 語の中で書体が混ざらないように）。IBM Plex Mono は両方とも収録しているので数値はそのまま
+    - 欧文版の IBM Plex Sans（OFL）なら両方とも収録していて、3 ウェイトで約 0.6MB。見た目をそろえたくなったら同梱を検討
   - 韓国語・中国語：OS の標準フォント（Mac: Apple SD Gothic Neo / PingFang SC / PingFang TC、Win: Malgun Gothic / Microsoft YaHei UI / Microsoft JhengHei UI）。日本語フォントでは漢字が日本の字形になりハングルも無いため。見つからなければ同梱フォント＋OS の代替
   - IBM Plex Sans SC / TC は公式配布が Web フォント形式のみで、同梱すると約 30MB 増えるため見送り（必要になったら再検討）
   - 歌詞・曲名などかなを含むデータは、UI の言語に関係なく日本語の字形で描く（`sansFor()`）
 - 言語を足す時：`i18n::available()` に 1 行 ＋ JSON を 1 枚（CMake の埋め込みにも追加）
 - 長さの違い（英語は長い・日本語は短い）を前提に、ボタン幅は文字幅から計算し、固定幅にしない
-- README も 6 言語（`README.md` が日本語、`README.<言語コード>.md`）。肩書きはアプリの `app.tagline` と同じ文、見出し画像も言語ごと（`brand/out/marketing/readme-banner-*.png`）。内容を変えたら全言語をそろえる。開発者向けの説明は `docs/DEVELOPMENT.md`（日本語のみ）
+- README も 12 言語（`README.md` が日本語、`README.<言語コード>.md`）。肩書きはアプリの `app.tagline` と同じ文、見出し画像も言語ごと（`brand/out/marketing/readme-banner-*.png`）。内容を変えたら全言語をそろえる。開発者向けの説明は `docs/DEVELOPMENT.md`（日本語のみ）
 
 ---
 

@@ -37,8 +37,10 @@ namespace
 }
 
 //==============================================================================
-// 韓国語・中国語は OS の標準フォント（DESIGN 10.1）
+// 韓国語・中国語・ベトナム語・トルコ語は OS の標準フォント（DESIGN 10.1）
 //   同梱の Plex Sans JP では漢字が日本の字形になり、ハングルも無いため。
+//   ベトナム語（ă ơ ư đ と声調の合成字）とトルコ語（ğ ş İ）の字も Plex Sans JP に無く、
+//   1 語の中で書体が混ざらないよう、その字を持つ OS のフォントで全体を描く。
 namespace
 {
     struct SystemFace { juce::String family, style[3]; };
@@ -50,11 +52,41 @@ namespace
             case i18n::Language::ko:     return { "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic" };
             case i18n::Language::zhHans: return { "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC" };
             case i18n::Language::zhHant: return { "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", "Source Han Sans TC" };
+            case i18n::Language::vi:
+            case i18n::Language::tr:     return { "Helvetica Neue", "Segoe UI", "Arial", "Noto Sans", "DejaVu Sans", "Liberation Sans" };
             case i18n::Language::ja:
             case i18n::Language::en:
-            case i18n::Language::es:     break;
+            case i18n::Language::es:
+            case i18n::Language::ptBR:
+            case i18n::Language::id:
+            case i18n::Language::de:
+            case i18n::Language::fr:     break;
         }
         return {};
+    }
+
+    /** その言語に欠かせない字（候補のフォントが本当に持っているか確かめる。空なら確かめない） */
+    const char* probeFor (i18n::Language l)
+    {
+        if (l == i18n::Language::vi) return "\xc4\x83\xc6\xa1\xc6\xb0\xc4\x91\xe1\xba\xa1\xe1\xbb\x87\xe1\xbb\xb1";   // ă ơ ư đ ạ ệ ự
+        if (l == i18n::Language::tr) return "\xc4\x9f\xc5\x9f\xc4\xb0\xc4\xb1";                                           // ğ ş İ ı
+        return "";
+    }
+
+    bool hasGlyphs (const juce::String& family, const juce::String& style, const char* probe)
+    {
+        if (*probe == 0)
+            return true;
+
+        // getTypefacePtr() は LookAndFeel を通って再帰するので、OS から直接引く（systemTypeface と同じ）
+        const auto face = juce::Typeface::createSystemTypefaceFor (juce::Font (juce::FontOptions (family, style, 14.0f)));
+        if (face == nullptr)
+            return false;
+
+        for (auto p = juce::String::fromUTF8 (probe).getCharPointer(); ! p.isEmpty(); ++p)
+            if (! face->getNominalGlyphForCodepoint (*p).has_value())
+                return false;
+        return true;
     }
 
     juce::String pickStyle (const juce::StringArray& available, std::initializer_list<const char*> wanted)
@@ -82,9 +114,13 @@ namespace
                 continue;
 
             const auto styles = juce::Font::findAllTypefaceStyles (name);
+            const auto regular = pickStyle (styles, { "Regular", "Normal", "Book" });
+            if (! hasGlyphs (name, regular, probeFor (l)))
+                continue;
+
             face.family = name;
-            face.style[0] = pickStyle (styles, { "Regular", "Normal", "Book" });
-            face.style[1] = pickStyle (styles, { "Medium", "Regular", "Normal" });
+            face.style[0] = regular;
+            face.style[1] = pickStyle (styles, { "Medium", "Regular", "Normal", "Book" });
             face.style[2] = pickStyle (styles, { "SemiBold", "Semibold", "DemiBold", "Bold" });
             break;
         }
@@ -106,26 +142,41 @@ namespace
     }
 }
 
+namespace
+{
+    /** OS のフォントの書体（言語・太さごとに一度だけ作る。無ければ nullptr）
+        名前だけの juce::Font から getTypefacePtr() すると LookAndFeel::getTypefaceForFont（→ sansTypeface）を
+        通って自分自身を呼び続けるので、書体そのものを OS から直接作って持つ */
+    juce::Typeface::Ptr systemTypeface (i18n::Language lang, Weight w)
+    {
+        static std::map<int, juce::Typeface::Ptr> cache;
+        const auto key = (int) lang * 3 + (int) w;
+        if (auto it = cache.find (key); it != cache.end())
+            return it->second;
+
+        juce::Typeface::Ptr face;
+        const auto& sys = systemFace (lang);
+        if (sys.family.isNotEmpty())
+            face = juce::Typeface::createSystemTypefaceFor (juce::Font (juce::FontOptions (sys.family, sys.style[(int) w], 14.0f)));
+
+        return cache[key] = face;
+    }
+}
+
 juce::Typeface::Ptr sansTypeface (Weight w)
 {
     const auto lang = i18n::current();
     if (! i18n::info (lang).embeddedFont)
-    {
-        const auto& face = systemFace (lang);
-        if (face.family.isNotEmpty())
-            return juce::Font (juce::FontOptions (face.family, face.style[(int) w], 14.0f)).getTypefacePtr();
-    }
+        if (auto face = systemTypeface (lang, w))
+            return face;
     return FontCache::getInstance()->sans[(int) w];
 }
 
 juce::Font sansIn (i18n::Language lang, float height, Weight w)
 {
     if (! i18n::info (lang).embeddedFont)
-    {
-        const auto& face = systemFace (lang);
-        if (face.family.isNotEmpty())
-            return juce::Font (juce::FontOptions (face.family, face.style[(int) w], height));
-    }
+        if (auto face = systemTypeface (lang, w))
+            return juce::Font (juce::FontOptions (face).withHeight (height));
     return embeddedSans (height, w);
 }
 

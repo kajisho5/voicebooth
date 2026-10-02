@@ -8,7 +8,13 @@
   <a href="README.ko.md">한국어</a> ·
   <a href="README.zh-Hans.md">简体中文</a> ·
   <a href="README.zh-Hant.md">繁體中文</a> ·
-  <b>Español</b>
+  <b>Español</b> ·
+  <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a> ·
+  <a href="README.vi.md">Tiếng Việt</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.de.md">Deutsch</a> ·
+  <a href="README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -41,7 +47,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Armonías | Puedes grabar pistas de armonía. **No hay ninguna función que saque solo la armonía de una mezcla para usarla como referencia** (la separación da dos partes: "todas las voces" y "acompañamiento") |
 | Audio separado | La voz y el acompañamiento separados son **para tu práctica personal**. VoiceBooth no cambia los derechos de la canción original. Distribúyelos o publícalos (incluido compartirlos como instrumental para covers) solo en la medida en que lo permitan los titulares de los derechos originales |
 | Precio | **Gratis.** Sin suscripción ni compras dentro de la app. Puedes apoyar el desarrollo a través de [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opcional; no cambia ninguna función) |
-| Idiomas | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español |
+| Idiomas | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## Qué hace
 

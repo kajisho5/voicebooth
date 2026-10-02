@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """VoiceBooth ブランド素材の生成（SVG を原本として PNG / ICO / ICNS を作る）
 
-必要: rsvg-convert (librsvg2-bin), png2icns (icnsutils), ImageMagick, fontTools
+必要: rsvg-convert (librsvg2-bin), png2icns (icnsutils), ImageMagick, fontTools,
+      fonts-noto-cjk（韓国語・中国語の README ヘッダー）, fonts-ibm-plex（ベトナム語・トルコ語の README ヘッダー）
 使い方: python3 brand/build_brand.py
 """
 import subprocess, shutil
@@ -361,13 +362,22 @@ def grid(w, h, step, colour=C["line"], opacity=0.45):
 
 
 # README ヘッダーの各言語版（README.<lang>.md 用）。肩書きはアプリの翻訳表（app.tagline）と同じ文。
-# 日本語は readme-banner.png。韓国語・中国語はその地域の字形にするため Noto Sans CJK の該当フェイスで組む
+# 日本語は readme-banner.png。韓国語・中国語はその地域の字形にするため Noto Sans CJK の該当フェイスで組む。
+# ベトナム語・トルコ語は Plex Sans JP に無い字（ă ơ ư đ と声調の合成字、ğ ş İ）があるので、
+# 同じ IBM Plex の欧文版 IBM Plex Sans（fonts-ibm-plex）で組む（1 文の中で書体を混ぜない）
+PLEX_SANS_MEDIUM = Path("/usr/share/fonts/truetype/ibm-plex/IBMPlexSans-Medium.ttf")
 README_LANGS = {
     "en":      ("A vocal DAW for song covers. See it, fix it, hand over one take.", "IBMPlexSansJP-Medium.ttf", 0),
     "ko":      ("커버곡 녹음 전용 DAW — 보면서 고치고, 한 트랙으로 넘긴다.", NOTO_CJK_REGULAR, 1),
     "zh-Hans": ("翻唱专用 DAW —— 看着修正，交出一轨。", NOTO_CJK_REGULAR, 2),
     "zh-Hant": ("翻唱專用 DAW —— 看著修正，交出一軌。", NOTO_CJK_REGULAR, 3),
     "es":      ("Un DAW vocal para covers. Míralo, corrígelo y entrega una sola toma.", "IBMPlexSansJP-Medium.ttf", 0),
+    "pt-BR":   ("Uma DAW vocal para covers. Veja, corrija e entregue um único take.", "IBMPlexSansJP-Medium.ttf", 0),
+    "id":      ("DAW vokal untuk lagu cover. Lihat, perbaiki, serahkan satu take.", "IBMPlexSansJP-Medium.ttf", 0),
+    "vi":      ("DAW thu giọng cho cover. Nhìn, sửa, giao một bản thu.", PLEX_SANS_MEDIUM, 0),
+    "tr":      ("Cover şarkılar için vokal DAW'ı. Gör, düzelt, tek take teslim et.", PLEX_SANS_MEDIUM, 0),
+    "de":      ("Eine Vocal-DAW für Coversongs. Sehen, korrigieren, einen Take abgeben.", "IBMPlexSansJP-Medium.ttf", 0),
+    "fr":      ("Un DAW vocal pour les reprises. Voyez, corrigez, livrez une seule prise.", "IBMPlexSansJP-Medium.ttf", 0),
 }
 
 

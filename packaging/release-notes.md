@@ -27,7 +27,7 @@ English follows Japanese.
 - 通し録音・遡及録音・範囲の録り直し・遅延の測定と補正
 - Main / Double / Harmony のトラック、入りタイミング（標準以上）、音程の割合・ビブラート（プロ）
 - フル尺 WAV の書き出し、納品パック（WAV・確認用ミックス・メモ・zip）
-- 6 言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español）、スキン 10 種
+- 12 言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français）、スキン 10 種
 
 ## まだのもの・注意
 
@@ -66,7 +66,7 @@ English follows Japanese.
 - Full-length recording, retroactive recording, range re-recording, latency measurement and compensation
 - Main / Double / Harmony tracks, entry timing (Standard and up), pitch accuracy and vibrato (Pro)
 - Full-length WAV export and a delivery pack (WAVs, reference mix, notes, zip)
-- Six languages (Japanese, English, Korean, Simplified and Traditional Chinese, Spanish) and ten built-in skins
+- Twelve languages (Japanese, English, Korean, Simplified and Traditional Chinese, Spanish, Portuguese (Brazil), Indonesian, Vietnamese, Turkish, German, French) and ten built-in skins
 
 ## Not yet / please note
 
