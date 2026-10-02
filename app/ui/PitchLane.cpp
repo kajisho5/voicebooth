@@ -238,12 +238,15 @@ void PitchLane::paint (juce::Graphics& g)
         drawReference (g, m);
         drawMine (g, m);
 
-        // 開いたばかりの曲：お手本ピッチはまだない（B9 で解析）
+        // お手本ピッチがまだない：解析中か、声入りの原曲をここにドロップする案内（B9）
         if (s.refPitch.empty())
         {
             g.setColour (colours::textMute);
             g.setFont (sans (13.0f));
-            g.drawText (tr ("pitch.notAnalyzed"), plot.reduced (24.0f), juce::Justification::centred, false);
+            const auto text = s.guideBusy ? tr ("pitch.analysingGuide")
+                            : s.backingWave != nullptr ? tr ("pitch.dropGuide")
+                                                       : tr ("pitch.notAnalyzed");
+            g.drawText (text, plot.reduced (24.0f), juce::Justification::centred, false);
         }
         lane::drawPlayhead (g, s, m, plot);
         drawCurrent (g, m);
