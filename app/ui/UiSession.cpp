@@ -494,6 +494,19 @@ void UiSession::setRecording (bool r)
     for (int n = id.substring (4).getIntValue(); s.projectFolder.getChildFile (rel()).exists(); )
         id = "take" + juce::String (++n);
 
+    // 区間の録り直し（パンチイン。B10）：範囲があれば、採用は範囲の中だけ。範囲の前を鳴らしている時はそのまま、
+    // そうでなければ範囲の少し前（プリロール）から鳴らして録る
+    const bool punch = s.hasRange();
+    const auto now = juce::jlimit ((int64) 0, s.project.lengthSamples, engine->getPlayheadSample());
+    if (punch && ! (s.isPlaying && shadowActive && now < s.rangeIn))
+    {
+        if (shadowActive)
+            finishRecording();    // 裏録りは消す（範囲の前から録り直す）
+        if (s.isPlaying)
+            setPlaying (false);
+        seek (juce::jmax ((int64) 0, s.rangeIn - prerollSamples()));
+    }
+
     // 再生中で裏で録っていれば（B7）、それをこのテイクにする。押す前に歌い始めていれば、フレーズの頭から採る
     if (shadowActive && s.isPlaying && engine->isRecording() && engine->recordingStartSample() >= 0)
     {
@@ -504,7 +517,8 @@ void UiSession::setRecording (bool r)
         s.recordingTrack = armed->type;
         s.recordingPath = rel();
         s.isRecording = true;
-        s.recordStart = retroStart (juce::jlimit ((int64) 0, s.project.lengthSamples, engine->getPlayheadSample()));
+        s.recordStart = punch ? s.rangeIn : retroStart (now);
+        s.recordEnd = punch ? s.rangeOut : -1;
         notify (change::transport | change::practice);
         return;
     }
@@ -532,7 +546,8 @@ void UiSession::setRecording (bool r)
     s.recordingPath = rel();
     s.isRecording = true;
     s.isPlaying = true;
-    s.recordStart = s.playhead;
+    s.recordStart = punch ? s.rangeIn : s.playhead;
+    s.recordEnd = punch ? s.rangeOut : -1;
     engine->play();
     notify (change::transport | change::practice);
 }
@@ -613,9 +628,15 @@ void UiSession::finishRecording()
     take.latencySamples = s.recordingLatency;
 
     // 練習録音は納品の採用区間に入れない（DESIGN 6.1 / 13）
-    // 採用は REC を押した所から（遡及録音ならフレーズの頭。B7）。それより前の分もファイルには残す
+    // 採用は REC を押した所から（遡及録音ならフレーズの頭。B7）、区間の録り直しなら範囲の中だけ（B10）。
+    // 前後の分もファイルには残す。直前の採用は覚えておき、Ctrl / ⌘+Z で戻せる
     if (take.recMode == project::RecMode::delivery)
-        project::applyTake (*track, take, s.recordStart);
+    {
+        compBeforeTake = track->comp;
+        undoTrack = type;
+        project::applyTake (*track, take, s.recordStart, s.recordEnd >= 0 ? s.recordEnd : take.endSample);
+        s.canUndoTake = true;
+    }
     else
         track->takes.push_back (take);
 
@@ -634,10 +655,14 @@ void UiSession::finishRecording()
         }
         return tr ("track.main");
     }();
+    const auto usedEnd = s.recordEnd >= 0 ? juce::jmin (s.recordEnd, take.endSample) : take.endSample;
     const auto range = formatTime (std::max ({ (int64) 0, take.startSample, s.recordStart }), s.sampleRate(), true) + " - "
-                     + formatTime (juce::jmin (s.project.lengthSamples, take.endSample), s.sampleRate(), true);
+                     + formatTime (juce::jmin (s.project.lengthSamples, usedEnd), s.sampleRate(), true);
+    const bool punched = s.recordEnd >= 0;
+    s.recordEnd = -1;
     if (take.recMode == project::RecMode::practice) postNotice (tr ("record.donePractice", name, id, range));
     else if (take.clip)                             postNotice (tr ("record.doneClip", name, id, range));
+    else if (punched)                               postNotice (tr ("record.donePunch", name, id, range, undoKeyName()));
     else                                            postNotice (tr ("record.done", name, id, range));
     notify (change::takes | change::tracks);
 }
@@ -885,6 +910,41 @@ void UiSession::pollPitch()
             start = i;
         }
     notify (change::view);
+}
+
+//==============================================================================
+int64 UiSession::prerollSamples() const
+{
+    // 区間の録り直し（B10）の前に鳴らす長さ：テンポが分かれば COUNT の小節数（最低 1 小節）、分からなければ 2 秒。どちらも 2 秒以上
+    const auto rate = s.sampleRate();
+    auto pre = (int64) (2.0 * rate);
+    if (s.project.tempo.known())
+        pre = juce::jmax (pre, (int64) std::llround (s.project.tempo.samplesPerBeat (rate) * s.project.tempo.signature.beatsPerBar()
+                                                        * juce::jmax (1, s.countInBars)));
+    return pre;
+}
+
+bool UiSession::undoTake()
+{
+    if (! s.canUndoTake || s.isRecording)
+        return false;
+    auto* track = const_cast<project::Track*> (s.project.findTrack (undoTrack));
+    if (track == nullptr)
+        return false;
+    track->comp = compBeforeTake;   // テイクとファイルは残す（採用から外すだけ）
+    s.canUndoTake = false;
+    postNotice (tr ("record.undone"));
+    notify (change::takes | change::tracks);
+    return true;
+}
+
+juce::String undoKeyName()
+{
+   #if JUCE_MAC
+    return juce::String::fromUTF8 ("\xe2\x8c\x98Z");   // ⌘Z
+   #else
+    return "Ctrl+Z";
+   #endif
 }
 
 //==============================================================================
@@ -1173,6 +1233,13 @@ void UiSession::tick (double seconds)
         const bool ended = engine->consumeReachedEnd() || ! engine->isPlaying();
         s.playhead = pos;
         followPlayhead (seconds);
+
+        // 区間の録り直し（B10）：範囲の終わりの 0.5 秒後で止める（歌い終わりの余韻もファイルに残す）
+        if (s.isRecording && s.recordEnd >= 0 && pos >= s.recordEnd + (int64) (0.5 * s.sampleRate()))
+        {
+            setPlaying (false);
+            return;
+        }
 
         // 曲の終わりの後も、遅れて届く歌の終わり（補正量の分）を録り足してから閉じる。機器が止まっても 1.5 秒で閉じる
         if (ended && s.isRecording && engine->isRecording() && ! engine->recordingEnded())

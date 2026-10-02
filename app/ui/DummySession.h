@@ -54,7 +54,9 @@ struct Session
     bool loopOn = true;
     bool isPlaying = false;
     bool isRecording = false;
-    int64 recordStart = 0;                // 今回の録音を始めた位置（見た目用）
+    int64 recordStart = 0;                // 今回の録音を始めた位置（採用はここから。遡及録音ならフレーズの頭。B7）
+    int64 recordEnd = -1;                 // 区間の録り直し（パンチイン。B10）の終わり。-1 = 通し
+    bool canUndoTake = false;             // 直前のテイクを採用から外せる（Ctrl / ⌘+Z。B10）
     int countInBars = 1;
     bool clickOn = false;
 
