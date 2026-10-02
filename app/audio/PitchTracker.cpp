@@ -60,9 +60,9 @@ PitchTracker::~PitchTracker()
     release();
 }
 
-void PitchTracker::prepare (double rate)
+void PitchAnalyzer::prepare (double sampleRate)
 {
-    release();
+    rate = sampleRate;
     if (rate <= 0.0)
         return;
 
@@ -100,7 +100,17 @@ void PitchTracker::prepare (double rate)
     frameInPos.assign (buf.size(), -1);
     sinceHop = filled = 0;
     recentCount = 0;
+    for (auto& r : recent)
+        r = {};
+}
 
+void PitchTracker::prepare (double rate)
+{
+    release();
+    if (rate <= 0.0)
+        return;
+
+    analyzer.prepare (rate);
     const auto size = (int) (rate * 2.0);   // 2 秒分（検出が少し遅れても落とさない）
     {
         const juce::SpinLock::ScopedLockType sl (pushLock);
@@ -164,9 +174,15 @@ void PitchTracker::run()
         }
         int s1, n1, s2, n2;
         fifo.prepareToRead (juce::jmin (fifo.getNumReady(), 8192), s1, n1, s2, n2);
-        analyse (ring.data() + s1, ringPos.data() + s1, n1);
-        analyse (ring.data() + s2, ringPos.data() + s2, n2);
+        found.clear();
+        analyzer.process (ring.data() + s1, ringPos.data() + s1, n1, found);
+        analyzer.process (ring.data() + s2, ringPos.data() + s2, n2, found);
         fifo.finishedRead (n1 + n2);
+        if (! found.empty())
+        {
+            const juce::ScopedLock sl (outLock);
+            output.insert (output.end(), found.begin(), found.end());
+        }
     }
 }
 
@@ -177,8 +193,10 @@ void PitchTracker::pop (std::vector<PitchFrame>& out)
     output.clear();
 }
 
-void PitchTracker::analyse (const float* in, const int64* pos, int n)
+void PitchAnalyzer::process (const float* in, const int64* pos, int n, std::vector<PitchFrame>& found)
 {
+    if (rate <= 0.0)
+        return;
     const auto length = (int) taps.size();
     const auto filterDelay = (length - 1) / 2;
     const auto size = (int) buf.size();
@@ -221,7 +239,7 @@ void PitchTracker::analyse (const float* in, const int64* pos, int n)
         if (f.levelDb >= pitch::gateDb)
         {
             const auto e = pitch::yin (frameIn.data(), window, minLag, maxLag, scratch);
-            const auto fs = sampleRate.load() / decim;
+            const auto fs = rate / decim;
             if (e.lag > 0.0)
             {
                 f.midi = pitch::hzToMidi (fs / e.lag);
@@ -268,8 +286,7 @@ void PitchTracker::analyse (const float* in, const int64* pos, int n)
             else if (voicedAt (1) && voicedAt (3))
                 out.midi = juce::jmax (juce::jmin (recent[1].midi, out.midi), juce::jmin (juce::jmax (recent[1].midi, out.midi), recent[3].midi));   // 3 つの中央値
         }
-        const juce::ScopedLock sl (outLock);
-        output.push_back (out);
+        found.push_back (out);
     }
 }
 } // namespace vb::audio
