@@ -28,7 +28,8 @@ private:
     void paintTimed (juce::Graphics&, juce::Rectangle<float>);
     void paintManual (juce::Graphics&, juce::Rectangle<float>);
     void paintSyncing (juce::Graphics&, juce::Rectangle<float>);
-    void paintNext (juce::Graphics&, juce::Rectangle<float>, const juce::String& text);
+    /** 次の行（暗く先に出す）。soon は 0..1：次の行が近づくほど明るくする（目を先に移せるように） */
+    void paintNext (juce::Graphics&, juce::Rectangle<float>, const juce::String& text, float soon = 0.0f);
 
     Actions& actions;
     KeyButton syncKey;

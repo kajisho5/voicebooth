@@ -105,12 +105,12 @@ void LyricsLane::paint (juce::Graphics& g)
         paintTimed (g, r);
 }
 
-void LyricsLane::paintNext (juce::Graphics& g, juce::Rectangle<float> r, const juce::String& text)
+void LyricsLane::paintNext (juce::Graphics& g, juce::Rectangle<float> r, const juce::String& text, float soon)
 {
     const auto lf = mono (9.5f, Weight::medium, 0.12f);
     const auto lw = textWidth (lf, tr ("label.next")) + 10.0f;
     paint::microLabel (g, r.removeFromLeft (lw), tr ("label.next"), colours::textMute);
-    g.setColour (colours::textDim);
+    g.setColour (colours::textDim.interpolatedWith (colours::text, juce::jlimit (0.0f, 1.0f, soon) * 0.7f));
     g.setFont (sansFor (text, 15.0f));
     g.drawText (text, r, juce::Justification::centredLeft, true);
 }
@@ -162,7 +162,11 @@ void LyricsLane::paintTimed (juce::Graphics& g, juce::Rectangle<float> r)
     }
 
     if (next != nullptr)
-        paintNext (g, r, next->text);
+    {
+        // 次の行の 1.5 秒前から少しずつ明るく（いまの行を歌い終える前に目を移せる）
+        const auto lead = (double) (next->startSample - s.playhead) / juce::jmax (1, s.sampleRate());
+        paintNext (g, r, next->text, cur != nullptr ? (float) (1.0 - lead / 1.5) : 0.0f);
+    }
 }
 
 void LyricsLane::paintManual (juce::Graphics& g, juce::Rectangle<float> r)
