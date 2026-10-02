@@ -70,6 +70,8 @@ public:
     InputLevel getInputLevel() const override { return meter.read(); }
     void resetInputClip() override            { meter.resetClip(); }
 
+    void popPitch (std::vector<PitchFrame>& out) override { pitch.pop (out); }
+
     juce::String startLatencyProbe() override;
     void cancelLatencyProbe() override              { probe.cancel(); }
     bool isLatencyProbeRunning() const override     { return probe.isRunning(); }
@@ -108,6 +110,7 @@ private:
     MonitorMixer monitor;
     TakeRecorder recorder;
     latency::Probe probe;
+    PitchTracker pitch;
     juce::String openError, inputError;
     double songRate = 0.0;
     int wantedChannel = 0;                                  // 選んだ入力チャンネル（0 = L）

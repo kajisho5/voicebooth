@@ -422,6 +422,10 @@ void PlaybackEngine::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void PlaybackEngine::timerCallback()
 {
+    // ピッチの検出（B8）はデバイスの SR に合わせて準備する（メッセージスレッドで。確保とスレッドの起動があるので）
+    if (auto* dev = manager.getCurrentAudioDevice(); dev != nullptr && std::abs (dev->getCurrentSampleRate() - pitch.getSampleRate()) > 0.5)
+        pitch.prepare (dev->getCurrentSampleRate());
+
     const auto now = juce::Time::getMillisecondCounter();
     const auto count = callbacks.load();
     if (count != lastCallbacks)
@@ -516,6 +520,7 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
     // オフボ（出力を全部書く）。鳴らした曲の範囲に合わせて素の声を録る（B5）
     const auto played = core.render (outputs, numOutputs, numSamples);
     recorder.process (input, numSamples, played.start, played.played, played.wrapped);
+    pitch.push (input, numSamples, played.start, played.wrapped ? 0 : played.played);   // 自分の声のピッチ（B8）。検出は別のスレッド
 
     // 自分の声（とモニターリバーブ）を足す
     monitor.process (input, outputs, numOutputs, numSamples);

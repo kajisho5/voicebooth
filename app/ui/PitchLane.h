@@ -33,6 +33,7 @@ private:
     int tagAt (juce::Point<float>) const;
     float yForMidi (float midi) const;
     juce::Colour colourForCents (float cents) const;
+    juce::Colour colourFor (const dummy::PitchPoint&) const;
 
     /** 選択トラックのお手本のずらし量（ハモリはダミーで +4 半音） */
     float refOffset() const;

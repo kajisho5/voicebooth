@@ -127,6 +127,7 @@ void UiSession::conformSong()
             s.project.tempo.downbeatSample = scale (s.project.tempo.downbeatSample);
             for (auto& b : s.project.tempo.beats) b = scale (b);
             for (auto& sec : s.project.sections) sec.startSample = scale (sec.startSample);
+            for (auto& p : s.myPitch) p.sample = scale (p.sample);
             for (auto& l : s.project.lyrics.lines) { l.startSample = scaleTimed (l.startSample); l.endSample = scaleTimed (l.endSample); }
             s.project.sampleRate = target;
             s.project.lengthSamples = audio->length();
@@ -592,6 +593,50 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
 }
 
 //==============================================================================
+void UiSession::pollPitch()
+{
+    if (! isEngineDriven())
+        return;
+    pitchFrames.clear();
+    engine->popPitch (pitchFrames);
+    if (pitchFrames.empty())
+        return;
+
+    // 位置を歌い手が聞いた伴奏の位置に直す（往復の遅れの分だけ前へ。録音と同じ。B6）
+    const auto ld = latencyDisplay (s);
+    const auto lat = ld.known ? juce::jmax ((int64) 0, ld.samples) : 0;
+    const auto rate = s.sampleRate();
+    s.myPitchLag = lat + (int64) ((audio::PitchTracker::processingDelaySeconds() + 0.05) * rate);
+
+    // 新しく歌った所は前の線を消して置き換える（同じ所を歌い直したら新しい線）。シークで戻った所で区切る
+    const auto hop = (int64) (audio::pitch::hopSeconds * rate);
+    auto& line = s.myPitch;
+    auto put = [&] (size_t from, size_t to)
+    {
+        const auto lo = pitchFrames[from].songSample - lat, hi = pitchFrames[to - 1].songSample - lat + hop / 2;
+        auto a = std::lower_bound (line.begin(), line.end(), lo, [] (const dummy::PitchPoint& p, int64 v) { return p.sample < v; });
+        auto b = std::lower_bound (a, line.end(), hi, [] (const dummy::PitchPoint& p, int64 v) { return p.sample < v; });
+        std::vector<dummy::PitchPoint> pts;
+        for (auto i = from; i < to; ++i)
+        {
+            const auto& f = pitchFrames[i];
+            if (f.songSample - lat >= 0)
+                pts.push_back ({ f.songSample - lat, f.midi, f.confidence, 0.0f, false });
+        }
+        a = line.erase (a, b);
+        line.insert (a, pts.begin(), pts.end());
+    };
+    size_t start = 0;
+    for (size_t i = 1; i <= pitchFrames.size(); ++i)
+        if (i == pitchFrames.size() || pitchFrames[i].songSample <= pitchFrames[i - 1].songSample)
+        {
+            put (start, i);
+            start = i;
+        }
+    notify (change::view);
+}
+
+//==============================================================================
 void UiSession::updateShadow()
 {
     if (! isEngineDriven() || s.isRecording)
@@ -860,6 +905,7 @@ void UiSession::tick (double seconds)
 
     pollLatencyProbe();
     updateShadow();
+    pollPitch();
 
     if (! s.isPlaying) return;
 
