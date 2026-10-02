@@ -71,6 +71,7 @@ const std::vector<LanguageInfo>& available()
         { Language::ko,     "ko",      "\xed\x95\x9c\xea\xb5\xad\xec\x96\xb4",                 false },   // 한국어
         { Language::zhHans, "zh-Hans", "\xe7\xae\x80\xe4\xbd\x93\xe4\xb8\xad\xe6\x96\x87",   false },   // 简体中文
         { Language::zhHant, "zh-Hant", "\xe7\xb9\x81\xe9\xab\x94\xe4\xb8\xad\xe6\x96\x87",   false },   // 繁體中文
+        { Language::es,     "es",      "Espa\xc3\xb1ol",                                       true  },   // Español（ラテン文字は同梱の Plex で足りる）
     };
     return list;
 }

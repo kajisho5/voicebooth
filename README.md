@@ -7,7 +7,8 @@
   <a href="README.en.md">English</a> ·
   <a href="README.ko.md">한국어</a> ·
   <a href="README.zh-Hans.md">简体中文</a> ·
-  <a href="README.zh-Hant.md">繁體中文</a>
+  <a href="README.zh-Hant.md">繁體中文</a> ·
+  <a href="README.es.md">Español</a>
 </p>
 
 <p align="center">
@@ -38,7 +39,7 @@
 | ハモリ | ハモリのトラックを録ることはできます。**ミックスからハモリだけを取り出してお手本にする機能はありません**（分離は「声全体」と「伴奏」の 2 つ） |
 | 分離した音の扱い | 分離した声・伴奏は**個人の練習用**です。VoiceBooth は元の曲の権利を変えません。配布・公開（歌ってみたのオフボとして配るのを含む）は、元の曲の権利者が許している範囲だけにしてください |
 | 料金 | **無料です。** サブスクも課金もありません。支援は [GitHub Sponsors](https://github.com/sponsors/kajisho5) から（任意。機能は変わりません） |
-| 言語 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 |
+| 言語 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español |
 
 ## できること
 

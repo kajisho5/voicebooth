@@ -8,7 +8,7 @@
 
 /*  起動オプション（開発・スクリーンショット用）
       --gallery              部品ギャラリー
-      --lang=ja|en|ko|zh-Hans|zh-Hant   表示言語（保存された設定より優先）
+      --lang=ja|en|ko|zh-Hans|zh-Hant|es  表示言語（保存された設定より優先）
       --skin=<id>            スキン（booth / studio-day / … / 自作の id。保存された設定より優先、保存はしない）
       --screen=<name>        start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
                              skin-editor-borrow / confirm-rec / song-info / lyrics
