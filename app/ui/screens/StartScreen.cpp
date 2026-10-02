@@ -1,6 +1,7 @@
 #include "StartScreen.h"
 #include "../TopBar.h"
 #include "../parts/LedMeter.h"
+#include "project/ProjectFile.h"
 
 namespace vb
 {
@@ -8,8 +9,8 @@ namespace
 {
     struct Recent { const char* name; const char* date; const char* length; project::Mode mode; };
 
-    // ダミー（曲名・日付はデータ。翻訳しない）
-    const Recent recents[] = {
+    // 見本（UI_MOCK）のダミー（曲名・日付はデータ。翻訳しない）
+    const Recent dummyRecents[] = {
         { "Demo_song",    "2026-09-30 21:30", "2:16", project::Mode::standard },
         { "Practice_offvocal",   "2026-09-27 23:12", "3:48", project::Mode::pro },
         { "Sample_inst","2026-09-21 19:05", "4:02", project::Mode::easy },
@@ -55,7 +56,8 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     }
 
     openFolder.withIcon (Icon::folder);
-    openFolder.onClick = [this] { if (onDone) onDone(); };
+    openFolder.onClick = [this] { if (state().engineAttached) chooseProject(); else if (onDone) onDone(); };
+    refreshRecents();
     addChildComponent (openFolder);
 
     continueKey.withLed (colours::signal).withToggle (false);
@@ -102,6 +104,72 @@ void StartScreen::chooseFile (bool guide)
                           });
 }
 
+void StartScreen::refreshRecents()
+{
+    recents.clear();
+    if (! state().engineAttached)
+    {
+        for (auto& r : dummyRecents)
+            recents.push_back ({ r.name, r.date, r.length, r.mode, {} });
+        return;
+    }
+    // 最近のプロジェクト（B14）：名前・最後に保存した日時・長さ・モード
+    for (auto& path : state().recentProjects)
+    {
+        const juce::File f (path);
+        const auto l = project::fromJson (f.loadFileAsString());
+        if (! l.ok)
+            continue;
+        RecentRow row;
+        row.name = f.getFileNameWithoutExtension();
+        row.date = f.getLastModificationTime().formatted ("%Y-%m-%d %H:%M");
+        row.length = l.project.sampleRate > 0 ? formatTime (l.project.lengthSamples, l.project.sampleRate, false) : juce::String();
+        row.mode = l.project.modeLast;
+        row.file = f;
+        recents.push_back (row);
+        if (recents.size() >= 3)
+            break;
+    }
+}
+
+void StartScreen::chooseProject()
+{
+    chooser = std::make_unique<juce::FileChooser> (tr ("start.chooser.project"),
+                                                   UiSession::projectFolderFor ({}).getParentDirectory(),
+                                                   juce::String ("*") + project::fileExtension);
+    juce::Component::SafePointer<StartScreen> safe (this);
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                          [safe] (const juce::FileChooser& fc)
+                          {
+                              const auto f = fc.getResult();
+                              if (safe != nullptr && f != juce::File())
+                                  safe->openFile (f);
+                          });
+}
+
+bool StartScreen::openProject (const juce::File& f)
+{
+    // .vbooth：中身を確かめて、曲のコピーを読み込む（読み終わったら続きを戻す。B14）
+    projectError = {};
+    const auto l = project::fromJson (f.loadFileAsString());
+    if (! l.ok)
+    {
+        projectError = l.error;
+        return false;
+    }
+    auto song = f.getParentDirectory().getChildFile (l.project.songPath);
+    if (! song.existsAsFile())
+        song = juce::File (l.project.songPath);   // 古い形（元のファイルの場所）
+    if (! song.existsAsFile())
+    {
+        projectError = "project.error.songMissing";
+        return false;
+    }
+    session.setPendingProject (f, l);
+    file = song;
+    return true;
+}
+
 void StartScreen::setGuide (const juce::File& f)
 {
     // 読むのはオフボを開いた後（時間合わせにオフボが要る）。ここでは覚えるだけ
@@ -116,8 +184,16 @@ void StartScreen::openFile (const juce::File& f)
     file = f;
     info = {};
     error = audio::LoadResult::Error::none;
+    projectError = {};
 
-    if (! audio::hasSongExtension (f))
+    if (f.hasFileExtension (project::fileExtension) && ! openProject (f))
+    {
+        file = f;
+        setPhase (Phase::failed);
+        return;
+    }
+
+    if (! audio::hasSongExtension (file))
     {
         setPhase (Phase::failed);   // 拡張子で弾く（中身を読む前に分かるもの）
         return;
@@ -125,7 +201,7 @@ void StartScreen::openFile (const juce::File& f)
 
     setPhase (Phase::loading);
     juce::Component::SafePointer<StartScreen> safe (this);
-    loader.start (f, [safe] (audio::LoadResult r)
+    loader.start (file, [safe] (audio::LoadResult r)
     {
         if (safe != nullptr)
             safe->loadFinished (std::move (r));
@@ -228,7 +304,7 @@ void StartScreen::resized()
 
     recentRows.clear();
     auto rows = recentArea.withTrimmedTop (32);
-    for (size_t i = 0; i < std::size (recents); ++i)
+    for (size_t i = 0; i < recents.size(); ++i)
     {
         recentRows.push_back (rows.removeFromTop (58));
         rows.removeFromTop (6);
@@ -263,9 +339,13 @@ void StartScreen::mouseUp (const juce::MouseEvent& e)
         return;
     }
 
-    for (auto& row : recentRows)
-        if (row.contains (e.getPosition()) && onDone)
-            onDone();
+    for (size_t i = 0; i < recentRows.size(); ++i)
+        if (recentRows[i].contains (e.getPosition()))
+        {
+            if (recents[i].file != juce::File()) openFile (recents[i].file);
+            else if (onDone)                    onDone();
+            return;
+        }
 }
 
 void StartScreen::paint (juce::Graphics& g)
@@ -300,6 +380,12 @@ void StartScreen::paintHome (juce::Graphics& g)
 
     // 最近のプロジェクト
     paint::sectionHeader (g, recentArea.withHeight (24), tr ("start.recent"), tr ("start.recent.sub"));
+    if (recents.empty())
+    {
+        g.setColour (colours::textMute);
+        g.setFont (sans (12.0f));
+        g.drawText (tr ("start.recent.empty"), recentArea.withTrimmedTop (32).withHeight (40), juce::Justification::centredLeft, false);
+    }
     for (size_t i = 0; i < recentRows.size(); ++i)
     {
         const auto& rc = recents[i];
@@ -310,13 +396,13 @@ void StartScreen::paintHome (juce::Graphics& g)
         auto right = r.removeFromRight (90.0f);
         g.setColour (colours::textDim);
         g.setFont (mono (11.0f));
-        g.drawText (rc.length, right.removeFromTop (right.getHeight() * 0.5f), juce::Justification::bottomRight, false);
+        g.drawText (rc.length, right.removeFromTop (right.getHeight() * 0.5f), juce::Justification::bottomRight, false);   // （データ）
         g.setColour (colours::textMute);
         g.setFont (sans (10.5f));
         g.drawText (modeName (rc.mode), right, juce::Justification::topRight, false);
 
         g.setColour (colours::text);
-        g.setFont (sans (13.5f, Weight::semibold));
+        g.setFont (sansFor (rc.name, 13.5f, Weight::semibold));
         g.drawText (rc.name, r.removeFromTop (r.getHeight() * 0.5f), juce::Justification::bottomLeft, true);
         g.setColour (colours::textMute);
         g.setFont (mono (10.5f));
@@ -417,6 +503,8 @@ juce::String StartScreen::songInfoLine() const
 juce::String StartScreen::errorText() const
 {
     const auto name = file.getFileName();
+    if (projectError.isNotEmpty())
+        return tr (projectError.toRawUTF8(), name);
     if (error == audio::LoadResult::Error::none)
         return tr ("load.error.notSong", name);   // 拡張子で弾いた
     if (error == audio::LoadResult::Error::cancelled)

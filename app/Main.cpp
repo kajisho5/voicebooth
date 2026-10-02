@@ -30,6 +30,7 @@
       firstRunDone  初回の言語選択を終えたか
       skin          スキンの id（DESIGN 4.11。無い・消えた時は booth）。自作スキンは同じフォルダの Skins/ に .vbskin で置く
       recordRate / recordFloat  録音形式（SR・32bit float）
+      recentProjects  最近のプロジェクト（.vbooth のフルパス。1 行に 1 つ、新しい順。B14）
       latencyProfiles  往復の遅れ（B6）。機器の組み合わせ（ドライバ|入力|出力|SR|バッファ）ごとの実測（サンプル）と手入力（ms）。JSON
       audioDevice   オーディオデバイスの設定（AudioDeviceManager の XML。ドライバ・入出力の機器・入力チャンネル・SR・バッファ）。
                     戻せなければ既定のデバイスで開く */
@@ -132,6 +133,22 @@ public:
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
     bool moreThanOneInstanceAllowed() override          { return false; }
 
+    /** 起動中に .vbooth / 曲をダブルクリックした：いまのウィンドウで開く（B14） */
+    void anotherInstanceStarted (const juce::String& commandLine) override
+    {
+        for (auto& a : juce::StringArray::fromTokens (commandLine, true))
+        {
+            const juce::File f (a.unquoted());
+            if (! a.startsWith ("-") && f.existsAsFile())
+                if (window != nullptr)
+                    if (auto* m = window->main())
+                    {
+                        m->openSong (f);
+                        return;
+                    }
+        }
+    }
+
     void initialise (const juce::String& commandLine) override
     {
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
@@ -206,6 +223,7 @@ public:
         // 録音形式（SR：0 = 曲に合わせる、ビット数：24 / 32bit float）
         session->setRecordFormat (stored->getDoubleValue ("recordRate", 0.0), stored->getBoolValue ("recordFloat", false));
         session->restoreLatencyProfiles (stored->getValue ("latencyProfiles"));
+        session->restoreRecentProjects (juce::StringArray::fromLines (stored->getValue ("recentProjects")));
 
         // 最後に使ったモード
         const auto savedMode = stored->getValue ("mode");
@@ -224,6 +242,9 @@ public:
         o.playing = args.contains ("--play");
         if (const auto path = argValue (args, "open"); path.isNotEmpty())
             o.open = juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        for (auto& a : args)   // .vbooth をダブルクリック：パスだけが渡される（B14）
+            if (! a.startsWith ("-") && a.unquoted().endsWithIgnoreCase (project::fileExtension))
+                o.open = juce::File::getCurrentWorkingDirectory().getChildFile (a.unquoted());
         if (const auto path = argValue (args, "lyrics"); path.isNotEmpty())
             o.lyrics = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         if (const auto path = argValue (args, "guide"); path.isNotEmpty())
@@ -242,7 +263,10 @@ public:
     void shutdown() override
     {
         if (session != nullptr)
+        {
+            session->flushSave();   // 終わる前に保存（B14）
             session->removeListener (this);
+        }
         window = nullptr;
         gallery = nullptr;
         if (session != nullptr)
@@ -283,6 +307,16 @@ private:
             settings()->setValue ("recordRate", session->get().recordRate);
             settings()->setValue ("recordFloat", session->get().recordFloat);
             settings()->saveIfNeeded();
+        }
+
+        if (changes & change::project)
+        {
+            const auto list = session->get().recentProjects.joinIntoString ("\n");
+            if (list != settings()->getValue ("recentProjects"))
+            {
+                settings()->setValue ("recentProjects", list);
+                settings()->saveIfNeeded();
+            }
         }
 
         if (changes & change::latency)
