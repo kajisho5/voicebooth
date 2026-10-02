@@ -210,6 +210,7 @@ private:
     void pushMonitorToEngine();
     void finishRecording();
     void conformSong();
+    void checkDeviceRate();
     bool hasTakes() const;
     void loadTakeWave (project::TrackType, const project::Take&);
     void postNotice (const juce::String& text);
