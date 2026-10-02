@@ -1,0 +1,182 @@
+name: build
+
+# Win / Mac でビルドとテストが通ること、翻訳表がそろっていること、
+# 音声デバイスを開かない UI_MOCK ビルドも通ること（Linux）を確認する。
+# テストが通ったら、試す人向けに未署名のインストーラー（Win: setup.exe / Mac: DMG）も作る（DESIGN 11.6）
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    tags: ['v*']   # 版のタグ（v0.1.0、v0.1.0-beta.1 など）を push したら、作ったインストーラーで GitHub のリリースを作る
+
+# 同じブランチに新しく push したら、前の実行は止める（Mac のユニバーサル版は 30 分以上かかるため）
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  i18n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check translations
+        run: python3 tools/check_i18n.py
+
+  build:
+    needs: i18n
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
+
+      # 並列数は明示する。Mac は Makefile なので数なしの --parallel は make -j（上限なし）になり、
+      # 3 コア・7 GB のランナーで約 100 個のコンパイルが同時に走ってメモリが溢れ、77 分かかっていた
+      - name: Build
+        run: cmake --build build --config Release --parallel ${{ runner.os == 'macOS' && '3' || '4' }}
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure -V   # -V：mp3 / m4a の長さ・頭のずれをログに残す
+
+      # Mac はユニバーサル版（arm64 + x86_64）。両方入っていることと、Intel 側も Rosetta 2 でテストが通ることを確かめる
+      - name: Check universal binary (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          lipo -info build/VoiceBooth_artefacts/Release/VoiceBooth.app/Contents/MacOS/VoiceBooth
+          lipo build/VoiceBooth_artefacts/Release/VoiceBooth.app/Contents/MacOS/VoiceBooth -verify_arch arm64 x86_64
+          TESTS=$(find build -path '*VoiceBoothTests_artefacts*' -type f -name VoiceBoothTests -perm -u+x | head -1)
+          lipo "$TESTS" -verify_arch arm64 x86_64
+          arch -x86_64 /usr/bin/true 2>/dev/null || sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+          arch -x86_64 "$TESTS"
+
+      # ビルドしたフォルダそのもの（従来どおり）
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoiceBooth-${{ runner.os }}
+          path: build/VoiceBooth_artefacts/Release
+          retention-days: 7
+
+      # ---- 未署名インストーラー（DESIGN 11.6）。ここまでのテストが通った時だけ ----
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          v=$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' build/CMakeCache.txt | head -1 | tr -d '\r')
+          if [ -z "$v" ]; then echo "::error::CMAKE_PROJECT_VERSION not found in build/CMakeCache.txt"; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "version: $v"
+
+      # Inno Setup 6.5.2 以上（PNG のウィザード画像）。ランナーに入っていて新しければそれを使い、無い・古い時だけ choco で入れる
+      - name: Install Inno Setup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $need = [version]'6.5.2'
+          . ./packaging/windows/find_iscc.ps1
+          $found = Find-Iscc
+          if ($found -and $found.Version -ge $need) {
+            Write-Host "Inno Setup already on the runner: $($found.Path) ($($found.Version))"
+          } else {
+            # choco に「入っている」と記録されていても実体が見つからないことがあるので --force で入れ直す
+            Write-Host "Inno Setup missing or older than $need ($($found.Version)); installing via choco"
+            choco install innosetup -y --force --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "choco failed ($LASTEXITCODE)" }
+            $found = Find-Iscc
+            if (-not $found -or $found.Version -lt $need) {
+              Get-ItemProperty "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*","HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*","HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" -ErrorAction SilentlyContinue |
+                Where-Object { $_.DisplayName -like "Inno Setup*" } | Format-List DisplayName, DisplayVersion, InstallLocation
+              throw "Inno Setup $need+ not available after install"
+            }
+            Write-Host "Installed: $($found.Path) ($($found.Version))"
+          }
+
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        id: win_setup
+        shell: pwsh
+        run: ./packaging/windows/build_installer.ps1 -Version "${{ steps.version.outputs.version }}"
+
+      - name: Build DMG (macOS)
+        if: runner.os == 'macOS'
+        id: mac_dmg
+        run: packaging/macos/make_dmg.sh --version "${{ steps.version.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: VoiceBooth-${{ steps.version.outputs.version }}-win-x64-setup
+          path: ${{ steps.win_setup.outputs.setup }}
+          if-no-files-found: error
+          compression-level: 0   # setup.exe は圧縮済み
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: VoiceBooth-${{ steps.version.outputs.version }}-mac-universal
+          path: ${{ steps.mac_dmg.outputs.dmg }}
+          if-no-files-found: error
+          compression-level: 0   # DMG は圧縮済み
+          retention-days: 7
+
+  # 音声デバイスを一切開かないビルド（DESIGN 11.1 / 14）が壊れていないこと。テストも Linux で回す
+  ui-mock-linux:
+    needs: i18n
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev \
+                                  libfreetype-dev libfontconfig1-dev libasound2-dev ninja-build
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DVOICEBOOTH_UI_MOCK=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -V
+
+  # ---- リリース（タグの時だけ）。Win の setup.exe と Mac の DMG を GitHub のリリースに付ける ----
+  # タグと CMake の版がそろっていること。「-」の入るタグ（v0.1.0-beta.1 など）はプレリリース。本文は packaging/release-notes.md
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, ui-mock-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag against the version
+        id: tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          ver=$(sed -n 's/^project(VoiceBooth VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          base="${tag#v}"; base="${base%%-*}"
+          if [ "$base" != "$ver" ]; then echo "::error::tag $tag does not match CMake version $ver"; exit 1; fi
+          if [[ "$tag" == *-* ]]; then echo "pre=--prerelease" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: VoiceBooth-[0-9]*   # 版つきのインストーラーだけ（VoiceBooth-Windows / -macOS の中身は付けない）
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release create "$GITHUB_REF_NAME" dist/* --title "VoiceBooth $GITHUB_REF_NAME" \
+             --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag

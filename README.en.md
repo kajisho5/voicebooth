@@ -1,0 +1,182 @@
+<p align="center">
+  <img src="brand/out/marketing/readme-banner-en.png" alt="VoiceBooth — a vocal DAW for song covers. See it, fix it, hand over one take." width="100%">
+</p>
+
+<p align="center">
+  <a href="README.md">日本語</a> ·
+  <b>English</b> ·
+  <a href="README.ko.md">한국어</a> ·
+  <a href="README.zh-Hans.md">简体中文</a> ·
+  <a href="README.zh-Hant.md">繁體中文</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
+  <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+</p>
+
+# VoiceBooth
+
+**A small vocal DAW made only for recording song covers.**
+Sing along to an instrumental, see your pitch on screen, re-record just the parts you want to fix, and export a WAV your mix engineer can drop straight into their DAW. That is all it does. It is not a general-purpose DAW.
+
+![VoiceBooth main screen](docs/screenshots/main-en.png)
+
+> [!NOTE]
+> **This is a beta.** The main features are in place, but they have not yet been checked on the author's own Windows PC and Mac. Please report bugs, or anything that is hard to understand, in [Issues](https://github.com/kajisho5/voicebooth/issues).
+
+## Read this first
+
+| | |
+|---|---|
+| OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
+| Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
+| Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
+| Size | The installer is about 13 MB on Windows and about 42 MB on Mac. The separation model (about 223 MB) and the lyrics model (about 465 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
+| Heavy processing | Separation and automatic lyrics sync run **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
+| Harmonies | You can record harmony tracks. **There is no feature that pulls just the harmony out of a mix to use as a reference** (separation gives two parts: "all vocals" and "accompaniment") |
+| Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
+| Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
+| Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 |
+
+## What it does
+
+| | Details |
+|---|---|
+| Open a song | The formats above, also by drag and drop. The start of the song lines up the same on Windows and Mac |
+| Original + karaoke | Use the original song (with vocals) as the reference and sing over the karaoke / instrumental. Differences such as intro length are aligned automatically. The karaoke is subtracted from the original to extract the vocal, which becomes the reference pitch line |
+| Original only | Separate the original to make an instrumental, and show the reference line too (needs the separation model) |
+| Pitch in color | Your pitch is drawn as a line on top: lime when you are on pitch, amber then red as you drift. Singing an octave off can still be lined up on the display |
+| Practice | Tempo 50–150 %, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key |
+| Recording | Full-pass recording, retroactive recording (pressing REC late never cuts off the first word), re-recording a range (8 ms crossfade at each edge; 0–20 ms in Pro), latency measurement and compensation |
+| Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
+| Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
+| Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
+| Lyrics (off by default) | Load .txt / .lrc, sync by tapping, or sync automatically from the reference vocal (needs the lyrics model) |
+| Skins | Recolour the whole app (10 built-in). Share them as `.vbskin` files |
+
+### Not yet available
+
+These are not in the beta yet (and are not shown in the app).
+
+- Soloing just the reference vocal or just the accompaniment (for now you can play only the tracks you recorded and the instrumental)
+- A reference line for harmonies (selecting a harmony track still shows the main reference line)
+- **Suggesting a key that fits your vocal range** (measure your range and suggest a key that fits the song's highest and lowest notes; planned for the next version)
+- Metronome and count-in sounds, comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
+
+> [!IMPORTANT]
+> The models for separation and automatic lyrics sync are **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
+
+### What your mix engineer gets
+
+Files are written so they line up with the instrumental the moment they are placed in a DAW (target ±1 ms).
+
+- Full length from the very start of the song (0 s) to the end. Parts you did not record are silence
+- 24-bit mono WAV at the song's own sample rate (never silently converted to 48 kHz)
+- No normalizing and no automatic fades. Monitor reverb and guide tracks are never mixed in
+- Practice takes are kept out of the delivery folder
+
+### Three modes
+
+The engine is the same; only what you see changes. A project made in one mode opens in any other.
+
+| Easy | Standard | Pro |
+|---|---|---|
+| Record Main in one pass and hand it over | Doubles, one harmony, punch-in, entry timing, delivery pack | Two harmonies, on-pitch percentage and vibrato analysis, crossfade length at punch-in edges |
+
+| Easy mode | Pro mode (harmony) |
+|---|---|
+| ![Easy mode](docs/screenshots/mode-easy.png) | ![Pro mode harmony](docs/screenshots/mode-pro-harmony.png) |
+
+## Logo and design
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/out/logo/logo-mark-dark.png">
+    <img src="brand/out/logo/logo-mark-light.png" alt="VoiceBooth mark" width="96" align="left">
+  </picture>
+  <b>The mark: a booth window, a microphone capsule and a tally lamp.</b><br>
+  A mic seen through the window of a recording booth, with the lamp lit in the corner. The tally is lime by default; inside the app it turns red only while recording.
+</p>
+<br clear="left">
+
+**The concept is a recording booth at night.** Warm, dark graphite, lit by equipment LEDs and a tally lamp. States are shown by LEDs lighting up rather than by colored borders, and the screen never turns red except while recording.
+
+![Color palette](brand/out/marketing/palette.png)
+
+| Color | Used for |
+|---|---|
+| Signal (lime) | Your pitch when it is on, the playhead, lit LEDs |
+| Reference (ice blue) | The reference tolerance band |
+| Amber / Coral | Slightly off / far off, warnings |
+| Tally (red) | Recording only |
+
+- **Type**: IBM Plex Sans JP, with IBM Plex Mono for times, dB and other numbers (fixed width, so digits never jump)
+- **Controls**: keycap buttons with LEDs, LED-ring knobs, vertical console faders, segmented LED meters
+- **Motion**: keys that spring when pressed, faders with a detent at 0 dB, a tally that glows red only while recording. Audio always comes first, and the OS "reduce motion" setting is respected
+
+**Skins.** Swap all the colours at once (fonts, layout and motion stay the same). There are 10 built-in skins, including Studio Day / Sweet for bright rooms, High Contrast for legibility and Color Safe for colour-vision differences. In Settings → Skin → New, pick a template and change colours one by one or group by group (or borrow a group from another template), then save. Hard-to-read combinations are flagged as you edit (saving is never blocked). Share skins as `.vbskin` files.
+
+![The 10 built-in skins](docs/screenshots/skins/all.png)
+
+| App icon | Brand kit |
+|---|---|
+| ![App icon](brand/out/preview/preview-icons.png) | ![Brand kit](brand/out/preview/preview-brand.png) |
+
+Logo usage rules (clear space, minimum size, light-background versions) and every asset are in [`brand/`](brand/README.md) (Japanese).
+
+## System requirements (provisional)
+
+| | Minimum | Recommended |
+|---|---|---|
+| Windows | Windows 10 64-bit (version 1607 or later) | Windows 11 |
+| Mac | macOS 11 Big Sur or later (universal build for Apple silicon and Intel) | Latest macOS on Apple silicon |
+| CPU | 64-bit, 4 cores | 6 cores or more (Apple M1 or later, a recent Intel Core i5 / AMD Ryzen 5 class or better) |
+| Memory | 8 GB | 16 GB |
+| Free disk space | 2 GB | 10 GB or more (SSD) |
+| Display | 1280×800 | 1440×900 or larger |
+| Audio | Built-in input/output works | An audio interface and wired headphones (ASIO on Windows gives lower latency) |
+| Internet | Only for the first download of the separation model (everything except separation works offline) | — |
+
+- Only vocal separation is heavy. It takes longer on older CPUs and Intel Macs (to be measured and confirmed)
+- Bluetooth earphones and headphones have too much latency for recording
+- Windows on Arm has not been tested
+- These figures are working estimates during development. The reasoning is in [`docs/DESIGN.md`](docs/DESIGN.md) section 11.6.1 (Japanese)
+
+## Download
+
+Get `VoiceBooth-<version>-win-x64-setup.exe` for Windows or `VoiceBooth-<version>-mac-universal.dmg` for Mac from [Releases](https://github.com/kajisho5/voicebooth/releases).
+
+The beta is **not code-signed** yet, so your OS shows a warning the first time you open it.
+
+- **Windows**: if you see "Windows protected your PC", click "More info" → "Run anyway"
+- **Mac**: move VoiceBooth from the DMG into your Applications folder and open it once → if macOS says it cannot be opened, go to System Settings → Privacy & Security → under Security, click "Open Anyway" (the button appears for about an hour after you try to open the app) → enter your password ([Apple's instructions](https://support.apple.com/guide/mac-help/mh40616/mac))
+
+## Support development
+
+VoiceBooth is free. If you like it, you can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5). Sponsoring does not unlock any features; everyone gets the same app.
+
+## License
+
+The source code is licensed under the **GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)** ([`LICENSE`](LICENSE)). VoiceBooth uses JUCE 8 under AGPLv3, so the whole app is AGPL.
+
+- You are free to use, modify, share and sell it. When you distribute it (including letting people use a modified version over a network), publish the source under the same license
+- **Name and logo**: please do not use the "VoiceBooth" name or logo for a modified version distributed as a separate product (use your own name and logo). Redistributing it unchanged, and using them in introductions or reviews, is fine
+- Audio you record and export is yours. The AGPL does not apply to your work
+
+| Included / used | License |
+|---|---|
+| JUCE 8 | Dual AGPLv3 / commercial (used here under AGPLv3) |
+| minimp3 (`third_party/minimp3`) | CC0 |
+| IBM Plex Sans JP / IBM Plex Mono (`resources/fonts`) | SIL Open Font License 1.1 |
+| ONNX Runtime 1.22.0 (only in the separate vocal-separation process; the official prebuilt package is fetched at build time) | MIT |
+| Monocypher 4.0.3 (verifies the Ed25519 signature of the model list; fetched at build time) | Dual CC0 / BSD-2-Clause |
+| whisper.cpp v1.9.4 (only in the separate lyrics-sync process; fetched at build time) | MIT |
+| Rubber Band Library 4 (practice tempo / key; fetched at build time) | Dual GPL v2 or later / commercial (used here under GPL) |
+| Steinberg ASIO SDK 2.3.4 (Windows builds only; the official package is fetched at build time) | Dual GPLv3 / commercial (used here under GPLv3). The SDK itself is not kept in this repository. ASIO is a trademark of Steinberg Media Technologies GmbH |
+| Models (separate from the app, downloaded only when you press the button): separation Mel-Band RoFormer (Kimberley Jensen), lyrics Whisper small (OpenAI) | Both MIT. Only models whose weight licenses have been checked are distributed |
+
+## Contributing
+
+Build, test and project layout are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), and the specification is [`docs/DESIGN.md`](docs/DESIGN.md) (both in Japanese).
