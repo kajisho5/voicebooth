@@ -234,7 +234,13 @@ void PracticeModule::resized()
         auto row = r.removeFromBottom (26);
         r.removeFromBottom (6);
         rangeKey.setSize (10, 26);
-        rangeKey.setBounds (row.removeFromLeft (juce::jmin (row.getWidth() / 2, juce::jmax (96, rangeKey.idealWidth()))).reduced (4, 0));
+        suggestKey.setSize (10, 26);
+        // 両方が入るなら文字の長さどおり。入らない時は長さの比で分ける（言語によって「声域」側が長い）
+        const auto total = row.getWidth();
+        const auto rw = juce::jmax (96, rangeKey.idealWidth() + 8), sw = juce::jmax (96, suggestKey.idealWidth() + 8);
+        const auto rangeW = rw + sw <= total ? rw
+                                             : juce::jlimit (juce::jmin (96, total / 2), juce::jmax (total / 2, total - 96), total * rw / (rw + sw));
+        rangeKey.setBounds (row.removeFromLeft (rangeW).reduced (4, 0));
         suggestKey.setBounds (row.reduced (4, 0));
     }
     tempo.setBounds (r.removeFromLeft (r.getWidth() / 2).reduced (4, 0));

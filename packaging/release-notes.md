@@ -28,7 +28,7 @@ English follows Japanese.
 - 曲のテンポで鳴るクリック（練習のテンポにも合う）と、録音の前のカウントイン（耳だけで、録音には入りません）
 - Main / Double / Harmony のトラック、入りタイミング（標準以上）、音程の割合・ビブラート（プロ）
 - フル尺 WAV の書き出し、納品パック（WAV・確認用ミックス・メモ・zip）
-- 6 言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español）、スキン 10 種
+- 12 言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français）、スキン 10 種
 
 ## まだのもの・注意
 
@@ -68,7 +68,7 @@ English follows Japanese.
 - A click on the song's beat (it follows the practice tempo) and a count-in before recording (headphones only, never recorded)
 - Main / Double / Harmony tracks, entry timing (Standard and up), pitch accuracy and vibrato (Pro)
 - Full-length WAV export and a delivery pack (WAVs, reference mix, notes, zip)
-- Six languages (Japanese, English, Korean, Simplified and Traditional Chinese, Spanish) and ten built-in skins
+- Twelve languages (Japanese, English, Korean, Simplified and Traditional Chinese, Spanish, Portuguese (Brazil), Indonesian, Vietnamese, Turkish, German, French) and ten built-in skins
 
 ## Not yet / please note
 

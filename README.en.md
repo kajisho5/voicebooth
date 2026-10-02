@@ -8,7 +8,13 @@
   <a href="README.ko.md">한국어</a> ·
   <a href="README.zh-Hans.md">简体中文</a> ·
   <a href="README.zh-Hant.md">繁體中文</a> ·
-  <a href="README.es.md">Español</a>
+  <a href="README.es.md">Español</a> ·
+  <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a> ·
+  <a href="README.vi.md">Tiếng Việt</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.de.md">Deutsch</a> ·
+  <a href="README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -41,7 +47,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Harmonies | You can record harmony tracks. **There is no feature that pulls just the harmony out of a mix to use as a reference** (separation gives two parts: "all vocals" and "accompaniment") |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
 | Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
-| Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español |
+| Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## What it does
 

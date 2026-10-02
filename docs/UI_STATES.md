@@ -1,12 +1,12 @@
 # 画面状態一覧（UI_STATES）
 
-Phase A（A1–A7）と Phase B1（曲を開いて実波形）・B2（オフボ再生）・B3（デバイス列挙＋入力メーター）・B4b（曲の情報を手で入れる）の実装状況。DESIGN 4 / 16 に対応。見た目は v2 "Booth"（DESIGN 4.9）、全画面 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español（DESIGN 10.1）。
+Phase A（A1–A7）と Phase B1（曲を開いて実波形）・B2（オフボ再生）・B3（デバイス列挙＋入力メーター）・B4b（曲の情報を手で入れる）の実装状況。DESIGN 4 / 16 に対応。見た目は v2 "Booth"（DESIGN 4.9）、全画面 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français（DESIGN 10.1）。
 
 ## 起動オプション（開発・スクリーンショット用）
 
 | オプション | 内容 |
 |---|---|
-| `--lang=ja` / `en` / `ko` / `zh-Hans` / `zh-Hant` / `es` | 表示言語（保存した設定より優先） |
+| `--lang=ja` / `en` / `ko` / `zh-Hans` / `zh-Hant` / `es` / `pt-BR` / `id` / `vi` / `tr` / `de` / `fr` | 表示言語（保存した設定より優先） |
 | `--skin=<id>` | スキン（`booth` / `studio-day` / `sweet` / `midnight` / `analog` / `neon` / `gaming` / `sakura` / `contrast` / `colorsafe` / 自作の id）。保存した設定より優先し、保存はしない。無い id は booth |
 | `--mode=easy` / `standard` / `pro` | モード |
 | `--track=main` / `double` / `harm1` | 選択トラック |

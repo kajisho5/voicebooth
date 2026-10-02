@@ -23,7 +23,7 @@
 | マーク単体 | `logo/logo-mark-*.png` | タリーの周りは透過で抜いてあるので、どの背景色にも置ける |
 | SNS・GitHub 共有画像 | `marketing/social-preview.png`（1280x640） | GitHub の Settings → Social preview に設定 |
 | SNS 共有画像（アプリの画面入り） | `marketing/social-preview-app.png`（1280x640、約 0.55 MB） | 宣伝の投稿用。GitHub の Social preview にも使える（1 MB 未満）。画面は UI_MOCK のダミー（`src/app-screen.png`。曲・歌詞は作り物） |
-| README ヘッダー | `marketing/readme-banner.png`（1280x320、日本語）、`readme-banner-{en,ko,zh-Hans,zh-Hant,es}.png` | 肩書きはアプリの翻訳表 `app.tagline` と同じ文。韓国語・中国語は Noto Sans CJK の各地域のフェイス |
+| README ヘッダー | `marketing/readme-banner.png`（1280x320、日本語）、`readme-banner-{en,ko,zh-Hans,zh-Hant,es,pt-BR,id,vi,tr,de,fr}.png` | 肩書きはアプリの翻訳表 `app.tagline` と同じ文。韓国語・中国語は Noto Sans CJK の各地域のフェイス、ベトナム語・トルコ語は IBM Plex Sans（欧文版。`fonts-ibm-plex`） |
 | README の色見本 | `marketing/palette.png`（1280x200） | DESIGN 4.9 のトークン。名前は英語（全言語の README で共用） |
 | Web | `marketing/favicon-32.png`、`favicon.svg`（src）、`apple-touch-icon-180.png` | |
 | macOS DMG 背景 | `installer/dmg-background.png`（660x400）、`@2x` | アイコン位置: VoiceBooth.app (165, 200) / Applications (495, 200)。名前は Finder が描く |

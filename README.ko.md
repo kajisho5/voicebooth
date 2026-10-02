@@ -8,7 +8,13 @@
   <b>한국어</b> ·
   <a href="README.zh-Hans.md">简体中文</a> ·
   <a href="README.zh-Hant.md">繁體中文</a> ·
-  <a href="README.es.md">Español</a>
+  <a href="README.es.md">Español</a> ·
+  <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a> ·
+  <a href="README.vi.md">Tiếng Việt</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.de.md">Deutsch</a> ·
+  <a href="README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -41,7 +47,7 @@ MR에 맞춰 노래하면서 음정을 화면으로 보고 고치고, 고치고 
 | 하모니 | 하모니 트랙을 녹음할 수는 있습니다. **믹스에서 하모니만 뽑아 가이드로 쓰는 기능은 없습니다**(분리는 '보컬 전체'와 '반주' 두 가지) |
 | 분리한 음원의 취급 | 분리한 보컬·반주는 **개인 연습용**입니다. VoiceBooth는 원곡의 권리를 바꾸지 않습니다. 배포·공개(커버곡용 MR로 배포하는 것 포함)는 원곡의 권리자가 허락한 범위 안에서만 해 주세요 |
 | 요금 | **무료입니다.** 구독도 결제도 없습니다. 후원은 [GitHub Sponsors](https://github.com/sponsors/kajisho5)에서(선택 사항. 기능은 달라지지 않습니다) |
-| 언어 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español |
+| 언어 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## 할 수 있는 것
 

@@ -8,7 +8,13 @@
   <a href="README.ko.md">한국어</a> ·
   <b>简体中文</b> ·
   <a href="README.zh-Hant.md">繁體中文</a> ·
-  <a href="README.es.md">Español</a>
+  <a href="README.es.md">Español</a> ·
+  <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a> ·
+  <a href="README.vi.md">Tiếng Việt</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.de.md">Deutsch</a> ·
+  <a href="README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -41,7 +47,7 @@
 | 和声 | 可以录制和声轨。**没有从混音中单独提取和声作为参考的功能**（分离只分为“全部人声”和“伴奏”两部分） |
 | 分离出的音频 | 分离出的人声和伴奏**仅供个人练习**。VoiceBooth 不会改变原曲的权利归属。分发、公开（包括作为翻唱伴奏分发）请只在原曲权利人允许的范围内进行 |
 | 费用 | **免费。** 没有订阅，也没有内购。可通过 [GitHub Sponsors](https://github.com/sponsors/kajisho5) 支持开发（自愿，功能不会因此改变） |
-| 语言 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español |
+| 语言 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## 功能
 
