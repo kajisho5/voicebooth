@@ -205,6 +205,13 @@ public:
             settings()->saveIfNeeded();
         };
 
+        hooks.setupDoneFor = [this] { return settings()->getValue ("setupDoneFor"); };
+        hooks.setSetupDoneFor = [this] (const juce::String& key)
+        {
+            settings()->setValue ("setupDoneFor", key);
+            settings()->saveIfNeeded();
+        };
+
         session = std::make_unique<UiSession>();
 
        #if ! VOICEBOOTH_UI_MOCK

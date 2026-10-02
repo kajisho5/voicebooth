@@ -709,8 +709,8 @@ void SetupWizard::paintDeviceLive (juce::Graphics& g, juce::Rectangle<int> body)
     // ドライバ（ASIO は SDK のあるビルドのみ。DESIGN 11.1）
     {
         juce::String note;
-       #if JUCE_WINDOWS
-        note = tr ("setup.device.driver.asioNote");
+       #if JUCE_WINDOWS && ! JUCE_ASIO
+        note = tr ("setup.device.driver.asioNote");   // ASIO を入れずにビルドした時だけ
        #endif
         if (driverPick != nullptr) row (rowDriver, tr ("setup.device.driver"), note, colours::textMute, driverPick.get());
         else                       row (rowDriver, tr ("setup.device.driver"), devices.currentType, colours::text);

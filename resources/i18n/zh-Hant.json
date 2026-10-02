@@ -396,7 +396,7 @@
   "setup.level.ok": "OK  峰值 {0} dBFS",
   "setup.level.rule.gain": "不會自動更改系統麥克風音量",
   "setup.level.rule.hot": "超過 -3 dBFS 時調低 GAIN",
-  "setup.level.rule.loopback": "同時檢查回放聲是否混入輸入",
+  "setup.level.rule.loopback": "請用耳機監聽（喇叭的聲音進入麥克風會混進錄音）",
   "setup.level.rule.low": "低於 -20 dBFS 時調高 GAIN",
   "setup.level.sub": "用音訊介面的 GAIN 調整，使峰值落在目標範圍（-12～-6 dBFS）",
   "setup.micro": "SETUP",

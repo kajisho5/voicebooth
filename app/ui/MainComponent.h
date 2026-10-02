@@ -23,6 +23,9 @@ struct AppHooks
 {
     std::function<void (i18n::Language, ReopenScreen)> changeLanguage;
     std::function<void()> firstRunDone;   // 初回の言語選択を確定した
+    // 入力セットアップを済ませた機器（ドライバ | 入力の名前）。違う機器で曲を開いたら、セットアップを開く（DESIGN 5 / B13）
+    std::function<juce::String()> setupDoneFor;
+    std::function<void (const juce::String&)> setSetupDoneFor;
 
     // スキン（DESIGN 4.11）
     std::function<void (const juce::String& id, ReopenScreen)> changeSkin;   // 選んで保存し、画面を作り直す
@@ -126,6 +129,7 @@ private:
     double lastTick = 0.0;
     bool clockFrozen = false;   // スクリーンショット用（--rec）
     int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
+    void maybeOpenSetup();      // 初めての機器なら入力セットアップを開く（B13）
     int noticeSeen = 0;         // UiSession の知らせ（録音・書き出しの結果など）を出した回数
 
     juce::String toastText;

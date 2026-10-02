@@ -396,7 +396,7 @@
   "setup.level.ok": "OK  ピーク {0} dBFS",
   "setup.level.rule.gain": "OS のマイク音量は自動で変更しません",
   "setup.level.rule.hot": "-3 dBFS を超えたら GAIN を下げる",
-  "setup.level.rule.loopback": "再生音が入力に混ざっていないかも確認します",
+  "setup.level.rule.loopback": "ヘッドホンで聞いてください（スピーカーの音がマイクに入ると録音に混ざります）",
   "setup.level.rule.low": "-20 dBFS 未満なら GAIN を上げる",
   "setup.level.sub": "ピークが目標帯（-12〜-6 dBFS）に入るように、インターフェースの GAIN で調整します",
   "setup.micro": "SETUP",

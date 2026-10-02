@@ -33,7 +33,13 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
         addAndMakeVisible (c);
     addChildComponent (overlay);
-    overlay.onClosed = [this] { if (isShowing()) grabKeyboardFocus(); };
+    overlay.onClosed = [this]
+    {
+        if (isShowing()) grabKeyboardFocus();
+        // 起動画面・ダイアログを閉じた後で、待っていた入力セットアップを出す（B13）
+        juce::Component::SafePointer<MainComponent> safe (this);
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->maybeOpenSetup(); });
+    };
     status.onUpdateClicked = [this] { openUpdate(); };
 
     setWantsKeyboardFocus (true);
@@ -141,6 +147,9 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         juce::Component::SafePointer<MainComponent> safe (this);
         juce::MessageManager::callAsync ([safe, guide] { if (safe != nullptr) safe->session.loadGuide (guide); });
     }
+
+    if (changes & (change::song | change::device))
+        maybeOpenSetup();
 
     if (changes & change::mode)
         resized();   // 波形レーンの高さがモードで変わる
@@ -513,6 +522,22 @@ void MainComponent::filesDropped (const juce::StringArray& files, int x, int y)
         return;
     }
     openSong (f);
+}
+
+void MainComponent::maybeOpenSetup()
+{
+    // 入力セットアップは初回と、入力の機器を替えた時（DESIGN 5）。曲を開いている時だけ（デモ・UI_MOCK では出さない）。
+    // 録音中・再生中・ほかのダイアログを出している時は待つ（次の変化で見直す）。開いたら済みにする（閉じても同じ機器では出さない）
+    const auto& s = state();
+    if (! hooks.setupDoneFor || ! hooks.setSetupDoneFor || s.backingWave == nullptr || ! s.input.open
+        || s.input.deviceName.isEmpty() || s.isRecording || s.isPlaying || overlay.isShowing())
+        return;
+    const auto key = s.input.typeName + "|" + s.input.deviceName;
+    if (key == hooks.setupDoneFor())
+        return;
+    hooks.setSetupDoneFor (key);
+    juce::Component::SafePointer<MainComponent> safe (this);
+    juce::MessageManager::callAsync ([safe] { if (safe != nullptr && ! safe->overlay.isShowing()) safe->openSetup (0); });
 }
 
 void MainComponent::openSetup (int step)
