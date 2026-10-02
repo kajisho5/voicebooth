@@ -180,6 +180,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/MusicInfo.cpp
     app/analysis/Separation.cpp
     app/analysis/OffVocal.cpp
+    app/analysis/TakeStats.cpp
     app/separation/SeparatorClient.cpp
     app/lyrics/LyricsClient.cpp
     app/models/ModelManifest.cpp
@@ -524,6 +525,7 @@ if(VOICEBOOTH_TESTS)
         tests/SeparationTests.cpp
         tests/ModelDownloadTests.cpp
         tests/LyricsAlignTests.cpp
+        tests/TakeStatsTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
