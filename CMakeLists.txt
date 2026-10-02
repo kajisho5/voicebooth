@@ -95,6 +95,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/MonitorMixer.cpp
     app/audio/TakeRecorder.cpp
     app/audio/LatencyProbe.cpp
+    app/audio/Retro.cpp
     app/audio/Resample.cpp
     app/audio/DeviceRules.cpp)
 
@@ -240,6 +241,7 @@ if(VOICEBOOTH_TESTS)
         tests/RecordTests.cpp
         tests/ResampleTests.cpp
         tests/LatencyTests.cpp
+        tests/RetroTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

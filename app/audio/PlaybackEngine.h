@@ -52,6 +52,8 @@ public:
     RecordedTake stopRecording() override;
     bool isRecording() const override      { return recorder.isActive(); }
     bool recordingEnded() const override   { return recorder.hasEnded(); }
+    int64 recordingStartSample() const override               { return recorder.getStartSample(); }
+    int recordingEnvelope (std::vector<float>& out) const override { return recorder.copyEnvelope (out); }
     void setMonitorReverb (float fader) override;
     OutputStatus getOutputStatus() const override;
 

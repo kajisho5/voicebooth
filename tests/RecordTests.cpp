@@ -139,6 +139,19 @@ public:
             expectEquals ((int) t.comp.size(), 1);
             expect (t.comp[0].takeId == "take1");
         }
+
+        beginTest ("comp: a retro take (recorded in the background) is used only from where REC took it");
+        {
+            project::Track t;
+            project::applyTake (t, take ("take1", 0, 10000));
+            project::applyTake (t, take ("take2", 2000, 9000), 5000);   // 裏で 2000 から録っていて、REC で 5000 から採った
+            expectEquals ((int) t.comp.size(), 3);
+            expect (t.comp[0].takeId == "take1" && t.comp[0].endSample == 5000);
+            expect (t.comp[1].takeId == "take2" && t.comp[1].startSample == 5000 && t.comp[1].endSample == 9000);
+            expect (t.comp[2].takeId == "take1" && t.comp[2].startSample == 9000);
+            expectEquals (t.takes[1].startSample, (int64) 2000);        // ファイルの頭はそのまま
+            expect (project::compIsValid (t));
+        }
     }
 
     //==========================================================================

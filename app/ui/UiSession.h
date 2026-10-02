@@ -214,6 +214,8 @@ private:
 
     void songInfoChanged (juce::uint32 also = 0);
     void pollLatencyProbe();
+    void updateShadow();
+    int64 retroStart (int64 pressSample) const;
     void latencyMeasured (const audio::latency::Result&, const juce::String& key);
 
     dummy::Session s;
@@ -224,7 +226,12 @@ private:
     bool loopBeforeRecording = false;
     juce::uint32 tailWaitStart = 0;
     juce::uint32 latencyStartMs = 0;  // 測定音を鳴らし始めた時刻
-    bool analysingLatency = false;    // 録り終えた測定音を裏で解析している   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
+    bool analysingLatency = false;    // 録り終えた測定音を裏で解析している
+
+    // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
+    bool shadowActive = false;
+    juce::File shadowFile;
+    int shadowSerial = 0;   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
     juce::ListenerList<Listener> listeners;
 };
 

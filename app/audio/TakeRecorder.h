@@ -43,6 +43,12 @@ public:
     bool hasEnded() const { return ended.load(); }
     /** いま書けたサンプル数（表示用） */
     juce::int64 getRecordedSamples() const { return recorded.load(); }
+    /** 録り始めた位置（ファイルの 1 サンプル目と同じコールバックで鳴らした曲の位置）。まだなら -1 */
+    juce::int64 getStartSample() const { return started.load() ? startSample.load() : -1; }
+
+    /** 遡及録音（B7）用：ファイルの頭から 10 ms ごとの最大振幅。メッセージスレッドで読む（書けた分だけ）。
+        最大 30 分（それより後は増えない）。戻り値は 1 つの長さ（サンプル） */
+    int copyEnvelope (std::vector<float>& out) const;
 
     /** オーディオスレッド。input は 1 ch。rendered は同じコールバックで再生側が鳴らした範囲 */
     void process (const float* input, int numSamples, juce::int64 songStart, int songPlayed, bool wrapped) noexcept;
@@ -52,6 +58,7 @@ public:
 
 private:
     void write (const float* input, int offset, int numSamples) noexcept;   // オーディオスレッド（lock を持った状態で）
+    void addToEnvelope (const float* samples, int numSamples) noexcept;    // nullptr は無音
 
     juce::TimeSliceThread writerThread { "VoiceBooth take writer" };
     juce::SpinLock lock;                                             // writer の差し替えだけ守る
@@ -61,6 +68,14 @@ private:
     std::atomic<bool> active { false }, started { false }, ended { false }, dropped { false };
     std::atomic<juce::int64> startSample { 0 }, recorded { 0 };
     juce::int64 tail = 0;              // 曲が終わった後に録る長さ（begin で決める）
+
+    // 10 ms ごとのピーク（遡及録音のフレーズの頭探し。B7）。確保は最初の 1 回だけ（30 分 = 180000 個、約 0.7 MB）
+    static constexpr int envelopeCapacity = 30 * 60 * 100;
+    std::vector<float> envelope = std::vector<float> ((size_t) envelopeCapacity, 0.0f);
+    std::atomic<int> envelopeFrames { 0 };
+    int envelopeHop = 480;             // 1 つのサンプル数（begin で SR から）
+    int envelopeCount = 0;             // いまのフレームに入ったサンプル数（オーディオスレッド）
+    float envelopePeak = 0.0f;
     juce::int64 tailLeft = -1;         // 曲が終わった後の残り（-1 = まだ曲の中。オーディオスレッドだけが触る）
     std::atomic<float> peak { 0.0f };
 };
