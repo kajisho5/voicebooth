@@ -145,7 +145,8 @@ set(VOICEBOOTH_SONG_SOURCES
     app/system/SystemCheck.cpp
     app/analysis/Align.cpp
     app/analysis/RefPitch.cpp
-    app/analysis/MusicInfo.cpp)
+    app/analysis/MusicInfo.cpp
+    app/analysis/Separation.cpp)
 
 # スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SKIN_SOURCES
@@ -300,6 +301,89 @@ if(WIN32 AND NOT VOICEBOOTH_UI_MOCK)
 endif()
 
 # ---------------------------------------------------------------------------
+# ボーカル分離の別プロセス VoiceBoothSeparator（DESIGN 11.3 / B16）
+#   ONNX Runtime 1.22.0（MIT）の公式ビルド済みを configure 時に取る（SHA-256 で確かめる）。1.22.0 は Intel Mac も入った
+#   universal2 がある最後の版（1.23 以降は Apple シリコンだけ）。本体には ORT をリンクしない（分離プロセスだけ）
+#   手元の ORT を使う時は -DVOICEBOOTH_ORT_DIR=/path/to/onnxruntime-<os>-<版>、作らない時は -DVOICEBOOTH_SEPARATOR=OFF
+# ---------------------------------------------------------------------------
+option(VOICEBOOTH_SEPARATOR "Build VoiceBoothSeparator (vocal separation with ONNX Runtime)" ON)
+if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
+    set(VOICEBOOTH_ORT_DIR "" CACHE PATH "Local ONNX Runtime package (folder with include/ and lib/)")
+    if(VOICEBOOTH_ORT_DIR)
+        set(VB_ORT "${VOICEBOOTH_ORT_DIR}")
+    else()
+        if(WIN32)
+            set(vb_ort_url  https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-win-x64-1.22.0.zip)
+            set(vb_ort_hash 174c616efc0271194488642a72f1a514e01487da4dfe84c49296d66e40ebe0da)
+        elseif(APPLE)
+            set(vb_ort_url  https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-osx-universal2-1.22.0.tgz)
+            set(vb_ort_hash cfa6f6584d87555ed9f6e7e8a000d3947554d589efe3723b8bfa358cd263d03c)
+        else()
+            set(vb_ort_url  https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz)
+            set(vb_ort_hash 8344d55f93d5bc5021ce342db50f62079daf39aaafb5d311a451846228be49b3)
+        endif()
+        include(FetchContent)
+        FetchContent_Declare(onnxruntime
+            URL      ${vb_ort_url}
+            URL_HASH SHA256=${vb_ort_hash}
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            SOURCE_SUBDIR no-cmake)
+        FetchContent_MakeAvailable(onnxruntime)
+        set(VB_ORT "${onnxruntime_SOURCE_DIR}")
+    endif()
+
+    add_library(vb_onnxruntime SHARED IMPORTED)
+    set_target_properties(vb_onnxruntime PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${VB_ORT}/include")
+    if(WIN32)
+        set_target_properties(vb_onnxruntime PROPERTIES IMPORTED_LOCATION "${VB_ORT}/lib/onnxruntime.dll"
+                                                        IMPORTED_IMPLIB   "${VB_ORT}/lib/onnxruntime.lib")
+        set(VB_ORT_RUNTIME_FILES "${VB_ORT}/lib/onnxruntime.dll" "${VB_ORT}/lib/onnxruntime_providers_shared.dll")
+    elseif(APPLE)
+        set_target_properties(vb_onnxruntime PROPERTIES IMPORTED_LOCATION "${VB_ORT}/lib/libonnxruntime.1.22.0.dylib")
+        set(VB_ORT_RUNTIME_FILES "${VB_ORT}/lib/libonnxruntime.1.22.0.dylib")
+    else()
+        set_target_properties(vb_onnxruntime PROPERTIES IMPORTED_LOCATION "${VB_ORT}/lib/libonnxruntime.so.1.22.0"
+                                                        IMPORTED_SONAME   "libonnxruntime.so.1")
+        set(VB_ORT_RUNTIME_FILES "${VB_ORT}/lib/libonnxruntime.so.1.22.0" "${VB_ORT}/lib/libonnxruntime.so.1")
+    endif()
+
+    juce_add_console_app(VoiceBoothSeparator PRODUCT_NAME "VoiceBoothSeparator")
+    target_sources(VoiceBoothSeparator PRIVATE app/separator/SeparatorMain.cpp app/analysis/Separation.cpp)
+    target_include_directories(VoiceBoothSeparator PRIVATE app)
+    target_compile_definitions(VoiceBoothSeparator PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=1)
+    if(MSVC)
+        target_compile_options(VoiceBoothSeparator PRIVATE /utf-8)
+    endif()
+    target_link_libraries(VoiceBoothSeparator
+        PRIVATE
+            vb_onnxruntime
+            juce::juce_audio_formats
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+    # ORT のライブラリは分離プロセスの隣に置く（Linux / Mac は実行ファイルの場所から探す）
+    if(APPLE)
+        set_target_properties(VoiceBoothSeparator PROPERTIES BUILD_RPATH "@loader_path" INSTALL_RPATH "@loader_path")
+    elseif(UNIX)
+        set_target_properties(VoiceBoothSeparator PROPERTIES BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+    endif()
+    foreach(f ${VB_ORT_RUNTIME_FILES})
+        add_custom_command(TARGET VoiceBoothSeparator POST_BUILD
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different "${f}" "$<TARGET_FILE_DIR:VoiceBoothSeparator>")
+    endforeach()
+
+    # 本体の隣（Mac は VoiceBooth.app/Contents/MacOS）にも置く：本体はそこから起動し、インストーラ・DMG にもそのまま入る
+    add_dependencies(VoiceBooth VoiceBoothSeparator)
+    add_custom_command(TARGET VoiceBooth POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:VoiceBoothSeparator>" "$<TARGET_FILE_DIR:VoiceBooth>")
+    foreach(f ${VB_ORT_RUNTIME_FILES})
+        add_custom_command(TARGET VoiceBooth POST_BUILD
+                           COMMAND ${CMAKE_COMMAND} -E copy_if_different "${f}" "$<TARGET_FILE_DIR:VoiceBooth>")
+    endforeach()
+    target_compile_definitions(VoiceBooth PRIVATE VOICEBOOTH_HAS_SEPARATOR=1)
+endif()
+
+# ---------------------------------------------------------------------------
 # テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
 # ---------------------------------------------------------------------------
 if(VOICEBOOTH_TESTS)
@@ -329,6 +413,7 @@ if(VOICEBOOTH_TESTS)
         tests/MusicInfoTests.cpp
         tests/ProjectFileTests.cpp
         tests/DeliveryPackTests.cpp
+        tests/SeparationTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

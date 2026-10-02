@@ -140,6 +140,7 @@ VoiceBooth 是免費的。如果你喜歡，可以透過 [GitHub Sponsors](https
 | JUCE 8 | AGPLv3 / 商業雙授權（此處使用 AGPLv3） |
 | minimp3（`third_party/minimp3`） | CC0 |
 | IBM Plex Sans JP / IBM Plex Mono（`resources/fonts`） | SIL Open Font License 1.1 |
+| ONNX Runtime 1.22.0（僅用於獨立的人聲分離程序。建置時取得官方預編譯包） | MIT |
 | Rubber Band Library 4（練習用速度 / 調。建置時取得） | GPL v2 以上 / 商業雙授權（此處使用 GPL） |
 | Steinberg ASIO SDK 2.3.4（僅 Windows 建置。建置時取得官方發佈包） | GPLv3 / 商業雙授權（此處使用 GPLv3）。SDK 本身不放進本儲存庫。ASIO 是 Steinberg Media Technologies GmbH 的商標 |
 | 規劃中：分離、音高、歌詞模型 | 只使用已確認權重授權的模型，與應用程式分開散布 |

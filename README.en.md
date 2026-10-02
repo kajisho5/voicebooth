@@ -140,6 +140,7 @@ The source code is licensed under the **GNU Affero General Public License v3.0 o
 | JUCE 8 | Dual AGPLv3 / commercial (used here under AGPLv3) |
 | minimp3 (`third_party/minimp3`) | CC0 |
 | IBM Plex Sans JP / IBM Plex Mono (`resources/fonts`) | SIL Open Font License 1.1 |
+| ONNX Runtime 1.22.0 (only in the separate vocal-separation process; the official prebuilt package is fetched at build time) | MIT |
 | Rubber Band Library 4 (practice tempo / key; fetched at build time) | Dual GPL v2 or later / commercial (used here under GPL) |
 | Steinberg ASIO SDK 2.3.4 (Windows builds only; the official package is fetched at build time) | Dual GPLv3 / commercial (used here under GPLv3). The SDK itself is not kept in this repository. ASIO is a trademark of Steinberg Media Technologies GmbH |
 | Planned: separation, pitch and lyrics models | Only models whose weight licenses have been checked. Distributed separately from the app |
