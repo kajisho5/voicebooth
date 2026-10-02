@@ -39,6 +39,36 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# Rubber Band Library 4（練習用のテンポ・キー。DESIGN 7.2 / 11.4 / B11）
+#   GPL-2.0-or-later（AGPL-3.0 と組み合わせられる。DESIGN 18）。1 ファイル版（single/RubberBandSingle.cpp）を
+#   そのままビルドする：FFT・リサンプラは内蔵（Mac は vDSP）。スレッドは使わない（オーディオスレッドで回す）
+#   ローカルにある場合: -DVOICEBOOTH_RUBBERBAND_DIR=/path/to/rubberband
+# ---------------------------------------------------------------------------
+set(VOICEBOOTH_RUBBERBAND_DIR "" CACHE PATH "Local Rubber Band checkout (empty = fetch from GitHub)")
+set(VOICEBOOTH_RUBBERBAND_TAG "v4.0.0" CACHE STRING "Rubber Band tag used by FetchContent")
+if(VOICEBOOTH_RUBBERBAND_DIR)
+    set(VB_RUBBERBAND_SOURCE "${VOICEBOOTH_RUBBERBAND_DIR}")
+else()
+    include(FetchContent)
+    FetchContent_Declare(rubberband
+        GIT_REPOSITORY https://github.com/breakfastquay/rubberband.git
+        GIT_TAG        ${VOICEBOOTH_RUBBERBAND_TAG}
+        GIT_SHALLOW    TRUE
+        SOURCE_SUBDIR  no-cmake)   # CMakeLists の無い所を指す＝取ってくるだけ（meson のビルドは使わず、1 ファイル版を下で足す）
+    FetchContent_MakeAvailable(rubberband)
+    set(VB_RUBBERBAND_SOURCE "${rubberband_SOURCE_DIR}")
+endif()
+add_library(vb_rubberband STATIC "${VB_RUBBERBAND_SOURCE}/single/RubberBandSingle.cpp")
+target_include_directories(vb_rubberband SYSTEM PUBLIC "${VB_RUBBERBAND_SOURCE}")
+set_target_properties(vb_rubberband PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+    target_compile_definitions(vb_rubberband PRIVATE _USE_MATH_DEFINES NOMINMAX)
+endif()
+if(APPLE)
+    target_link_libraries(vb_rubberband PUBLIC "-framework Accelerate")
+endif()
+
+# ---------------------------------------------------------------------------
 # 埋め込みフォント（IBM Plex Sans JP / IBM Plex Mono、SIL OFL 1.1）
 # ---------------------------------------------------------------------------
 juce_add_binary_data(VoiceBoothFonts
@@ -190,6 +220,7 @@ target_link_libraries(VoiceBooth
     PRIVATE
         VoiceBoothFonts
         VoiceBoothI18n
+        vb_rubberband
         juce::juce_gui_basics
         juce::juce_audio_formats
     PUBLIC
@@ -267,6 +298,7 @@ if(VOICEBOOTH_TESTS)
     endif()
     target_link_libraries(VoiceBoothTests
         PRIVATE
+            vb_rubberband
             juce::juce_audio_formats
             juce::juce_events
         PUBLIC

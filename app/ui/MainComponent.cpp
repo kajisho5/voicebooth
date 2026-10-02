@@ -425,7 +425,7 @@ void MainComponent::requestTempo (int v)
     showConfirm (tr ("confirm.switchPractice.title"), tr ("confirm.switchPractice.message"),
                  {
                      { tr ("confirm.switchPractice.yes"), DialogPanel::KeyRole::primary,
-                       [this, v] { session.setRecMode (project::RecMode::practice); session.setTempo (v); } },
+                       [this, v] { session.setRecording (false); session.setRecMode (project::RecMode::practice); session.setTempo (v); } },
                      { tr ("common.cancel"), DialogPanel::KeyRole::normal, {} },
                  });
 }
@@ -438,7 +438,7 @@ void MainComponent::requestKey (int v)
     showConfirm (tr ("confirm.switchPractice.title"), tr ("confirm.switchPractice.message"),
                  {
                      { tr ("confirm.switchPractice.yes"), DialogPanel::KeyRole::primary,
-                       [this, v] { session.setRecMode (project::RecMode::practice); session.setKey (v); } },
+                       [this, v] { session.setRecording (false); session.setRecMode (project::RecMode::practice); session.setKey (v); } },
                      { tr ("common.cancel"), DialogPanel::KeyRole::normal, {} },
                  });
 }

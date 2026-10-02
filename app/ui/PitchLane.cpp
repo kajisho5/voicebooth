@@ -122,8 +122,9 @@ juce::Colour PitchLane::colourFor (const dummy::PitchPoint& p) const
     return p.judged ? colourForCents (p.centsOff) : (juce::Colour) colours::text;
 }
 
-float PitchLane::refOffset() const  { return state().isHarmonySelected() ? harmonyOffset : 0.0f; }
-float PitchLane::mineOffset() const { return refOffset() + (state().octaveUp ? 12.0f : 0.0f); }
+// 練習でキーを変えている時（B11）は、お手本の線もその分ずらす（伴奏と同じキーで歌う）
+float PitchLane::refOffset() const  { return (state().isHarmonySelected() ? harmonyOffset : 0.0f) + (float) state().keyShift; }
+float PitchLane::mineOffset() const { return (state().isHarmonySelected() ? harmonyOffset : 0.0f) + (state().octaveUp ? 12.0f : 0.0f); }
 
 //==============================================================================
 int PitchLane::tagAt (juce::Point<float> p) const
@@ -325,7 +326,7 @@ void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
         juce::Path p;
         for (size_t i = 0; i < run.size(); ++i)
         {
-            const juce::Point<float> pt { m.x (run[i]->sample), yForMidi (run[i]->midi) };
+            const juce::Point<float> pt { m.x (run[i]->sample), yForMidi (run[i]->midi + (float) s.keyShift) };
             if (i == 0) p.startNewSubPath (pt); else p.lineTo (pt);
         }
         g.setColour (colours::text.withAlpha (0.28f));

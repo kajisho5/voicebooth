@@ -3,13 +3,19 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "SongLoader.h"
 
+namespace RubberBand { class RubberBandStretcher; }
+
 /*  オフボの再生（DESIGN 7.2 / Phase B2）。デバイスに依存しない中身
     render() をオーディオスレッドから呼ぶ。ほかはメッセージスレッドから呼ぶ。
 
     ルール（DESIGN 17）
       - render() ではメモリ確保・ファイル I/O・待つロックをしない（曲の差し替えは try-lock、取れなければ無音）
       - 位置は曲のサンプル（int64）。出力デバイスの SR が曲と違うときだけ試聴用に変換する（線形補間）
-      - テンポ / キー（B11）、クリック・カウントイン、入力（B3〜）はまだ無い */
+      - 練習用のテンポ / キー（B11）：原速・原キーの時は素通し（サンプル単位で今までと同じ）。変えた時だけ
+        Rubber Band（R3・リアルタイム）を通す。位置は「いま聞こえている曲の位置」を出力 1 サンプルごとに
+        速さ × 曲SR / 出力SR だけ進める（始めに getPreferredStartPad の無音を入れ、getStartDelay の分を捨てて頭をそろえる）。
+        出力の SR が曲と違う時の変換も、ストレッチの比とピッチの比に含める
+      - クリック・カウントインはまだ無い */
 
 namespace vb::audio
 {
@@ -35,6 +41,11 @@ public:
     /** ループ範囲 [in, out)。out に来たら in へ戻る */
     void setLoop (juce::int64 in, juce::int64 out, bool enabled);
 
+    /** 練習用のテンポ（速さの倍率。1.0 = 原速、0.5〜1.5）とキー（半音、-6〜+6）。どのスレッドからでも */
+    void setPractice (double speed, int semitones);
+    /** 原速・原キーでない（Rubber Band を通している） */
+    bool isPracticeShifted() const;
+
     /** オフボの音量（直線の倍率）とミュート。急に変えず数 ms でなめらかに */
     void setGain (float linearGain);
     void setMuted (bool);
@@ -42,14 +53,19 @@ public:
     /** 曲の終わりまで行って止まったら、1 度だけ true */
     bool consumeReachedEnd() { return reachedEnd.exchange (false); }
 
-    /** render が鳴らした範囲（録音の位置合わせ用。B5）。start は 1 サンプル目の曲の位置、played は曲として鳴らした長さ
-        （止まっていれば 0、曲の終わりに来たらそこまで）。ループで戻ったら wrapped */
+    /** render が鳴らした範囲（録音の位置合わせ用。B5）。start は 1 サンプル目の曲の位置、played は曲を鳴らした出力のサンプル数
+        （止まっていれば 0、曲の終わりに来たらそこまで）。ループで戻ったら wrapped。
+        step は出力 1 サンプルで進む曲のサンプル数（ふつう 1。練習のテンポ・SR 変換の時だけ違う） */
     struct Rendered
     {
         juce::int64 start = 0;
         int played = 0;
         bool wrapped = false;
+        double step = 1.0;
     };
+
+    PlaybackCore();
+    ~PlaybackCore();
 
     /** オーディオスレッド。out は numChannels 本 × numSamples（必ず全部書く） */
     Rendered render (float* const* out, int numChannels, int numSamples) noexcept;
@@ -58,17 +74,31 @@ public:
     static float faderToGain (float position) noexcept;
 
 private:
+    void rebuildStretcher();                        // 曲・出力の SR が決まった時（メッセージスレッド等。確保してよい所）
+    Rendered renderStretched (float* const* out, int numChannels, int numSamples, const SongAudio&) noexcept;
+
     juce::SpinLock songLock;
     std::shared_ptr<const SongAudio> song;          // songLock で保護
+    std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;   // songLock で保護
+    juce::AudioBuffer<float> stretchIn, stretchOut; // songLock で保護（rebuildStretcher で確保）
+    static constexpr int stretchBlock = 1024;       // process / retrieve の 1 回の最大
 
     std::atomic<double> outputRate { 0.0 };
     std::atomic<bool> playing { false }, reachedEnd { false }, muted { false }, loopOn { false };
     std::atomic<juce::int64> position { 0 }, pendingSeek { -1 }, loopIn { 0 }, loopOut { 0 };
     std::atomic<float> gain { 1.0f };
+    std::atomic<double> speed { 1.0 };
+    std::atomic<int> semitones { 0 };
+    std::atomic<bool> stretchReset { true };        // 次のブロックでストレッチを頭からやり直す（再生開始・シーク・曲替え）
 
     // オーディオスレッドだけが触る
     double fraction = 0.0;                          // SR 変換時の小数部
     juce::SmoothedValue<float> smoothedGain { 1.0f };
     bool prepared = false;
+    bool stretching = false;                        // 前のブロックで Rubber Band を通したか
+    double heard = 0.0;                             // 聞こえている曲の位置（ストレッチ中）
+    juce::int64 feedPos = 0;                        // 次に Rubber Band へ入れる曲の位置
+    int dropLeft = 0;                               // 頭で捨てる出力（getStartDelay）
+    double appliedTime = 0.0, appliedPitch = 0.0;
 };
 } // namespace vb::audio

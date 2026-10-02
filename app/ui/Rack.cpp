@@ -173,8 +173,8 @@ void PracticeModule::onSessionChanged (juce::uint32 changes)
     tempo.encoder().setValue (s.tempoPercent, juce::dontSendNotification);
     key.encoder().setValue (s.keyShift, juce::dontSendNotification);
 
-    if (! s.tempoKnown())
-        tempo.setCaption (tr ("practice.tempo.unknown"));   // テンポが分からない間は BPM を出さない
+    if (! s.tempoKnown())   // テンポが分からない間は BPM を出さない
+        tempo.setCaption (s.tempoPercent == 100 ? tr ("practice.tempo.unknown") : tr ("practice.tempo.shifted"));
     else
         tempo.setCaption (s.tempoPercent == 100 ? tr ("practice.tempo.original", song::formatBpm (s.bpm()))
                                                 : tr ("practice.tempo.bpm", song::formatBpm (s.bpm() * s.tempoPercent / 100.0)));
