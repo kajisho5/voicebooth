@@ -314,7 +314,14 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.noticeSerial    = prev.noticeSerial;      // 前の知らせを出し直さない
     s.output          = prev.output;
     s.engineAttached  = prev.engineAttached;
-    s.updateVersion   = prev.updateVersion;
+    s.updateVersion   = prev.updateVersion;     // 更新の確認・キャッシュの場所はアプリの設定（曲と関係ない）
+    s.updateRelease   = prev.updateRelease;
+    s.updateAutoCheck = prev.updateAutoCheck;
+    s.updateBetas     = prev.updateBetas;
+    s.updateChecking  = prev.updateChecking;
+    s.updateSkipped   = prev.updateSkipped;
+    s.updateLastCheck = prev.updateLastCheck;
+    s.cacheFolder     = prev.cacheFolder;
     s.modelDl         = prev.modelDl;           // モデルのダウンロードは曲と関係ない（続いている物を開き直さない）
     return s;
 }

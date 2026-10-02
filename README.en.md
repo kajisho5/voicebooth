@@ -138,7 +138,7 @@ Logo usage rules (clear space, minimum size, light-background versions) and ever
 | Free disk space | 2 GB | 10 GB or more (SSD) |
 | Display | 1280×800 | 1440×900 or larger |
 | Audio | Built-in input/output works | An audio interface and wired headphones (ASIO on Windows gives lower latency) |
-| Internet | Only for the first download of the separation model (everything except separation works offline) | — |
+| Internet | For the first download of the separation model, and for the update check (looks at GitHub releases at most once a day and sends nothing else; can be turned off in Settings). Everything except separation works offline | — |
 
 - Only vocal separation is heavy. It takes longer on older CPUs and Intel Macs (to be measured and confirmed)
 - Bluetooth earphones and headphones have too much latency for recording

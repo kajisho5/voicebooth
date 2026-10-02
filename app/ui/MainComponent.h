@@ -82,6 +82,8 @@ public:
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
+    /** 設定の「空にする」：大きさを見せて確かめてから、アプリのキャッシュを空にする（終わったら設定に戻る） */
+    void confirmClearCache();
     void openModelDownload (int stage, bool animate, float from = -1.0f);   // ModelDownloadDialog::Stage、from：届いた割合
 
     // 曲の情報（B4b。DESIGN 7.5）

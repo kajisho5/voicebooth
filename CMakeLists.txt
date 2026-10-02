@@ -8,6 +8,15 @@ set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 
 project(VoiceBooth VERSION 0.1.0 LANGUAGES C CXX)
 
+# プレリリースの印（beta.1 → アプリの版は 0.1.0-beta.1）。CI がタグ（v0.1.0-beta.1）から付ける。手元のビルドは空（= 0.1.0）。
+# 更新の確認（DESIGN 11.7）が、いまの版がベータかどうか・どの版より新しいかを正しく比べるために使う
+set(VOICEBOOTH_VERSION_SUFFIX "" CACHE STRING "Pre-release label appended to the version (e.g. beta.1)")
+if(VOICEBOOTH_VERSION_SUFFIX)
+    set(VB_FULL_VERSION "${PROJECT_VERSION}-${VOICEBOOTH_VERSION_SUFFIX}")
+else()
+    set(VB_FULL_VERSION "${PROJECT_VERSION}")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -175,6 +184,8 @@ set(VOICEBOOTH_SONG_SOURCES
     app/song/LyricsImport.cpp
     app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
+    app/system/AppCache.cpp
+    app/update/UpdateCheck.cpp
     app/analysis/Align.cpp
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
@@ -215,6 +226,7 @@ target_sources(VoiceBooth PRIVATE
     app/ui/DummySession.cpp
     app/ui/UiSession.cpp
     app/ui/UiSessionSong.cpp
+    app/ui/UiSessionUpdate.cpp
     # 画面
     app/ui/LaneCommon.cpp
     app/ui/SongMarks.cpp
@@ -247,7 +259,8 @@ target_compile_definitions(VoiceBooth PRIVATE
     VOICEBOOTH_UI_MOCK=$<BOOL:${VOICEBOOTH_UI_MOCK}>
     JUCE_WEB_BROWSER=0
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_PRODUCT_NAME>"
-    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_VERSION>")
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_VERSION>"
+    VOICEBOOTH_VERSION_STRING="${VB_FULL_VERSION}")
 
 # 日本語リテラルを UTF-8 として扱う
 if(MSVC)
@@ -457,6 +470,7 @@ if(VOICEBOOTH_TESTS)
         tests/ModelDownloadTests.cpp
         tests/TakeStatsTests.cpp
         tests/KeySuggestTests.cpp
+        tests/UpdateCheckTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
@@ -466,7 +480,8 @@ if(VOICEBOOTH_TESTS)
         JUCE_WEB_BROWSER=0
         JUCE_STANDALONE_APPLICATION=1
         JUCE_MODAL_LOOPS_PERMITTED=1    # 非同期の通知をテストで回すため
-        VOICEBOOTH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+        VOICEBOOTH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+        VOICEBOOTH_VERSION_STRING="${VB_FULL_VERSION}")
     if(MSVC)
         target_compile_options(VoiceBoothTests PRIVATE /utf-8)
     endif()

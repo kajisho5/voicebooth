@@ -138,7 +138,7 @@ Las normas de uso del logo (espacio libre, tamaño mínimo, versiones para fondo
 | Espacio libre en disco | 2 GB | 10 GB o más (SSD) |
 | Pantalla | 1280×800 | 1440×900 o mayor |
 | Audio | La entrada/salida integrada funciona | Una interfaz de audio y auriculares con cable (ASIO en Windows da menos latencia) |
-| Internet | Solo para la primera descarga del modelo de separación (todo salvo la separación funciona sin conexión) | — |
+| Internet | Para la primera descarga del modelo de separación y para buscar actualizaciones (consulta las versiones de GitHub como mucho una vez al día y no envía nada más; se puede desactivar en Ajustes). Todo salvo la separación funciona sin conexión | — |
 
 - Lo único pesado es la separación de voz. Tarda más en CPU antiguas y en Mac con Intel (pendiente de medir y confirmar)
 - Los auriculares y cascos Bluetooth tienen demasiada latencia para grabar

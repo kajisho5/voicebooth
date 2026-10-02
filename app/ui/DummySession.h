@@ -5,6 +5,7 @@
 #include "audio/WaveformOverview.h"
 #include "audio/AudioEngine.h"
 #include "audio/PitchTracker.h"
+#include "update/UpdateCheck.h"
 #include <map>
 
 /*  見た目フェーズ専用の固定ダミー（DESIGN 20）
@@ -83,6 +84,9 @@ struct Session
     // 音量は mainGain。S（ソロ）はオフボ・お手本・録ったトラックのうち、それだけを鳴らす
     std::shared_ptr<const audio::SongAudio> guideVocals;
     bool guideMuted = false, guideSolo = false, backingSolo = false;
+    // 自分の S（ソロ）：自分の声だけを聴く（オフボ・お手本・録ったトラックを止める）。モニターの S は同時に 1 つ。
+    // 自分の声はほかの S では消さない（お手本だけを流して重ねて歌う時に、自分が聞こえなくならない）
+    bool selfSolo = false;
     // 声域（MIDI。-1 = まだ）。設定に保存。おすすめのキーに使う
     int voiceLow = -1, voiceHigh = -1;
 
@@ -134,8 +138,18 @@ struct Session
     juce::String noticeText;
     int noticeSerial = 0;
 
-    // 新しいバージョンの知らせ（DESIGN 11.7。今はモックのみ。空なら出さない）
+    // 新しいバージョンの知らせ（DESIGN 11.7。GitHub のリリースを見る。UiSessionUpdate.cpp）。updateVersion が空なら出さない
     juce::String updateVersion;
+    update::Release updateRelease;        // 知らせている版（ページ・この OS のインストーラー・本文）
+    bool updateAutoCheck = true;          // 起動時に確かめる（24 時間に 1 回まで。設定で切れる）
+    bool updateBetas = false;             // ベータも知らせる（いまの版がベータなら切っていても知らせる）
+    bool updateChecking = false;
+    juce::String updateSkipped;           // 「このバージョンを飛ばす」で飛ばした版
+    juce::int64 updateLastCheck = 0;      // 最後に確かめられた時刻（ms。つながらなかった時は進めない）
+    int updateNoticeSerial = -1;          // この番号の知らせには「見る」キーを付ける（今すぐ確かめた時）
+
+    // アプリ共通のキャッシュの場所（作ったオフボなど。DESIGN 8）。空 = 既定（system::defaultCacheFolder）
+    juce::File cacheFolder;
 
     // 入力。UI_MOCK ではこのダミーのまま。エンジンがあれば UiSession が実デバイスの値で上書きする（B3）
     juce::String inputDevice, driver;

@@ -34,6 +34,7 @@ namespace change
         recordFormat = 1 << 22,  // 録音形式（SR・ビット数）が変わった
         latency   = 1 << 23,  // 往復の遅れ（実測・手入力・測定中）が変わった（B6）
         project   = 1 << 24,  // プロジェクトを保存した・最近の一覧が変わった（B14）
+        prefs     = 1 << 25,  // アプリ設定：更新の確認・キャッシュの場所（DESIGN 11.7 / 8）
         all       = 0xffffffff
     };
 }
@@ -114,6 +115,8 @@ public:
     void setGuideMuted (bool);
     void setGuideSolo (bool);
     void setBackingSolo (bool);
+    /** 自分の S：自分の声だけを聴く（オフボ・お手本・録ったトラックを止める）。モニターの S は同時に 1 つ */
+    void setSelfSolo (bool);
     bool hasGuideVocals() const { return s.guideVocals != nullptr; }
 
     // 声域（MIDI）とおすすめのキー
@@ -136,8 +139,24 @@ public:
     /** トラックのモニター量（フェーダーと同じ 0..1、0.75 = 0 dB）。再生に効く（B12） */
     void setTrackGain (int index, float fader);
 
-    /** 新しいバージョンの知らせ（ステータスバー）。空で消す */
-    void setUpdateAvailable (const juce::String& version) { s.updateVersion = version; notify (change::device); }
+    // --- 更新の確認（DESIGN 11.7。GitHub のリリース）とアプリ共通のキャッシュ。実装は UiSessionUpdate.cpp ----
+    /** アプリ設定から戻す（起動時）。found：前に見つけて覚えておいた版（Release::toJson。まだ新しければ知らせを出し直す） */
+    void restoreAppPrefs (bool autoCheck, bool betas, const juce::String& skipped, juce::int64 lastCheckMs,
+                          const juce::String& found, const juce::File& cacheFolder);
+    /** 起動時：自動の確認が入っていて、前回から 24 時間たっていれば裏で確かめる（失敗しても何も言わない） */
+    void checkForUpdatesIfDue();
+    /** 「今すぐ確かめる」：結果（最新・新しい版・つながらない）を知らせで出す */
+    void checkForUpdatesNow();
+    void setUpdateAutoCheck (bool);
+    void setUpdateBetas (bool);
+    /** 新しいバージョンの知らせ（ステータスバー）。found でなければ消す（見本の画面にも使う） */
+    void setUpdateAvailable (const update::Release&);
+    /** 「このバージョンを飛ばす」：覚えておき、次の版が出るまで知らせない */
+    void skipUpdate();
+    /** アプリ共通のキャッシュの場所（設定で選んだ所、無ければ既定）。曲ごとの <プロジェクト>/Cache/ とは別 */
+    juce::File cacheFolder() const;
+    /** 場所を変える（空で既定に戻す）。前の場所にある分は動かさない（次から新しい場所に作る） */
+    void setCacheFolder (const juce::File&);
 
     // --- モニター（B2：オフボ、B4：自分の声とモニターリバーブ） --------------
     void setBackingLevel (float fader);   // 0..1（0.75 = 0 dB）
@@ -329,6 +348,9 @@ private:
     // お手本の声・声域（2026-10-02）
     void syncBackingLevel();
     void syncGuideGain();
+    bool anyMonitorSolo() const { return s.guideSolo || s.backingSolo || s.selfSolo; }
+    void finishUpdateCheck (const update::CheckResult&, bool userAsked);
+    update::Checker updateChecker;   // 新しいバージョンの確認（裏のスレッド。消える時に通信を切る）
     void syncGuideToEngine();
     juce::uint32 guideGeneration = 0;
     bool rangeMeasuring = false;
