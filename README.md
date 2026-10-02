@@ -150,7 +150,7 @@
 
 ## ダウンロード
 
-[Releases](https://github.com/kajisho5/voicebooth/releases) から、Windows は `VoiceBooth-<版>-win-x64-setup.exe`、Mac は `VoiceBooth-<版>-mac-universal.dmg` を取ってください。
+[Releases](https://github.com/kajisho5/voicebooth/releases) から、Windows は `VoiceBooth-<バージョン>-win-x64-setup.exe`、Mac は `VoiceBooth-<バージョン>-mac-universal.dmg` を取ってください。
 
 ベータ版はまだ**コード署名をしていません**。初めて開く時だけ、OS の警告が出ます。
 

@@ -29,7 +29,7 @@
 - **B17**：歌詞の自動合わせ（whisper.cpp の別プロセス `VoiceBoothLyrics`）は**取りやめ**（2026-10-02 持ち主の決定：遅く、役に立たなかった。Whisper のモデルはダウンロードしない）。コードとビルドから外した（git の履歴に残る）。歌詞は .txt / .lrc の読み込みとタップで合わせる（B4b）だけ
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
 - 新しいバージョンの確認（DESIGN 11.7）：起動時に 24 時間に 1 回まで GitHub のリリースを見て、新しければステータスバーに知らせる（ブラウザでインストーラーを開くだけで、入れ替えない）。
-  アプリの版は CMake の版＋`-DVOICEBOOTH_VERSION_SUFFIX=beta.1`（CI がプレリリースのタグから付ける。手元は空）。`--screen=…` か `--no-update-check` で起動時の確認を止める
+  アプリのバージョンは CMake のバージョン＋`-DVOICEBOOTH_VERSION_SUFFIX=beta.1`（CI がプレリリースのタグから付ける。手元は空）。`--screen=…` か `--no-update-check` で起動時の確認を止める
 
 | 曲を読み込んだところ | 開いた曲の画面（実波形） |
 |---|---|
@@ -99,19 +99,19 @@ ctest --test-dir build -C Release --output-on-failure
 
 ### インストーラー（未署名。DESIGN 11.6）
 
-CI はテストが通ると `VoiceBooth-<版>-win-x64-setup.exe` と `VoiceBooth-<版>-mac-universal.dmg` を Actions の成果物に置く。手元で作る時は、Release ビルドの後に：
+CI はテストが通ると `VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を Actions の成果物に置く。手元で作る時は、Release ビルドの後に：
 
 ```powershell
 # Windows：Inno Setup 6.5.2 以上（winget install JRSoftware.InnoSetup）
 # 配る exe は CI と同じく C++ ランタイムを静的リンクする（VC++ 再頒布パッケージの無い PC でも起動するように）
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 cmake --build build --config Release
-pwsh packaging/windows/build_installer.ps1      # → build/installer/VoiceBooth-<版>-win-x64-setup.exe
+pwsh packaging/windows/build_installer.ps1      # → build/installer/VoiceBooth-<バージョン>-win-x64-setup.exe
 ```
 
 ```bash
 # macOS：追加の道具は要らない（hdiutil / codesign / osascript）
-packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth-<版>-mac-universal.dmg
+packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth-<バージョン>-mac-universal.dmg
 ```
 
 - 版は `build/CMakeCache.txt` の `CMAKE_PROJECT_VERSION`（`CMakeLists.txt` の `project(... VERSION ...)`）。`-Version` / `--version` で上書きできる
@@ -121,10 +121,10 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 
 ## リリースの出し方
 
-1. `CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` を出す版にする（インストーラーの名前もこの版になる）
+1. `CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` を出すバージョンにする（インストーラーの名前もこのバージョンになる）
 2. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す
-3. 版のタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
-4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<版>-win-x64-setup.exe` と `VoiceBooth-<版>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake の版と違えば止まる。`-` の入るタグはプレリリース
+3. バージョンのタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
+4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake のバージョンと違えば止まる。`-` の入るタグはプレリリース
 
 まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
 
