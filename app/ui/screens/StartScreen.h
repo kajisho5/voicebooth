@@ -22,9 +22,15 @@ public:
     ~StartScreen() override;
 
     std::function<void()> onDone;
+    /** 原曲だけで始めたいが分離モデルが無い（入れられる）：呼び出し側がモデルの確認を出す（B16） */
+    std::function<void (const juce::File& original)> onNeedModel;
 
     /** その曲の読み込みを始める（解析画面へ） */
     void openFile (const juce::File&);
+    /** 原曲だけ（B16。DESIGN 7.1.1）：原曲を分離してオフボを作り、それを開いて原曲をお手本に重ねる */
+    void startFromOriginal (const juce::File& original);
+    /** お手本（声入りの原曲）の枠に入れる（読むのはオフボを開いた後） */
+    void setGuide (const juce::File&);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -38,7 +44,7 @@ public:
     void filesDropped (const juce::StringArray&, int, int) override;
 
 private:
-    enum class Phase { home, loading, loaded, failed };
+    enum class Phase { home, separating, loading, loaded, failed };
 
     void onSessionChanged (juce::uint32 c) override { if (c & change::project) { refreshRecents(); resized(); repaint(); } }
     void timerCallback() override { repaint(); }
@@ -47,9 +53,8 @@ private:
     void chooseProject();
     bool openProject (const juce::File&);
     void refreshRecents();
-    void setGuide (const juce::File&);
     void paintSlot (juce::Graphics&, juce::Rectangle<int>, Icon, const juce::String& title, const juce::String& sub,
-                    const juce::String& note, bool dropping, bool done);
+                    const juce::String& note, bool dropping, bool done, int textRightInset = 0);
     void loadFinished (audio::LoadResult);
 
     void paintHome (juce::Graphics&);
@@ -68,6 +73,8 @@ private:
     audio::SongInfo info;
     audio::LoadResult::Error error = audio::LoadResult::Error::none;
     juce::String projectError;                 // .vbooth を開けなかった理由（翻訳キー）
+    bool fromOriginal = false;                 // 原曲だけで始めた（分離の行が本物）
+    juce::String separationError;              // 分離できなかった理由（翻訳済み）
 
     struct RecentRow { juce::String name, date, length; project::Mode mode = project::Mode::standard; juce::File file; };
     std::vector<RecentRow> recents;
@@ -75,6 +82,6 @@ private:
     juce::Rectangle<int> panel, dropArea, guideArea, recentArea, firstRunArea;
     std::vector<juce::Rectangle<int>> recentRows;
     juce::OwnedArray<KeyButton> firstRunKeys;
-    KeyButton openFolder, continueKey, cancelKey, anotherKey;
+    KeyButton openFolder, continueKey, cancelKey, anotherKey, originalKey;
 };
 } // namespace vb

@@ -135,6 +135,7 @@ private:
     int separationOfferSeen = 0;   // 「分離しますか？」を出した回数（B16）
     int modelDialogSeen = 0;       // 分離モデルのダウンロード画面を開いた回数（B16）
     int modelStageShown = -2;      // いま開いているダウンロード画面の段階（-2 = 開いていない）
+    juce::File pendingOriginal;    // 原曲だけで始めたいがモデルが無かった：モデルが入ったら起動画面から続ける（B16）
     int modelStageBehind = -1;     // 画面を閉じた後に見た段階（裏で進んだダウンロードの終わりを知らせる）
     void openLiveModelDownload (int dialogStage);
     int noticeSeen = 0;         // UiSession の知らせ（録音・書き出しの結果など）を出した回数

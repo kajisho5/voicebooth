@@ -2,6 +2,8 @@
 #include "../TopBar.h"
 #include "../parts/LedMeter.h"
 #include "project/ProjectFile.h"
+#include "separation/SeparatorClient.h"
+#include "models/ModelManifest.h"
 
 namespace vb
 {
@@ -43,7 +45,8 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
       openFolder (tr ("start.openProject")),
       continueKey (tr ("analyze.continue")),
       cancelKey (tr ("common.cancel")),
-      anotherKey (tr ("analyze.chooseAnother"))
+      anotherKey (tr ("analyze.chooseAnother")),
+      originalKey (tr ("start.fromOriginal"))
 {
     const char* keys[] = { "start.first.sing", "start.first.deliver", "start.first.detail" };
     const project::Mode modes[] = { project::Mode::easy, project::Mode::standard, project::Mode::pro };
@@ -63,12 +66,21 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     continueKey.withLed (colours::signal).withToggle (false);
     continueKey.setToggleState (true, juce::dontSendNotification);
     continueKey.onClick = [this] { if (onDone) onDone(); };
-    cancelKey.onClick = [this] { loader.cancel(); setPhase (Phase::home); };
+    cancelKey.onClick = [this]
+    {
+        if (phase == Phase::separating) { session.stopSeparation(); return; }   // 止まったら知らせが来て最初の画面へ
+        loader.cancel();
+        setPhase (Phase::home);
+    };
     anotherKey.withIcon (Icon::folder);
     anotherKey.onClick = [this] { setPhase (Phase::home); chooseFile(); };
     addChildComponent (continueKey);
     addChildComponent (cancelKey);
     addChildComponent (anotherKey);
+
+    originalKey.withIcon (Icon::mic);
+    originalKey.onClick = [this] { startFromOriginal (guideFile); };
+    addChildComponent (originalKey);
 }
 
 StartScreen::~StartScreen()
@@ -76,12 +88,14 @@ StartScreen::~StartScreen()
     // 画面を閉じたら読み込みも止める（結果を受け取る相手がいなくなるため）
     if (phase == Phase::loading)
         loader.cancel();
+    if (phase == Phase::separating)
+        session.stopSeparation();
 }
 
 void StartScreen::setPhase (Phase p)
 {
     phase = p;
-    if (phase == Phase::loading) startTimerHz (30);
+    if (phase == Phase::loading || phase == Phase::separating) startTimerHz (30);
     else                         stopTimer();
     resized();
     repaint();
@@ -176,7 +190,54 @@ void StartScreen::setGuide (const juce::File& f)
     if (! audio::hasSongExtension (f))
         return;
     guideFile = f;
+    resized();
     repaint();
+}
+
+void StartScreen::startFromOriginal (const juce::File& original)
+{
+    if (original == juce::File())
+        return;
+    guideFile = original;
+    if (! session.separationAvailable())
+    {
+        // モデルが無い：入れられるなら確認へ（ダウンロードは押した時だけ。11.7）。入れられなければ理由を出す
+        if (onNeedModel && separation::SeparatorClient::executable().existsAsFile() && ! models::trustedKeys().empty())
+        {
+            onNeedModel (original);
+            return;
+        }
+        file = original;
+        fromOriginal = true;
+        separationError = tr ("separation.noModelOriginal");
+        setPhase (Phase::failed);
+        return;
+    }
+
+    file = original;
+    info = {};
+    error = audio::LoadResult::Error::none;
+    projectError = {};
+    separationError = {};
+    fromOriginal = true;
+    setPhase (Phase::separating);
+    juce::Component::SafePointer<StartScreen> safe (this);
+    session.makeOffVocal (original, [safe, original] (juce::File made, juce::String why)
+    {
+        if (safe == nullptr)
+            return;
+        if (made == juce::File())
+        {
+            if (why == tr ("separation.stopped")) { safe->fromOriginal = false; safe->setPhase (Phase::home); return; }
+            safe->file = original;
+            safe->separationError = why;
+            safe->setPhase (Phase::failed);
+            return;
+        }
+        // 作ったオフボを開く。開き終わったら原曲をお手本に重ねる（原曲 − オフボ = 分離した声。B9 の引き算）
+        safe->guideFile = original;
+        safe->openFile (made);
+    });
 }
 
 void StartScreen::openFile (const juce::File& f)
@@ -185,6 +246,9 @@ void StartScreen::openFile (const juce::File& f)
     info = {};
     error = audio::LoadResult::Error::none;
     projectError = {};
+    separationError = {};
+    if (phase != Phase::separating)
+        fromOriginal = false;
 
     if (f.hasFileExtension (project::fileExtension) && ! openProject (f))
     {
@@ -219,13 +283,17 @@ void StartScreen::loadFinished (audio::LoadResult r)
         return;
     }
 
-    // 曲を差し替える（後ろのメイン画面もこの時点で実波形になる）
-    session.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview, r.audio);
-    setPhase (Phase::loaded);
+    // 曲を差し替える（後ろのメイン画面もこの時点で実波形になる）。知らせで別の画面が開いてこの画面が消えることがある
+    const auto guide = std::exchange (guideFile, juce::File());
+    auto& ui = session;
+    juce::Component::SafePointer<StartScreen> safe (this);
+    ui.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview, r.audio);
+    if (safe != nullptr)
+        setPhase (Phase::loaded);
 
     // お手本も入っていれば、オフボと時間を合わせて重ねる（裏で。結果はメイン画面の知らせ）
-    if (guideFile != juce::File())
-        session.loadGuide (std::exchange (guideFile, juce::File()));
+    if (guide != juce::File())
+        ui.loadGuide (guide);
 }
 
 //==============================================================================
@@ -271,8 +339,9 @@ void StartScreen::resized()
     const bool home = phase == Phase::home;
     for (auto* k : firstRunKeys) k->setVisible (home && firstRun);   // 最初の 1 回だけ（DESIGN 2）
     openFolder.setVisible (home);
+    originalKey.setVisible (home && guideFile != juce::File() && state().engineAttached);
     continueKey.setVisible (phase == Phase::loaded);
-    cancelKey.setVisible (phase == Phase::loading);
+    cancelKey.setVisible (phase == Phase::loading || phase == Phase::separating);
     anotherKey.setVisible (phase == Phase::loaded || phase == Phase::failed);
 
     if (! home)
@@ -308,6 +377,13 @@ void StartScreen::resized()
     {
         recentRows.push_back (rows.removeFromTop (58));
         rows.removeFromTop (6);
+    }
+    if (originalKey.isVisible())
+    {
+        // お手本の枠の右下（原曲だけで始める。B16）
+        originalKey.setSize (10, 32);
+        const auto w = originalKey.idealWidth();
+        originalKey.setBounds (guideArea.reduced (22, 20).removeFromBottom (32).removeFromRight (w));
     }
     openFolder.setSize (10, 32);
     openFolder.setBounds (rows.removeFromTop (40).removeFromLeft (openFolder.idealWidth()).withSizeKeepingCentre (openFolder.idealWidth(), 32));
@@ -376,7 +452,8 @@ void StartScreen::paintHome (juce::Graphics& g)
     paintSlot (g, guideArea, Icon::mic,
                guideFile != juce::File() ? tr ("start.guide.set", guideFile.getFileName()) : tr ("start.guide.title"),
                guideFile != juce::File() ? tr ("start.guide.setSub") : tr ("start.drop.sub"),
-               tr ("start.guide.note"), overGuide, guideFile != juce::File());
+               guideFile != juce::File() && originalKey.isVisible() ? tr ("start.guide.noteSet") : tr ("start.guide.note"),
+               overGuide, guideFile != juce::File(), originalKey.isVisible() ? originalKey.getWidth() + 16 : 0);
 
     // 最近のプロジェクト
     paint::sectionHeader (g, recentArea.withHeight (24), tr ("start.recent"), tr ("start.recent.sub"));
@@ -434,7 +511,7 @@ void StartScreen::paintHome (juce::Graphics& g)
 }
 
 void StartScreen::paintSlot (juce::Graphics& g, juce::Rectangle<int> area, Icon icon, const juce::String& title,
-                             const juce::String& sub, const juce::String& note, bool dropping, bool done)
+                             const juce::String& sub, const juce::String& note, bool dropping, bool done, int textRightInset)
 {
     const auto r = area.toFloat();
     paint::inset (g, r, 6.0f);
@@ -453,7 +530,7 @@ void StartScreen::paintSlot (juce::Graphics& g, juce::Rectangle<int> area, Icon 
     g.fillPath (dashed);
 
     // 背の高い枠（オフボ）はアイコンを上に大きく、低い枠（お手本）は左に小さく
-    auto c = r.reduced (28.0f, 18.0f);
+    auto c = r.reduced (28.0f, 18.0f).withTrimmedRight ((float) textRightInset);
     const bool tall = r.getHeight() > 220.0f;
     if (tall)
         drawIcon (g, icon, c.removeFromTop (c.getHeight() * 0.38f).withTrimmedTop (16.0f).withSizeKeepingCentre (44.0f, 44.0f), colours::signal);
@@ -503,6 +580,8 @@ juce::String StartScreen::songInfoLine() const
 juce::String StartScreen::errorText() const
 {
     const auto name = file.getFileName();
+    if (separationError.isNotEmpty())
+        return separationError;
     if (projectError.isNotEmpty())
         return tr (projectError.toRawUTF8(), name);
     if (error == audio::LoadResult::Error::none)
@@ -519,9 +598,11 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
 
     g.setColour (colours::text);
     g.setFont (sansFor (name, 18.0f, Weight::semibold));
-    const auto title = phase == Phase::failed ? tr ("analyze.titleFailed", file.getFileName())
-                     : phase == Phase::loaded ? tr ("analyze.titleDone", name)
-                                              : tr ("analyze.title", name);
+    const auto title = phase == Phase::failed && fromOriginal ? tr ("analyze.titleSeparationFailed", file.getFileName())
+                     : phase == Phase::failed     ? tr ("analyze.titleFailed", file.getFileName())
+                     : phase == Phase::separating ? tr ("analyze.titleSeparating", name)
+                     : phase == Phase::loaded     ? tr ("analyze.titleDone", name)
+                                                  : tr ("analyze.title", name);
     g.drawText (title, r.removeFromTop (30), juce::Justification::centredLeft, true);
     g.setColour (colours::textDim);
     g.setFont (sans (12.5f));
@@ -533,15 +614,19 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         auto row = r.removeFromTop (46).toFloat();
         r.removeFromTop (6);
 
-        // 1 行目だけ本物。ほかは SKIP（このバージョンでは解析しない）
-        const bool real = i == 0;
-        const bool failed = real && phase == Phase::failed;
-        const bool done = real && phase == Phase::loaded;
-        const bool running = real && phase == Phase::loading;
-        const auto progress = done ? 1.0f : (running ? loader.getProgress() : 0.0f);
+        // 1 行目（形式・長さ）と、原曲だけで始めた時の 2 行目（分離。B16）が本物。ほかは SKIP（このバージョンでは解析しない）
+        const bool sepRow = i == 1 && fromOriginal;
+        const bool real = i == 0 || sepRow;
+        const bool sepFailed = phase == Phase::failed && separationError.isNotEmpty();
+        const bool waiting = i == 0 && (phase == Phase::separating || sepFailed);   // 分離が終わってからオフボを読む
+        const bool failed = sepRow ? sepFailed : (real && phase == Phase::failed && ! sepFailed);
+        const bool done = sepRow ? (phase == Phase::loading || phase == Phase::loaded || (phase == Phase::failed && ! sepFailed))
+                                 : (real && phase == Phase::loaded);
+        const bool running = sepRow ? phase == Phase::separating : (real && phase == Phase::loading);
+        const auto progress = done ? 1.0f : (running ? (sepRow ? state().separationProgress : loader.getProgress()) : 0.0f);
         const auto c = failed ? colours::bad : (done ? colours::signal : (running ? colours::warn : colours::textMute));
 
-        paint::led (g, { row.getX() + 6.0f, row.getCentreY() }, 3.2f, c, real);
+        paint::led (g, { row.getX() + 6.0f, row.getCentreY() }, 3.2f, c, real && ! waiting);
         row.removeFromLeft (22.0f);
 
         auto label = row.removeFromLeft (row.getWidth() * 0.42f);
@@ -549,17 +634,20 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         g.setFont (sans (13.0f, Weight::medium));
         g.drawText (tr (stepKeys[i]), label, juce::Justification::centredLeft, true);
 
-        auto status = row.removeFromRight (120.0f);
+        auto status = row.removeFromRight (sepRow ? 170.0f : 120.0f);
         g.setColour (c);
         g.setFont (mono (11.0f, Weight::medium));
+        const auto eta = state().separationEta;
         const auto statusText = ! real ? tr ("analyze.skip")
+                              : waiting ? tr ("analyze.wait")
                               : failed ? tr ("analyze.failed")
                               : done   ? tr ("analyze.done")
+                              : sepRow && eta > 0.0 ? tr ("analyze.eta", juce::roundToInt (progress * 100.0f), juce::jmax (1, juce::roundToInt (eta / 60.0)))
                                        : juce::String (juce::roundToInt (progress * 100.0f)) + "%";
         g.drawText (statusText, status, juce::Justification::centredRight, false);
 
         auto bar = row.reduced (16.0f, 0.0f).withSizeKeepingCentre (row.getWidth() - 32.0f, 6.0f);
-        if (! real)
+        if (! real || waiting)
         {
             paint::hline (g, std::round (bar.getCentreY()), bar.getX(), bar.getRight(), colours::line.withAlpha (0.6f));
             continue;
@@ -569,7 +657,7 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         if (done || failed)
         {
             g.setColour (failed ? colours::bad : colours::textDim);
-            const auto text = failed ? errorText() : songInfoLine();
+            const auto text = failed ? errorText() : (sepRow ? tr ("analyze.separated") : songInfoLine());
             g.setFont (failed ? sansFor (text, 12.0f) : mono (11.5f, Weight::medium));
             g.drawFittedText (text, row.reduced (16.0f, 0.0f).toNearestInt(), juce::Justification::centredLeft, 2, 0.9f);
             continue;
