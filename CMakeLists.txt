@@ -172,6 +172,7 @@ set(VOICEBOOTH_RECORD_SOURCES
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
     app/song/LyricsImport.cpp
+    app/song/LyricsAlign.cpp
     app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
     app/analysis/Align.cpp
@@ -451,6 +452,7 @@ if(VOICEBOOTH_TESTS)
         tests/DeliveryPackTests.cpp
         tests/SeparationTests.cpp
         tests/ModelDownloadTests.cpp
+        tests/LyricsAlignTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
