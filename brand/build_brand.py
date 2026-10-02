@@ -180,6 +180,61 @@ def build_icons():
     shutil.copy(icons / "win" / "icon_32.png", icons / "juce_icon_small.png")
 
 
+def build_social_app():
+    """SNS 用の共有画像（アプリの画面入り）1280x640。画面は UI_MOCK のダミー（brand/src/app-screen.png。曲・歌詞は作り物）"""
+    out = OUT / "marketing"
+    W, H = 1280, 640
+    shot = SRC / "app-screen.png"
+    sw, sh = 880, 532                       # 画面（1100x665 を縮める）
+    sx, sy = 452, 64
+    wm, _ = wordmark(64, 228, 66, C["text"])
+    l1, _ = text_path("歌ってみた専用DAW", 30, 66, 292, "IBMPlexSansJP-Medium.ttf")
+    l2, _ = text_path("見て直して、一本渡す。", 30, 66, 334, "IBMPlexSansJP-Medium.ttf")
+    en, _ = text_path("A vocal DAW for song covers", 17, 67, 368, "IBMPlexSansJP-Regular.ttf")
+    url, _ = text_path("github.com/kajisho5/voicebooth", 17, 67, 584, "IBMPlexMono-Regular.ttf")
+
+    def chip(text, x, y, colour):
+        d, w = text_path(text, 16, x + 30, y + 23, "IBMPlexSansJP-Medium.ttf")
+        return (f'<rect x="{x}" y="{y}" width="{w + 44:.1f}" height="34" rx="6" fill="{C["raised"]}" stroke="{C["line"]}"/>'
+                f'<circle cx="{x + 16}" cy="{y + 17}" r="4.5" fill="{colour}"/>'
+                f'<path d="{d}" fill="{C["text"]}" fill-opacity="0.92"/>'), w + 44
+
+    chips, cy = [], 410
+    for text, colour in (("無料・オープンソース", C["signal"]), ("Windows / Mac", C["ref"]),
+                         ("音程を色で判定", C["signal"]), ("納品パックを一発で", C["rec"])):
+        chips.append((text, colour))
+    parts, x, y = [], 64, cy
+    for text, colour in chips:
+        svg_chip, w = chip(text, x, y, colour)
+        if x + w > 430:
+            x, y = 64, y + 44
+            svg_chip, w = chip(text, x, y, colour)
+        parts.append(svg_chip)
+        x += w + 10
+
+    body = f'''<rect width="{W}" height="{H}" fill="{C["bg0"]}"/>
+<rect width="{W}" height="{H}" fill="#000" filter="url(#grain)"/>
+{grid(W, H, 64)}
+<rect x="{sx + 10}" y="{sy + 18}" width="{sw}" height="{sh}" rx="16" fill="#000" fill-opacity="0.55" filter="url(#soft)"/>
+<g clip-path="url(#shotClip)">{img(shot, sx, sy, sw, sh)}</g>
+<rect x="{sx}" y="{sy}" width="{sw}" height="{sh}" rx="14" fill="none" stroke="{C["line"]}" stroke-width="1.5"/>
+<rect x="{sx - 2}" y="0" width="180" height="{H}" fill="url(#fadeShot)"/>
+{mark(64, 64, 92)}
+{wm}
+<path d="{l1}" fill="{C["text"]}"/>
+<path d="{l2}" fill="{C["text"]}"/>
+<path d="{en}" fill="{C["textDim"]}"/>
+{"".join(parts)}
+<path d="{url}" fill="{C["textMute"]}"/>'''
+    svg = svg_doc(W, H, body, (0, H)).replace("</defs>", f'''  <clipPath id="shotClip"><rect x="{sx}" y="{sy}" width="{sw}" height="{sh}" rx="14"/></clipPath>
+  <filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="18"/></filter>
+  <linearGradient id="fadeShot" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="{C["bg0"]}" stop-opacity="0.85"/><stop offset="1" stop-color="{C["bg0"]}" stop-opacity="0"/>
+  </linearGradient>
+</defs>''')
+    png(write("social-preview-app.svg", svg), out / "social-preview-app.png", W)
+
+
 if __name__ == "__main__":
     SRC.mkdir(parents=True, exist_ok=True)
     OUT.mkdir(parents=True, exist_ok=True)
@@ -461,6 +516,7 @@ def build_installers():
 if __name__ == "__main__":
     build_logos()
     build_banners()
+    build_social_app()
     build_installers()
     print("OK all")
 
