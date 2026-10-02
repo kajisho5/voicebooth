@@ -51,7 +51,8 @@ namespace
             case i18n::Language::zhHans: return { "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC" };
             case i18n::Language::zhHant: return { "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", "Source Han Sans TC" };
             case i18n::Language::ja:
-            case i18n::Language::en:     break;
+            case i18n::Language::en:
+            case i18n::Language::es:     break;
         }
         return {};
     }

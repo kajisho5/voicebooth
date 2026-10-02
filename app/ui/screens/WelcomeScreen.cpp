@@ -30,6 +30,7 @@ namespace
         { i18n::Language::ko,     "\xed\x99\x98\xec\x98\x81\xed\x95\xa9\xeb\x8b\x88\xeb\x8b\xa4" },   // 환영합니다
         { i18n::Language::zhHans, "\xe6\xac\xa2\xe8\xbf\x8e" },                                       // 欢迎
         { i18n::Language::zhHant, "\xe6\xad\xa1\xe8\xbf\x8e" },                                       // 歡迎
+        { i18n::Language::es,     "Bienvenido" },
     };
 }
 

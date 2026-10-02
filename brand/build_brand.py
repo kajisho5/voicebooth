@@ -367,6 +367,7 @@ README_LANGS = {
     "ko":      ("커버곡 녹음 전용 DAW — 보면서 고치고, 한 트랙으로 넘긴다.", NOTO_CJK_REGULAR, 1),
     "zh-Hans": ("翻唱专用 DAW —— 看着修正，交出一轨。", NOTO_CJK_REGULAR, 2),
     "zh-Hant": ("翻唱專用 DAW —— 看著修正，交出一軌。", NOTO_CJK_REGULAR, 3),
+    "es":      ("Un DAW vocal para covers. Míralo, corrígelo y entrega una sola toma.", "IBMPlexSansJP-Medium.ttf", 0),
 }
 
 

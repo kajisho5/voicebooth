@@ -7,7 +7,8 @@
   <a href="README.en.md">English</a> ·
   <a href="README.ko.md">한국어</a> ·
   <a href="README.zh-Hans.md">简体中文</a> ·
-  <b>繁體中文</b>
+  <b>繁體中文</b> ·
+  <a href="README.es.md">Español</a>
 </p>
 
 <p align="center">
@@ -38,7 +39,7 @@
 | 和聲 | 可以錄製和聲軌。**沒有從混音中單獨擷取和聲作為參考的功能**（分離只分為「全部人聲」和「伴奏」兩部分） |
 | 分離出的音訊 | 分離出的人聲和伴奏**僅供個人練習**。VoiceBooth 不會改變原曲的權利歸屬。散布、公開（包括作為翻唱伴奏散布）請只在原曲權利人允許的範圍內進行 |
 | 費用 | **免費。** 沒有訂閱，也沒有內購。可透過 [GitHub Sponsors](https://github.com/sponsors/kajisho5) 支持開發（自由選擇，功能不會因此改變） |
-| 語言 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 |
+| 語言 | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español |
 
 ## 功能
 

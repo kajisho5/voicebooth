@@ -115,7 +115,8 @@ juce_add_binary_data(VoiceBoothI18n
         resources/i18n/en.json
         resources/i18n/ko.json
         resources/i18n/zh-Hans.json
-        resources/i18n/zh-Hant.json)
+        resources/i18n/zh-Hant.json
+        resources/i18n/es.json)
 
 # ---------------------------------------------------------------------------
 # App
