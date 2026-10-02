@@ -113,6 +113,9 @@ public:
     virtual bool  consumeReachedEnd() = 0;
     virtual void  setLoop (int64 startSample, int64 endSample, bool enabled) = 0;
 
+    // 練習用のテンポ（速さの倍率。1.0 = 原速）とキー（半音）。B11
+    virtual void setPractice (double /*speed*/, int /*semitones*/) {}
+
     // モニター（オフボ）。fader は 0..1（0.75 = 0 dB）
     virtual void setBackingLevel (float fader, bool muted) = 0;
 

@@ -2,7 +2,7 @@
 
 利用者向けの説明は [README](../README.md)。仕様は [`DESIGN.md`](DESIGN.md) が唯一の正、画面の状態一覧は [`UI_STATES.md`](UI_STATES.md)。
 
-## 現在の状態：Phase B14（プロジェクトの保存・再開）— 手動確認待ち
+## 現在の状態：Phase B11（練習用のテンポ・キー）— 手動確認待ち
 
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
 - **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
@@ -20,6 +20,7 @@
 - **B9**（一部）：オフボを開いた後に声入りの原曲をピッチレーンへドロップ（`--guide=`）すると、時間を合わせて原曲 − カラオケで声を取り出し、お手本の線を重ねる。自分の線はお手本とのずれで色が付く。引けない組（別のミックス・キー違い等）は理由を出して線なし（分離 B16 で）
 - **B9b**（一部）：曲を開くと裏でテンポ・1 小節目・キーを推定（学習モデルなし）。手で入れた値は上書きしない
 - **B10**：範囲を作って REC すると、プリロールから鳴らして範囲の中だけを録り直す（範囲の終わり＋0.5 秒で止まる）。Ctrl / ⌘+Z で直前のテイクを採用から外す
+- **B11**：右ラックの PRACTICE でテンポ（50〜150 %）とキー（±6）を変えると、伴奏をその速さ・キーで鳴らす（Rubber Band R3、リアルタイム。原速・原キーなら今までどおり素通し）。お手本の線もキーの分ずらして比べる。納品録音は原速・原キーで（変えていれば確認）、練習録音はその速さで `Practice/` に録る。録音中は変えられない
 - **B14**：曲を開くと `Projects/{曲名}/{曲名}.vbooth`（JSON）を作って自動保存（変更から 1.5 秒・曲を替える時・終了時）、世代バックアップ 10 個。同じ曲を開き直すと続きから。起動画面の「最近」、`.vbooth` のダブルクリック（Win インストーラ・Mac の Info.plist で関連付け）
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
 
@@ -49,7 +50,7 @@
 
 ## ビルド
 
-必要なもの: CMake 3.22+、C++17 コンパイラ、Git（JUCE 8.0.15 を初回 configure 時に自動取得）
+必要なもの: CMake 3.22+、C++17 コンパイラ、Git（JUCE 8.0.15 と Rubber Band Library v4.0.0 を初回 configure 時に自動取得）
 
 ### Windows（Visual Studio 2022）
 
@@ -79,7 +80,7 @@ cmake --build build
 ./build/VoiceBooth_artefacts/Release/VoiceBooth
 ```
 
-JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR=/path/to/JUCE`
+JUCE を手元のチェックアウトから使う場合: `-DVOICEBOOTH_JUCE_DIR=/path/to/JUCE`（Rubber Band は `-DVOICEBOOTH_RUBBERBAND_DIR=/path/to/rubberband`。1 ファイル版 `single/RubberBandSingle.cpp` だけをビルドする）
 
 ### テスト
 

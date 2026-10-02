@@ -140,7 +140,7 @@ VoiceBooth 是免费的。如果你喜欢，可以通过 [GitHub Sponsors](https
 | JUCE 8 | AGPLv3 / 商业双许可（此处使用 AGPLv3） |
 | minimp3（`third_party/minimp3`） | CC0 |
 | IBM Plex Sans JP / IBM Plex Mono（`resources/fonts`） | SIL Open Font License 1.1 |
-| 计划：Rubber Band（速度 / 调） | GPL v2 及以上 / 商业双许可（此处使用 GPL） |
+| Rubber Band Library 4（练习用速度 / 调。构建时获取） | GPL v2 及以上 / 商业双许可（此处使用 GPL） |
 | 计划：ASIO SDK（Windows） | GPLv3 / 商业双许可。SDK 本身不放进本仓库 |
 | 计划：分离、音高、歌词模型 | 仅使用已确认权重许可证的模型，与应用分开分发 |
 

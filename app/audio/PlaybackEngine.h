@@ -45,6 +45,7 @@ public:
     int64 getPlayheadSample() const override      { return core.getPosition(); }
     bool  consumeReachedEnd() override            { return core.consumeReachedEnd(); }
     void  setLoop (int64 a, int64 b, bool on) override { core.setLoop (a, b, on); }
+    void  setPractice (double speed, int semitones) override { core.setPractice (speed, semitones); }
 
     void setBackingLevel (float fader, bool muted) override;
     void setSelfMonitor (float fader, bool muted) override;

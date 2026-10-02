@@ -79,8 +79,9 @@ public:
     void prepare (double sampleRate);
     void release();
 
-    /** オーディオスレッド：入力 1 ch と、同じコールバックで鳴らした曲の範囲（played = 0 なら止まっている） */
-    void push (const float* input, int numSamples, int64 songStart, int songPlayed) noexcept;
+    /** オーディオスレッド：入力 1 ch と、同じコールバックで鳴らした曲の範囲（played = 0 なら止まっている）。
+        songStep は入力 1 サンプルで進む曲のサンプル数（練習のテンポを変えている時だけ 1 でない。B11） */
+    void push (const float* input, int numSamples, int64 songStart, int songPlayed, double songStep = 1.0) noexcept;
 
     /** メッセージスレッド：出てきた点を取り出す */
     void pop (std::vector<PitchFrame>& out);
