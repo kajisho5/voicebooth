@@ -35,15 +35,18 @@ struct RefPitchResult
     float voicedRatio = 0.0f;                // 声のある点の割合
 };
 
-/** reference = 原曲、karaoke = オフボ。align は alignReference の結果。progress は 0..1、false で中止 */
+/** reference = 原曲、karaoke = オフボ。align は alignReference の結果。progress は 0..1、false で中止。
+    vocalsOut を渡すと、取り出した声をオフボの時間で入れる（長さ = karaokeLength、合わない所は 0。歌詞の認識 B17 に使う） */
 RefPitchResult referencePitch (const float* reference, juce::int64 referenceLength,
                                const float* karaoke, juce::int64 karaokeLength,
                                double sampleRate, const AlignResult& align,
-                               const std::function<bool (float)>& progress = {});
+                               const std::function<bool (float)>& progress = {},
+                               std::vector<float>* vocalsOut = nullptr);
 
 /** 分離（B16）で取り出した声（原曲の時間、モノラル）から音程を取り、オフボの時間に置く（合う区間だけ）。
     引き算ができない組（別のミックス・EQ 違い）でも、時間が合えばお手本が取れる */
 RefPitchResult pitchFromVocals (const float* vocals, juce::int64 vocalsLength, juce::int64 karaokeLength,
                                 double sampleRate, const AlignResult& align,
-                                const std::function<bool (float)>& progress = {});
+                                const std::function<bool (float)>& progress = {},
+                                std::vector<float>* vocalsOut = nullptr);
 } // namespace vb::analysis

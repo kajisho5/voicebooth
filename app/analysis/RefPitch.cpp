@@ -21,7 +21,8 @@ namespace
 RefPitchResult referencePitch (const float* reference, int64 referenceLength,
                                const float* karaoke, int64 karaokeLength,
                                double sampleRate, const AlignResult& align,
-                               const std::function<bool (float)>& progress)
+                               const std::function<bool (float)>& progress,
+                               std::vector<float>* vocalsOut)
 {
     RefPitchResult result;
     if (! align.found() || align.covered.empty() || sampleRate <= 0.0)
@@ -104,6 +105,8 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
     }
 
     // 2 回目：残り（声）を作って、自分の声と同じ検出に通す。ゲインはブロックの真ん中どうしを直線でつなぐ
+    if (vocalsOut != nullptr)
+        vocalsOut->assign ((size_t) karaokeLength, 0.0f);
     audio::PitchAnalyzer analyzer;
     std::vector<float> chunk;
     std::vector<int64> pos;
@@ -135,6 +138,8 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
                 const auto k = a + i;
                 chunk[(size_t) i] = (float) (reference[k + offset] - gainAt (k) * karaoke[k]);
                 pos[(size_t) i] = k;
+                if (vocalsOut != nullptr && k >= 0 && k < karaokeLength)
+                    (*vocalsOut)[(size_t) k] = chunk[(size_t) i];
             }
             analyzer.process (chunk.data(), pos.data(), n, result.points);
             done += n;
@@ -157,7 +162,8 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
 
 RefPitchResult pitchFromVocals (const float* vocals, int64 vocalsLength, int64 karaokeLength,
                                 double sampleRate, const AlignResult& align,
-                                const std::function<bool (float)>& progress)
+                                const std::function<bool (float)>& progress,
+                                std::vector<float>* vocalsOut)
 {
     RefPitchResult result;
     if (! align.found() || align.covered.empty() || sampleRate <= 0.0 || vocalsLength <= 0)
@@ -167,6 +173,8 @@ RefPitchResult pitchFromVocals (const float* vocals, int64 vocalsLength, int64 k
     for (auto& c : align.covered)
         total += juce::jmax ((int64) 0, juce::jmin (c.karaokeEnd, karaokeLength) - c.karaokeStart);
 
+    if (vocalsOut != nullptr)
+        vocalsOut->assign ((size_t) juce::jmax ((int64) 0, karaokeLength), 0.0f);
     audio::PitchAnalyzer analyzer;
     std::vector<float> chunk;
     std::vector<int64> pos;
@@ -186,6 +194,8 @@ RefPitchResult pitchFromVocals (const float* vocals, int64 vocalsLength, int64 k
                 const auto r = k + c.offsetSamples;   // 原曲の位置
                 chunk[(size_t) i] = r >= 0 && r < vocalsLength ? vocals[r] : 0.0f;
                 pos[(size_t) i] = k;
+                if (vocalsOut != nullptr)
+                    (*vocalsOut)[(size_t) k] = chunk[(size_t) i];
             }
             analyzer.process (chunk.data(), pos.data(), n, result.points);
             done += n;
