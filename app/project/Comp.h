@@ -19,6 +19,9 @@ void applyTake (Track&, const Take&);
 /** 同じだが、採用は useFrom から（遡及録音で、裏で録っていた頭のうち REC で採る所から。B7）。テイク自体の位置は変えない */
 void applyTake (Track&, const Take&, int64 useFrom);
 
+/** 区間の録り直し（パンチイン。B10）：採用は [useFrom, useTo) だけ。前後のプリロール・余韻はファイルに残す */
+void applyTake (Track&, const Take&, int64 useFrom, int64 useTo);
+
 /** 採用区間が正しい形か（重ならない・start の順・長さ > 0・テイクがある）。テストと読み込みの点検用 */
 bool compIsValid (const Track&);
 

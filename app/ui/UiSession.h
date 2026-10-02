@@ -136,6 +136,10 @@ public:
     void restoreLatencyProfiles (const juce::String& json);
     juce::String latencyProfilesJson() const;
 
+    // --- 区間の録り直し（パンチイン。B10） ------------------------------------------
+    /** 直前のテイクを採用から外して、前の採用に戻す（テイクとファイルは残す）。戻せたら true */
+    bool undoTake();
+
     // --- お手本（声入りの原曲。B9。DESIGN 7.1.1） ---------------------------------
     /** 原曲を読み、オフボと時間を合わせて声を取り出し（原曲 − カラオケ）、お手本の音程を重ねる（裏で）。
         結果は知らせで出す。引けない組（別のミックス・キー違い・別の曲）では線を出さない */
@@ -223,6 +227,7 @@ private:
     void pollLatencyProbe();
     void updateShadow();
     void pollPitch();
+    int64 prerollSamples() const;
     void judge (dummy::PitchPoint&) const;
     void rejudgeAll();
     int64 retroStart (int64 pressSample) const;
@@ -242,7 +247,11 @@ private:
     bool shadowActive = false;
     juce::File shadowFile;
     int shadowSerial = 0;
-    std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
+    std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）
+
+    // 直前のテイクを採用する前の採用区間（Ctrl / ⌘+Z で戻す。B10）
+    std::vector<project::CompSegment> compBeforeTake;
+    project::TrackType undoTrack = project::TrackType::main;   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
     juce::ListenerList<Listener> listeners;
 };
 
@@ -268,6 +277,9 @@ struct LatencyDisplay
     double ms = 0.0;
 };
 LatencyDisplay latencyDisplay (const dummy::Session&);
+
+/** 取り消しのキーの表記（Mac は ⌘Z、ほかは Ctrl+Z） */
+juce::String undoKeyName();
 
 /** 機器の組み合わせ（ドライバ・入力・出力・SR・バッファ）の名前。遅れはこの組み合わせごとに覚える */
 juce::String latencyProfileKey (const dummy::Session&);
