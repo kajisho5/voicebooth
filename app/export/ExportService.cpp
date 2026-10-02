@@ -42,6 +42,95 @@ namespace
         const auto a = juce::jlimit (lo, hi - width, seam - width / 2);
         return { a, a + width };
     }
+
+    /** 1 トラックの採用区間をつないだ音（書き出しと試聴で同じ計算にする。B5 / B12） */
+    struct CompSource
+    {
+        juce::AudioFormatManager formats;
+        std::map<juce::String, std::unique_ptr<juce::AudioFormatReader>> readers;
+        std::vector<Piece> pieces;
+        juce::AudioBuffer<float> take { 1, 65536 };
+
+        /** 開けなければ理由（英語の短い文） */
+        juce::String open (const project::Project& project, project::TrackType type, const juce::File& projectFolder, double crossfadeMs)
+        {
+            const auto length = project.lengthSamples;
+            const auto rate = project.sampleRate;
+            const auto* track = project.findTrack (type);
+            if (track == nullptr || track->comp.empty())
+                return "nothing recorded";
+
+            // テイクを開く（SR が曲と違えば書き出さない：勝手に変換しない。DESIGN 6.5 / 13）
+            formats.registerBasicFormats();
+            for (size_t i = 0; i < track->comp.size(); ++i)
+            {
+                const auto& c = track->comp[i];
+                const project::Take* tk = nullptr;
+                for (auto& k : track->takes)
+                    if (k.id == c.takeId)
+                        tk = &k;
+                if (tk == nullptr)
+                    return "missing take " + c.takeId;
+
+                auto& reader = readers[tk->id];
+                if (reader == nullptr)
+                {
+                    const auto file = projectFolder.getChildFile (tk->path);
+                    reader.reset (formats.createReaderFor (file));
+                    if (reader == nullptr)
+                        return "can't read " + tk->path;
+                    if (std::abs (reader->sampleRate - (double) rate) > 0.5)
+                        return "sample rate of " + tk->id + " differs from the song";
+                }
+
+                Piece p;
+                p.start = juce::jmax ((int64) 0, c.startSample);
+                p.end = juce::jmin (length, c.endSample);
+                p.inA = p.inB = p.start;
+                p.outA = p.outB = p.end;
+                p.reader = reader.get();
+                p.takeStart = tk->startSample;
+                p.takeEnd = tk->startSample + reader->lengthInSamples;
+                if (p.end > p.start)
+                    pieces.push_back (p);
+            }
+
+            // 別のテイク同士が接している所（継ぎ目）だけクロスフェードの窓を決める
+            const auto h = (int64) std::llround (crossfadeMs * 0.001 * rate * 0.5);
+            for (size_t i = 0; i + 1 < pieces.size(); ++i)
+            {
+                auto& l = pieces[i];
+                auto& r = pieces[i + 1];
+                if (l.end != r.start || l.reader == r.reader)
+                    continue;
+                const auto [a, b] = seamWindow (l, r, l.end, h);
+                l.outA = r.inA = a;
+                l.outB = r.inB = b;
+            }
+            return {};
+        }
+
+        /** [a, a + n) を o に書く（n は 65536 まで）。無音で始め、重なる区間を重みを付けて足す */
+        void render (int64 a, int n, float* o)
+        {
+            juce::FloatVectorOperations::clear (o, n);
+            for (auto& p : pieces)
+            {
+                const auto from = juce::jmax (a, p.inA);
+                const auto to = juce::jmin (a + n, p.outB);
+                if (to <= from)
+                    continue;
+
+                // テイクの外（録っていない所）は 0 で埋まる
+                const auto count = (int) (to - from);
+                take.clear();
+                p.reader->read (&take, 0, count, from - p.takeStart, true, false);
+                const auto* t = take.getReadPointer (0);
+                for (int i = 0; i < count; ++i)
+                    o[from - a + i] += t[i] * gainAt (p, from + i);
+            }
+        }
+    };
 }
 
 ExportResult ExportService::exportTrackDry (const project::Project& project, project::TrackType type,
@@ -59,71 +148,11 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         return result;
     }
 
-    const auto* track = project.findTrack (type);
-    if (track == nullptr || track->comp.empty())
+    CompSource source;
+    if (const auto error = source.open (project, type, projectFolder, options.crossfadeMs); error.isNotEmpty())
     {
-        result.message = "nothing recorded";
+        result.message = error;
         return result;
-    }
-
-    // テイクを開く（SR が曲と違えば書き出さない：勝手に変換しない。DESIGN 6.5 / 13）
-    juce::AudioFormatManager formats;
-    formats.registerBasicFormats();
-    std::map<juce::String, std::unique_ptr<juce::AudioFormatReader>> readers;
-    std::vector<Piece> pieces;
-    for (size_t i = 0; i < track->comp.size(); ++i)
-    {
-        const auto& c = track->comp[i];
-        const project::Take* take = nullptr;
-        for (auto& k : track->takes)
-            if (k.id == c.takeId)
-                take = &k;
-        if (take == nullptr)
-        {
-            result.message = "missing take " + c.takeId;
-            return result;
-        }
-
-        auto& reader = readers[take->id];
-        if (reader == nullptr)
-        {
-            const auto file = projectFolder.getChildFile (take->path);
-            reader.reset (formats.createReaderFor (file));
-            if (reader == nullptr)
-            {
-                result.message = "can't read " + take->path;
-                return result;
-            }
-            if (std::abs (reader->sampleRate - (double) rate) > 0.5)
-            {
-                result.message = "sample rate of " + take->id + " differs from the song";
-                return result;
-            }
-        }
-
-        Piece p;
-        p.start = juce::jmax ((int64) 0, c.startSample);
-        p.end = juce::jmin (length, c.endSample);
-        p.inA = p.inB = p.start;
-        p.outA = p.outB = p.end;
-        p.reader = reader.get();
-        p.takeStart = take->startSample;
-        p.takeEnd = take->startSample + reader->lengthInSamples;
-        if (p.end > p.start)
-            pieces.push_back (p);
-    }
-
-    // 別のテイク同士が接している所（継ぎ目）だけクロスフェードの窓を決める
-    const auto h = (int64) std::llround (options.crossfadeMs * 0.001 * rate * 0.5);
-    for (size_t i = 0; i + 1 < pieces.size(); ++i)
-    {
-        auto& l = pieces[i];
-        auto& r = pieces[i + 1];
-        if (l.end != r.start || l.reader == r.reader)
-            continue;
-        const auto [a, b] = seamWindow (l, r, l.end, h);
-        l.outA = r.inA = a;
-        l.outB = r.inB = b;
     }
 
     destination.getParentDirectory().createDirectory();
@@ -156,9 +185,9 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         }
     }
 
-    // 2 ^ 16 サンプルずつ：無音で始め、重なる区間を重みを付けて足す
+    // 2 ^ 16 サンプルずつ
     constexpr int block = 65536;
-    juce::AudioBuffer<float> out (1, block), take (1, block);   // 読む範囲はこのブロックの中だけ
+    juce::AudioBuffer<float> out (1, block);
     float peak = 0.0f;
     bool ok = true;
 
@@ -178,24 +207,8 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
     for (int64 a = 0; a < length && ok; a += block)
     {
         const auto n = (int) juce::jmin<int64> (block, length - a);
-        out.clear();
         auto* o = out.getWritePointer (0);
-
-        for (auto& p : pieces)
-        {
-            const auto from = juce::jmax (a, p.inA);
-            const auto to = juce::jmin (a + n, p.outB);
-            if (to <= from)
-                continue;
-
-            // テイクの外（録っていない所）は 0 で埋まる
-            const auto count = (int) (to - from);
-            take.clear();
-            p.reader->read (&take, 0, count, from - p.takeStart, true, false);
-            const auto* t = take.getReadPointer (0);
-            for (int i = 0; i < count; ++i)
-                o[from - a + i] += t[i] * gainAt (p, from + i);
-        }
+        source.render (a, n, o);
 
         peak = juce::jmax (peak, out.getMagnitude (0, 0, n));
         if (dither16)
@@ -234,6 +247,45 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         return result;
     }
 
+    result.ok = true;
+    result.length = length;
+    result.peak = peak;
+    result.clipped = peak >= clipLevel;
+    return result;
+}
+
+ExportResult ExportService::renderTrackDry (const project::Project& project, project::TrackType type, const juce::File& projectFolder,
+                                            juce::AudioBuffer<float>& out, const Options& options)
+{
+    ExportResult result;
+    const auto length = project.lengthSamples;
+    if (length <= 0 || project.sampleRate <= 0 || length > std::numeric_limits<int>::max())
+    {
+        result.message = "no song";
+        return result;
+    }
+
+    CompSource source;
+    if (const auto error = source.open (project, type, projectFolder, options.crossfadeMs); error.isNotEmpty())
+    {
+        result.message = error;
+        return result;
+    }
+
+    out.setSize (1, (int) length, false, false, true);
+    constexpr int block = 65536;
+    float peak = 0.0f;
+    for (int64 a = 0; a < length; a += block)
+    {
+        const auto n = (int) juce::jmin<int64> (block, length - a);
+        source.render (a, n, out.getWritePointer (0, (int) a));
+        peak = juce::jmax (peak, out.getMagnitude (0, (int) a, n));
+        if (options.progress && ! options.progress ((float) (a + n) / (float) length))
+        {
+            result.message = "cancelled";
+            return result;
+        }
+    }
     result.ok = true;
     result.length = length;
     result.peak = peak;

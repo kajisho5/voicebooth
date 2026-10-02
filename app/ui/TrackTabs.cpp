@@ -1,5 +1,6 @@
 #include "TrackTabs.h"
 #include "WaveLane.h"
+#include "audio/PlaybackCore.h"
 
 namespace vb
 {
@@ -23,6 +24,52 @@ TrackCard::TrackCard (UiSession& u, int i)
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
 
     onSessionChanged (change::all);
+}
+
+// モニター量の線（B12）：ドラッグで 0..1（0.75 = 0 dB）、ダブルクリックで 0 dB。線の外をクリックしたら選択
+void TrackCard::setGainFromX (int x)
+{
+    const auto g = gainArea;
+    auto v = juce::jlimit (0.0f, 1.0f, (float) (x - g.getX()) / (float) juce::jmax (1, g.getWidth()));
+    if (std::abs (v - 0.75f) < 0.015f)
+        v = 0.75f;   // 0 dB に吸い付く
+    session.setTrackGain (index, v);
+}
+
+void TrackCard::mouseDown (const juce::MouseEvent& e)
+{
+    draggingGain = gainHitArea().contains (e.getPosition());
+    if (draggingGain)
+        setGainFromX (e.x);
+}
+
+void TrackCard::mouseDrag (const juce::MouseEvent& e)
+{
+    if (draggingGain)
+        setGainFromX (e.x);
+}
+
+void TrackCard::mouseUp (const juce::MouseEvent&)
+{
+    if (draggingGain)
+    {
+        draggingGain = false;
+        repaint();
+        return;
+    }
+    session.selectTrack (index);
+}
+
+void TrackCard::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    if (gainHitArea().contains (e.getPosition()))
+        session.setTrackGain (index, 0.75f);
+}
+
+void TrackCard::mouseMove (const juce::MouseEvent& e)
+{
+    setMouseCursor (gainHitArea().contains (e.getPosition()) ? juce::MouseCursor::LeftRightResizeCursor
+                                                             : juce::MouseCursor::PointingHandCursor);
 }
 
 void TrackCard::onSessionChanged (juce::uint32 changes)
@@ -99,6 +146,16 @@ void TrackCard::paint (juce::Graphics& g)
     g.setFont (sans (11.0f));
     g.setColour (takes == 0 ? colours::textMute : colours::textDim);
     g.drawText (takes == 0 ? tr ("track.unrecorded") : tr ("track.takes", takes, segs), tx, juce::Justification::topLeft, true);
+
+    // 動かしている間は dB を出す
+    if (draggingGain)
+    {
+        const auto db = juce::Decibels::gainToDecibels (audio::PlaybackCore::faderToGain (t.monitorGain), -100.0f);
+        g.setColour (colours::text);
+        g.setFont (mono (10.5f, Weight::medium));
+        g.drawText (db <= -99.0f ? juce::String ("-inf dB") : (db > 0.05f ? "+" : "") + juce::String (db, 1) + " dB",
+                    tx, juce::Justification::topRight, false);
+    }
 
     // モニター量
     const auto gr = gainArea.toFloat().withSizeKeepingCentre ((float) gainArea.getWidth(), 3.0f);

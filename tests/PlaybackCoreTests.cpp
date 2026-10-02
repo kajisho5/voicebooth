@@ -309,6 +309,56 @@ public:
             expect (ms < 5000.0, juce::String (ms) + " ms for 5 s");
         }
 
+        beginTest ("recorded tracks play at the same position as the song (B12)");
+        {
+            PlaybackCore core;
+            core.setSong (rampSong (2, 10000, 48000.0));
+            core.prepare (48000.0);
+            auto stem = std::make_shared<juce::AudioBuffer<float>> (1, 10000);
+            for (int i = 0; i < 10000; ++i)
+                stem->setSample (0, i, 1000.0f * (float) i);           // 曲の値と区別できる
+            core.setStem (2, stem);
+            core.setStemGain (2, 1.0f);
+            core.play();
+            core.seek (100);
+            auto b = render (core, 16);
+            expectEquals (b.l (0), 100.0f + 100000.0f);                // 曲 + トラック（同じ位置）
+            expectEquals (b.r (5), 105.25f + 105000.0f);               // 両耳に同じトラック
+
+            core.setStemGain (2, 0.0f);                                 // 20 ms でなめらかに消える
+            render (core, 1200);
+            core.seek (10);
+            auto c = render (core, 4);
+            expectEquals (c.l (0), 10.0f);
+
+            core.setStem (2, nullptr);
+            core.setStemGain (2, 1.0f);
+            render (core, 960);
+            core.seek (20);
+            expectEquals (render (core, 1).l (0), 20.0f);
+        }
+
+        beginTest ("recorded tracks follow the practice tempo (B12)");
+        {
+            PlaybackCore core;
+            core.setSong (toneSong (0.0, 4.0, 48000.0, 1.5));          // 伴奏は 1.5 秒の頭だけ
+            core.prepare (48000.0);
+            auto stem = std::make_shared<juce::AudioBuffer<float>> (1, 4 * 48000);
+            stem->clear();
+            for (int i = 0; i < 9600; ++i)                              // トラックは 2.5 秒から 0.2 秒の 3 kHz
+                stem->setSample (0, 120000 + i, 0.5f * (float) std::sin (juce::MathConstants<double>::twoPi * 3000.0 * i / 48000.0));
+            core.setStem (0, stem);
+            core.setStemGain (0, 1.0f);
+            core.setPractice (0.8, 0);
+            core.play();
+            const auto out = play (core, (int) (48000 * 2.5 / 0.8 + 12000));
+            size_t first = 0, second = 0;
+            for (size_t i = 0; i < out.size(); ++i)
+                if (std::abs (out[i]) > 0.1f) { if (first == 0) first = i; else if (i > first + 24000) { second = i; break; } }
+            expectWithinAbsoluteError ((double) first / 48000.0, 1.5 / 0.8, 0.012);
+            expectWithinAbsoluteError ((double) second / 48000.0, 2.5 / 0.8, 0.012);
+        }
+
         beginTest ("new song stops and rewinds");
         {
             PlaybackCore core;
