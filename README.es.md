@@ -24,6 +24,8 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 
 ![Pantalla principal de VoiceBooth](docs/screenshots/main-en.png)
 
+> Esta captura es una maqueta de desarrollo dibujada con datos de ejemplo. La visualización con canciones reales aún se está mejorando y puede verse distinta.
+
 > [!NOTE]
 > **Esto es una beta.** Las funciones principales ya están, pero todavía no se han probado en el PC con Windows ni en el Mac del autor. Por favor, informa de errores, o de cualquier cosa que cueste entender, en [Issues](https://github.com/kajisho5/voicebooth/issues).
 
@@ -34,8 +36,8 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Sistema | **Windows y Mac** (Mac: Apple silicon e Intel). **No hay versión para móvil ni tableta** |
 | Tarjeta gráfica | **No hace falta.** Funciona solo con la CPU. Lo único pesado es la separación de voz: una canción de 30 segundos tardó unos 2 minutos en una CPU de 4 núcleos (la app muestra un tiempo estimado) |
 | Audio que puedes cargar | **Solo archivos de audio de tu equipo** (wav / flac / aiff / ogg / mp3 / m4a). No puedes cargar canciones directamente desde Spotify, Apple Music, YouTube Music ni otros servicios de streaming |
-| Tamaño | El instalador ocupa unos 13 MB en Windows y unos 42 MB en Mac. El modelo de separación (unos 223 MB) y el de letra (unos 465 MB) se descargan **solo cuando pulsas el botón para usarlos**. No se descarga nada a tus espaldas |
-| Procesos pesados | La separación y la sincronización automática de la letra se ejecutan **solo cuando pulsas el botón**. La letra está **desactivada por defecto** (actívala en Ajustes) |
+| Tamaño | El instalador ocupa unos 13 MB en Windows y unos 40 MB en Mac. El modelo de separación (unos 223 MB) se descarga **solo cuando pulsas el botón para usarlo**. No se descarga nada a tus espaldas |
+| Procesos pesados | La separación se ejecuta **solo cuando pulsas el botón**. La letra está **desactivada por defecto** (actívala en Ajustes) |
 | Armonías | Puedes grabar pistas de armonía. **No hay ninguna función que saque solo la armonía de una mezcla para usarla como referencia** (la separación da dos partes: "todas las voces" y "acompañamiento") |
 | Audio separado | La voz y el acompañamiento separados son **para tu práctica personal**. VoiceBooth no cambia los derechos de la canción original. Distribúyelos o publícalos (incluido compartirlos como instrumental para covers) solo en la medida en que lo permitan los titulares de los derechos originales |
 | Precio | **Gratis.** Sin suscripción ni compras dentro de la app. Puedes apoyar el desarrollo a través de [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opcional; no cambia ninguna función) |
@@ -56,7 +58,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Main / Double / Armonía | Graba dobles y armonías con la misma duración y reprodúcelas juntas |
 | Entrada a tiempo | Comparado con la referencia, muestra cuántos ms entras antes o después (Estándar en adelante). Pro también muestra cuánto tiempo estás afinado y el vibrato |
 | Exportar | WAV de duración completa desde el inicio de la canción, y un paquete de entrega (un WAV por pista, una mezcla de referencia, notas, zip) |
-| Letra (desactivada por defecto) | Carga .txt / .lrc, sincroniza marcando a mano o automáticamente a partir de la voz de referencia (necesita el modelo de letra) |
+| Letra (desactivada por defecto) | Carga .txt / .lrc y sincroniza marcando a mano |
 | Skins | Cambia los colores de toda la app (10 incluidos). Compártelos como archivos `.vbskin` |
 
 ### Aún no disponible
@@ -67,7 +69,7 @@ Esto todavía no está en la beta (y no aparece en la app).
 - Sonidos de metrónomo y cuenta previa, comparar tomas de oído, separar algo que no sea la voz (guitarra, batería, etc.)
 
 > [!IMPORTANT]
-> Los modelos de separación y de sincronización automática de la letra **todavía se están preparando para su distribución** (a la espera de que se publique la lista de modelos firmada). Mientras tanto, puedes usar un par original + karaoke para mostrar la línea de referencia, grabar y exportar.
+> El modelo de separación **todavía se está preparando para su distribución** (a la espera de que se publique la lista de modelos firmada). Mientras tanto, puedes usar un par original + karaoke para mostrar la línea de referencia, grabar y exportar.
 
 ### Lo que recibe quien hace la mezcla
 
@@ -173,10 +175,9 @@ El código fuente está bajo la **GNU Affero General Public License v3.0 o poste
 | IBM Plex Sans JP / IBM Plex Mono (`resources/fonts`) | SIL Open Font License 1.1 |
 | ONNX Runtime 1.22.0 (solo en el proceso aparte de separación de voz; el paquete oficial precompilado se descarga al compilar) | MIT |
 | Monocypher 4.0.3 (verifica la firma Ed25519 de la lista de modelos; se descarga al compilar) | Doble CC0 / BSD-2-Clause |
-| whisper.cpp v1.9.4 (solo en el proceso aparte de sincronización de letra; se descarga al compilar) | MIT |
 | Rubber Band Library 4 (tempo / tono de práctica; se descarga al compilar) | Doble GPL v2 o posterior / comercial (aquí se usa bajo GPL) |
 | Steinberg ASIO SDK 2.3.4 (solo en las compilaciones para Windows; el paquete oficial se descarga al compilar) | Doble GPLv3 / comercial (aquí se usa bajo GPLv3). El SDK en sí no se guarda en este repositorio. ASIO es una marca comercial de Steinberg Media Technologies GmbH |
-| Modelos (aparte de la app, se descargan solo cuando pulsas el botón): separación Mel-Band RoFormer (Kimberley Jensen), letra Whisper small (OpenAI) | Ambos MIT. Solo se distribuyen modelos cuyas licencias de pesos se han comprobado |
+| Modelos (aparte de la app, se descargan solo cuando pulsas el botón): separación Mel-Band RoFormer (Kimberley Jensen) | MIT. Solo se distribuyen modelos cuyas licencias de pesos se han comprobado |
 
 ## Contribuir
 

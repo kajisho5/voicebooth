@@ -24,6 +24,8 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 
 ![VoiceBooth main screen](docs/screenshots/main-en.png)
 
+> This screenshot is a development mock-up drawn from sample data. The display with real songs is still being improved and may look different.
+
 > [!NOTE]
 > **This is a beta.** The main features are in place, but they have not yet been checked on the author's own Windows PC and Mac. Please report bugs, or anything that is hard to understand, in [Issues](https://github.com/kajisho5/voicebooth/issues).
 
@@ -34,7 +36,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
 | Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
 | Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
-| Size | The installer is about 13 MB on Windows and about 42 MB on Mac. The separation model (about 223 MB) is downloaded **only when you press the button to use it**. Nothing is fetched behind your back |
+| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. The separation model (about 223 MB) is downloaded **only when you press the button to use it**. Nothing is fetched behind your back |
 | Heavy processing | Separation runs **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
 | Harmonies | You can record harmony tracks. **There is no feature that pulls just the harmony out of a mix to use as a reference** (separation gives two parts: "all vocals" and "accompaniment") |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
