@@ -2405,6 +2405,14 @@ void UiSession::setView (int64 start, int64 end)
     notify (change::view);
 }
 
+void UiSession::setShowLyrics (bool b)
+{
+    if (s.showLyrics == b) return;
+    s.showLyrics = b;
+    if (! b) s.lyricSyncing = false;
+    notify (change::mode);   // 画面の並びが変わる（設定にも保存する）
+}
+
 void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; rejudgeAll(); notify (change::view); }
 void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; notify (change::view); }
 

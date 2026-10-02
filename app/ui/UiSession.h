@@ -105,6 +105,8 @@ public:
     // --- 表示 ---------------------------------------------------------------
     void setView (int64 start, int64 end);
     void setOctaveAlign (bool);
+    /** 歌詞レーンを出すか（設定。既定は出さない） */
+    void setShowLyrics (bool);
     void setOctaveUp (bool);
     void setFullRange (bool);
 
