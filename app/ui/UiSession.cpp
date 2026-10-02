@@ -1978,6 +1978,7 @@ bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::Strin
 
     const auto range = formatTime (juce::jmax ((int64) 0, from), s.sampleRate(), true) + " - "
                      + formatTime (juce::jmin (s.project.lengthSamples, to), s.sampleRate(), true);
+    saveProject();   // ファイルはもう Audio/Takes にある：自動保存を待たずに書く（落ちても .vbooth と食い違わない）
     postNotice (tr ("rescue.done", trackName (type), id, range));
     notify (change::takes | change::tracks);
     return true;
@@ -2108,6 +2109,7 @@ void UiSession::endTakeCompare (bool commit)
     const auto from = audition.from(), to = audition.to();
     bool used = false, unchanged = false;
     auto id = audition.previewing();
+    bool movedFile = false;
     if (track != nullptr && commit && id.isNotEmpty())
     {
         // 原速のリハーサルを選んだ時は、本番のテイクに移してから決める（移せなければやめる）
@@ -2117,6 +2119,7 @@ void UiSession::endTakeCompare (bool commit)
             const auto moved = moveRehearsalToTakes (*track, id);
             if (moved.isEmpty())
                 commit = false;
+            movedFile = moved.isNotEmpty();
             id = moved;
         }
     }
@@ -2152,6 +2155,8 @@ void UiSession::endTakeCompare (bool commit)
     s.compare.previewing.clear();
     s.compare.original.clear();
 
+    if (movedFile)
+        saveProject();   // ファイルはもう Audio/Takes にある：自動保存（1.5 秒後）を待たずに書く（落ちても .vbooth と食い違わない）
     if (used)
         postNotice (tr ("compare.used", trackName (type), id,
                         formatTime (from, s.sampleRate(), true) + " - " + formatTime (to, s.sampleRate(), true), undoKeyName()));
