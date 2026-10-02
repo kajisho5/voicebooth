@@ -6,6 +6,7 @@
 #include "analysis/MusicInfo.h"
 #include "analysis/Separation.h"
 #include "analysis/OffVocal.h"
+#include "analysis/TakeStats.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -942,8 +943,11 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
     // 録ったファイルを裏で読んで概形を作る（波形レーンに出す）。読み終わる前に UiSession が消えても安全に
     const auto file = s.projectFolder.getChildFile (take.path);
     const auto key = dummy::takeWaveKey (type, take.id);
+    // 音程も取る（B18）：原速・原キーのテイクだけ（練習の速さで録った物は曲の時間に並ばない）
+    const bool wantPitch = take.tempoPercent == 100 && take.keyShift == 0;
+    const auto takeStart = take.startSample;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, file, key]
+    juce::Thread::launch ([this, weak, file, key, wantPitch, takeStart]
     {
         juce::AudioFormatManager formats;
         formats.registerBasicFormats();
@@ -951,6 +955,14 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
         if (reader == nullptr)
             return;
         auto wave = std::make_shared<audio::WaveformOverview> ((int64) reader->lengthInSamples);
+        std::shared_ptr<std::vector<audio::PitchFrame>> pitch;
+        audio::PitchAnalyzer analyzer;
+        std::vector<int64> pos64;
+        if (wantPitch)
+        {
+            pitch = std::make_shared<std::vector<audio::PitchFrame>>();
+            analyzer.prepare (reader->sampleRate);
+        }
         juce::AudioBuffer<float> buf (1, 65536);
         for (int64 pos = 0; pos < (int64) reader->lengthInSamples; pos += buf.getNumSamples())
         {
@@ -958,13 +970,24 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
             reader->read (&buf, 0, n, pos, true, false);
             const float* ch[] = { buf.getReadPointer (0) };
             wave->append (ch, 1, n);
+            if (pitch != nullptr)
+            {
+                pos64.resize ((size_t) n);
+                for (int i = 0; i < n; ++i) pos64[(size_t) i] = takeStart + pos + i;   // 曲の位置（遅れは補正済み）
+                analyzer.process (buf.getReadPointer (0), pos64.data(), n, *pitch);
+            }
         }
-        juce::MessageManager::callAsync ([this, weak, key, wave]
+        juce::MessageManager::callAsync ([this, weak, key, wave, pitch]
         {
             if (weak.expired())
                 return;
             s.takeWaves[key] = wave;
-            notify (change::takes);
+            if (pitch != nullptr)
+            {
+                s.takePitch[key] = pitch;
+                updateTakeStats (key);
+            }
+            notify (change::takes | change::view);
         });
     });
 }
@@ -1129,6 +1152,8 @@ void UiSession::loadGuide (const juce::File& file)
                     for (auto& f : out->points)
                         s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
                     rejudgeAll();
+                    updateTakeStats();
+                    notify (change::takes);
                     postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
                     break;
                 }
@@ -1670,6 +1695,8 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 for (auto& f : out->points)
                     s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
                 rejudgeAll();
+                updateTakeStats();
+                notify (change::takes);
                 postNotice (tr ("separation.done", juce::String (out->offsetSeconds, 2)));
             }
             else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", "can't read the result"));
@@ -1701,6 +1728,57 @@ void UiSession::judge (dummy::PitchPoint& p) const
         cents -= 1200.0f * std::round (cents / 1200.0f);
     p.centsOff = cents;
     p.judged = true;
+}
+
+void UiSession::updateTakeStats (const juce::String& onlyKey)
+{
+    // お手本と比べる（B18）。お手本が無ければ消すだけ
+    if (s.refPitch.empty())
+    {
+        s.takeStats.clear();
+        return;
+    }
+    std::vector<audio::PitchFrame> guide;
+    guide.reserve (s.refPitch.size());
+    for (auto& p : s.refPitch)
+        guide.push_back ({ p.sample, p.midi, p.confidence, -20.0f });
+    const auto rate = (double) s.sampleRate();
+
+    for (auto& [key, frames] : s.takePitch)
+    {
+        if ((onlyKey.isNotEmpty() && key != onlyKey) || frames == nullptr || frames->empty())
+            continue;
+        const auto from = frames->front().songSample, to = frames->back().songSample + 1;
+        const auto onset = analysis::onsetStats (guide, *frames, rate, from, to);
+        const auto acc = analysis::pitchAccuracy (guide, *frames, rate, from, to, s.pitchToleranceCents);
+        const auto vib = analysis::vibratos (*frames, rate);
+        dummy::Session::TakeStats st;
+        st.entries = onset.entries;
+        st.matched = (int) onset.items.size();
+        st.onsetMs = onset.medianMs;
+        st.inBand = acc.inBand;
+        st.meanAbsCents = acc.meanAbsCents;
+        st.pitchFrames = acc.frames;
+        for (auto& v : vib) { st.vibRateHz += v.rateHz; st.vibDepthCents += v.depthCents; }
+        st.vibNotes = (int) vib.size();
+        if (st.vibNotes > 0) { st.vibRateHz /= (float) st.vibNotes; st.vibDepthCents /= (float) st.vibNotes; }
+        s.takeStats[key] = st;
+    }
+}
+
+const dummy::Session::TakeStats* UiSession::latestTakeStats() const
+{
+    // いま選んでいるトラックの、いちばん新しい（解析の済んだ）テイク
+    const auto* track = s.project.findTrack (s.currentTrack().type);
+    if (track == nullptr)
+        return nullptr;
+    const project::Take* newest = nullptr;
+    for (auto& t : track->takes)
+        if (s.takeStats.count (dummy::takeWaveKey (track->type, t.id)) > 0 && (newest == nullptr || t.created > newest->created))
+            newest = &t;
+    if (newest == nullptr)
+        return nullptr;
+    return &s.takeStats.at (dummy::takeWaveKey (track->type, newest->id));
 }
 
 void UiSession::rejudgeAll()
@@ -2488,7 +2566,7 @@ void UiSession::setPractice (int tempoPercent, int keyShift)
     notify (change::practice);
 }
 void UiSession::setRecMode (project::RecMode m) { s.recMode = m; notify (change::practice); }
-void UiSession::setPitchTolerance (float c)   { s.pitchToleranceCents = c; notify (change::view); }
+void UiSession::setPitchTolerance (float c)   { s.pitchToleranceCents = c; updateTakeStats(); notify (change::view); }
 
 void UiSession::setMode (project::Mode m)
 {

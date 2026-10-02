@@ -4,6 +4,7 @@
 #include "project/ProjectModel.h"
 #include "audio/WaveformOverview.h"
 #include "audio/AudioEngine.h"
+#include "audio/PitchTracker.h"
 #include <map>
 
 /*  見た目フェーズ専用の固定ダミー（DESIGN 20）
@@ -107,6 +108,18 @@ struct Session
     juce::String recordingTake, recordingPath;          // 録音中のテイク（"take3"、フォルダ相対のパス）
     TrackType recordingTrack = TrackType::main;
     std::map<juce::String, std::shared_ptr<const audio::WaveformOverview>> takeWaves;   // "main/take3" → 概形（曲頭基準ではなくテイク頭から）
+    // テイクの音程（B18。曲の時間・10 ms ごと。原速・原キーのテイクだけ）と、お手本と比べた結果
+    std::map<juce::String, std::shared_ptr<const std::vector<audio::PitchFrame>>> takePitch;   // "main/take3" →
+    struct TakeStats
+    {
+        int entries = 0, matched = 0;     // お手本の入りの数・合った数
+        double onsetMs = 0.0;             // 入りのずれの真ん中（+ は遅い）
+        float inBand = 0.0f, meanAbsCents = 0.0f;
+        int pitchFrames = 0;
+        float vibRateHz = 0.0f, vibDepthCents = 0.0f;   // ビブラートのある音符の平均（無ければ 0）
+        int vibNotes = 0;
+    };
+    std::map<juce::String, TakeStats> takeStats;
     bool exporting = false;
 
     // 画面下に一度だけ出す知らせ（トースト）。noticeSerial が増えたら出す

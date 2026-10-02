@@ -1,6 +1,10 @@
 {
   "analysis.onset": "ONSET",
+  "analysis.onset.early": "{0} ms 빠름",
+  "analysis.onset.onTime": "정확",
   "analysis.onset.value": "{0} ms 늦음",
+  "analysis.pitch": "PITCH",
+  "analysis.pitch.value": "범위 안 {0}%",
   "analysis.vibrato": "VIB",
   "analysis.vibrato.value": "{0} Hz ±{1}c",
   "analyze.chooseAnother": "다른 곡 선택",
