@@ -68,6 +68,7 @@
   "format.conformFailed": "반주를 {0} kHz로 맞추지 못했습니다 (메모리가 부족할 수 있습니다)",
   "format.conformed": "반주를 {0} kHz로 맞췄습니다. {0} kHz · {1}로 녹음합니다",
   "format.conforming": "반주를 {0} kHz로 맞추는 중…",
+  "format.deviceFallback": "이 장치는 {0} kHz로 열 수 없어 {1} kHz로 녹음합니다(반주를 {1} kHz로 변환. 원본 파일은 그대로, 내보내기도 {1} kHz)",
   "format.rateLater": "이 곡은 테이크가 있어 {0} kHz로 계속 녹음합니다. {1} kHz는 다음에 여는 곡부터",
   "gallery.encoder": "LED 링",
   "gallery.fader": "모니터 믹스",

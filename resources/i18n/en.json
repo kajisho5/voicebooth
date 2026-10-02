@@ -68,6 +68,7 @@
   "format.conformFailed": "Couldn't convert the backing to {0} kHz (possibly not enough memory)",
   "format.conformed": "Backing is now {0} kHz. Recording at {0} kHz, {1}",
   "format.conforming": "Converting the backing to {0} kHz…",
+  "format.deviceFallback": "This device can't run at {0} kHz, so you'll record at {1} kHz (the backing was converted to {1} kHz; the original file is untouched, exports are {1} kHz too)",
   "format.rateLater": "This song already has takes, so it stays at {0} kHz. {1} kHz applies from the next song you open",
   "gallery.encoder": "LED ring",
   "gallery.fader": "Monitor mix",

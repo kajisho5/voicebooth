@@ -68,6 +68,7 @@
   "format.conformFailed": "無法把伴奏轉換為 {0} kHz（可能記憶體不足）",
   "format.conformed": "伴奏已轉換為 {0} kHz。將以 {0} kHz、{1} 錄製",
   "format.conforming": "正在把伴奏轉換為 {0} kHz…",
+  "format.deviceFallback": "此裝置無法以 {0} kHz 執行，將以 {1} kHz 錄音（伴奏已轉換為 {1} kHz，原檔案不變，匯出也是 {1} kHz）",
   "format.rateLater": "這首歌已有錄音，繼續以 {0} kHz 錄製。{1} kHz 從下次開啟的歌曲開始",
   "gallery.encoder": "LED 環",
   "gallery.fader": "監聽混音",

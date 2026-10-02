@@ -93,7 +93,8 @@ struct Session
     int songSerial = 0;                   // 曲を開くたびに増える（裏の作業が古い曲に戻ってこないように）
 
     /** いまの録音形式で録る SR（曲に合わせる時は曲の SR） */
-    int targetRate() const { return recordRate > 0.0 ? juce::roundToInt (recordRate) : songRate; }
+    int deviceFallbackRate = 0;           // 「曲に合わせる」なのに機器が曲の SR で開けない時に、代わりに録る機器の SR（曲ごと。0 = 使わない）
+    int targetRate() const { return recordRate > 0.0 ? juce::roundToInt (recordRate) : (deviceFallbackRate > 0 ? deviceFallbackRate : songRate); }
 
     // 録音（B5）。テイクは曲ごとの作業フォルダに置く（.vbooth の保存は B14）
     juce::File projectFolder;
