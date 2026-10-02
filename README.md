@@ -140,6 +140,7 @@ VoiceBooth は無料です。気に入ったら [GitHub Sponsors](https://github
 | JUCE 8 | AGPLv3 / 商用のデュアル（ここでは AGPLv3） |
 | minimp3（`third_party/minimp3`） | CC0 |
 | IBM Plex Sans JP / IBM Plex Mono（`resources/fonts`） | SIL Open Font License 1.1 |
+| ONNX Runtime 1.22.0（ボーカル分離の別プロセスだけ。ビルド時に公式のビルド済みを取得） | MIT |
 | Rubber Band Library 4（練習用のテンポ / キー。ビルド時に取得） | GPL v2 以降 / 商用のデュアル（ここでは GPL） |
 | Steinberg ASIO SDK 2.3.4（Windows のビルドだけ。ビルド時に公式の配布物を取得） | GPLv3 / 商用のデュアル（ここでは GPLv3）。SDK 自体はリポジトリに入れない。ASIO は Steinberg Media Technologies GmbH の商標 |
 | 予定：分離・ピッチ・歌詞のモデル | 重みのライセンスを確かめたものだけ。アプリとは別に配る |
