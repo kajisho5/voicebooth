@@ -270,6 +270,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.mode                = prev.mode;
     s.octaveAlign         = prev.octaveAlign;
     s.showLyrics          = prev.showLyrics;
+    s.crossfadeMs         = prev.crossfadeMs;
     s.fullRange           = prev.fullRange;
     s.lowMidi             = prev.lowMidi;
     s.highMidi            = prev.highMidi;

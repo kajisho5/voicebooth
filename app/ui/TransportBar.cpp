@@ -175,6 +175,10 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
              &toStart, &play, &stop, &rec, &time, &beat, &loop, &rangeIn, &rangeOut, &clearRange, &seek, &countIn, &click })
         addAndMakeVisible (c);
 
+    // クリック（メトロノーム）とカウントインの音はまだ鳴らせないので、本物のアプリでは出さない（見本だけ）
+    countIn.setVisible (! u->engineAttached);
+    click.setVisible (! u->engineAttached);
+
     onSessionChanged (change::all);
 }
 
@@ -246,12 +250,16 @@ void TransportBar::resized()
     clearRange.setBounds (centreH (r.removeFromLeft (30), 30));
     r.removeFromLeft (14);
 
-    click.setSize (10, 30);
-    click.setBounds (centreH (r.removeFromRight (click.idealWidth()), 30));
-    r.removeFromRight (8);
-    countIn.setBounds (centreH (r.removeFromRight (juce::jmax (132, countIn.idealWidth())), 32));
-    countLabel = r.removeFromRight (52);
-    r.removeFromRight (6);
+    countLabel = {};
+    if (click.isVisible())   // 本物のアプリでは出さない（クリック・カウントインの音はまだ無い）。空いた分は全体の位置に回す
+    {
+        click.setSize (10, 30);
+        click.setBounds (centreH (r.removeFromRight (click.idealWidth()), 30));
+        r.removeFromRight (8);
+        countIn.setBounds (centreH (r.removeFromRight (juce::jmax (132, countIn.idealWidth())), 32));
+        countLabel = r.removeFromRight (52);
+        r.removeFromRight (6);
+    }
 
     seek.setBounds (centreH (r, 40));
 }
@@ -260,6 +268,7 @@ void TransportBar::paint (juce::Graphics& g)
 {
     g.fillAll (colours::bg0);
     paint::hline (g, (float) getHeight() - 1.0f, 0.0f, (float) getWidth());
-    paint::microLabel (g, countLabel.toFloat(), tr ("label.count"), colours::textMute, juce::Justification::centredRight);
+    if (! countLabel.isEmpty())
+        paint::microLabel (g, countLabel.toFloat(), tr ("label.count"), colours::textMute, juce::Justification::centredRight);
 }
 } // namespace vb

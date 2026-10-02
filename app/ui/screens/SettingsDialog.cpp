@@ -76,7 +76,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
       mode ({ tr ("mode.easy"), tr ("mode.standard"), tr ("mode.pro") }, (int) u->mode),
       tolerance ({ "20", "30", "50" }, u->pitchToleranceCents <= 20.0f ? 0 : (u->pitchToleranceCents <= 30.0f ? 1 : 2)),
       countIn ({ tr ("transport.countIn.off"), "1", "2" }, u->countInBars),
-      crossfade ({ "0", "5", "8", "20" }, 2),
+      crossfade ({ "0", "5", "8", "20" }, u->crossfadeMs <= 0.0 ? 0 : (u->crossfadeMs <= 5.0 ? 1 : (u->crossfadeMs <= 8.0 ? 2 : 3))),
       octaveAlign (tr ("pitch.octaveAlign")),
       showLyrics (tr ("common.off")),
       openSetup (tr ("settings.device.open")),
@@ -93,6 +93,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
     tolerance.onChange = [this] (int i) { const float v[] = { 20.0f, 30.0f, 50.0f }; session.setPitchTolerance (v[i]); };
     countIn.onChange = [this] (int i) { session.setCountIn (i); };
+    crossfade.onChange = [this] (int i) { const double v[] = { 0.0, 5.0, 8.0, 20.0 }; session.setCrossfade (v[i]); };
 
     octaveAlign.withLed().withToggle (false);
     octaveAlign.onClick = [this] { session.setOctaveAlign (! state().octaveAlign); };
@@ -141,6 +142,11 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.skin"),       tr ("settings.skin.note"),       &skinPicker,  juce::jmax (200, skinPicker.idealWidth()), {}, {}, { &newSkin, &editSkin } },
         { tr ("settings.support"),    tr ("settings.support.note"),    &supportKey,  0 },
     };
+
+    // 本物のアプリでは、まだ音に効かない行を出さない（カウントインの音・キャッシュの置き場所の変更は未実装）。見本（UI_MOCK）は出す
+    if (u->engineAttached)
+        rows.erase (std::remove_if (rows.begin(), rows.end(), [this] (const Row& r) { return r.control == &countIn || r.control == &cacheKey; }),
+                    rows.end());
 
     for (auto& r : rows)
     {

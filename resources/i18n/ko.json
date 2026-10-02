@@ -601,6 +601,7 @@
   "start.guide.set": "가이드: {0}",
   "start.guide.setSub": "반주를 불러오면 시간을 맞춰 겹칩니다(클릭해서 다시 선택)",
   "start.guide.title": "가이드(보컬이 있는 원곡) · 선택",
+  "start.localOnly": "이 컴퓨터에 있는 오디오 파일만 넣을 수 있습니다. Spotify·Apple Music·YouTube Music 등 구독 서비스의 곡은 직접 넣을 수 없습니다.",
   "start.openProject": "프로젝트 열기",
   "start.recent": "RECENT",
   "start.recent.empty": "아직 없습니다. 곡을 열면 여기에 표시됩니다",
