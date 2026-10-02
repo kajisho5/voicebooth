@@ -88,14 +88,42 @@ PlaybackCore::Gains PlaybackCore::nextGains() noexcept
     return g;
 }
 
-float PlaybackCore::mixAt (const SongAudio& s, int channel, juce::int64 pos, const Gains& g) const noexcept
+float PlaybackCore::mixAt (const SongAudio& s, int channel, juce::int64 pos, const Gains& g) noexcept
 {
     const auto& b = s.buffer;
     auto v = b.getSample (juce::jmin (channel, b.getNumChannels() - 1), (int) pos) * g.backing;   // モノラルの曲は両耳へ
+    peakBacking = juce::jmax (peakBacking, std::abs (v));
     for (int k = 0; k < maxStems; ++k)
         if (stems[k] != nullptr && g.stem[k] > 0.0f && pos < stems[k]->getNumSamples())
-            v += stems[k]->getSample (0, (int) pos) * g.stem[k];
+        {
+            const auto x = stems[k]->getSample (0, (int) pos) * g.stem[k];
+            if (k == guideSlot)
+                peakGuide = juce::jmax (peakGuide, std::abs (x));
+            v += x;
+        }
     return v;
+}
+
+void PlaybackCore::setClick (bool on, float linearGain)
+{
+    metronome.setLevel (linearGain);
+    clickOn = on;
+}
+
+void PlaybackCore::addClick (float* const* out, int numChannels, int i, float value) noexcept
+{
+    if (juce::exactlyEqual (value, 0.0f))
+        return;
+    peakClick = juce::jmax (peakClick, std::abs (value));
+    for (int c = 0; c < numChannels; ++c)
+        if (out[c] != nullptr)
+            out[c][i] += value;
+}
+
+void PlaybackCore::addClickTail (float* const* out, int numChannels, int from, int to) noexcept
+{
+    for (int i = from; i < to; ++i)
+        addClick (out, numChannels, i, metronome.tail());
 }
 
 void PlaybackCore::setPractice (double newSpeed, int newSemitones)
@@ -130,13 +158,22 @@ void PlaybackCore::prepare (double outputSampleRate)
     fade.reset (r, 0.02);
     fade.setCurrentAndTargetValue (1.0f);
     fraction = 0.0;
+    metronome.prepare (r);
+    backingLevel.prepare (r);
+    guideLevel.prepare (r);
+    clickLevel.prepare (r);
+    countLeft = 0.0;
     prepared = true;
 }
 
-void PlaybackCore::play()
+void PlaybackCore::play (juce::int64 countIn, juce::int64 countClicksUntil)
 {
     reachedEnd = false;
     stretchReset = true;    // 止まる前に Rubber Band に残っていた音を鳴らさない
+    countInRequest = juce::jmax ((juce::int64) 0, countIn);
+    countUntilRequest = countClicksUntil;
+    countLeftOut = juce::jmax ((juce::int64) 0, countIn);   // 画面はすぐ「数えている」に（オーディオスレッドは次のブロックで始める）
+    startRequested = true;
     playing = true;
 }
 
@@ -185,6 +222,20 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
         if (out[c] != nullptr)
             juce::FloatVectorOperations::clear (out[c], numSamples);
 
+    // メーター：このブロックの最大を、どの道を通っても最後に入れる（止まっている間は 0 が入って下がっていく）
+    peakBacking = peakGuide = peakClick = 0.0f;
+    struct PushLevels
+    {
+        PlaybackCore& core;
+        int n;
+        ~PushLevels()
+        {
+            core.backingLevel.push (core.peakBacking, n);
+            core.guideLevel.push (core.peakGuide, n);
+            core.clickLevel.push (core.peakClick, n);
+        }
+    } pushLevels { *this, numSamples };
+
     const juce::SpinLock::ScopedTryLockType sl (songLock);
     if (! sl.isLocked() || song == nullptr || ! prepared)
         return r;
@@ -201,6 +252,7 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
         pos = juce::jmin (seekTo, length);
         fraction = 0.0;
         heard = (double) pos;
+        metronome.resync();
     }
 
     r.start = pos;
@@ -208,8 +260,59 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
     {
         position = pos;
         heard = (double) pos;
+        countLeft = 0.0;
+        countLeftOut = 0;
+        addClickTail (out, numChannels, 0, numSamples);   // 止めた時に鳴りかけていた音は最後まで（途中で切ると「プツッ」と鳴る）
         return r;
     }
+
+    // 再生の頭（2026-10-02）：カウントインの長さを受け取り、拍を探し直す
+    if (startRequested.exchange (false))
+    {
+        countLeft = (double) countInRequest.load();
+        countUntil = countUntilRequest.load();
+        metronome.resync();
+    }
+
+    // カウントイン：曲の前の無音の分だけ、聞こえるはずの位置（pos - 残り）を進めながら拍を鳴らす。曲の位置は止めたまま。
+    // 練習のテンポの時は拍の間も同じだけ伸び縮みする（その後の曲と拍がつながる）
+    int lead = 0;
+    if (countLeft > 0.0)
+    {
+        const auto rate = outputRate.load();
+        const auto srRatio = rate > 0.0 ? song->sampleRate / rate : 1.0;
+        const auto step = (isPracticeShifted() && stretcher != nullptr ? speed.load() : 1.0) * srRatio;
+        for (; lead < numSamples && countLeft > 0.0; ++lead)
+        {
+            addClick (out, numChannels, lead, metronome.next ((double) pos - countLeft, true));
+            countLeft -= step;
+        }
+        countLeftOut = countLeft > 0.0 ? (juce::int64) std::ceil (countLeft) : 0;
+        if (lead == numSamples)
+        {
+            position = pos;
+            r.lead = lead;
+            return r;
+        }
+    }
+
+    // 曲はブロックの lead サンプル目から
+    constexpr int maxOutputs = 16;
+    float* shifted[maxOutputs] = {};
+    const auto channels = juce::jmin (numChannels, maxOutputs);
+    for (int c = 0; c < channels; ++c)
+        shifted[c] = out[c] != nullptr ? out[c] + lead : nullptr;
+
+    auto played = renderSong (shifted, channels, numSamples - lead, pos);
+    played.lead = lead;
+    return played;
+}
+
+PlaybackCore::Rendered PlaybackCore::renderSong (float* const* out, int numChannels, int numSamples, juce::int64 pos) noexcept
+{
+    Rendered r;
+    r.start = pos;
+    const auto length = (juce::int64) song->buffer.getNumSamples();
 
     // 練習のテンポ / キー（B11）：変えている間だけ Rubber Band を通す。切り替わる時は 20 ms でなめらかに入る
     const bool wantStretch = isPracticeShifted() && stretcher != nullptr;
@@ -274,6 +377,10 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
             out[c][i] = v * f;
         }
 
+        // クリック：このサンプルで聞こえる曲の位置から（フェードは掛けない。素通しと伸ばす時の切り替えでも拍は途切れない）
+        const auto heardPos = (double) pos + (convert ? fraction : 0.0);
+        addClick (out, numChannels, i, metronome.next (heardPos, clickAudible (heardPos)));
+
         if (convert)
         {
             fraction += ratio;
@@ -287,6 +394,7 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
         }
     }
 
+    addClickTail (out, numChannels, i, numSamples);   // 曲の終わりの後
     position = pos;
     heard = (double) pos;
     r.played = i;
@@ -371,12 +479,15 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
                     heard = (double) length;
                     position = length;
                     r.played = i;
+                    addClickTail (out, numChannels, i, numSamples);
                     return r;
                 }
                 const auto f = fade.getNextValue();
                 for (int c = 0; c < numChannels; ++c)
                     if (out[c] != nullptr)
                         out[c][i] = stretchOut.getSample (juce::jmin (c, chans - 1), k) * f;
+                // クリックは伸ばした後に足す（聞こえている位置 heard で拍を数える。キーで高さが変わらない）
+                addClick (out, numChannels, i, metronome.next (heard, clickAudible (heard)));
                 heard += step;
             }
             continue;
@@ -397,6 +508,7 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
         st.process (inPtrs, (size_t) need, false);
     }
 
+    addClickTail (out, numChannels, i, numSamples);   // Rubber Band が出しきれなかった分（ふつうは無い）
     position = (juce::int64) std::llround (heard);
     r.played = i;
     return r;

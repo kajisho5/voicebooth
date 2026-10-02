@@ -134,7 +134,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.tolerance"),  tr ("settings.tolerance.note"),  &tolerance,   200 },
         { tr ("settings.octave"),     tr ("settings.octave.note"),     &octaveAlign, 0 },
         { tr ("settings.lyrics"),     tr ("settings.lyrics.note"),     &showLyrics,  0 },
-        { tr ("settings.countIn"),    {},                              &countIn,     200 },
+        { tr ("settings.countIn"),    tr ("settings.countIn.note"),    &countIn,     200 },
         { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   240 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
         { tr ("settings.cache"),      utf8 ("~/Music/VoiceBooth/Cache"), &cacheKey,  0 },
@@ -143,9 +143,10 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.support"),    tr ("settings.support.note"),    &supportKey,  0 },
     };
 
-    // 本物のアプリでは、まだ音に効かない行を出さない（カウントインの音・キャッシュの置き場所の変更は未実装）。見本（UI_MOCK）は出す
+    // 本物のアプリでは、まだ効かない行を出さない（キャッシュの置き場所の変更は未実装）。見本（UI_MOCK）は出す。
+    // カウントインは 2026-10-02 から鳴る（クリックで数える）ので出す
     if (u->engineAttached)
-        rows.erase (std::remove_if (rows.begin(), rows.end(), [this] (const Row& r) { return r.control == &countIn || r.control == &cacheKey; }),
+        rows.erase (std::remove_if (rows.begin(), rows.end(), [this] (const Row& r) { return r.control == &cacheKey; }),
                     rows.end());
 
     for (auto& r : rows)
@@ -172,6 +173,7 @@ void SettingsDialog::onSessionChanged (juce::uint32)
     const auto& s = state();
     mode.setSelected ((int) s.mode, juce::dontSendNotification);
     countIn.setSelected (s.countInBars, juce::dontSendNotification);
+    countIn.setTooltip (s.tempoKnown() ? tr ("transport.countIn.tooltip") : tr ("transport.countIn.noTempo"));
     octaveAlign.setToggleState (s.octaveAlign, juce::dontSendNotification);
     octaveAlign.setButtonText (s.octaveAlign ? tr ("common.on") : tr ("common.off"));
     showLyrics.setToggleState (s.showLyrics, juce::dontSendNotification);

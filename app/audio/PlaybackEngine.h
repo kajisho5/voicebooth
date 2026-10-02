@@ -46,6 +46,16 @@ public:
     bool  consumeReachedEnd() override            { return core.consumeReachedEnd(); }
     void  setLoop (int64 a, int64 b, bool on) override { core.setLoop (a, b, on); }
     void  setPractice (double speed, int semitones) override { core.setPractice (speed, semitones); }
+    void  setClickGrid (double spb, int perBar, int64 downbeat) override { core.setClickGrid ({ spb, downbeat, perBar }); }
+    void  setClick (bool on, float gain) override       { core.setClick (on, gain); }
+    void  playWithCountIn (int64 countIn, int64 until) override { core.play (countIn, until); }
+    bool  isCountingIn() const override                 { return core.isCountingIn(); }
+    int64 getCountInPosition() const override           { return core.getCountInPosition(); }
+    MonitorLevels getMonitorLevels() const override
+    {
+        const auto l = core.getLevels();
+        return { l.backingDb, l.guideDb, l.clickDb };
+    }
     void  setVocalStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> b) override { core.setStem (slot, std::move (b)); }
     void  setVocalGain (int slot, float g) override     { core.setStemGain (slot, g); }
 

@@ -2,6 +2,8 @@
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include "SongLoader.h"
+#include "Metronome.h"
+#include "MonitorLevel.h"
 
 namespace RubberBand { class RubberBandStretcher; }
 
@@ -18,7 +20,11 @@ namespace RubberBand { class RubberBandStretcher; }
       - 録ったトラック（B12）：採用区間をつないだ曲の長さのモノラル（書き出しと同じ計算。exporter::renderTrackDry）を
         最大 4 本、伴奏と同じ位置で足す（両耳に同じ）。音量はトラックごと。練習のテンポ / キーでは伴奏と一緒に Rubber Band を通す。
         ここで鳴らすのは出力（モニター）だけ。録音は入力の素の声だけ（TakeRecorder。混ざらない）
-      - クリック・カウントインはまだ無い */
+      - クリック（メトロノーム）とカウントイン（2026-10-02。Metronome）：出力 1 サンプルごとに「聞こえている曲の位置」から拍を数えて、
+        出力の側で鳴らす（曲に混ぜてから伸ばさない。練習のキーで高さが変わらず、テンポを変えても拍に合う）。耳だけで録音には入らない。
+        カウントインは曲の前に無音で数える分（play の countIn）：その間は曲を鳴らさず位置も進めない（Rendered::lead）
+      - モニターの帯のメーター（2026-10-02）：オフボ・お手本・クリックのフェーダー後のピーク（LevelFollower）。
+        練習のテンポ / キーの間は Rubber Band に入れる側で測る（聞こえるのは伸ばす遅れの分だけ後） */
 
 namespace vb::audio
 {
@@ -33,7 +39,10 @@ public:
     void prepare (double outputSampleRate);
     double getOutputSampleRate() const { return outputRate.load(); }
 
-    void play();
+    /** 再生を始める。countIn > 0 なら、今の位置から countIn（曲のサンプル）前の所から、曲を鳴らさずにクリックだけで数え（カウントイン）、
+        届いたら今の位置から曲を鳴らす。countClicksUntil より前の位置ではクリックが Off でも拍を鳴らす
+        （カウントインと、範囲の録り直しの助走を数える。-1 = 使わない）。どのスレッドからでも */
+    void play (juce::int64 countIn = 0, juce::int64 countClicksUntil = -1);
     void stop();
     bool isPlaying() const { return playing.load(); }
 
@@ -60,18 +69,36 @@ public:
     void setGain (float linearGain);
     void setMuted (bool);
 
+    /** カウントインで数えている途中（曲はまだ鳴らしていない） */
+    bool isCountingIn() const { return playing.load() && countLeftOut.load() > 0; }
+    /** カウントイン中に聞こえている拍の位置（曲のサンプル。曲の頭より前なら負）。数えていなければ getPosition() */
+    juce::int64 getCountInPosition() const { return getPosition() - (playing.load() ? countLeftOut.load() : 0); }
+
+    /** クリックの拍の並び（曲のサンプル。テンポが分からなければ samplesPerBeat = 0）と、鳴らすか・音量（直線の倍率）。どのスレッドからでも */
+    void setClickGrid (Metronome::Grid g) { metronome.setGrid (g); }
+    void setClick (bool on, float linearGain);
+
+    /** モニターの帯のメーター（フェーダー後のピーク。dBFS、下限 -100）。UI が 30 Hz で読む */
+    struct Levels
+    {
+        float backingDb = LevelFollower::floorDb, guideDb = LevelFollower::floorDb, clickDb = LevelFollower::floorDb;
+    };
+    Levels getLevels() const { return { backingLevel.readDb(), guideLevel.readDb(), clickLevel.readDb() }; }
+
     /** 曲の終わりまで行って止まったら、1 度だけ true */
     bool consumeReachedEnd() { return reachedEnd.exchange (false); }
 
     /** render が鳴らした範囲（録音の位置合わせ用。B5）。start は 1 サンプル目の曲の位置、played は曲を鳴らした出力のサンプル数
         （止まっていれば 0、曲の終わりに来たらそこまで）。ループで戻ったら wrapped。
-        step は出力 1 サンプルで進む曲のサンプル数（ふつう 1。練習のテンポ・SR 変換の時だけ違う） */
+        step は出力 1 サンプルで進む曲のサンプル数（ふつう 1。練習のテンポ・SR 変換の時だけ違う）。
+        lead はカウントインの残りで、曲を鳴らす前の出力のサンプル数（曲はブロックの lead サンプル目から。入力もそこから合わせる） */
     struct Rendered
     {
         juce::int64 start = 0;
         int played = 0;
         bool wrapped = false;
         double step = 1.0;
+        int lead = 0;
     };
 
     PlaybackCore();
@@ -85,7 +112,14 @@ public:
 
 private:
     void rebuildStretcher();                        // 曲・出力の SR が決まった時（メッセージスレッド等。確保してよい所）
+    Rendered renderSong (float* const* out, int numChannels, int numSamples, juce::int64 pos) noexcept;
     Rendered renderStretched (float* const* out, int numChannels, int numSamples, const SongAudio&) noexcept;
+    /** クリックを足す（サンプル i に、両耳へ同じ値）。メーター用にピークも取る */
+    void addClick (float* const* out, int numChannels, int i, float value) noexcept;
+    /** 曲が止まった・終わった後の [from, to)：鳴りかけのクリックの残りだけ */
+    void addClickTail (float* const* out, int numChannels, int from, int to) noexcept;
+    /** このサンプルでクリックを鳴らすか（On か、カウントインの範囲） */
+    bool clickAudible (double songPos) const noexcept { return clickOn.load (std::memory_order_relaxed) || songPos < (double) countUntil; }
 
     juce::SpinLock songLock;
     std::shared_ptr<const SongAudio> song;          // songLock で保護
@@ -103,16 +137,28 @@ private:
     std::atomic<int> semitones { 0 };
     std::atomic<bool> stretchReset { true };        // 次のブロックでストレッチを頭からやり直す（再生開始・シーク・曲替え）
 
+    // クリックとカウントイン（2026-10-02）
+    Metronome metronome;
+    std::atomic<bool> clickOn { false }, startRequested { false };
+    std::atomic<juce::int64> countInRequest { 0 }, countUntilRequest { -1 };
+    std::atomic<juce::int64> countLeftOut { 0 };    // カウントインの残り（曲のサンプル。UI の表示用）
+
+    // モニターの帯のメーター（2026-10-02）
+    LevelFollower backingLevel, guideLevel, clickLevel;
+
     // オーディオスレッドだけが触る
     double fraction = 0.0;                          // SR 変換時の小数部
     juce::SmoothedValue<float> smoothedGain { 1.0f };      // オフボ
     juce::SmoothedValue<float> stemSmoothed[maxStems];     // 録ったトラック
     juce::SmoothedValue<float> fade { 1.0f };              // 全体（素通しとストレッチの切り替え・やり直しの頭）
 
-    /** 曲の pos の音（オフボ × 音量 + トラック × 音量）。gains は今のサンプルの音量 */
+    /** 曲の pos の音（オフボ × 音量 + トラック × 音量）。gains は今のサンプルの音量。メーター用にオフボ・お手本のピークも取る */
     struct Gains { float backing; float stem[maxStems]; };
     Gains nextGains() noexcept;
-    float mixAt (const SongAudio&, int channel, juce::int64 pos, const Gains&) const noexcept;
+    float mixAt (const SongAudio&, int channel, juce::int64 pos, const Gains&) noexcept;
+    float peakBacking = 0.0f, peakGuide = 0.0f, peakClick = 0.0f;   // このブロックの最大（フェーダー後）
+    double countLeft = 0.0;                         // カウントインの残り（曲のサンプル。出力 1 サンプルで step ずつ減る）
+    juce::int64 countUntil = -1;                    // この位置まではクリック Off でも拍を鳴らす
     bool prepared = false;
     bool stretching = false;                        // 前のブロックで Rubber Band を通したか
     double heard = 0.0;                             // 聞こえている曲の位置（ストレッチ中）

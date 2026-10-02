@@ -53,6 +53,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). Main and harmonies can't be split, so it's one track |
 | Range and suggested key | Measure your range (lowest and highest notes) with the mic and get a key that fits the guide's lowest and highest notes. One click applies it; if nothing fits, it says how many semitones stick out |
 | Recording | Full-pass recording, retroactive recording (pressing REC late never cuts off the first word), re-recording a range (8 ms crossfade at each edge; 0–20 ms in Pro), latency measurement and compensation |
+| Click and count-in | A click on the song's beat (higher on beat 1; follows the practice tempo). Counts 1–2 bars before REC; re-recording a range counts in before the range. Headphones only, never recorded or exported |
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
 | Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
 | Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
@@ -64,7 +65,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 These are not in the beta yet (and are not shown in the app).
 
 - A reference line for harmonies (selecting a harmony track still shows the main reference line)
-- Metronome and count-in sounds, comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
+- Comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
 
 > [!IMPORTANT]
 > The separation model is **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
