@@ -14,7 +14,7 @@
                              skin-editor-borrow / confirm-rec / song-info / lyrics
       --open=<path>          その曲を開く（起動画面で読み込み → 波形。B1）
       --lyrics=<path>        歌詞パッドをその .txt / .lrc で開く（B4b）
-      --guide=<path>         --open の曲を開いたら、このお手本（声入りの原曲）を重ねる（B9）
+      --guide=<path>         --open の曲を開いたら、このお手本（声入りの原曲）を重ねる（B9）。--open が無ければ起動画面のお手本の枠に入れる
       --mode=easy|standard|pro
       --track=main|double|harm1
       --rec                  録音中の見た目で開く

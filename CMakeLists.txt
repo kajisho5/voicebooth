@@ -178,6 +178,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
     app/analysis/Separation.cpp
+    app/analysis/OffVocal.cpp
     app/separation/SeparatorClient.cpp
     app/models/ModelManifest.cpp
     app/models/ModelDownloader.cpp)

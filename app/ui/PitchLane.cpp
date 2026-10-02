@@ -9,6 +9,7 @@ namespace
     constexpr int footerH = 38;
     constexpr float minConfidence = 0.5f;
     constexpr double maxGapSeconds = 0.015;   // 15 ms 以上空いたら線を切る（嘘でつながない）
+    constexpr float maxJumpSemitones = 4.0f;  // 隣の点と 4 半音より離れたら線を切る（縦の筋を描かない。1 点だけの外れは消える）
     constexpr float harmonyOffset = 4.0f;  // ダミーのハモリ（長 3 度上）
 
     bool isBlackKey (int midi)
@@ -31,7 +32,7 @@ namespace
         {
             if (p.sample < from || p.sample > to) continue;
             if (p.confidence < minConfidence) { flush(); continue; }
-            if (! run.empty() && p.sample - last > maxGapSamples) flush();
+            if (! run.empty() && (p.sample - last > maxGapSamples || std::abs (p.midi - run.back()->midi) > maxJumpSemitones)) flush();
             run.push_back (&p);
             last = p.sample;
         }
