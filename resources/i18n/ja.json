@@ -68,6 +68,7 @@
   "format.conformFailed": "伴奏を {0} kHz にそろえられませんでした（メモリが足りない可能性があります）",
   "format.conformed": "伴奏を {0} kHz にそろえました。{0} kHz・{1} で録ります",
   "format.conforming": "伴奏を {0} kHz にそろえています…",
+  "format.deviceFallback": "この機器は {0} kHz で開けないため、{1} kHz で録ります（オケを {1} kHz に変換。元のファイルはそのまま、書き出しも {1} kHz）",
   "format.rateLater": "この曲はテイクがあるので {0} kHz のまま録ります。{1} kHz は次に開く曲から",
   "gallery.encoder": "LED リング",
   "gallery.fader": "モニターミックス",

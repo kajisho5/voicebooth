@@ -47,6 +47,23 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     // 録音の SR を曲と違う値にしていれば、伴奏をその SR にそろえる（裏で）
     if (s.targetRate() != s.songRate)
         conformSong();
+    else
+        checkDeviceRate();
+}
+
+void UiSession::checkDeviceRate()
+{
+    // 「曲に合わせる」なのに機器が曲の SR で開けない（48 kHz 固定の機器・Windows の共有モードなど）：
+    // REC で止めずに、機器の SR で録る（伴奏をその SR にそろえ、知らせる。元のファイルはそのまま。2026-10-02 決定）
+    if (! isEngineDriven() || s.songOriginal == nullptr || s.conforming || s.isRecording || s.recordRate > 0.0)
+        return;
+    if (! s.output.open || ! s.output.converting || hasTakes())
+        return;   // 開いていない・そのまま鳴らせる・テイクがある（時間軸を変えない）
+    const auto deviceRate = juce::roundToInt (s.output.sampleRate);
+    if (deviceRate <= 0 || deviceRate == s.sampleRate())
+        return;
+    s.deviceFallbackRate = deviceRate;
+    conformSong();
 }
 
 //==============================================================================
@@ -145,7 +162,10 @@ void UiSession::conformSong()
                 syncLoopToEngine();
                 refreshOutputStatus();
             }
-            postNotice (tr ("format.conformed", formatKhz (target), formatBits (s.project.bitDepthExport)));
+            if (s.recordRate <= 0.0 && s.deviceFallbackRate == target)
+                postNotice (tr ("format.deviceFallback", formatKhz (s.songRate), formatKhz (target)));
+            else
+                postNotice (tr ("format.conformed", formatKhz (target), formatBits (s.project.bitDepthExport)));
             notify (change::all);
         });
     });
@@ -256,6 +276,7 @@ void UiSession::deviceChanged (bool lost)
     refreshOutputStatus();
     refreshInputStatus();
     notify (change::device | change::meter | change::transport);
+    checkDeviceRate();
 }
 
 audio::DeviceList UiSession::getDeviceList() const
@@ -275,6 +296,7 @@ juce::String UiSession::afterDeviceSelect (juce::String error)
     refreshOutputStatus();
     refreshInputStatus();
     notify (change::device | change::meter);
+    checkDeviceRate();
     return error;
 }
 
@@ -1073,7 +1095,10 @@ void UiSession::tick (double seconds)
             || in.open != i.open || in.problem != i.problem || in.deviceName != i.deviceName || in.channel != i.channel
             || in.numChannels != i.numChannels || in.silent != i.silent || in.permission != i.permission
             || in.inputLatency != i.inputLatency || in.outputLatency != i.outputLatency || in.bufferSize != i.bufferSize)
+        {
             notify (change::device | change::meter);
+            checkDeviceRate();
+        }
     }
 
     pollLatencyProbe();
