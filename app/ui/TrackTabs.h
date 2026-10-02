@@ -15,7 +15,11 @@ public:
     void resized() override;
     void mouseEnter (const juce::MouseEvent&) override { repaint(); }
     void mouseExit (const juce::MouseEvent&) override  { repaint(); }
-    void mouseUp (const juce::MouseEvent&) override    { session.selectTrack (index); }
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+    void mouseDoubleClick (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
 
     int trackIndex() const { return index; }
 
@@ -28,6 +32,9 @@ private:
     KeyButton arm { {}, KeyButton::Kind::rec };
     KeyButton mute { "M" }, solo { "S" };
     juce::Rectangle<int> textArea, gainArea;
+    bool draggingGain = false;
+    juce::Rectangle<int> gainHitArea() const { return gainArea.expanded (2, 6); }
+    void setGainFromX (int x);
 };
 
 /** DESIGN 4.6 トラック列。同時にアームできるのは 1 本 */

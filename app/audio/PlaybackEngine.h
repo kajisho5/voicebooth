@@ -46,6 +46,8 @@ public:
     bool  consumeReachedEnd() override            { return core.consumeReachedEnd(); }
     void  setLoop (int64 a, int64 b, bool on) override { core.setLoop (a, b, on); }
     void  setPractice (double speed, int semitones) override { core.setPractice (speed, semitones); }
+    void  setVocalStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> b) override { core.setStem (slot, std::move (b)); }
+    void  setVocalGain (int slot, float g) override     { core.setStemGain (slot, g); }
 
     void setBackingLevel (float fader, bool muted) override;
     void setSelfMonitor (float fader, bool muted) override;

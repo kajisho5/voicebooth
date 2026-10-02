@@ -40,6 +40,11 @@ public:
     static ExportResult exportTrackDry (const project::Project&, project::TrackType, const juce::File& projectFolder,
                                         const juce::File& destination, const Options& = {});
 
+    /** 書き出しと同じ計算で、track の採用区間をつないだフル尺の音（モノラル、曲の長さ）を out に作る。
+        試聴（トラックの再生。B12）用。ディザー・量子化はしない（float のまま） */
+    static ExportResult renderTrackDry (const project::Project&, project::TrackType, const juce::File& projectFolder,
+                                        juce::AudioBuffer<float>& out, const Options& = {});
+
     /** 書き出しファイル名。例: Demo_song_vocal_dry.wav（ファイル名に使えない文字は除く） */
     static juce::String dryFileName (const juce::String& song, project::TrackType t)
     {

@@ -15,6 +15,9 @@ namespace RubberBand { class RubberBandStretcher; }
         Rubber Band（R3・リアルタイム）を通す。位置は「いま聞こえている曲の位置」を出力 1 サンプルごとに
         速さ × 曲SR / 出力SR だけ進める（始めに getPreferredStartPad の無音を入れ、getStartDelay の分を捨てて頭をそろえる）。
         出力の SR が曲と違う時の変換も、ストレッチの比とピッチの比に含める
+      - 録ったトラック（B12）：採用区間をつないだ曲の長さのモノラル（書き出しと同じ計算。exporter::renderTrackDry）を
+        最大 4 本、伴奏と同じ位置で足す（両耳に同じ）。音量はトラックごと。練習のテンポ / キーでは伴奏と一緒に Rubber Band を通す。
+        ここで鳴らすのは出力（モニター）だけ。録音は入力の素の声だけ（TakeRecorder。混ざらない）
       - クリック・カウントインはまだ無い */
 
 namespace vb::audio
@@ -45,6 +48,12 @@ public:
     void setPractice (double speed, int semitones);
     /** 原速・原キーでない（Rubber Band を通している） */
     bool isPracticeShifted() const;
+
+    /** 録ったトラックの音（B12）。slot は 0..maxStems-1、buffer は曲の SR・曲の長さのモノラル（nullptr で外す）。メッセージスレッド */
+    static constexpr int maxStems = 4;
+    void setStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> buffer);
+    /** トラックの音量（直線の倍率。0 で鳴らさない）。どのスレッドからでも。20 ms でなめらかに */
+    void setStemGain (int slot, float linearGain);
 
     /** オフボの音量（直線の倍率）とミュート。急に変えず数 ms でなめらかに */
     void setGain (float linearGain);
@@ -79,6 +88,7 @@ private:
 
     juce::SpinLock songLock;
     std::shared_ptr<const SongAudio> song;          // songLock で保護
+    std::shared_ptr<const juce::AudioBuffer<float>> stems[maxStems];   // songLock で保護
     std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;   // songLock で保護
     juce::AudioBuffer<float> stretchIn, stretchOut; // songLock で保護（rebuildStretcher で確保）
     static constexpr int stretchBlock = 1024;       // process / retrieve の 1 回の最大
@@ -87,13 +97,21 @@ private:
     std::atomic<bool> playing { false }, reachedEnd { false }, muted { false }, loopOn { false };
     std::atomic<juce::int64> position { 0 }, pendingSeek { -1 }, loopIn { 0 }, loopOut { 0 };
     std::atomic<float> gain { 1.0f };
+    std::atomic<float> stemGain[maxStems] { { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f } };
     std::atomic<double> speed { 1.0 };
     std::atomic<int> semitones { 0 };
     std::atomic<bool> stretchReset { true };        // 次のブロックでストレッチを頭からやり直す（再生開始・シーク・曲替え）
 
     // オーディオスレッドだけが触る
     double fraction = 0.0;                          // SR 変換時の小数部
-    juce::SmoothedValue<float> smoothedGain { 1.0f };
+    juce::SmoothedValue<float> smoothedGain { 1.0f };      // オフボ
+    juce::SmoothedValue<float> stemSmoothed[maxStems];     // 録ったトラック
+    juce::SmoothedValue<float> fade { 1.0f };              // 全体（素通しとストレッチの切り替え・やり直しの頭）
+
+    /** 曲の pos の音（オフボ × 音量 + トラック × 音量）。gains は今のサンプルの音量 */
+    struct Gains { float backing; float stem[maxStems]; };
+    Gains nextGains() noexcept;
+    float mixAt (const SongAudio&, int channel, juce::int64 pos, const Gains&) const noexcept;
     bool prepared = false;
     bool stretching = false;                        // 前のブロックで Rubber Band を通したか
     double heard = 0.0;                             // 聞こえている曲の位置（ストレッチ中）
