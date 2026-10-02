@@ -135,7 +135,8 @@ set(VOICEBOOTH_AUDIO_SOURCES
 set(VOICEBOOTH_RECORD_SOURCES
     app/project/Comp.cpp
     app/project/ProjectFile.cpp
-    app/export/ExportService.cpp)
+    app/export/ExportService.cpp
+    app/export/DeliveryPack.cpp)
 
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
@@ -327,6 +328,7 @@ if(VOICEBOOTH_TESTS)
         tests/RefPitchTests.cpp
         tests/MusicInfoTests.cpp
         tests/ProjectFileTests.cpp
+        tests/DeliveryPackTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

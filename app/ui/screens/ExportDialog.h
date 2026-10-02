@@ -20,6 +20,11 @@ public:
     /** 書き出すビット数（16 / 24 / 32 = float）。既定は録音形式と同じ */
     int selectedBitDepth() const;
 
+    /** 納品パック（B15）を選んでいる（簡単モードは個別 WAV だけ） */
+    bool packSelected() const;
+    /** 納品パックに確認用ミックスを入れる */
+    bool refmixSelected() const;
+
 protected:
     void layoutBody (juce::Rectangle<int>) override;
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
@@ -35,7 +40,8 @@ private:
         bool clip;          // 採用区間にクリップ
         juce::String peak;
         juce::String clipTakes;   // クリップしたテイク（"take2, take4"。曲を開いた時）
-        bool later = false;       // まだ書き出せない（確認用ミックスは B15）
+        bool packOnly = false;    // 納品パックにだけ入る（確認用ミックス）
+        juce::String packFile;    // パックの中の名前（vocal_dry.wav など）
     };
 
     std::vector<FileRow> rows;
