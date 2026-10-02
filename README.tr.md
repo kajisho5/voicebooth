@@ -42,7 +42,7 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 | İşletim sistemi | **Hem Windows hem Mac** (Mac: Apple silicon ve Intel). **Telefon veya tablet sürümü yoktur** |
 | Ekran kartı | **Gerekmez.** Yalnızca CPU ile çalışır. Tek ağır iş vokal ayırmadır: 30 saniyelik bir şarkı 4 çekirdekli bir CPU'da yaklaşık 2 dakika sürdü (uygulama tahmini süreyi gösterir) |
 | Yüklenebilen ses | **Yalnızca bilgisayarınızdaki ses dosyaları** (wav / flac / aiff / ogg / mp3 / m4a). Spotify, Apple Music, YouTube Music veya diğer akış hizmetlerindeki şarkılar doğrudan yüklenemez |
-| Boyut | Kurulum dosyası Windows'ta yaklaşık 13 MB, Mac'te yaklaşık 40 MB. Ayırma modeli (yaklaşık 223 MB) **yalnızca kullanmak için düğmeye bastığınızda** indirilir. Arka planda gizlice hiçbir şey indirilmez |
+| Boyut | Kurulum dosyası Windows'ta yaklaşık 13 MB, Mac'te yaklaşık 40 MB. Ayırma ve perde modelleri (yaklaşık 223 MB + 99 MB) **yalnızca kullanmak için düğmeye bastığınızda** indirilir. Arka planda gizlice hiçbir şey indirilmez |
 | Ağır işlemler | Ayırma **yalnızca düğmeye bastığınızda** çalışır. Şarkı sözü gösterimi **varsayılan olarak kapalıdır** (Ayarlar'dan açın) |
 | Armoniler | Armoni kanalları kaydedebilirsiniz. **Bir miksten yalnızca armoniyi çıkarıp referans olarak kullanan bir özellik yoktur** (ayırma iki parça verir: "tüm vokaller" ve "eşlik") |
 | Ayrılan ses | Ayrılan vokal ve eşlik **kişisel pratiğiniz içindir**. VoiceBooth orijinal şarkının haklarını değiştirmez. Yalnızca orijinal hak sahiplerinin izin verdiği ölçüde dağıtın veya yayınlayın (cover için altyapı olarak paylaşmak dahil) |

@@ -27,6 +27,19 @@ python3 tools/models/make_manifest.py --model-dir parts8 \
 
 `parts8/` は `tools/separation/` で作る 8 個の ONNX（約 230 MB）。
 
+### 音程のモデル（RMVPE、2026-10-02）
+
+分離と同じ一覧に入れる（`--merge` で前の一覧のモデルを残す）。アプリは「分離モデルを入れる」で分離に続けてこれも入れる。
+
+```sh
+python3 tools/pitch/quantize_rmvpe.py --src rmvpe.onnx --out pitch/rmvpe.onnx   # 元の URL・SHA-256 はスクリプトの先頭に
+python3 tools/models/make_manifest.py --model-dir pitch --files rmvpe.onnx \
+  --id rmvpe-int8-1 --role pitch --title "RMVPE (RVC)" --license MIT \
+  --license-url https://huggingface.co/lj1995/VoiceConversionWebUI \
+  --base-url https://voicebooth-dl.sw-ars.com/models/rmvpe-int8/1/ \
+  --merge out/manifest.json --key ~/voicebooth-keys/models-ed25519.pem --serial 2 --out out/
+```
+
 ## 3. R2（voicebooth-dist）に置く
 
 版ごとのファイルは上書きしない（別の場所に置く）。キャッシュの決まり（DESIGN 11.7）に合わせる。
@@ -36,6 +49,8 @@ for f in parts8/*.onnx; do
   npx wrangler r2 object put "voicebooth-dist/models/mel-band-roformer-kj-int8/1/$(basename $f)" --file "$f" \
     --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --remote
 done
+npx wrangler r2 object put "voicebooth-dist/models/rmvpe-int8/1/rmvpe.onnx" --file pitch/rmvpe.onnx \
+  --content-type application/octet-stream --cache-control "public, max-age=31536000, immutable" --remote
 npx wrangler r2 object put voicebooth-dist/models/manifest.json     --file out/manifest.json     --content-type application/json --cache-control "public, max-age=300" --remote
 npx wrangler r2 object put voicebooth-dist/models/manifest.json.sig --file out/manifest.json.sig --content-type text/plain       --cache-control "public, max-age=300" --remote
 ```
@@ -46,3 +61,4 @@ npx wrangler r2 object put voicebooth-dist/models/manifest.json.sig --file out/m
 - `VB_MODEL_MANIFEST_URL=<URL>`：一覧の場所を差し替える
 - `VB_MODEL_ALLOW_HTTP=1`：一覧の中の http:// を許す（手元のサーバーだけ）
 - `VB_SEPARATION_MODEL=<フォルダ>`：ダウンロードせずに、手元のモデルのフォルダを使う
+- `VB_PITCH_MODEL=<rmvpe.onnx>`：ダウンロードせずに、手元の音程のモデルを使う

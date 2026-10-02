@@ -11,6 +11,11 @@
       progress <0..1>
       done
       error <理由>               （終了コード 1）
+
+    お手本の音程（2026-10-02）：
+      VoiceBoothSeparator --pitch <rmvpe.onnx> --in <WAV（SR・チャンネルは問わない）> --out <テキスト>
+                          [--threads 0] [--parent-pid <本体の PID>] [--stdin-control]
+    出力ファイルは 1 行目に "vbpitch 1 <フレーム数>"、以降 10 ms ごとに "<セント（10 Hz 基準）> <強さ>"。標準出力は ready / progress / done / error
     中止：--stdin-control を付けた時（本体から起動する時）は、標準入力に "stop" が来るか、標準入力が閉じたら止める（本体が落ちた時も止まる）
 
     モデル（Mel-Band RoFormer、Kimberley Jensen、MIT）は層ごとに分けた ONNX 8 個：
@@ -21,6 +26,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <onnxruntime_cxx_api.h>
 #include "analysis/Separation.h"
+#include "analysis/Rmvpe.h"
 #include <atomic>
 #include <iostream>
 #include <thread>
@@ -134,6 +140,90 @@ private:
     std::vector<Ort::Session> sessions;
 };
 
+/** お手本の音程：RMVPE（analysis/Rmvpe.h）。log-mel を 1000 フレームずつ、前後 128 フレームの文脈を付けて回す */
+int runPitch (const juce::File& modelFile, const juce::File& in, const juce::File& out, int threads)
+{
+    namespace rm = vb::analysis::rmvpe;
+    std::vector<float> mono;
+    double rate = 0.0;
+    {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> r (formats.createReaderFor (in));
+        if (r == nullptr) return fail ("can't read " + in.getFullPathName());
+        if (r->lengthInSamples <= 0 || r->lengthInSamples > (juce::int64) (60 * 60 * r->sampleRate)) return fail ("bad length");
+        rate = r->sampleRate;
+        juce::AudioBuffer<float> b ((int) juce::jmax (1u, r->numChannels), (int) r->lengthInSamples);
+        r->read (&b, 0, b.getNumSamples(), 0, true, true);
+        mono.assign ((size_t) b.getNumSamples(), 0.0f);
+        for (int ch = 0; ch < b.getNumChannels(); ++ch)
+            juce::FloatVectorOperations::addWithMultiply (mono.data(), b.getReadPointer (ch), 1.0f / (float) b.getNumChannels(), b.getNumSamples());
+    }
+
+    std::unique_ptr<Ort::Env> env;
+    std::unique_ptr<Ort::Session> session;
+    try
+    {
+        env = std::make_unique<Ort::Env> (ORT_LOGGING_LEVEL_WARNING, "VoiceBoothPitch");
+        Ort::SessionOptions so;
+        so.SetIntraOpNumThreads (threads);
+        so.SetInterOpNumThreads (1);
+        so.SetGraphOptimizationLevel (GraphOptimizationLevel::ORT_ENABLE_ALL);
+       #if JUCE_WINDOWS
+        session = std::make_unique<Ort::Session> (*env, modelFile.getFullPathName().toWideCharPointer(), so);
+       #else
+        session = std::make_unique<Ort::Session> (*env, modelFile.getFullPathName().toRawUTF8(), so);
+       #endif
+    }
+    catch (const std::exception& e) { return fail (juce::String ("can't load model: ") + e.what()); }
+
+    const auto x16 = rm::resampleTo16k (mono.data(), (int64_t) mono.size(), rate);
+    mono = {};
+    int frames = 0;
+    const auto mel = rm::logMel (x16, frames);
+    const int chunks = (frames + rm::chunkFrames - 1) / rm::chunkFrames;
+    say ("ready " + juce::String (chunks));
+
+    std::vector<rm::Frame> result ((size_t) frames);
+    std::vector<float> seg;
+    auto mem = Ort::MemoryInfo::CreateCpu (OrtArenaAllocator, OrtMemTypeDefault);
+    const char* inName[] = { "input" };
+    const char* outName[] = { "output" };
+    for (int s = 0, c = 0; s < frames; s += rm::chunkFrames, ++c)
+    {
+        if (stopRequested.load()) return fail ("stopped");
+        const int a = juce::jmax (0, s - rm::contextFrames), b = juce::jmin (frames, s + rm::chunkFrames + rm::contextFrames);
+        const int k = b - a, padded = 32 * ((k - 1) / 32 + 1);   // 32 の倍数まで右を 0 で埋める
+        seg.assign ((size_t) rm::mels * (size_t) padded, 0.0f);
+        for (int m = 0; m < rm::mels; ++m)
+            std::copy (mel.begin() + (ptrdiff_t) ((size_t) m * (size_t) frames + (size_t) a),
+                       mel.begin() + (ptrdiff_t) ((size_t) m * (size_t) frames + (size_t) b),
+                       seg.begin() + (ptrdiff_t) ((size_t) m * (size_t) padded));
+        const std::array<int64_t, 3> shape { 1, rm::mels, padded };
+        try
+        {
+            auto input = Ort::Value::CreateTensor<float> (mem, seg.data(), seg.size(), shape.data(), shape.size());
+            auto output = session->Run (Ort::RunOptions{ nullptr }, inName, &input, 1, outName, 1);
+            const auto* p = output[0].GetTensorData<float>();   // [1, padded, 360]
+            const int e = juce::jmin (frames, s + rm::chunkFrames);
+            for (int t = s; t < e; ++t)
+                rm::decodeFrame (p + (size_t) (t - a) * rm::bins, result[(size_t) t].cents, result[(size_t) t].strength);
+        }
+        catch (const std::exception& e) { return fail (juce::String ("pitch failed: ") + e.what()); }
+        say ("progress " + juce::String ((float) (c + 1) / (float) chunks, 4));
+    }
+
+    juce::MemoryOutputStream text;
+    text << "vbpitch 1 " << frames << "\n";
+    for (auto& f : result)
+        text << juce::String (f.cents, 2) << " " << juce::String (f.strength, 5) << "\n";
+    const auto temp = out.getSiblingFile (out.getFileName() + ".part");
+    if (! temp.replaceWithData (text.getData(), text.getDataSize()) || ! temp.moveFileTo (out))
+        return fail ("can't write output");
+    say ("done");
+    std::_Exit (0);
+}
+
 bool writeWav (const juce::File& file, const juce::AudioBuffer<float>& b)
 {
     const auto temp = file.getSiblingFile (file.getFileName() + ".part");
@@ -160,8 +250,12 @@ int main (int argc, char* argv[])
     const juce::File modelDir (arg (args, "--model")), in (arg (args, "--in")), outVocals (arg (args, "--vocals")), outBacking (arg (args, "--backing"));
     const int overlap = juce::jlimit (1, 4, arg (args, "--overlap", "2").getIntValue());
     const int threads = juce::jmax (0, arg (args, "--threads", "0").getIntValue());
-    if (! modelDir.isDirectory() || ! in.existsAsFile() || outVocals == juce::File() || outBacking == juce::File())
-        return fail ("usage: --model <dir> --in <wav> --vocals <wav> --backing <wav> [--overlap 2] [--threads 0]");
+    const juce::File pitchModel (arg (args, "--pitch")), pitchOut (arg (args, "--out"));
+    const bool pitchMode = args.contains ("--pitch");
+    if (pitchMode ? (! pitchModel.existsAsFile() || ! in.existsAsFile() || pitchOut == juce::File())
+                  : (! modelDir.isDirectory() || ! in.existsAsFile() || outVocals == juce::File() || outBacking == juce::File()))
+        return fail ("usage: --model <dir> --in <wav> --vocals <wav> --backing <wav> [--overlap 2] [--threads 0]"
+                     " | --pitch <rmvpe.onnx> --in <wav> --out <txt> [--threads 0]");
 
     // 本体が落ちたら止める
     if (const auto parent = arg (args, "--parent-pid").getLargeIntValue(); parent > 0)
@@ -188,6 +282,9 @@ int main (int argc, char* argv[])
         });
         watcher.detach();
     }
+
+    if (pitchMode)
+        return runPitch (pitchModel, in, pitchOut, threads);
 
     juce::AudioBuffer<float> mix;
     {

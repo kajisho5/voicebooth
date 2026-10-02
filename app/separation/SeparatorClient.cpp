@@ -70,6 +70,55 @@ bool SeparatorClient::available()
     return executable().existsAsFile() && modelInstalled();
 }
 
+juce::String SeparatorClient::pitchModelId() { return "rmvpe-int8-1"; }
+
+juce::File SeparatorClient::pitchModelFile()
+{
+    if (const auto env = juce::SystemStats::getEnvironmentVariable ("VB_PITCH_MODEL", {}); env.isNotEmpty())
+        return juce::File (env);
+    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+               .getChildFile ("VoiceBooth").getChildFile ("Models").getChildFile ("pitch").getChildFile (pitchModelId())
+               .getChildFile ("rmvpe.onnx");
+}
+
+bool SeparatorClient::pitchAvailable()
+{
+    return executable().existsAsFile() && pitchModelFile().existsAsFile();
+}
+
+bool SeparatorClient::runPitch (const juce::File& wav, std::vector<std::pair<float, float>>& frames)
+{
+    frames.clear();
+    if (! pitchAvailable() || ! wav.existsAsFile())
+        return false;
+    const auto out = wav.getSiblingFile (wav.getFileNameWithoutExtension() + ".pitch.txt");
+    out.deleteFile();
+    const auto threads = juce::jlimit (2, 6, juce::SystemStats::getNumCpus() / 2);   // 分離と同じ（録音・再生を止めない）
+    juce::ChildProcess child;
+    if (! child.start (juce::StringArray { executable().getFullPathName(), "--pitch", pitchModelFile().getFullPathName(),
+                                           "--in", wav.getFullPathName(), "--out", out.getFullPathName(),
+                                           "--threads", juce::String (threads), "--parent-pid", processId() },
+                       juce::ChildProcess::wantStdOut))
+        return false;
+    child.readAllProcessOutput();   // 終わるまで待つ（4 分の曲で 10〜30 秒）
+    if (child.getExitCode() != 0 || ! out.existsAsFile())
+        return false;
+
+    juce::StringArray lines;
+    lines.addLines (out.loadFileAsString());
+    out.deleteFile();
+    if (lines.isEmpty() || ! lines[0].startsWith ("vbpitch 1 "))
+        return false;
+    const auto n = lines[0].fromLastOccurrenceOf (" ", false, false).getIntValue();
+    if (n <= 0 || lines.size() < n + 1)
+        return false;
+    frames.reserve ((size_t) n);
+    for (int i = 1; i <= n; ++i)
+        frames.emplace_back (lines[i].upToFirstOccurrenceOf (" ", false, false).getFloatValue(),
+                             lines[i].fromFirstOccurrenceOf (" ", false, false).getFloatValue());
+    return true;
+}
+
 bool SeparatorClient::start (const juce::File& in, const juce::File& outVocals, const juce::File& outBacking, Callbacks cb)
 {
     if (isThreadRunning())

@@ -7,6 +7,7 @@
 #include "analysis/Separation.h"
 #include "analysis/OffVocal.h"
 #include "analysis/TakeStats.h"
+#include "analysis/Rmvpe.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -1075,6 +1076,42 @@ namespace
         std::shared_ptr<const audio::SongAudio> vocals;   // 取り出した声（オフボの時間・オフボの元の SR・モノラル）。聴く用
     };
 
+    /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
+        伴奏の残りに強く、オクターブの誤りがほぼ無い（Rmvpe.h）。モデルが無い・失敗したら false（YIN の線のまま） */
+    bool pitchWithModel (const std::vector<float>& vocals, double rate, std::vector<audio::PitchFrame>& points)
+    {
+        if (vocals.empty() || ! separation::SeparatorClient::pitchAvailable())
+            return false;
+        const auto wav = juce::File::createTempFile (".wav");
+        {
+            auto fs = std::make_unique<juce::FileOutputStream> (wav);
+            if (! fs->openedOk())
+                return false;
+            std::unique_ptr<juce::OutputStream> stream (fs.release());
+            juce::WavAudioFormat format;
+            auto w = format.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (1)
+                                                         .withBitsPerSample (32).withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
+            const float* ch[] = { vocals.data() };
+            if (w == nullptr || ! w->writeFromFloatArrays (ch, 1, (int) vocals.size()))
+            {
+                wav.deleteFile();
+                return false;
+            }
+        }
+        std::vector<std::pair<float, float>> raw;
+        const bool ok = separation::SeparatorClient::runPitch (wav, raw);
+        wav.deleteFile();
+        if (! ok)
+            return false;
+        std::vector<analysis::rmvpe::Frame> frames;
+        frames.reserve (raw.size());
+        for (auto& [c, s] : raw)
+            frames.push_back ({ c, s });
+        points = analysis::rmvpe::toPitchFrames (frames, rate);
+        analysis::rmvpe::gateQuiet (points, vocals.data(), (juce::int64) vocals.size(), rate);
+        return true;
+    }
+
     std::shared_ptr<const audio::SongAudio> vocalsAudio (const std::vector<float>& v, double rate)
     {
         if (v.empty()) return nullptr;
@@ -1145,6 +1182,7 @@ namespace
             case analysis::RefPitchResult::Status::ok:
                 out.kind = GuideOutcome::Kind::ok;
                 out.points = std::move (r.points);
+                pitchWithModel (vocals, rate, out.points);   // モデルがあれば線は RMVPE で取り直す
                 out.vocals = vocalsAudio (vocals, rate);   // お手本の声を聴く
                 break;
             case analysis::RefPitchResult::Status::needsSeparation: out.kind = GuideOutcome::Kind::needsSeparation; break;
@@ -1216,7 +1254,9 @@ void UiSession::loadGuide (const juce::File& file)
                     // 引き算では声が取れない：分離（B16）が使えれば勧める。モデルが無ければ理由と「分離モデルを入れる」キー
                     // （ダウンロードは使う人が押した時だけ。勝手に始めない・この知らせを出すだけ）
                     s.guideNeedsSeparation = true;
-                    if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); }
+                    if (separationAvailable() && separationCached())
+                        separateGuide();   // 前に分離した結果がある：聞かずにそれを使う（数秒）
+                    else if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); }
                     else
                     {
                         if (separation::SeparatorClient::executable().existsAsFile() && ! models::trustedKeys().empty())
@@ -1303,10 +1343,12 @@ void UiSession::requestSeparationModel()
     }
     auto openDialog = [this] (const models::ModelEntry& entry)
     {
+        // 音程のモデル（RMVPE）も一覧にあり、まだ入っていなければ続けて入れる（大きさ・名前・ライセンスも並べる）
+        const bool withPitch = pitchEntry != nullptr && ! separation::SeparatorClient::pitchModelFile().existsAsFile();
         s.modelDl.known = true;
-        s.modelDl.title = entry.title;
-        s.modelDl.license = entry.license;
-        s.modelDl.size = entry.totalSize();
+        s.modelDl.title = entry.title + (withPitch ? " + " + pitchEntry->title : juce::String());
+        s.modelDl.license = withPitch && pitchEntry->license != entry.license ? entry.license + " / " + pitchEntry->license : entry.license;
+        s.modelDl.size = entry.totalSize() + (withPitch ? pitchEntry->totalSize() : 0);
         ++s.modelDl.dialogSerial;
         notify (change::notice);
     };
@@ -1318,12 +1360,13 @@ void UiSession::requestSeparationModel()
 
     postNotice (tr ("model.checking"));
     const auto wantedId = separation::SeparatorClient::modelId();
+    const auto pitchId = separation::SeparatorClient::pitchModelId();
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, keys, wantedId, openDialog]
+    juce::Thread::launch ([this, weak, keys, wantedId, pitchId, openDialog]
     {
         auto http = models::makeHttpSource();
         juce::String error;
-        std::unique_ptr<models::ModelEntry> found;
+        std::unique_ptr<models::ModelEntry> found, foundPitch;
         juce::MemoryBlock list, sig;
         const auto url = models::manifestUrl();
         if (! fetchSmall (*http, url, list) || ! fetchSmall (*http, url + ".sig", sig))
@@ -1340,12 +1383,17 @@ void UiSession::requestSeparationModel()
             else if (! models::parseManifest (list.toString(), m, error))
                 error = "bad model list: " + error;
             else if (const auto* e = m.find (wantedId))
+            {
                 found = std::make_unique<models::ModelEntry> (*e);
+                if (const auto* p = m.find (pitchId))   // 無くても分離は入れられる（線は YIN のまま）
+                    foundPitch = std::make_unique<models::ModelEntry> (*p);
+            }
             else
                 error = "the model isn't in the list";
         }
         auto entry = std::shared_ptr<models::ModelEntry> (found.release());
-        juce::MessageManager::callAsync ([this, weak, entry, error, openDialog]
+        auto pitch = std::shared_ptr<models::ModelEntry> (foundPitch.release());
+        juce::MessageManager::callAsync ([this, weak, entry, pitch, error, openDialog]
         {
             if (weak.expired()) return;
             if (entry == nullptr)
@@ -1354,6 +1402,8 @@ void UiSession::requestSeparationModel()
                 return;
             }
             modelEntry = std::make_unique<models::ModelEntry> (*entry);
+            if (pitch != nullptr)
+                pitchEntry = std::make_unique<models::ModelEntry> (*pitch);
             openDialog (*entry);
         });
     });
@@ -1371,23 +1421,59 @@ void UiSession::startModelDownload()
     s.modelDl.stage = (int) models::DownloadStatus::Stage::downloading;
     s.modelDl.received = 0;
     s.modelDl.error = {};
+    // 分離 → 音程（RMVPE）の順に。入っている物は飛ばす。進み具合は 2 つを合わせた大きさで出す
+    const auto pitchFolder = separation::SeparatorClient::pitchModelFile().getParentDirectory();
+    const bool needSeparation = ! separation::SeparatorClient::modelInstalled();
+    const bool needPitch = pitchEntry != nullptr && ! separation::SeparatorClient::pitchModelFile().existsAsFile();
+    const auto total = (needSeparation ? entry->totalSize() : 0) + (needPitch ? pitchEntry->totalSize() : 0);
+    if (needSeparation)
+        startModelFile (*entry, separation::SeparatorClient::modelFolder(), 0, total, needPitch);
+    else if (needPitch)
+        startModelFile (*pitchEntry, pitchFolder, 0, total, false);
+    else
+        startModelFile (*entry, separation::SeparatorClient::modelFolder(), 0, entry->totalSize(), false);   // 照合し直す
+    notify (change::view | change::notice);
+}
+
+void UiSession::startModelFile (const models::ModelEntry& entry, const juce::File& folder, juce::int64 offset, juce::int64 total, bool more)
+{
     std::weak_ptr<bool> weak = alive;
-    const auto folder = separation::SeparatorClient::modelFolder();
-    modelDownloader->start (*entry, folder, [this, weak] (const models::DownloadStatus& st)
+    modelDownloader->start (entry, folder, [this, weak, offset, total, more] (const models::DownloadStatus& st)
     {
         if (weak.expired()) return;
         const auto before = s.modelDl.stage;
-        s.modelDl.stage = (int) st.stage;
-        s.modelDl.received = st.received;
-        s.modelDl.size = st.total;
+        auto stage = st.stage;
+        // 分離が終わっても音程のモデルが残っていれば、まだ「受け取り中」
+        const bool next = more && stage == models::DownloadStatus::Stage::done && pitchEntry != nullptr;
+        if (next)
+            stage = models::DownloadStatus::Stage::downloading;
+        s.modelDl.stage = (int) stage;
+        s.modelDl.received = offset + st.received;
+        s.modelDl.size = juce::jmax (total, offset + st.total);
         s.modelDl.bytesPerSecond = st.bytesPerSecond;
         s.modelDl.retryIn = st.retryInSeconds;
         s.modelDl.attempt = st.attempt;
         s.modelDl.paused = st.paused;
         s.modelDl.error = st.error;
         notify (before != s.modelDl.stage ? (juce::uint32) (change::view | change::notice) : (juce::uint32) change::view);
+        if (next)
+            startPitchModelWhenFree (offset + st.total, total);
     });
-    notify (change::view | change::notice);
+}
+
+void UiSession::startPitchModelWhenFree (juce::int64 offset, juce::int64 total)
+{
+    // 分離を受け取ったスレッドが終わるのを待ってから始める（終わる前は start が断る）
+    std::weak_ptr<bool> weak = alive;
+    juce::Timer::callAfterDelay (100, [this, weak, offset, total]
+    {
+        if (weak.expired() || pitchEntry == nullptr || modelDownloader == nullptr || s.modelDl.stage < 0)
+            return;   // 消えた・やめた
+        if (modelDownloader->isBusy())
+            startPitchModelWhenFree (offset, total);
+        else
+            startModelFile (*pitchEntry, separation::SeparatorClient::pitchModelFile().getParentDirectory(), offset, total, false);
+    });
 }
 
 void UiSession::cancelModelDownload()
@@ -1404,6 +1490,24 @@ void UiSession::stopSeparation()
         separator->stop();
 }
 
+juce::File UiSession::separationCacheFolder() const
+{
+    // キャッシュ（Cache/ は消しても作り直せる。DESIGN 8）：原曲のファイル・大きさ・日時・モデルが同じなら分離し直さない
+    const auto guide = s.projectFolder.getChildFile (s.guidePath);
+    const auto key = juce::String::toHexString ((juce::int64) (s.guidePath + "|" + juce::String (guide.getSize()) + "|"
+                                                               + juce::String (guide.getLastModificationTime().toMilliseconds()) + "|"
+                                                               + separation::SeparatorClient::modelId()).hashCode64());
+    return s.projectFolder.getChildFile ("Cache/separation/" + key);
+}
+
+bool UiSession::separationCached() const
+{
+    if (s.guidePath.isEmpty() || s.projectFolder == juce::File())
+        return false;
+    const auto dir = separationCacheFolder();
+    return dir.getChildFile ("vocals.wav").existsAsFile() && dir.getChildFile ("backing.wav").existsAsFile();
+}
+
 void UiSession::separateGuide()
 {
     if (! separationAvailable() || s.guidePath.isEmpty() || s.separating || s.songOriginal == nullptr)
@@ -1412,11 +1516,7 @@ void UiSession::separateGuide()
     if (! guide.existsAsFile())
         return;
 
-    // キャッシュ（Cache/ は消しても作り直せる。DESIGN 8）：原曲のファイル・大きさ・日時・モデルが同じなら分離し直さない
-    const auto key = juce::String::toHexString ((juce::int64) (s.guidePath + "|" + juce::String (guide.getSize()) + "|"
-                                                               + juce::String (guide.getLastModificationTime().toMilliseconds()) + "|"
-                                                               + separation::SeparatorClient::modelId()).hashCode64());
-    const auto dir = s.projectFolder.getChildFile ("Cache/separation/" + key);
+    const auto dir = separationCacheFolder();
     const auto vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav"), mix = dir.getChildFile ("mix.wav");
     if (vocals.existsAsFile() && backing.existsAsFile())
     {
@@ -1614,6 +1714,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 {
                     out->kind = GuideOutcome::Kind::ok;
                     out->points = std::move (r.points);
+                    pitchWithModel (onBacking, rate, out->points);   // モデルがあれば線は RMVPE で取り直す
                     out->vocals = vocalsAudio (onBacking, rate);
                 }
             }

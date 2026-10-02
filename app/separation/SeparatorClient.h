@@ -27,6 +27,15 @@ public:
     static bool available();
     static bool modelInstalled();
 
+    /** お手本の音程のモデル（RMVPE、analysis/Rmvpe.h）。環境変数 VB_PITCH_MODEL があればそのファイル、
+        無ければアプリのデータの Models/pitch/<id>/rmvpe.onnx */
+    static juce::String pitchModelId();
+    static juce::File pitchModelFile();
+    static bool pitchAvailable();
+    /** 音程を取る（分離プロセスの --pitch。終わるまで待つので裏のスレッドから呼ぶ）。
+        wav はモノラル、frames は 10 ms ごとの（セント、強さ）。失敗・モデルが無ければ false */
+    static bool runPitch (const juce::File& wav, std::vector<std::pair<float, float>>& frames);
+
     struct Callbacks
     {
         std::function<void (float progress, double etaSeconds)> progress;   // etaSeconds < 0 = まだ分からない

@@ -42,7 +42,7 @@ Cante sobre um instrumental, veja sua afinação na tela, regrave só as partes 
 | Sistema | **Windows e Mac** (Mac: Apple silicon e Intel). **Não há versão para celular nem tablet** |
 | Placa de vídeo | **Não é necessária.** Roda só com a CPU. A única coisa pesada é a separação de voz: uma música de 30 segundos levou cerca de 2 minutos numa CPU de 4 núcleos (o app mostra um tempo estimado) |
 | Áudio que você pode carregar | **Só arquivos de áudio do seu computador** (wav / flac / aiff / ogg / mp3 / m4a). Não dá para carregar músicas direto do Spotify, Apple Music, YouTube Music ou outros serviços de streaming |
-| Tamanho | O instalador tem cerca de 13 MB no Windows e cerca de 40 MB no Mac. O modelo de separação (cerca de 223 MB) é baixado **só quando você aperta o botão para usá-lo**. Nada é baixado escondido |
+| Tamanho | O instalador tem cerca de 13 MB no Windows e cerca de 40 MB no Mac. Os modelos de separação e de afinação (cerca de 223 MB + 99 MB) são baixados **só quando você aperta o botão para usá-los**. Nada é baixado escondido |
 | Processamento pesado | A separação roda **só quando você aperta o botão**. A letra fica **desligada por padrão** (ative em Ajustes) |
 | Harmonias | Você pode gravar faixas de harmonia. **Não existe função que tire só a harmonia de uma mix para usar como referência** (a separação gera duas partes: "todas as vozes" e "acompanhamento") |
 | Áudio separado | A voz e o acompanhamento separados são **para o seu treino pessoal**. O VoiceBooth não muda os direitos da música original. Distribua ou publique (inclusive compartilhar como instrumental para covers) só até onde os detentores dos direitos originais permitirem |

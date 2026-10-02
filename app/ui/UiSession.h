@@ -363,6 +363,11 @@ private:
     juce::String stemSignature[4];
     std::unique_ptr<models::ModelDownloader> modelDownloader;   // B16
     std::unique_ptr<models::ModelEntry> modelEntry;              // 署名を確かめた一覧の中の分離モデル
+    std::unique_ptr<models::ModelEntry> pitchEntry;              // 同じ一覧の音程モデル（RMVPE。分離と続けて入れる。2026-10-02）
+    void startModelFile (const models::ModelEntry&, const juce::File& folder, juce::int64 offset, juce::int64 total, bool more);
+    juce::File separationCacheFolder() const;
+    bool separationCached() const;
+    void startPitchModelWhenFree (juce::int64 offset, juce::int64 total);
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか

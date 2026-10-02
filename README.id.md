@@ -42,7 +42,7 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 | OS | **Windows dan Mac** (Mac: Apple silicon dan Intel). **Tidak ada versi ponsel atau tablet** |
 | Kartu grafis | **Tidak perlu.** Berjalan hanya dengan CPU. Yang berat hanya pemisahan vokal: lagu 30 detik butuh sekitar 2 menit di CPU 4 core (aplikasi menampilkan perkiraan waktunya) |
 | Audio yang bisa dimuat | **Hanya file audio di komputer Anda** (wav / flac / aiff / ogg / mp3 / m4a). Lagu dari Spotify, Apple Music, YouTube Music, atau layanan streaming lain tidak bisa dimuat langsung |
-| Ukuran | Installer sekitar 13 MB di Windows dan sekitar 40 MB di Mac. Model pemisahan (sekitar 223 MB) diunduh **hanya saat Anda menekan tombol untuk memakainya**. Tidak ada yang diunduh diam-diam |
+| Ukuran | Installer sekitar 13 MB di Windows dan sekitar 40 MB di Mac. Model pemisahan dan nada (sekitar 223 MB + 99 MB) diunduh **hanya saat Anda menekan tombol untuk memakainya**. Tidak ada yang diunduh diam-diam |
 | Proses berat | Pemisahan berjalan **hanya saat Anda menekan tombolnya**. Tampilan lirik **mati secara default** (nyalakan di Pengaturan) |
 | Harmoni | Anda bisa merekam trek harmoni. **Tidak ada fitur yang mengambil harmoninya saja dari sebuah mix untuk dijadikan panduan** (pemisahan menghasilkan dua bagian: "semua vokal" dan "iringan") |
 | Audio hasil pemisahan | Vokal dan iringan hasil pemisahan **untuk latihan pribadi Anda**. VoiceBooth tidak mengubah hak atas lagu aslinya. Sebarkan atau publikasikan (termasuk membagikannya sebagai instrumental untuk cover) hanya sejauh diizinkan pemegang hak aslinya |

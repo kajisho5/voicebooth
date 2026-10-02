@@ -42,7 +42,7 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 | Hệ điều hành | **Cả Windows và Mac** (Mac: Apple silicon và Intel). **Không có bản cho điện thoại hay máy tính bảng** |
 | Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: một bài 30 giây mất khoảng 2 phút trên CPU 4 nhân (ứng dụng hiển thị thời gian ước tính) |
 | Âm thanh có thể mở | **Chỉ file âm thanh trên máy của bạn** (wav / flac / aiff / ogg / mp3 / m4a). Không thể mở trực tiếp bài hát từ Spotify, Apple Music, YouTube Music hay dịch vụ streaming khác |
-| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Mô hình tách giọng (khoảng 223 MB) chỉ được tải về **khi bạn bấm nút để dùng nó**. Không có gì được tải ngầm |
+| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Mô hình tách giọng và cao độ (khoảng 223 MB + 99 MB) chỉ được tải về **khi bạn bấm nút để dùng nó**. Không có gì được tải ngầm |
 | Xử lý nặng | Tách giọng chỉ chạy **khi bạn bấm nút**. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |
 | Bè | Bạn có thể thu các track bè. **Không có tính năng tách riêng phần bè từ bản mix để làm mẫu** (tách giọng cho ra hai phần: "toàn bộ giọng hát" và "nhạc đệm") |
 | Âm thanh đã tách | Giọng hát và nhạc đệm đã tách là **để bạn tự luyện tập**. VoiceBooth không thay đổi quyền đối với bài hát gốc. Chỉ phân phối hoặc đăng tải (kể cả chia sẻ làm beat để cover) trong phạm vi chủ sở hữu quyền gốc cho phép |

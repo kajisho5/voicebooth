@@ -202,6 +202,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/TakeStats.cpp
     app/analysis/KeySuggest.cpp
     app/analysis/GuideClean.cpp
+    app/analysis/Rmvpe.cpp
     app/separation/SeparatorClient.cpp
     app/models/ModelManifest.cpp
     app/models/ModelDownloader.cpp)
@@ -411,7 +412,7 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
     endif()
 
     juce_add_console_app(VoiceBoothSeparator PRODUCT_NAME "VoiceBoothSeparator")
-    target_sources(VoiceBoothSeparator PRIVATE app/separator/SeparatorMain.cpp app/analysis/Separation.cpp)
+    target_sources(VoiceBoothSeparator PRIVATE app/separator/SeparatorMain.cpp app/analysis/Separation.cpp app/analysis/Rmvpe.cpp)
     target_include_directories(VoiceBoothSeparator PRIVATE app)
     target_compile_definitions(VoiceBoothSeparator PRIVATE JUCE_WEB_BROWSER=0 JUCE_STANDALONE_APPLICATION=1)
     if(MSVC)
@@ -481,6 +482,7 @@ if(VOICEBOOTH_TESTS)
         tests/TakeStatsTests.cpp
         tests/KeySuggestTests.cpp
         tests/GuideCleanTests.cpp
+        tests/RmvpeTests.cpp
         tests/ClickTests.cpp
         tests/UpdateCheckTests.cpp
         tests/TakeCompareTests.cpp
