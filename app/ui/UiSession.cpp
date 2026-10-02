@@ -1,4 +1,5 @@
 #include "UiSession.h"
+#include "audio/Retro.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -26,6 +27,9 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
                                 sampleRate, lengthSamples, std::move (wave));
     s.projectFolder = projectFolderFor (s.songName);
     s.songRate = sampleRate;
+    // 前に落ちた時の裏録りの残り（B7。REC にならなかった分）を消す
+    for (auto& f : s.projectFolder.getChildFile ("Audio/Takes").findChildFiles (juce::File::findFiles, false, ".retro-*.wav"))
+        f.deleteFile();
     s.songOriginal = audio;
 
     if (engine != nullptr)
@@ -407,6 +411,21 @@ void UiSession::setRecording (bool r)
     for (int n = id.substring (4).getIntValue(); s.projectFolder.getChildFile (rel()).exists(); )
         id = "take" + juce::String (++n);
 
+    // 再生中で裏で録っていれば（B7）、それをこのテイクにする。押す前に歌い始めていれば、フレーズの頭から採る
+    if (shadowActive && s.isPlaying && engine->isRecording() && engine->recordingStartSample() >= 0)
+    {
+        shadowActive = false;
+        loopBeforeRecording = s.loopOn && s.hasRange();
+        engine->setLoop (s.rangeIn, s.rangeOut, false);
+        s.recordingTake = id;
+        s.recordingTrack = armed->type;
+        s.recordingPath = rel();
+        s.isRecording = true;
+        s.recordStart = retroStart (juce::jlimit ((int64) 0, s.project.lengthSamples, engine->getPlayheadSample()));
+        notify (change::transport | change::practice);
+        return;
+    }
+
     if (s.playhead >= s.project.lengthSamples)
         seek (0);
 
@@ -451,7 +470,18 @@ juce::String UiSession::recordProblem() const
 void UiSession::finishRecording()
 {
     if (engine == nullptr || ! engine->isRecording())
+    {
+        shadowActive = false;
         return;
+    }
+
+    // REC にならなかった裏録り（B7）は消す
+    if (shadowActive)
+    {
+        shadowActive = false;
+        engine->stopRecording().file.deleteFile();
+        return;
+    }
 
     const auto res = engine->stopRecording();
     syncLoopToEngine();   // ループを元に戻す
@@ -471,9 +501,26 @@ void UiSession::finishRecording()
         return;                  // ファイルは残す（消さない）が、採用しない
     }
 
+    // 裏録りから昇格したテイク（B7）は、テイクの名前に付け直す
+    const auto target = s.projectFolder.getChildFile (s.recordingPath);
+    auto path = s.recordingPath;
+    if (res.file != target)
+    {
+        // 同じ名前があれば空いている名前へ（moveFileTo は先のファイルを消してしまう。録った声は上書きしない）。
+        // 移せなければ元の名前のまま使う（その時は .retro- の掃除から外れないので、知らせる）
+        const auto dest = target.exists() ? target.getNonexistentSibling (false) : target;
+        if (dest.getParentDirectory().createDirectory().wasOk() && res.file.moveFileTo (dest))
+            path = dest.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
+        else
+        {
+            path = res.file.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
+            postNotice (tr ("record.renameFailed", path));
+        }
+    }
+
     project::Take take;
     take.id = id;
-    take.path = s.recordingPath;
+    take.path = path;
     take.startSample = res.startSample - s.recordingLatency;   // 歌い手が聞いた伴奏の位置にそろえる（ファイルは切らない）
     take.endSample = take.startSample + res.length;
     take.created = juce::Time::getCurrentTime();
@@ -483,8 +530,9 @@ void UiSession::finishRecording()
     take.latencySamples = s.recordingLatency;
 
     // 練習録音は納品の採用区間に入れない（DESIGN 6.1 / 13）
+    // 採用は REC を押した所から（遡及録音ならフレーズの頭。B7）。それより前の分もファイルには残す
     if (take.recMode == project::RecMode::delivery)
-        project::applyTake (*track, take);
+        project::applyTake (*track, take, s.recordStart);
     else
         track->takes.push_back (take);
 
@@ -503,7 +551,7 @@ void UiSession::finishRecording()
         }
         return tr ("track.main");
     }();
-    const auto range = formatTime (juce::jmax ((int64) 0, take.startSample), s.sampleRate(), true) + " - "
+    const auto range = formatTime (std::max ({ (int64) 0, take.startSample, s.recordStart }), s.sampleRate(), true) + " - "
                      + formatTime (juce::jmin (s.project.lengthSamples, take.endSample), s.sampleRate(), true);
     if (take.recMode == project::RecMode::practice) postNotice (tr ("record.donePractice", name, id, range));
     else if (take.clip)                             postNotice (tr ("record.doneClip", name, id, range));
@@ -541,6 +589,48 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
             notify (change::takes);
         });
     });
+}
+
+//==============================================================================
+void UiSession::updateShadow()
+{
+    if (! isEngineDriven() || s.isRecording)
+        return;
+
+    // 裏で録るのは、再生中で、REC を押せば録れる時だけ（アーム・入力・SR がそろっている）
+    const bool want = s.isPlaying && recordProblem().isEmpty();
+    if (shadowActive && (! want || ! engine->isRecording() || engine->recordingEnded()))
+        finishRecording();   // ループで戻った・止まった：消す（戻った時は次で録り直す）
+
+    if (shadowActive || ! want || engine->isRecording())
+        return;
+
+    const auto ld = latencyDisplay (s);
+    const auto latency = ld.known ? juce::jmax ((int64) 0, ld.samples) : 0;
+    shadowFile = s.projectFolder.getChildFile ("Audio/Takes/.retro-" + juce::String (++shadowSerial) + "-"
+                                               + juce::String (juce::Time::currentTimeMillis()) + ".wav");
+    if (engine->startRecording (shadowFile, s.recordFloat, latency).isEmpty())
+    {
+        shadowActive = true;
+        s.recordingLatency = latency;
+    }
+}
+
+int64 UiSession::retroStart (int64 press) const
+{
+    std::vector<float> env;
+    const auto hop = engine->recordingEnvelope (env);
+    const auto first = engine->recordingStartSample();
+    if (hop <= 0 || first < 0)
+        return press;
+
+    // ファイルの i サンプル目 = 曲の (first - 遅れ + i)。押した所の声はファイルの press - (first - 遅れ)
+    const auto fileStart = first - s.recordingLatency;
+    const auto pressFrame = (int) juce::jmax ((int64) 0, (press - fileStart) / hop);
+    const auto frame = audio::retro::phraseStartFrame (env.data(), (int) env.size(), pressFrame);
+    if (frame >= pressFrame)
+        return press;   // 遡らない（まだ歌っていない・フレーズの頭が分からない）
+    return juce::jlimit (juce::jmax ((int64) 0, fileStart), press, fileStart + (int64) frame * hop);
 }
 
 //==============================================================================
@@ -769,6 +859,7 @@ void UiSession::tick (double seconds)
     }
 
     pollLatencyProbe();
+    updateShadow();
 
     if (! s.isPlaying) return;
 

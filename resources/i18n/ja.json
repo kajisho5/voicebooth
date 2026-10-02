@@ -241,6 +241,7 @@
   "record.problem.noSong": "曲を開くと録音できます",
   "record.problem.sampleRate": "機器を曲と同じ {0} kHz で開けないため録音できません。入力セットアップで機器か SR を変えてください",
   "record.recordingTo": "RECORDING TO",
+  "record.renameFailed": "テイクの名前を付け直せませんでした（{0} のまま）。次に曲を開く前にフォルダから移してください",
   "record.target": "TARGET",
   "record.target.delivery": "Dry Vocal ／ 納品",
   "record.target.deliveryWhole": "Dry Vocal ／ 納品（通し）",
