@@ -61,7 +61,9 @@ Cante sobre um instrumental, veja sua afinação na tela, regrave só as partes 
 | Ouvir a guia | Ouça a voz guia extraída da original, junto com o instrumental ou em solo (o tempo e o tom de treino se aplicam). A voz principal e as harmonias não podem ser separadas, então é uma faixa só |
 | Extensão e tom sugerido | Meça sua extensão vocal (nota mais grave e mais aguda) com o microfone e receba um tom em que caibam a nota mais grave e a mais aguda da guia. Um clique aplica; se nada couber, ele diz quantos semitons ficam de fora |
 | Gravação | Gravação do início ao fim, gravação retroativa (apertar REC atrasado nunca corta a primeira palavra), regravação de um trecho (crossfade de 8 ms em cada ponta; 0–20 ms no Pro), medição e compensação de latência |
+| Clique e contagem | Um clique no andamento da música (mais agudo no tempo 1; segue o andamento de treino). Conta 1–2 compassos antes do REC; regravar um trecho conta antes do trecho. Só no fone, nunca entra na gravação nem na exportação |
 | Main / Double / Harmonia | Grave dobras e harmonias com a mesma duração e toque tudo junto |
+| Comparar takes | Lista seus takes do mais novo ao mais antigo, ouve cada um no lugar dentro da música para um trecho (ou um segmento do comp) e usa o que você escolher (Padrão ou acima; Ctrl / ⌘+Z desfaz) |
 | Tempo de entrada | Comparado com a referência, mostra quantos ms você entra adiantado ou atrasado (do Padrão para cima). O Pro também mostra quanto tempo você fica afinado e o vibrato |
 | Exportar | WAV de duração completa desde o início da música, e um pacote de entrega (um WAV por faixa, uma mix de conferência, notas, zip) |
 | Letra (desligada por padrão) | Carregue .txt / .lrc e sincronize tocando no ritmo |
@@ -72,7 +74,7 @@ Cante sobre um instrumental, veja sua afinação na tela, regrave só as partes 
 Isto ainda não está na beta (e não aparece no app).
 
 - Uma linha de referência para as harmonias (ao selecionar uma faixa de harmonia, a linha de referência principal continua aparecendo)
-- Sons de metrônomo e contagem, comparar takes de ouvido, separar outras coisas além da voz (violão, bateria etc.)
+- Separar outras coisas além da voz (violão, bateria etc.)
 
 > [!IMPORTANT]
 > O modelo de separação **ainda está sendo preparado para distribuição** (aguardando a publicação da lista de modelos assinada). Até lá, você pode usar um par original + karaokê para mostrar a linha de referência, gravar e exportar.

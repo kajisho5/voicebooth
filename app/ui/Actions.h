@@ -23,5 +23,8 @@ struct Actions
     std::function<void()> openSongInfo;           // テンポ・拍子・キー・区間のパネル
     std::function<void()> openLyrics;             // 歌詞パッド（読み込み・貼り付け）
     std::function<void (int)> editSectionName;    // 区間の名前を入力する（番号）
+
+    // テイク比較（B18c。DESIGN 2 / 3）。from >= to なら IN / OUT（無ければ曲全体）、そうでなければその区間（採用区間のバーから）
+    std::function<void (long long from, long long to)> openTakeCompare;
 };
 } // namespace vb

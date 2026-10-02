@@ -209,6 +209,24 @@ Session makeSession()
         p.lyrics.lines.push_back (line);
     }
 
+    // テイクの解析の見本（テイク比較のパネル用。B18c）。本物は録ったテイクの音程とお手本から作る
+    {
+        auto st = [] (double onset, float inBand, float cents, float vibHz, float vibC)
+        {
+            Session::TakeStats t;
+            t.entries = 10; t.matched = 9; t.onsetMs = onset;
+            t.inBand = inBand; t.meanAbsCents = cents; t.pitchFrames = 1800;
+            t.vibRateHz = vibHz; t.vibDepthCents = vibC; t.vibNotes = vibHz > 0.0f ? 4 : 0;
+            return t;
+        };
+        s.takeStats[takeWaveKey (TrackType::main, "take1")] = st (62.0, 0.64f, 31.0f, 0.0f, 0.0f);
+        s.takeStats[takeWaveKey (TrackType::main, "take2")] = st (38.0, 0.78f, 22.0f, 5.2f, 24.0f);
+        s.takeStats[takeWaveKey (TrackType::main, "take3")] = st (-24.0, 0.71f, 26.0f, 5.8f, 31.0f);
+        s.takeStats[takeWaveKey (TrackType::main, "take4")] = st (9.0, 0.86f, 17.0f, 5.5f, 28.0f);
+        s.takeStats[takeWaveKey (TrackType::doubleTrack, "take1")] = st (21.0, 0.74f, 24.0f, 0.0f, 0.0f);
+        s.takeStats[takeWaveKey (TrackType::doubleTrack, "take2")] = st (12.0, 0.81f, 19.0f, 0.0f, 0.0f);
+    }
+
     for (auto& n : melody)
         s.refNotes.push_back ({ s.sec (n.t), s.sec (n.t + n.len), n.midi, n.vib, n.cons });
 

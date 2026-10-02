@@ -61,7 +61,9 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 | Nghe giọng mẫu | Nghe giọng mẫu tách từ bản gốc, cùng với beat hoặc nghe riêng (áp dụng tempo/tông luyện tập). Giọng chính và bè không tách riêng được nên chỉ có một track |
 | Âm vực và tông gợi ý | Đo âm vực của bạn (nốt thấp nhất và cao nhất) bằng micro và nhận tông giúp nốt thấp nhất và cao nhất của bản mẫu nằm gọn trong đó. Một cú bấm là áp dụng; nếu không tông nào vừa, ứng dụng cho biết vượt bao nhiêu nửa cung |
 | Thu âm | Thu một mạch, thu hồi tố (bấm REC muộn cũng không bao giờ mất chữ đầu), thu lại một vùng (crossfade 8 ms ở mỗi đầu; 0–20 ms ở Pro), đo và bù độ trễ |
+| Click và đếm vào | Click theo nhịp bài hát (phách 1 cao hơn; theo cả tempo luyện tập). Đếm 1–2 ô nhịp trước khi REC; thu lại một đoạn thì đếm trước đoạn đó. Chỉ nghe trong tai nghe, không bao giờ vào bản thu hay bản xuất |
 | Main / Double / Bè | Thu double và bè cùng độ dài rồi phát cùng nhau |
+| So sánh bản thu | Liệt kê các bản thu từ mới nhất, nghe từng bản ngay tại chỗ trong bài cho một đoạn (hoặc một phân đoạn của comp) và dùng bản bạn chọn (Tiêu chuẩn trở lên; Ctrl / ⌘+Z để hoàn tác) |
 | Thời điểm vào | So với bản mẫu, hiển thị bạn vào sớm hay trễ bao nhiêu ms (từ Chuẩn trở lên). Pro còn hiển thị tỷ lệ thời gian hát đúng cao độ và vibrato |
 | Xuất | WAV đủ độ dài từ đầu bài, và gói bàn giao (mỗi track một WAV, bản mix để kiểm tra, ghi chú, zip) |
 | Lời bài hát (tắt theo mặc định) | Mở .txt / .lrc, khớp thời gian bằng cách gõ |
@@ -72,7 +74,7 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 Những tính năng sau chưa có trong bản beta (và không hiển thị trong ứng dụng).
 
 - Đường mẫu cho bè (chọn track bè vẫn hiển thị đường mẫu của giọng chính)
-- Tiếng metronome và đếm vào, so sánh các bản thu bằng tai, tách những thứ khác ngoài giọng hát (guitar, trống, v.v.)
+- Tách những thứ khác ngoài giọng hát (guitar, trống, v.v.)
 
 > [!IMPORTANT]
 > Mô hình tách giọng **vẫn đang được chuẩn bị để phân phối** (đang chờ công bố danh sách mô hình có chữ ký). Trong lúc đó, bạn vẫn có thể dùng cặp bản gốc + karaoke để hiển thị đường mẫu, thu âm và xuất file.

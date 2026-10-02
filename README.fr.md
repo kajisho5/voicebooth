@@ -61,7 +61,9 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 | Écouter le guide | Écoutez la voix guide extraite de l'original, avec l'instrumental ou en solo (tempo et tonalité d'entraînement appliqués). Lead et harmonies ne peuvent pas être séparées, c'est donc une seule piste |
 | Tessiture et tonalité suggérée | Mesurez votre tessiture (notes la plus grave et la plus aiguë) au micro et obtenez une tonalité où tiennent les notes la plus grave et la plus aiguë du guide. Un clic l'applique ; si rien ne convient, il indique de combien de demi-tons ça dépasse |
 | Enregistrement | Enregistrement d'une traite, enregistrement rétroactif (appuyer sur REC en retard ne coupe jamais le premier mot), réenregistrement d'une plage (fondu de 8 ms à chaque bord ; 0–20 ms en Pro), mesure et compensation de la latence |
+| Clic et décompte | Un clic sur le tempo du morceau (plus aigu sur le temps 1 ; suit le tempo d'entraînement). Compte 1 à 2 mesures avant REC ; le réenregistrement d'une plage décompte avant la plage. Uniquement au casque, jamais enregistré ni exporté |
 | Main / Double / Harmonie | Enregistrez doublages et harmonies sur la même durée et écoutez-les ensemble |
+| Comparaison des prises | Liste tes prises de la plus récente à la plus ancienne, écoute chacune à sa place dans le morceau sur une plage (ou un segment du comp) et utilise celle que tu choisis (Standard et au-delà ; Ctrl / ⌘+Z annule) |
 | Calage des attaques | Par rapport à la référence, indique de combien de ms vous entrez en avance ou en retard (Standard et au-delà). Pro affiche aussi la part du temps où vous êtes juste, et le vibrato |
 | Export | WAV pleine longueur depuis le début du titre, et un pack de livraison (un WAV par piste, un mix de contrôle, des notes, un zip) |
 | Paroles (désactivées par défaut) | Chargez un .txt / .lrc, calez au tap |
@@ -72,7 +74,7 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 Ces éléments ne sont pas encore dans la bêta (et ne sont pas affichés dans l'app).
 
 - Une ligne de référence pour les harmonies (sélectionner une piste d'harmonie affiche toujours la ligne de référence principale)
-- Sons de métronome et de décompte, comparaison des prises à l'oreille, séparation d'autre chose que la voix (guitare, batterie, etc.)
+- Séparation d'autre chose que la voix (guitare, batterie, etc.)
 
 > [!IMPORTANT]
 > Le modèle de séparation **est encore en préparation pour la distribution** (en attente de la publication de la liste de modèles signée). D'ici là, vous pouvez utiliser une paire original + karaoké pour afficher la ligne de référence, enregistrer et exporter.

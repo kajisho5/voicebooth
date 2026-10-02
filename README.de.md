@@ -61,7 +61,9 @@ Sing zu einem Instrumental, sieh deine Tonhöhe auf dem Bildschirm, nimm nur die
 | Referenz anhören | Hör den aus dem Original extrahierten Referenzgesang, mit dem Instrumental oder solo (Übungstempo/-tonart gelten). Lead und Harmonien lassen sich nicht trennen, daher eine Spur |
 | Stimmumfang und Tonartvorschlag | Miss deinen Stimmumfang (tiefster und höchster Ton) mit dem Mikrofon und erhalte eine Tonart, in die der tiefste und höchste Ton der Referenz passen. Ein Klick übernimmt sie; passt nichts, zeigt sie, wie viele Halbtöne überstehen |
 | Aufnahme | Aufnahme am Stück, rückwirkende Aufnahme (zu spät gedrücktes REC schneidet nie das erste Wort ab), Neuaufnahme eines Bereichs (8 ms Crossfade an jeder Kante; 0–20 ms in Pro), Latenzmessung und -ausgleich |
+| Klick und Einzähler | Ein Klick im Takt des Songs (höher auf Schlag 1; folgt dem Übungstempo). Zählt vor REC 1–2 Takte ein; bei der Neuaufnahme eines Bereichs wird vor dem Bereich eingezählt. Nur im Kopfhörer, nie in Aufnahme oder Export |
 | Main / Double / Harmonie | Nimm Doubles und Harmonien in gleicher Länge auf und spiel sie zusammen ab |
+| Takes vergleichen | Listet deine Takes, die neuesten zuerst, und lässt dich jeden an seiner Stelle im Song für einen Bereich (oder einen Comp-Abschnitt) anhören; den gewählten übernimmst du (ab Standard; Strg / ⌘+Z macht es rückgängig) |
 | Einsatz-Timing | Zeigt im Vergleich zur Referenz, wie viele ms du zu früh oder zu spät einsetzt (ab Standard). Pro zeigt außerdem, wie lange du sauber triffst, und das Vibrato |
 | Export | WAV in voller Länge ab Songanfang und ein Abgabepaket (eine WAV pro Spur, ein Kontrollmix, Notizen, ZIP) |
 | Songtext (standardmäßig aus) | .txt / .lrc laden, per Tippen synchronisieren |
@@ -72,7 +74,7 @@ Sing zu einem Instrumental, sieh deine Tonhöhe auf dem Bildschirm, nimm nur die
 Das ist noch nicht in der Beta (und wird in der App nicht angezeigt).
 
 - Eine Referenzlinie für Harmonien (bei ausgewählter Harmoniespur wird weiter die Haupt-Referenzlinie angezeigt)
-- Metronom- und Einzähler-Klänge, Takes nach Gehör vergleichen, anderes als Gesang trennen (Gitarre, Schlagzeug usw.)
+- Anderes als Gesang trennen (Gitarre, Schlagzeug usw.)
 
 > [!IMPORTANT]
 > Das Trennungsmodell wird **noch für die Verteilung vorbereitet** (wir warten auf die Veröffentlichung der signierten Modellliste). Bis dahin kannst du mit einem Paar aus Original + Karaoke trotzdem die Referenzlinie anzeigen, aufnehmen und exportieren.

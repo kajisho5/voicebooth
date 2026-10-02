@@ -61,7 +61,9 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 | Dengar panduan | Dengarkan vokal panduan yang diambil dari lagu asli, bersama instrumental atau solo (tempo/nada latihan ikut berlaku). Vokal utama dan harmoni tidak bisa dipisah, jadi hanya satu trek |
 | Rentang dan nada saran | Ukur rentang vokal Anda (nada terendah dan tertinggi) dengan mik dan dapatkan nada dasar yang memuat nada terendah dan tertinggi panduan. Satu klik untuk menerapkannya; jika tidak ada yang muat, ditampilkan berapa semitone yang keluar |
 | Rekaman | Rekam dari awal sampai akhir, rekaman retroaktif (terlambat menekan REC tidak pernah memotong kata pertama), rekam ulang satu rentang (crossfade 8 ms di tiap ujung; 0–20 ms di Pro), pengukuran dan kompensasi latensi |
+| Klik dan hitungan awal | Klik mengikuti ketukan lagu (lebih tinggi di ketukan 1; mengikuti tempo latihan). Menghitung 1–2 bar sebelum REC; rekam ulang rentang menghitung sebelum rentang. Hanya di headphone, tidak pernah ikut terekam atau diekspor |
 | Main / Double / Harmoni | Rekam double dan harmoni dengan panjang yang sama dan putar bersama |
+| Bandingkan take | Menampilkan take dari yang terbaru, memutar tiap take di tempatnya dalam lagu untuk satu rentang (atau satu segmen comp), lalu memakai yang kamu pilih (Standar ke atas; Ctrl / ⌘+Z membatalkan) |
 | Ketepatan masuk | Dibandingkan dengan panduan, menampilkan berapa ms Anda masuk lebih awal atau terlambat (Standar ke atas). Pro juga menampilkan seberapa lama Anda pas pitch, serta vibrato |
 | Ekspor | WAV durasi penuh dari awal lagu, dan paket kirim (satu WAV per trek, mix untuk dicek, catatan, zip) |
 | Lirik (mati secara default) | Muat .txt / .lrc, sinkronkan dengan mengetuk |
@@ -72,7 +74,7 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 Fitur berikut belum ada di beta (dan tidak ditampilkan di aplikasi).
 
 - Garis panduan untuk harmoni (memilih trek harmoni tetap menampilkan garis panduan utama)
-- Suara metronom dan hitungan awal, membandingkan take dengan telinga, memisahkan selain vokal (gitar, drum, dan sebagainya)
+- Memisahkan selain vokal (gitar, drum, dan sebagainya)
 
 > [!IMPORTANT]
 > Model pemisahan **masih disiapkan untuk didistribusikan** (menunggu daftar model bertanda tangan dipublikasikan). Sampai saat itu, Anda tetap bisa memakai pasangan lagu asli + karaoke untuk menampilkan garis panduan, merekam, dan mengekspor.

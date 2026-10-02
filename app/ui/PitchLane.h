@@ -49,6 +49,7 @@ private:
     /** お手本の音符（お手本の点が変わった時だけ作り直す） */
     const std::vector<analysis::NoteSpan>& refNotes() const;
     void drawMine (juce::Graphics&, const TimeMap&);
+    bool drawCompareTake (juce::Graphics&, const TimeMap&);   // テイク比較で試聴中のテイクの線（B18c）。描いたら true
     void drawCurrent (juce::Graphics&, const TimeMap&);
     void drawFooter (juce::Graphics&);
 

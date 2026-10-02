@@ -2,6 +2,7 @@
 
 #include "DummySession.h"
 #include "project/ProjectFile.h"
+#include "project/TakeCompare.h"
 #include "separation/SeparatorClient.h"
 #include "models/ModelDownloader.h"
 #include "audio/SongLoader.h"
@@ -202,6 +203,21 @@ public:
     /** リハーサルのテイク（原速・原キーで録った物）を本番のテイクにして採用する（録り間違いの救済）。できなければ false */
     bool promoteRehearsalTake (project::TrackType, const juce::String& takeId);
 
+    // --- テイク比較（B18c。DESIGN 2 / 3） ------------------------------------------------
+    /** いまのトラックのテイクを範囲 [from, to) で比べ始める（IN / OUT・採用区間の 1 区間・曲全体）。
+        loopRange：範囲をループで聴く（範囲と IN / OUT を一時的にそろえ、終わったら元に戻す）。比べられるテイクが無ければ false */
+    bool beginTakeCompare (int64 from, int64 to, dummy::Session::TakeCompare::Scope);
+    /** そのテイクを範囲に入れて聴く（空 = いまの採用）。採用区間を差し替え、トラックの再生（B12）が作り直す */
+    void previewCompareTake (const juce::String& takeId);
+    /** 試聴の再生 / 停止。止まっていれば、ループなら範囲の頭、曲全体なら試聴中のテイクの頭から（そこが聞こえる所） */
+    void toggleCompareAudition();
+    /** 終える。commit なら試聴中のテイクを採用（Ctrl / ⌘+Z で戻せる）、そうでなければ元の採用区間へそっくり戻す */
+    void endTakeCompare (bool commit);
+    /** いまのトラックに比べられるテイクがあるか（簡単モード・録音中・曲が無い時は false） */
+    bool canCompareTakes() const;
+    /** 範囲の中だけでお手本と比べた結果（お手本・テイクの音程がまだ無ければ nullopt。見本は見本の値） */
+    std::optional<dummy::Session::TakeStats> takeStatsIn (project::TrackType, const juce::String& takeId, int64 from, int64 to) const;
+
     // --- お手本（声入りの原曲。B9。DESIGN 7.1.1） ---------------------------------
     /** 原曲を読み、オフボと時間を合わせて声を取り出し（原曲 − カラオケ）、お手本の音程を重ねる（裏で）。
         結果は知らせで出す。引けない組（別のミックス・キー違い・別の曲）では線を出さない */
@@ -379,7 +395,13 @@ private:
 
     // 直前のテイクを採用する前の採用区間（Ctrl / ⌘+Z で戻す。B10）
     std::vector<project::CompSegment> compBeforeTake;
-    project::TrackType undoTrack = project::TrackType::main;   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
+    project::TrackType undoTrack = project::TrackType::main;   // どのトラックの採用区間を戻すか
+    bool undoIsCompare = false;     // 戻すのがテイク比較の選び直し（知らせの言葉を変える。B18c）
+
+    // テイク比較（B18c）：試聴中の採用区間の差し替えと、比べる間だけ変えた範囲・ループ（終わったら戻す）
+    project::TakeAudition audition;
+    int64 compareRangeIn = 0, compareRangeOut = 0;
+    bool compareLoopOn = false, compareChangedRange = false, compareStartedPlay = false;
     juce::ListenerList<Listener> listeners;
 };
 

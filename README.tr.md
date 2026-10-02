@@ -61,7 +61,9 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 | Referansı dinleme | Orijinalden çıkarılan referans vokali altyapıyla birlikte veya tek başına dinleyin (pratik tempo/tonu uygulanır). Ana vokal ve armoniler ayrılamadığı için tek kanaldır |
 | Ses aralığı ve önerilen ton | Ses aralığınızı (en pes ve en tiz notalar) mikrofonla ölçün ve referansın en pes ve en tiz notalarını sığdıran bir ton alın. Tek tıkla uygulanır; hiçbiri uymazsa kaç yarım ses taştığını söyler |
 | Kayıt | Baştan sona kayıt, geriye dönük kayıt (REC'e geç basmak ilk kelimeyi asla kesmez), bir aralığı yeniden kayıt (her iki uçta 8 ms crossfade; Pro'da 0–20 ms), gecikme ölçümü ve telafisi |
+| Klik ve ön sayım | Şarkının temposunda klik (1. vuruşta daha ince; çalışma temposunu da izler). REC'ten önce 1–2 ölçü sayar; bir aralığı yeniden kaydederken aralıktan önce sayar. Yalnızca kulaklıkta duyulur, kayda ve dışa aktarıma girmez |
 | Main / Double / Armoni | Double'ları ve armonileri aynı uzunlukta kaydedin ve birlikte çalın |
+| Take karşılaştırma | Take'leri en yeniden başlayarak listeler, her birini bir aralık (veya comp'un bir bölümü) için şarkının içinde yerinde dinletir ve seçtiğinizi kullanır (Standart ve üstü; Ctrl / ⌘+Z geri alır) |
 | Giriş zamanlaması | Referansla karşılaştırıp girişinizin kaç ms erken veya geç olduğunu gösterir (Standart ve üstü). Pro ayrıca ne kadar süre doğru perdede olduğunuzu ve vibratoyu gösterir |
 | Dışa aktarma | Şarkının başından itibaren tam uzunlukta WAV ve teslim paketi (kanal başına bir WAV, kontrol miksi, notlar, zip) |
 | Şarkı sözü (varsayılan olarak kapalı) | .txt / .lrc yükleyin, dokunarak eşleyin |
@@ -72,7 +74,7 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 Bunlar henüz betada yok (ve uygulamada gösterilmez).
 
 - Armoniler için referans çizgisi (bir armoni kanalı seçildiğinde ana referans çizgisi gösterilmeye devam eder)
-- Metronom ve ön sayım sesleri, take'leri kulakla karşılaştırma, vokal dışındakileri ayırma (gitar, davul vb.)
+- Vokal dışındakileri ayırma (gitar, davul vb.)
 
 > [!IMPORTANT]
 > Ayırma modeli **dağıtım için hâlâ hazırlanıyor** (imzalı model listesinin yayınlanması bekleniyor). O zamana kadar bir orijinal + karaoke çifti ile referans çizgisini gösterebilir, kayıt yapabilir ve dışa aktarabilirsiniz.

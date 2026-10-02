@@ -49,6 +49,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
 {
     finishRecording();   // 録音中に別の曲を開いたら、そこまでのテイクは残す
     stopSeparation();    // 前の曲の分離は止める（B16）
+    endTakeCompare (false);   // テイク比較の試聴中なら元の採用区間に戻す（B18c。範囲・ループも元へ）
     flushSave();         // 前の曲のプロジェクトを保存してから
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
@@ -248,7 +249,10 @@ void UiSession::saveProject()
         lastBackupMs = now;
     }
 
-    if (! project::writeAtomically (s.projectFile, project::toJson (s.project, ex)))
+    // テイク比較の試聴中（B18c）は、選んでいない差し替えを書かない（確定している採用区間で保存する）
+    auto committed = s.project;
+    audition.restoreCommitted (committed);
+    if (! project::writeAtomically (s.projectFile, project::toJson (committed, ex)))
     {
         postNotice (tr ("project.saveFailed", s.projectFile.getFullPathName()));
         dirty = false;   // 何度も出さない（次の変更でまた試す）
@@ -952,6 +956,7 @@ void UiSession::finishRecording()
     {
         compBeforeTake = track->comp;
         undoTrack = type;
+        undoIsCompare = false;
         project::applyTake (*track, take, s.recordStart, s.recordEnd >= 0 ? s.recordEnd : take.endSample);
         s.canUndoTake = true;
     }
@@ -1663,6 +1668,44 @@ void UiSession::judge (dummy::PitchPoint& p) const
     p.judged = true;
 }
 
+namespace
+{
+    /** お手本の線（オフボの時間）を解析の形に */
+    std::vector<audio::PitchFrame> guideFrames (const std::vector<dummy::PitchPoint>& ref)
+    {
+        std::vector<audio::PitchFrame> guide;
+        guide.reserve (ref.size());
+        for (auto& p : ref)
+            guide.push_back ({ p.sample, p.midi, p.confidence, -20.0f });
+        return guide;
+    }
+
+    /** テイクの音程を [from, to) の中だけお手本と比べる（札はテイク全体、テイク比較は比べる範囲。B18 / B18c） */
+    dummy::Session::TakeStats statsFor (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& frames,
+                                        double rate, int64 from, int64 to, float toleranceCents)
+    {
+        const auto onset = analysis::onsetStats (guide, frames, rate, from, to);
+        const auto acc = analysis::pitchAccuracy (guide, frames, rate, from, to, toleranceCents);
+        dummy::Session::TakeStats st;
+        st.entries = onset.entries;
+        st.matched = (int) onset.items.size();
+        st.onsetMs = onset.medianMs;
+        st.inBand = acc.inBand;
+        st.meanAbsCents = acc.meanAbsCents;
+        st.pitchFrames = acc.frames;
+        for (auto& v : analysis::vibratos (frames, rate))
+        {
+            if (v.end <= from || v.start >= to)
+                continue;   // 範囲の外の音符は数えない
+            st.vibRateHz += v.rateHz;
+            st.vibDepthCents += v.depthCents;
+            ++st.vibNotes;
+        }
+        if (st.vibNotes > 0) { st.vibRateHz /= (float) st.vibNotes; st.vibDepthCents /= (float) st.vibNotes; }
+        return st;
+    }
+}
+
 void UiSession::updateTakeStats (const juce::String& onlyKey)
 {
     // お手本と比べる（B18）。お手本が無ければ消すだけ
@@ -1671,10 +1714,7 @@ void UiSession::updateTakeStats (const juce::String& onlyKey)
         s.takeStats.clear();
         return;
     }
-    std::vector<audio::PitchFrame> guide;
-    guide.reserve (s.refPitch.size());
-    for (auto& p : s.refPitch)
-        guide.push_back ({ p.sample, p.midi, p.confidence, -20.0f });
+    const auto guide = guideFrames (s.refPitch);
     const auto rate = (double) s.sampleRate();
 
     for (auto& [key, frames] : s.takePitch)
@@ -1682,20 +1722,7 @@ void UiSession::updateTakeStats (const juce::String& onlyKey)
         if ((onlyKey.isNotEmpty() && key != onlyKey) || frames == nullptr || frames->empty())
             continue;
         const auto from = frames->front().songSample, to = frames->back().songSample + 1;
-        const auto onset = analysis::onsetStats (guide, *frames, rate, from, to);
-        const auto acc = analysis::pitchAccuracy (guide, *frames, rate, from, to, s.pitchToleranceCents);
-        const auto vib = analysis::vibratos (*frames, rate);
-        dummy::Session::TakeStats st;
-        st.entries = onset.entries;
-        st.matched = (int) onset.items.size();
-        st.onsetMs = onset.medianMs;
-        st.inBand = acc.inBand;
-        st.meanAbsCents = acc.meanAbsCents;
-        st.pitchFrames = acc.frames;
-        for (auto& v : vib) { st.vibRateHz += v.rateHz; st.vibDepthCents += v.depthCents; }
-        st.vibNotes = (int) vib.size();
-        if (st.vibNotes > 0) { st.vibRateHz /= (float) st.vibNotes; st.vibDepthCents /= (float) st.vibNotes; }
-        s.takeStats[key] = st;
+        s.takeStats[key] = statsFor (guide, *frames, rate, from, to, s.pitchToleranceCents);
     }
 }
 
@@ -1841,6 +1868,7 @@ bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::Strin
 
     compBeforeTake = track->comp;
     undoTrack = type;
+    undoIsCompare = false;
     project::applyTake (*track, take, from, to);
     s.canUndoTake = true;
     s.takeWaves.erase (oldWave);
@@ -1863,9 +1891,175 @@ bool UiSession::undoTake()
         return false;
     track->comp = compBeforeTake;   // テイクとファイルは残す（採用から外すだけ）
     s.canUndoTake = false;
-    postNotice (tr ("record.undone"));
+    postNotice (tr (undoIsCompare ? "compare.undone" : "record.undone"));
     notify (change::takes | change::tracks);
     return true;
+}
+
+//==============================================================================
+bool UiSession::canCompareTakes() const
+{
+    // 簡単モードには無い（DESIGN 2）。録音中・本物のアプリで曲を開く前（見本のテイクしか無い）も出さない
+    if (s.mode == project::Mode::easy || s.isRecording || (s.engineAttached && s.songOriginal == nullptr))
+        return false;
+    const auto* track = s.project.findTrack (s.currentTrack().type);
+    return track != nullptr && ! project::compareCandidates (*track, 0, s.project.lengthSamples).empty();
+}
+
+bool UiSession::beginTakeCompare (int64 from, int64 to, dummy::Session::TakeCompare::Scope scope)
+{
+    if (audition.isActive())
+        endTakeCompare (false);
+    if (! canCompareTakes())
+        return false;
+    auto* track = const_cast<project::Track*> (s.project.findTrack (s.currentTrack().type));
+    from = juce::jlimit ((int64) 0, s.project.lengthSamples, from);
+    to = juce::jlimit ((int64) 0, s.project.lengthSamples, to);
+    if (track == nullptr || project::compareCandidates (*track, from, to).empty() || ! audition.begin (*track, from, to))
+        return false;
+
+    // 範囲を比べる時はその範囲をループで聴く（同じ所を何度も聴き比べる）。IN / OUT とループは終わったら元に戻す
+    compareRangeIn = s.rangeIn;
+    compareRangeOut = s.rangeOut;
+    compareLoopOn = s.loopOn;
+    compareChangedRange = scope != dummy::Session::TakeCompare::Scope::song;
+    compareStartedPlay = false;
+    if (compareChangedRange)
+    {
+        s.rangeIn = from;
+        s.rangeOut = to;
+        s.loopOn = true;
+        syncLoopToEngine();
+        if (s.isPlaying && (s.playhead < from || s.playhead >= to))
+            seek (from);
+
+        // パネルはレーンの右側に重なる：範囲の頭が左半分に無ければ、表示をずらして見えるようにする（拡大率はそのまま）
+        const auto span = s.viewEnd - s.viewStart;
+        if (span > 0 && (from < s.viewStart || from > s.viewStart + span / 2))
+        {
+            const auto start = juce::jlimit ((int64) 0, juce::jmax ((int64) 0, s.project.lengthSamples - span), from - span / 12);
+            s.viewStart = start;
+            s.viewEnd = start + span;
+        }
+    }
+
+    auto& c = s.compare;
+    c.active = true;
+    ++c.serial;
+    c.track = track->type;
+    c.from = from;
+    c.to = to;
+    c.scope = scope;
+    c.previewing.clear();
+    c.original = track->comp;
+    notify (change::tracks | change::range | change::transport | change::view);
+    return true;
+}
+
+void UiSession::previewCompareTake (const juce::String& takeId)
+{
+    if (! audition.isActive() || s.isRecording)
+        return;
+    auto* track = const_cast<project::Track*> (s.project.findTrack (audition.track()));
+    if (track == nullptr || ! audition.preview (*track, takeId))
+        return;
+    s.compare.previewing = audition.previewing();
+    // 採用区間が変わった＝トラックの再生を作り直す（B12。書き出しと同じ計算・同じ継ぎ目）。保存は確定している形（saveProject）
+    notify (change::takes | change::tracks);
+}
+
+void UiSession::toggleCompareAudition()
+{
+    if (! audition.isActive())
+        return;
+    if (s.isPlaying)
+    {
+        setPlaying (false);
+        return;
+    }
+    const auto& c = s.compare;
+    if (compareChangedRange)
+    {
+        if (s.playhead < c.from || s.playhead >= c.to)
+            seek (c.from);
+    }
+    else if (const auto* track = s.project.findTrack (c.track))
+    {
+        // 曲全体：試聴中のテイクが聞こえる所にいなければ、そのテイクの頭から
+        for (auto& k : track->takes)
+            if (k.id == c.previewing)
+            {
+                const auto span = project::usableSpan (k, c.from, c.to);
+                if (span.second > span.first && (s.playhead < span.first || s.playhead >= span.second))
+                    seek (span.first);
+            }
+    }
+    compareStartedPlay = true;
+    setPlaying (true);
+}
+
+void UiSession::endTakeCompare (bool commit)
+{
+    if (! audition.isActive())
+        return;
+    auto* track = const_cast<project::Track*> (s.project.findTrack (audition.track()));
+    const auto type = audition.track();
+    const auto id = audition.previewing();
+    const auto from = audition.from(), to = audition.to();
+    bool used = false, unchanged = false;
+    if (track != nullptr && commit)
+    {
+        unchanged = id.isNotEmpty();   // 選んだテイクが元からその範囲に入っていた（下で上書き）
+        if (auto before = audition.commit (*track))
+        {
+            unchanged = false;
+            // 録音の取り消し（B10）と同じ 1 段の Ctrl / ⌘+Z で、選び直す前の採用区間に戻せる
+            compBeforeTake = std::move (*before);
+            undoTrack = type;
+            undoIsCompare = true;
+            s.canUndoTake = true;
+            used = true;
+        }
+    }
+    else if (track != nullptr)
+        audition.cancel (*track);
+    audition = {};
+
+    if (compareStartedPlay && s.isPlaying)
+        setPlaying (false);   // 試聴で鳴らした分は止める（比べる前から鳴っていたらそのまま）
+    if (compareChangedRange)
+    {
+        s.rangeIn = compareRangeIn;
+        s.rangeOut = compareRangeOut;
+        s.loopOn = compareLoopOn;
+        syncLoopToEngine();
+    }
+    compareChangedRange = compareStartedPlay = false;
+    s.compare.active = false;
+    s.compare.previewing.clear();
+    s.compare.original.clear();
+
+    if (used)
+        postNotice (tr ("compare.used", trackName (type), id,
+                        formatTime (from, s.sampleRate(), true) + " - " + formatTime (to, s.sampleRate(), true), undoKeyName()));
+    else if (unchanged)
+        postNotice (tr ("compare.unchanged", id));
+    notify (change::takes | change::tracks | change::range | change::transport);
+}
+
+std::optional<dummy::Session::TakeStats> UiSession::takeStatsIn (project::TrackType type, const juce::String& takeId, int64 from, int64 to) const
+{
+    const auto key = dummy::takeWaveKey (type, takeId);
+    if (! s.engineAttached)
+    {
+        // 見本（UI_MOCK）：見本の値
+        const auto it = s.takeStats.find (key);
+        return it != s.takeStats.end() ? std::optional<dummy::Session::TakeStats> (it->second) : std::nullopt;
+    }
+    const auto it = s.takePitch.find (key);
+    if (s.refPitch.empty() || it == s.takePitch.end() || it->second == nullptr || it->second->empty())
+        return std::nullopt;
+    return statsFor (guideFrames (s.refPitch), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents);
 }
 
 juce::String undoKeyName()

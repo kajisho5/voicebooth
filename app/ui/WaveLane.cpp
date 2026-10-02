@@ -1,4 +1,5 @@
 #include "WaveLane.h"
+#include "project/TakeCompare.h"
 
 namespace vb
 {
@@ -38,9 +39,34 @@ int WaveLane::preferredHeight (project::Mode m)
     return 142;
 }
 
-WaveLane::WaveLane (UiSession& u) : SessionView (u)
+WaveLane::WaveLane (UiSession& u, Actions& a) : SessionView (u), actions (a)
 {
     setMouseCursor (juce::MouseCursor::IBeamCursor);
+}
+
+juce::Rectangle<float> WaveLane::compBarArea() const
+{
+    const auto pl = plot();
+    return pl.withTop (pl.getY() + topPad).withHeight (compH);
+}
+
+bool WaveLane::overCompBar (juce::Point<float> p) const
+{
+    // 簡単モードには採用区間のバーもテイク比較も無い（DESIGN 2）
+    return state().mode != project::Mode::easy && compBarArea().contains (p);
+}
+
+void WaveLane::mouseMove (const juce::MouseEvent& e)
+{
+    // 選び直せる所だけ指のカーソル（波形の上は今までどおり範囲を選ぶ）
+    const bool pick = overCompBar (e.position) && session.canCompareTakes();
+    setMouseCursor (pick ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::IBeamCursor);
+}
+
+juce::String WaveLane::getTooltip()
+{
+    const auto p = getMouseXYRelative().toFloat();
+    return overCompBar (p) && session.canCompareTakes() ? tr ("wave.compBar.tooltip") : juce::String();
 }
 
 TimeMap WaveLane::map() const
@@ -84,6 +110,7 @@ void WaveLane::mouseDown (const juce::MouseEvent& e)
         showTakeMenu();
         return;
     }
+    compBarPress = overCompBar (e.position) && session.canCompareTakes();
     gesture.down (session, map(), e.position.x);
 }
 
@@ -141,6 +168,19 @@ void WaveLane::mouseUp (const juce::MouseEvent& e)
         return;
     }
     if (menuGesture) { menuGesture = false; return; }
+
+    // 採用区間のバーをクリック（ドラッグしていない）：その区間（区間の間なら、その空き）のテイクを選び直す
+    if (std::exchange (compBarPress, false) && e.getDistanceFromDragStart() < 4 && actions.openTakeCompare)
+        if (const auto* track = state().project.findTrack (state().currentTrack().type))
+        {
+            const auto span = project::compSpanAt (*track, map().sampleAt (e.position.x), state().project.lengthSamples);
+            if (span.second > span.first)
+            {
+                gesture.up (session, map(), (float) e.getMouseDownX());   // 押した所へ移動（クリックと同じ）してから開く
+                actions.openTakeCompare (span.first, span.second);
+                return;
+            }
+        }
     gesture.up (session, map(), e.position.x);
 }
 
@@ -221,6 +261,7 @@ void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& m, juce::Rectangle
         g.setColour (colours::textMute);
         g.setFont (sans (10.5f));
         g.drawText (tr ("wave.noTake"), bar.withTrimmedLeft (8.0f), juce::Justification::centredLeft, false);
+        drawCompareRange (g, m, bar, type);
         return;
     }
 
@@ -275,6 +316,36 @@ void WaveLane::drawCompBar (juce::Graphics& g, const TimeMap& m, juce::Rectangle
         g.setColour (colours::text);
         g.fillPath (d);
     }
+
+    drawCompareRange (g, m, bar, type);
+}
+
+void WaveLane::drawCompareRange (juce::Graphics& g, const TimeMap& m, juce::Rectangle<float> bar, project::TrackType type)
+{
+    // テイク比較の間：比べている範囲を枠で囲み、試聴中のテイクを出す（バーの区間はもう差し替わった形）
+    const auto& c = state().compare;
+    if (! c.active || c.track != type)
+        return;
+    const auto x0 = juce::jmax (bar.getX(), m.x (c.from)), x1 = juce::jmin (bar.getRight(), m.x (c.to));
+    if (x1 <= x0)
+        return;
+    const auto r = juce::Rectangle<float> (x0, bar.getY(), x1 - x0, bar.getHeight()).reduced (0.5f);
+    g.setColour (colours::signal.withAlpha (0.10f));
+    g.fillRoundedRectangle (r, 2.0f);
+    g.setColour (colours::signal);
+    g.drawRoundedRectangle (r, 2.0f, 1.5f);
+
+    const auto text = c.previewing.isEmpty() ? tr ("compare.current") : tr ("compare.auditioning", c.previewing.toUpperCase());
+    const auto f = sans (10.5f, Weight::semibold);   // 日本語が入る（Mono には無い）
+    const auto w = textWidth (f, text) + 14.0f;
+    if (w + 8.0f > r.getWidth())
+        return;
+    const auto tag = juce::Rectangle<float> (r.getRight() - w - 4.0f, r.getY() + 3.0f, w, r.getHeight() - 6.0f);
+    g.setColour (colours::signal);
+    g.fillRoundedRectangle (tag, 2.0f);
+    g.setColour (colours::onFill (colours::signal));
+    g.setFont (f);
+    g.drawText (text, tag, juce::Justification::centred, false);
 }
 
 void WaveLane::drawWave (juce::Graphics& g, const TimeMap& m, const Row& row)

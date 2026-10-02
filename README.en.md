@@ -63,6 +63,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Recording | Full-pass recording, retroactive recording (pressing REC late never cuts off the first word), re-recording a range (8 ms crossfade at each edge; 0–20 ms in Pro), latency measurement and compensation |
 | Click and count-in | A click on the song's beat (higher on beat 1; follows the practice tempo). Counts 1–2 bars before REC; re-recording a range counts in before the range. Headphones only, never recorded or exported |
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
+| Take comparison | List your takes newest first, hear each one in place in the song for a range (or one comp segment), and use the one you pick (Standard and up; Ctrl / ⌘+Z undoes it) |
 | Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
 | Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
 | Lyrics (off by default) | Load .txt / .lrc, sync by tapping |
@@ -73,7 +74,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 These are not in the beta yet (and are not shown in the app).
 
 - A reference line for harmonies (selecting a harmony track still shows the main reference line)
-- Comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
+- Separating anything other than vocals (guitar, drums and so on)
 
 > [!IMPORTANT]
 > The separation model is **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
@@ -93,7 +94,7 @@ The engine is the same; only what you see changes. A project made in one mode op
 
 | Easy | Standard | Pro |
 |---|---|---|
-| Record Main in one pass and hand it over | Doubles, one harmony, punch-in, entry timing, delivery pack | Two harmonies, on-pitch percentage and vibrato analysis, crossfade length at punch-in edges |
+| Record Main in one pass and hand it over | Doubles, one harmony, punch-in, take comparison, entry timing, delivery pack | Two harmonies, on-pitch percentage and vibrato analysis, crossfade length at punch-in edges |
 
 | Easy mode | Pro mode (harmony) |
 |---|---|
