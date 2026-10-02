@@ -146,7 +146,8 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/Align.cpp
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
-    app/analysis/Separation.cpp)
+    app/analysis/Separation.cpp
+    app/separation/SeparatorClient.cpp)
 
 # スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SKIN_SOURCES

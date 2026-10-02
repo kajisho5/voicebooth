@@ -144,6 +144,32 @@ public:
             expectLessThan (voicedRest, juce::jmax (1, inRest / 20));
         }
 
+        beginTest ("separated vocals (B16): the melody lands on the karaoke's timeline through the alignment");
+        {
+            const auto orig = original (b, notes, 2.5, 0.93f);
+            const auto kar = karaoke (b, 0.8);
+            const auto align = alignReference (orig.data(), (juce::int64) orig.size(), kar.data(), (juce::int64) kar.size(), sr);
+            expect (align.found());
+            // 分離で取り出した声のつもり：伴奏なしの原曲（原曲の時間）
+            const auto vocals = original (std::vector<float> (b.size(), 0.0f), notes, 2.5, 0.0f);
+            const auto r = pitchFromVocals (vocals.data(), (juce::int64) vocals.size(), (juce::int64) kar.size(), sr, align);
+            expect (r.status == RefPitchResult::Status::ok);
+            int inNote = 0, right = 0;
+            for (auto& p : r.points)
+            {
+                const auto t = (double) p.songSample / sr - 0.8;
+                for (auto& nt : notes)
+                    if (t >= nt.start + 0.04 && t < nt.end - 0.04)
+                    {
+                        ++inNote;
+                        if (p.confidence >= 0.5f && std::abs (p.midi - (float) nt.midi) * 100.0f < 15.0f)
+                            ++right;
+                    }
+            }
+            expectGreaterThan (inNote, 1000);
+            expectGreaterThan (right, inNote * 97 / 100);
+        }
+
         beginTest ("a different mix (re-recorded karaoke), a faster version or another song: no reference line");
         {
             const auto orig = original (b, notes, 2.5, 1.0f);

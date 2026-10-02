@@ -184,6 +184,14 @@ void StatusBar::paint (juce::Graphics& g)
         g.drawText (txt, inner, juce::Justification::centredLeft, false);
     }
 
+    // ボーカル分離（B16。裏で進む）
+    if (s.separating)
+    {
+        const auto pct = juce::roundToInt (s.separationProgress * 100.0f);
+        chip (s.separationEta > 0.0 ? tr ("status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
+                                    : tr ("status.separating", pct), colours::ref);
+    }
+
     if (! s.engineAttached)
     {
         // UI_MOCK ビルド：音は出ない

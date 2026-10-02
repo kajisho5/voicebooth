@@ -164,6 +164,18 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         showToast (tr ("device.lostToast"));
     }
 
+    // 引き算では声が取れない：分離するか尋ねる（B16）
+    if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen)
+    {
+        separationOfferSeen = state().separationOfferSerial;
+        const auto minutes = juce::jmax (1, juce::roundToInt (session.separationEstimateSeconds() / 60.0));
+        showConfirm (tr ("separation.confirm.title"), tr ("separation.confirm.message", minutes),
+                     {
+                         { tr ("separation.confirm.yes"), DialogPanel::KeyRole::primary, [this] { session.separateGuide(); } },
+                         { tr ("separation.confirm.later"), DialogPanel::KeyRole::normal, {} },
+                     });
+    }
+
     // 録音・書き出しの結果、録れない理由（B5）
     if ((changes & change::notice) && state().noticeSerial != noticeSeen)
     {

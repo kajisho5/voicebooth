@@ -158,6 +158,11 @@ struct Session
     // お手本（声入りの原曲。B9。DESIGN 7.1.1）。refPitch はオフボの時間
     juce::String guideName;               // 読み込んだ原曲のファイル名（空 = まだ）
     bool guideBusy = false;               // 時間合わせ・声の取り出しの最中
+    // ボーカル分離（B16）：引き算では声が取れない時に勧める。分離は別プロセスで裏で進む
+    int separationOfferSerial = 0;        // 「分離しますか？」を出す合図（増えたら出す）
+    bool separating = false;
+    float separationProgress = 0.0f;      // 0..1
+    double separationEta = -1.0;          // 残りの秒（分からなければ < 0）
     int64 myPitchLag = 0;                 // 自分のピッチの点が再生ヘッドより遅れて届く分（遅れ + 検出。今の音の点を出す許し幅。B8）
 
     int sampleRate() const { return project.sampleRate; }
