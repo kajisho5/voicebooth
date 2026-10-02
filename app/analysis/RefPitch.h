@@ -40,4 +40,10 @@ RefPitchResult referencePitch (const float* reference, juce::int64 referenceLeng
                                const float* karaoke, juce::int64 karaokeLength,
                                double sampleRate, const AlignResult& align,
                                const std::function<bool (float)>& progress = {});
+
+/** 分離（B16）で取り出した声（原曲の時間、モノラル）から音程を取り、オフボの時間に置く（合う区間だけ）。
+    引き算ができない組（別のミックス・EQ 違い）でも、時間が合えばお手本が取れる */
+RefPitchResult pitchFromVocals (const float* vocals, juce::int64 vocalsLength, juce::int64 karaokeLength,
+                                double sampleRate, const AlignResult& align,
+                                const std::function<bool (float)>& progress = {});
 } // namespace vb::analysis

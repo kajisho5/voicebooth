@@ -4,6 +4,7 @@
 #include "audio/Resample.h"
 #include "analysis/RefPitch.h"
 #include "analysis/MusicInfo.h"
+#include "analysis/Separation.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -41,6 +42,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
                           std::shared_ptr<const audio::SongAudio> audio)
 {
     finishRecording();   // 録音中に別の曲を開いたら、そこまでのテイクは残す
+    stopSeparation();    // 前の曲の分離は止める（B16）
     flushSave();         // 前の曲のプロジェクトを保存してから
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
@@ -1083,9 +1085,205 @@ void UiSession::loadGuide (const juce::File& file)
                 }
                 case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
                 case Kind::notAligned:      postNotice (tr ("guide.problem.notAligned")); break;
-                case Kind::needsSeparation: postNotice (tr ("guide.problem.needsSeparation")); break;
+                case Kind::needsSeparation:
+                    // 引き算では声が取れない：分離（B16）が使えれば勧める。無ければ理由だけ
+                    if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); }
+                    else                       postNotice (tr ("separation.noModel"));
+                    break;
                 case Kind::keyShift:        postNotice (tr ("guide.problem.keyShift", (out->keyShift > 0 ? "+" : "") + juce::String (out->keyShift))); break;
             }
+            notify (change::view);
+        });
+    });
+}
+
+//==============================================================================
+namespace
+{
+    bool writeFloatWav (const juce::File& file, const juce::AudioBuffer<float>& b, double rate)
+    {
+        file.getParentDirectory().createDirectory();
+        const auto temp = file.getSiblingFile (file.getFileName() + ".part");
+        temp.deleteFile();
+        {
+            auto fs = std::make_unique<juce::FileOutputStream> (temp);
+            if (! fs->openedOk()) return false;
+            std::unique_ptr<juce::OutputStream> stream (fs.release());
+            juce::WavAudioFormat wav;
+            auto w = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (b.getNumChannels())
+                                                    .withBitsPerSample (32).withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
+            if (w == nullptr || ! w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples())) return false;
+        }
+        file.deleteFile();
+        return temp.moveFileTo (file);
+    }
+
+    std::shared_ptr<audio::SongAudio> readAudio (const juce::File& f)
+    {
+        juce::AudioFormatManager formats;
+        audio::registerSongFormats (formats);
+        auto loaded = audio::loadSong (f, formats);
+        if (! loaded.ok() || loaded.audio == nullptr)
+            return {};
+        return std::const_pointer_cast<audio::SongAudio> (loaded.audio);
+    }
+}
+
+bool UiSession::separationAvailable() const
+{
+    return isEngineDriven() && separation::SeparatorClient::available();
+}
+
+double UiSession::separationEstimateSeconds() const
+{
+    // 4 コアの Xeon で 30 秒の曲が 109 秒（11.3）。手元のパソコンでは最初の区間を測ってから出し直す
+    const auto seconds = s.sampleRate() > 0 ? (double) s.project.lengthSamples / s.sampleRate() : 0.0;
+    return seconds * 3.7;
+}
+
+void UiSession::stopSeparation()
+{
+    if (separator != nullptr)
+        separator->stop();
+}
+
+void UiSession::separateGuide()
+{
+    if (! separationAvailable() || s.guidePath.isEmpty() || s.separating || s.songOriginal == nullptr)
+        return;
+    const auto guide = s.projectFolder.getChildFile (s.guidePath);
+    if (! guide.existsAsFile())
+        return;
+
+    // キャッシュ（Cache/ は消しても作り直せる。DESIGN 8）：原曲のファイル・大きさ・日時・モデルが同じなら分離し直さない
+    const auto key = juce::String::toHexString ((juce::int64) (s.guidePath + "|" + juce::String (guide.getSize()) + "|"
+                                                               + juce::String (guide.getLastModificationTime().toMilliseconds()) + "|"
+                                                               + separation::SeparatorClient::modelId()).hashCode64());
+    const auto dir = s.projectFolder.getChildFile ("Cache/separation/" + key);
+    const auto vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav"), mix = dir.getChildFile ("mix.wav");
+    if (vocals.existsAsFile() && backing.existsAsFile())
+    {
+        analyseSeparated (vocals, backing);
+        return;
+    }
+
+    s.separating = true;
+    s.separationProgress = 0.0f;
+    s.separationEta = -1.0;
+    s.guideBusy = true;
+    postNotice (tr ("separation.started"));
+    notify (change::view);
+
+    // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
+    std::weak_ptr<bool> weak = alive;
+    const auto serial = s.songSerial;
+    juce::Thread::launch ([this, weak, guide, mix, vocals, backing, serial]
+    {
+        bool ok = false;
+        if (auto a = readAudio (guide))
+        {
+            std::shared_ptr<const audio::SongAudio> at44 = a;
+            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
+                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
+            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
+        }
+        juce::MessageManager::callAsync ([this, weak, ok, mix, vocals, backing, serial]
+        {
+            if (weak.expired())
+                return;
+            auto fail = [this] (const juce::String& why)
+            {
+                s.separating = false;
+                s.guideBusy = false;
+                postNotice (why);
+                notify (change::view);
+            };
+            if (serial != s.songSerial) { fail ({}); return; }
+            if (! ok) { fail (tr ("separation.failed", "can't prepare the input")); return; }
+
+            if (separator == nullptr)
+                separator = std::make_unique<separation::SeparatorClient>();
+            separation::SeparatorClient::Callbacks cb;
+            cb.progress = [this, weak] (float p, double eta)
+            {
+                if (weak.expired()) return;
+                s.separationProgress = p;
+                s.separationEta = eta;
+                notify (change::view);
+            };
+            cb.done = [this, weak, mix, vocals, backing, serial, fail] (bool done, const juce::String& error)
+            {
+                if (weak.expired()) return;
+                mix.deleteFile();   // 入力の写しは消す（結果だけ残す）
+                s.separating = false;
+                if (serial != s.songSerial) { s.guideBusy = false; return; }
+                if (! done)
+                {
+                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", error));
+                    return;
+                }
+                analyseSeparated (vocals, backing);
+            };
+            if (! separator->start (mix, vocals, backing, std::move (cb)))
+                fail (tr ("separation.failed", "busy"));
+        });
+    });
+}
+
+void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File& backingFile)
+{
+    // 分離した声（原曲の時間）→ オフボの SR にそろえる → 分離した伴奏とオフボで時間を合わせる → 声の音程をオフボの時間へ
+    s.guideBusy = true;
+    notify (change::view);
+    const auto karaoke = s.songOriginal;
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, vocalsFile, backingFile, karaoke, serial]
+    {
+        auto out = std::make_shared<GuideOutcome>();
+        auto voc = readAudio (vocalsFile);
+        auto back = readAudio (backingFile);
+        std::shared_ptr<const audio::SongAudio> v = voc, b = back;
+        if (v != nullptr && std::abs (v->sampleRate - karaoke->sampleRate) > 0.5) v = audio::resampleSong (*v, karaoke->sampleRate);
+        if (b != nullptr && std::abs (b->sampleRate - karaoke->sampleRate) > 0.5) b = audio::resampleSong (*b, karaoke->sampleRate);
+        if (v == nullptr || b == nullptr)
+        {
+            out->kind = GuideOutcome::Kind::loadFailed;
+            out->error = "load.error.readFailed";
+        }
+        else
+        {
+            const auto rate = karaoke->sampleRate;
+            const auto backMono = mono (*b), kar = mono (*karaoke), vm = mono (*v);
+            const auto align = analysis::alignReference (backMono.data(), (juce::int64) backMono.size(), kar.data(), (juce::int64) kar.size(), rate);
+            if (align.found())
+            {
+                out->offsetSeconds = (double) align.offsetSamples / rate;
+                auto r = analysis::pitchFromVocals (vm.data(), (juce::int64) vm.size(), (juce::int64) kar.size(), rate, align);
+                if (r.status == analysis::RefPitchResult::Status::ok)
+                {
+                    out->kind = GuideOutcome::Kind::ok;
+                    out->points = std::move (r.points);
+                }
+            }
+        }
+        juce::MessageManager::callAsync ([this, weak, out, serial, songRate = karaoke->sampleRate]
+        {
+            if (weak.expired() || serial != s.songSerial)
+                return;
+            s.guideBusy = false;
+            if (out->kind == GuideOutcome::Kind::ok)
+            {
+                const auto ratio = (double) s.sampleRate() / songRate;
+                s.refPitch.clear();
+                s.refPitch.reserve (out->points.size());
+                for (auto& f : out->points)
+                    s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
+                rejudgeAll();
+                postNotice (tr ("separation.done", juce::String (out->offsetSeconds, 2)));
+            }
+            else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", "can't read the result"));
+            else                                                  postNotice (tr ("guide.problem.notAligned"));
             notify (change::view);
         });
     });

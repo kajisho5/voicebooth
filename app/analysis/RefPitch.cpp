@@ -154,4 +154,55 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
     result.status = RefPitchResult::Status::ok;
     return result;
 }
+
+RefPitchResult pitchFromVocals (const float* vocals, int64 vocalsLength, int64 karaokeLength,
+                                double sampleRate, const AlignResult& align,
+                                const std::function<bool (float)>& progress)
+{
+    RefPitchResult result;
+    if (! align.found() || align.covered.empty() || sampleRate <= 0.0 || vocalsLength <= 0)
+        return result;   // notAligned
+
+    int64 total = 0;
+    for (auto& c : align.covered)
+        total += juce::jmax ((int64) 0, juce::jmin (c.karaokeEnd, karaokeLength) - c.karaokeStart);
+
+    audio::PitchAnalyzer analyzer;
+    std::vector<float> chunk;
+    std::vector<int64> pos;
+    int64 done = 0;
+    for (auto& c : align.covered)
+    {
+        analyzer.prepare (sampleRate);   // 区間ごとに作り直す（区間をまたいで線をつながない）
+        const auto from = juce::jmax ((int64) 0, c.karaokeStart), to = juce::jmin (c.karaokeEnd, karaokeLength);
+        for (auto a = from; a < to; a += 8192)
+        {
+            const auto n = (int) juce::jmin ((int64) 8192, to - a);
+            chunk.resize ((size_t) n);
+            pos.resize ((size_t) n);
+            for (int i = 0; i < n; ++i)
+            {
+                const auto k = a + i;
+                const auto r = k + c.offsetSamples;   // 原曲の位置
+                chunk[(size_t) i] = r >= 0 && r < vocalsLength ? vocals[r] : 0.0f;
+                pos[(size_t) i] = k;
+            }
+            analyzer.process (chunk.data(), pos.data(), n, result.points);
+            done += n;
+            if (progress && ! progress ((float) done / (float) juce::jmax ((int64) 1, total)))
+            {
+                result.points.clear();
+                result.status = RefPitchResult::Status::cancelled;
+                return result;
+            }
+        }
+    }
+
+    int voiced = 0;
+    for (auto& p : result.points)
+        voiced += p.confidence >= 0.5f ? 1 : 0;
+    result.voicedRatio = result.points.empty() ? 0.0f : (float) voiced / (float) result.points.size();
+    result.status = RefPitchResult::Status::ok;
+    return result;
+}
 } // namespace vb::analysis

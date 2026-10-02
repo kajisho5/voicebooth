@@ -2,6 +2,7 @@
 
 #include "DummySession.h"
 #include "project/ProjectFile.h"
+#include "separation/SeparatorClient.h"
 #include "audio/SongLoader.h"
 
 /*  画面の状態（Phase A）
@@ -156,6 +157,13 @@ public:
     /** 原曲を読み、オフボと時間を合わせて声を取り出し（原曲 − カラオケ）、お手本の音程を重ねる（裏で）。
         結果は知らせで出す。引けない組（別のミックス・キー違い・別の曲）では線を出さない */
     void loadGuide (const juce::File&);
+    /** お手本の原曲から声を分離して、お手本の線を作る（B16。引き算では取れない時）。裏で進む */
+    void separateGuide();
+    void stopSeparation();
+    /** 分離に要る物（分離プロセスとモデル）がそろっている */
+    bool separationAvailable() const;
+    /** 分離にかかる時間の目安（秒。このパソコンで測る前の見込み） */
+    double separationEstimateSeconds() const;
 
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
@@ -265,6 +273,8 @@ private:
     bool stemsDirty = false;
     juce::uint32 stemGeneration = 0, stemSlotGeneration[4] {};
     juce::String stemSignature[4];
+    std::unique_ptr<separation::SeparatorClient> separator;   // B16
+    void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
     juce::uint32 tailWaitStart = 0;
