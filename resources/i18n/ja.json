@@ -358,6 +358,8 @@
   "settings.device.open": "入力セットアップ",
   "settings.language": "表示言語 / Language",
   "settings.language.note": "すぐに切り替わります",
+  "settings.lyrics": "歌詞",
+  "settings.lyrics.note": "歌詞のレーン（読み込み・タップで合わせる・自動で合わせる）を出す",
   "settings.micro": "SETTINGS",
   "settings.mode": "モード",
   "settings.mode.note": "どのモードで作ったプロジェクトも全モードで開けます",

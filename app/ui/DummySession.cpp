@@ -269,6 +269,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     // 表示の好み
     s.mode                = prev.mode;
     s.octaveAlign         = prev.octaveAlign;
+    s.showLyrics          = prev.showLyrics;
     s.fullRange           = prev.fullRange;
     s.lowMidi             = prev.lowMidi;
     s.highMidi            = prev.highMidi;

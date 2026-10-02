@@ -35,7 +35,7 @@ private:
     Dropdown language, skinPicker;
     KeyButton editSkin, newSkin;
     SegmentedKeys mode, tolerance, countIn, crossfade;
-    KeyButton octaveAlign, openSetup, cacheKey, supportKey;
+    KeyButton octaveAlign, showLyrics, openSetup, cacheKey, supportKey;
     system::Info systemInfo;
     std::vector<Row> rows;
     std::vector<juce::Rectangle<int>> rowAreas;
