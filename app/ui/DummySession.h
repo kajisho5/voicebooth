@@ -160,6 +160,10 @@ struct Session
     bool guideBusy = false;               // 時間合わせ・声の取り出しの最中
     // ボーカル分離（B16）：引き算では声が取れない時に勧める。分離は別プロセスで裏で進む
     int separationOfferSerial = 0;        // 「分離しますか？」を出す合図（増えたら出す）
+    // リハーサルで録ったテイクの救済：この番号の知らせには「本番に入れる」を付ける
+    int rescueNoticeSerial = -1;
+    project::TrackType rescueTrack = project::TrackType::main;
+    juce::String rescueTakeId;
     bool separating = false;
     float separationProgress = 0.0f;      // 0..1
     double separationEta = -1.0;          // 残りの秒（分からなければ < 0）

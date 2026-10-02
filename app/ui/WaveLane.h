@@ -27,6 +27,8 @@ private:
     }
 
     struct Row { project::TrackType type; int trackIndex; juce::Rectangle<float> area; bool current; };
+    void showTakeMenu();   // 右クリック：リハーサルのテイクを本番に入れる（録り間違いの救済）
+    bool menuGesture = false;
 
     std::vector<Row> layoutRows() const;
     TimeMap map() const;
