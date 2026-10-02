@@ -3,7 +3,6 @@
 #include "DummySession.h"
 #include "project/ProjectFile.h"
 #include "separation/SeparatorClient.h"
-#include "lyrics/LyricsClient.h"
 #include "models/ModelDownloader.h"
 #include "audio/SongLoader.h"
 #include "analysis/KeySuggest.h"
@@ -193,18 +192,8 @@ public:
     void updateTakeStats (const juce::String& onlyKey = {});
     /** いま選んでいるトラックのいちばん新しいテイクの結果（無ければ nullptr） */
     const dummy::Session::TakeStats* latestTakeStats() const;
-    /** お手本から取り出した声（オフボの時間、16 kHz モノラル）。歌詞の自動合わせ（B17）に使う。お手本を合わせ終えると作られる */
-    juce::File guideVocalsFile() const { return s.projectFolder == juce::File() ? juce::File() : s.projectFolder.getChildFile ("Cache/lyrics/guide-vocals-16k.wav"); }
     /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。押した時だけ呼ぶ */
-    void requestSeparationModel() { requestModel (0); }
-    /** モデル（0 = 分離 B16、1 = 歌詞の認識 B17）：署名した一覧を見て、ダウンロードの確認を出す。押した時だけ呼ぶ */
-    void requestModel (int kind);
-    // --- 歌詞の自動合わせ（B17。DESIGN 7.5.3 / 11.3） ---------------------------------
-    /** お手本から取り出した声を認識して、歌詞の行の時刻を推定する（確定した時刻は変えない）。モデルが無ければ確認を出す */
-    void alignLyricsAuto();
-    void stopLyricsAlign();
-    /** 自動で合わせられない理由の翻訳キー（空なら合わせられる。モデルが無いのは理由にしない＝押すと確認を出す） */
-    juce::String lyricsAutoProblem() const;
+    void requestSeparationModel();
     void startModelDownload();
     void cancelModelDownload();
     /** 「声を分離して取り出しますか？」を出す（モデルが入った後など） */
@@ -323,9 +312,7 @@ private:
     juce::uint32 stemGeneration = 0, stemSlotGeneration[4] {};
     juce::String stemSignature[4];
     std::unique_ptr<models::ModelDownloader> modelDownloader;   // B16
-    std::unique_ptr<models::ModelEntry> modelEntries[2];        // 署名を確かめた一覧の中のモデル（0 = 分離、1 = 歌詞の認識）
-    std::unique_ptr<lyrics::LyricsClient> lyricsRunner;          // B17
-    bool lyricsAfterModel = false;                               // モデルが入ったら歌詞を合わせる
+    std::unique_ptr<models::ModelEntry> modelEntry;              // 署名を確かめた一覧の中の分離モデル
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか

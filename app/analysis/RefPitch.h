@@ -36,7 +36,7 @@ struct RefPitchResult
 };
 
 /** reference = 原曲、karaoke = オフボ。align は alignReference の結果。progress は 0..1、false で中止。
-    vocalsOut を渡すと、取り出した声をオフボの時間で入れる（長さ = karaokeLength、合わない所は 0。歌詞の認識 B17 に使う） */
+    vocalsOut を渡すと、取り出した声をオフボの時間で入れる（長さ = karaokeLength、合わない所は 0。お手本の声を聴くのに使う） */
 RefPitchResult referencePitch (const float* reference, juce::int64 referenceLength,
                                const float* karaoke, juce::int64 karaokeLength,
                                double sampleRate, const AlignResult& align,

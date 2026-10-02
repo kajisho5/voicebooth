@@ -35,7 +35,6 @@ namespace
         "analyze.step.separation",
         "analyze.step.pitch",
         "analyze.step.tempo",
-        "analyze.step.lyrics",
         "analyze.step.range",
     };
 }
@@ -623,8 +622,6 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
 
     for (size_t i = 0; i < std::size (stepKeys); ++i)
     {
-        if (i == 4 && ! state().showLyrics)
-            continue;   // 歌詞は出す設定の時だけ（既定は出さない）
         auto row = r.removeFromTop (46).toFloat();
         r.removeFromTop (6);
 

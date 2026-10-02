@@ -33,8 +33,8 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
 | Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
 | Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
-| Size | The installer is about 13 MB on Windows and about 42 MB on Mac. The separation model (about 223 MB) and the lyrics model (about 465 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
-| Heavy processing | Separation and automatic lyrics sync run **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
+| Size | The installer is about 13 MB on Windows and about 42 MB on Mac. The separation model (about 223 MB) is downloaded **only when you press the button to use it**. Nothing is fetched behind your back |
+| Heavy processing | Separation runs **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
 | Harmonies | You can record harmony tracks. **There is no feature that pulls just the harmony out of a mix to use as a reference** (separation gives two parts: "all vocals" and "accompaniment") |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
 | Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
@@ -53,7 +53,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
 | Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
 | Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
-| Lyrics (off by default) | Load .txt / .lrc, sync by tapping, or sync automatically from the reference vocal (needs the lyrics model) |
+| Lyrics (off by default) | Load .txt / .lrc, sync by tapping |
 | Skins | Recolour the whole app (10 built-in). Share them as `.vbskin` files |
 
 ### Not yet available
@@ -66,7 +66,7 @@ These are not in the beta yet (and are not shown in the app).
 - Metronome and count-in sounds, comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
 
 > [!IMPORTANT]
-> The models for separation and automatic lyrics sync are **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
+> The separation model is **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
 
 ### What your mix engineer gets
 
@@ -172,10 +172,9 @@ The source code is licensed under the **GNU Affero General Public License v3.0 o
 | IBM Plex Sans JP / IBM Plex Mono (`resources/fonts`) | SIL Open Font License 1.1 |
 | ONNX Runtime 1.22.0 (only in the separate vocal-separation process; the official prebuilt package is fetched at build time) | MIT |
 | Monocypher 4.0.3 (verifies the Ed25519 signature of the model list; fetched at build time) | Dual CC0 / BSD-2-Clause |
-| whisper.cpp v1.9.4 (only in the separate lyrics-sync process; fetched at build time) | MIT |
 | Rubber Band Library 4 (practice tempo / key; fetched at build time) | Dual GPL v2 or later / commercial (used here under GPL) |
 | Steinberg ASIO SDK 2.3.4 (Windows builds only; the official package is fetched at build time) | Dual GPLv3 / commercial (used here under GPLv3). The SDK itself is not kept in this repository. ASIO is a trademark of Steinberg Media Technologies GmbH |
-| Models (separate from the app, downloaded only when you press the button): separation Mel-Band RoFormer (Kimberley Jensen), lyrics Whisper small (OpenAI) | Both MIT. Only models whose weight licenses have been checked are distributed |
+| Models (separate from the app, downloaded only when you press the button): separation Mel-Band RoFormer (Kimberley Jensen) | MIT. Only models whose weight licenses have been checked are distributed |
 
 ## Contributing
 

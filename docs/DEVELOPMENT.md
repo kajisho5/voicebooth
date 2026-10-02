@@ -26,7 +26,7 @@
 - **B15**：書き出しの「納品パック」で `export_YYYYMMDD/`（各トラックの Dry・確認用ミックス・notes.txt、プロは take_map.txt）と同じ名前の zip を作る。前の納品は上書きしない
 - **B14**：曲を開くと `Projects/{曲名}/{曲名}.vbooth`（JSON）を作って自動保存（変更から 1.5 秒・曲を替える時・終了時）、世代バックアップ 10 個。同じ曲を開き直すと続きから。起動画面の「最近」、`.vbooth` のダブルクリック（Win インストーラ・Mac の Info.plist で関連付け）
 - **B16**（一部）：お手本の原曲が引き算で取れない時、分離（別プロセス `VoiceBoothSeparator`、ONNX Runtime）で声を取り出してお手本の線にする（`Cache/separation/` に残す）。原曲だけなら起動画面の「原曲だけで始める」で原曲 − 分離した声をオフボにして開く（`--guide=` だけで起動するとお手本の枠に入る）。モデルが無ければ知らせのキー「分離モデルを入れる…」から、署名した一覧を確かめてダウンロード（途中再開・8 MB ごとの照合・再生中は一時停止）。開発用：`VB_SEPARATION_MODEL=<フォルダ>`（手元のモデル）、`VB_MODEL_PUBKEY`・`VB_MODEL_MANIFEST_URL`・`VB_MODEL_ALLOW_HTTP=1`（手元のサーバーで試す。`tools/models/README.md`）
-- **B17**（一部）：歌詞レーンの「自動で合わせる」で、お手本から取り出した声を whisper.cpp の別プロセス `VoiceBoothLyrics`（ビルド時に v1.9.4 を取得）で認識し、歌詞の行に時刻（推定）を入れる。モデルは押した時だけダウンロード。開発用：`VB_LYRICS_MODEL=<ggml-small.bin のあるフォルダ>`、手元の whisper.cpp は `-DVOICEBOOTH_WHISPER_DIR=...`、作らない時は `-DVOICEBOOTH_LYRICS=OFF`
+- **B17**：歌詞の自動合わせ（whisper.cpp の別プロセス `VoiceBoothLyrics`）は**取りやめ**（2026-10-02 持ち主の決定：遅く、役に立たなかった。Whisper のモデルはダウンロードしない）。コードとビルドから外した（git の履歴に残る）。歌詞は .txt / .lrc の読み込みとタップで合わせる（B4b）だけ
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
 
 | 曲を読み込んだところ | 開いた曲の画面（実波形） |
@@ -124,7 +124,7 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 3. 版のタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
 4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<版>-win-x64-setup.exe` と `VoiceBooth-<版>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake の版と違えば止まる。`-` の入るタグはプレリリース
 
-まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離・歌詞のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
+まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
 
 ## 構成
 

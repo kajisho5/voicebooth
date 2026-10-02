@@ -172,7 +172,6 @@ set(VOICEBOOTH_RECORD_SOURCES
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
     app/song/LyricsImport.cpp
-    app/song/LyricsAlign.cpp
     app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
     app/analysis/Align.cpp
@@ -183,7 +182,6 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/TakeStats.cpp
     app/analysis/KeySuggest.cpp
     app/separation/SeparatorClient.cpp
-    app/lyrics/LyricsClient.cpp
     app/models/ModelManifest.cpp
     app/models/ModelDownloader.cpp)
 
@@ -282,76 +280,6 @@ if(NOT VOICEBOOTH_UI_MOCK)
     else()
         target_sources(VoiceBooth PRIVATE app/audio/MicPermission.cpp)
     endif()
-endif()
-
-# ---------------------------------------------------------------------------
-# 歌の認識の別プロセス VoiceBoothLyrics（DESIGN 11.3 / B17）
-#   whisper.cpp v1.9.4（MIT）。app/lyricsproc は独立した CMake のプロジェクトで、ここから ExternalProject で作る
-#   （ggml は 1 回の configure で arm64 と x86_64 を同時に作れないので、Mac は別々に作って lipo でつなぐ）。
-#   x86_64 は AVX2 / FMA / F16C 前提。手元の whisper.cpp を使う時は -DVOICEBOOTH_WHISPER_DIR=...、作らない時は -DVOICEBOOTH_LYRICS=OFF
-# ---------------------------------------------------------------------------
-option(VOICEBOOTH_LYRICS "Build VoiceBoothLyrics (lyrics recognition with whisper.cpp)" ON)
-if(VOICEBOOTH_LYRICS AND NOT VOICEBOOTH_UI_MOCK)
-    include(ExternalProject)
-    set(VOICEBOOTH_WHISPER_DIR "" CACHE PATH "Local whisper.cpp checkout (empty = fetch v1.9.4)")
-    set(vb_lyrics_name "VoiceBoothLyrics${CMAKE_EXECUTABLE_SUFFIX}")
-    set(vb_lyrics_common_args
-        -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DVB_WHISPER_DIR=${VOICEBOOTH_WHISPER_DIR})
-    if(APPLE)
-        list(APPEND vb_lyrics_common_args -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
-        set(vb_lyrics_archs ${CMAKE_OSX_ARCHITECTURES})
-    else()
-        set(vb_lyrics_archs native)
-    endif()
-    set(vb_lyrics_parts "")
-    set(vb_lyrics_targets "")
-    foreach(arch ${vb_lyrics_archs})
-        set(dir "${CMAKE_BINARY_DIR}/lyrics-${arch}")
-        set(args ${vb_lyrics_common_args})
-        if(APPLE)
-            list(APPEND args -DCMAKE_OSX_ARCHITECTURES=${arch})
-        endif()
-        ExternalProject_Add(vb_lyrics_${arch}
-            SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/app/lyricsproc"
-            BINARY_DIR "${dir}"
-            CMAKE_ARGS ${args}
-            BUILD_COMMAND ${CMAKE_COMMAND} --build "${dir}" --config Release --target VoiceBoothLyrics
-            INSTALL_COMMAND ""
-            BUILD_ALWAYS FALSE
-            BUILD_BYPRODUCTS "${dir}/${vb_lyrics_name}" "${dir}/Release/${vb_lyrics_name}")
-        # Visual Studio（複数の構成）は Release/ の下にできる
-        if(CMAKE_CONFIGURATION_TYPES)
-            list(APPEND vb_lyrics_parts "${dir}/Release/${vb_lyrics_name}")
-        else()
-            list(APPEND vb_lyrics_parts "${dir}/${vb_lyrics_name}")
-        endif()
-        list(APPEND vb_lyrics_targets vb_lyrics_${arch})
-    endforeach()
-
-    set(vb_lyrics_exe "${CMAKE_BINARY_DIR}/lyrics/${vb_lyrics_name}")
-    list(LENGTH vb_lyrics_parts vb_lyrics_count)
-    if(APPLE AND vb_lyrics_count GREATER 1)
-        add_custom_command(OUTPUT "${vb_lyrics_exe}"
-                           COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lyrics"
-                           COMMAND lipo -create ${vb_lyrics_parts} -output "${vb_lyrics_exe}"
-                           DEPENDS ${vb_lyrics_targets} ${vb_lyrics_parts}
-                           COMMENT "VoiceBoothLyrics: universal binary")
-    else()
-        add_custom_command(OUTPUT "${vb_lyrics_exe}"
-                           COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lyrics"
-                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${vb_lyrics_parts} "${vb_lyrics_exe}"
-                           DEPENDS ${vb_lyrics_targets} ${vb_lyrics_parts})
-    endif()
-    add_custom_target(VoiceBoothLyrics ALL DEPENDS "${vb_lyrics_exe}")
-
-    # 本体の隣（Mac は VoiceBooth.app/Contents/MacOS）に置く
-    add_dependencies(VoiceBooth VoiceBoothLyrics)
-    add_custom_command(TARGET VoiceBooth POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${vb_lyrics_exe}" "$<TARGET_FILE_DIR:VoiceBooth>")
-    target_compile_definitions(VoiceBooth PRIVATE VOICEBOOTH_HAS_LYRICS=1)
 endif()
 
 # OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
@@ -526,7 +454,6 @@ if(VOICEBOOTH_TESTS)
         tests/DeliveryPackTests.cpp
         tests/SeparationTests.cpp
         tests/ModelDownloadTests.cpp
-        tests/LyricsAlignTests.cpp
         tests/TakeStatsTests.cpp
         tests/KeySuggestTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}

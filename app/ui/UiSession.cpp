@@ -46,7 +46,6 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
 {
     finishRecording();   // 録音中に別の曲を開いたら、そこまでのテイクは残す
     stopSeparation();    // 前の曲の分離は止める（B16）
-    stopLyricsAlign();   // 歌詞の自動合わせも（B17）
     flushSave();         // 前の曲のプロジェクトを保存してから
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
@@ -1032,34 +1031,7 @@ namespace
         return m;
     }
 
-    /** 取り出した声（オフボの時間・モノラル）を、歌の認識（B17）に渡す形で残す：16 kHz モノラル・32bit float の WAV */
-    bool writeVocalsForLyrics (const juce::File& file, const std::vector<float>& vocals, double rate)
-    {
-        if (file == juce::File() || vocals.empty() || rate <= 0.0)
-            return false;
-        audio::SongAudio a;
-        a.sampleRate = rate;
-        a.buffer.setSize (1, (int) vocals.size());
-        a.buffer.copyFrom (0, 0, vocals.data(), (int) vocals.size());
-        auto at16 = audio::resampleSong (a, 16000.0);
-        if (at16 == nullptr)
-            return false;
-        file.getParentDirectory().createDirectory();
-        const auto temp = file.getSiblingFile (file.getFileName() + ".part");
-        temp.deleteFile();
-        {
-            std::unique_ptr<juce::OutputStream> stream = std::make_unique<juce::FileOutputStream> (temp);
-            if (! static_cast<juce::FileOutputStream*> (stream.get())->openedOk()) return false;
-            juce::WavAudioFormat wav;
-            auto w = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (16000.0).withNumChannels (1)
-                                                    .withBitsPerSample (32).withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
-            if (w == nullptr || ! w->writeFromAudioSampleBuffer (at16->buffer, 0, at16->buffer.getNumSamples())) return false;
-        }
-        file.deleteFile();
-        return temp.moveFileTo (file);
-    }
-
-    GuideOutcome analyseGuide (const juce::File& file, const audio::SongAudio& backing, const juce::File& vocalsFile)
+    GuideOutcome analyseGuide (const juce::File& file, const audio::SongAudio& backing)
     {
         GuideOutcome out;
         juce::AudioFormatManager formats;
@@ -1106,8 +1078,7 @@ namespace
             case analysis::RefPitchResult::Status::ok:
                 out.kind = GuideOutcome::Kind::ok;
                 out.points = std::move (r.points);
-                writeVocalsForLyrics (vocalsFile, vocals, rate);
-                out.vocals = vocalsAudio (vocals, rate);
+                out.vocals = vocalsAudio (vocals, rate);   // お手本の声を聴く
                 break;
             case analysis::RefPitchResult::Status::needsSeparation: out.kind = GuideOutcome::Kind::needsSeparation; break;
             case analysis::RefPitchResult::Status::notAligned:
@@ -1144,11 +1115,10 @@ void UiSession::loadGuide (const juce::File& file)
 
     const auto backing = s.songOriginal;
     const auto serial = s.songSerial;
-    const auto vocalsFile = guideVocalsFile();
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, file, backing, serial, vocalsFile]
+    juce::Thread::launch ([this, weak, file, backing, serial]
     {
-        auto out = std::make_shared<GuideOutcome> (analyseGuide (file, *backing, vocalsFile));
+        auto out = std::make_shared<GuideOutcome> (analyseGuide (file, *backing));
         juce::MessageManager::callAsync ([this, weak, out, serial, songRate = backing->sampleRate]
         {
             if (weak.expired() || serial != s.songSerial)
@@ -1254,27 +1224,18 @@ namespace
     }
 }
 
-void UiSession::requestModel (int kind)
+void UiSession::requestSeparationModel()
 {
     if (engine == nullptr)
         return;
-    kind = kind == 1 ? 1 : 0;
-    const bool lyricsKind = kind == 1;
     const auto keys = models::trustedKeys();
     if (keys.empty())
     {
-        postNotice (tr (lyricsKind ? "model.lyrics.notYet" : "model.notYet"));   // 配布の鍵がまだ（持ち主が用意したら使える）
+        postNotice (tr ("model.notYet"));   // 配布の鍵がまだ（持ち主が用意したら使える）
         return;
     }
-    // ダウンロードは 1 つずつ（別のモデルを取っている間は待ってもらう）
-    if (modelDownloader != nullptr && modelDownloader->isBusy() && s.modelDl.kind != kind)
+    auto openDialog = [this] (const models::ModelEntry& entry)
     {
-        postNotice (tr ("model.busy"));
-        return;
-    }
-    auto openDialog = [this, kind] (const models::ModelEntry& entry)
-    {
-        s.modelDl.kind = kind;
         s.modelDl.known = true;
         s.modelDl.title = entry.title;
         s.modelDl.license = entry.license;
@@ -1282,16 +1243,16 @@ void UiSession::requestModel (int kind)
         ++s.modelDl.dialogSerial;
         notify (change::notice);
     };
-    if (modelEntries[kind] != nullptr)
+    if (modelEntry != nullptr)
     {
-        openDialog (*modelEntries[kind]);
+        openDialog (*modelEntry);
         return;
     }
 
-    postNotice (tr (lyricsKind ? "model.lyrics.checking" : "model.checking"));
-    const auto wantedId = lyricsKind ? lyrics::LyricsClient::modelId() : separation::SeparatorClient::modelId();
+    postNotice (tr ("model.checking"));
+    const auto wantedId = separation::SeparatorClient::modelId();
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, keys, kind, wantedId, openDialog, lyricsKind]
+    juce::Thread::launch ([this, weak, keys, wantedId, openDialog]
     {
         auto http = models::makeHttpSource();
         juce::String error;
@@ -1317,15 +1278,15 @@ void UiSession::requestModel (int kind)
                 error = "the model isn't in the list";
         }
         auto entry = std::shared_ptr<models::ModelEntry> (found.release());
-        juce::MessageManager::callAsync ([this, weak, entry, error, kind, openDialog, lyricsKind]
+        juce::MessageManager::callAsync ([this, weak, entry, error, openDialog]
         {
             if (weak.expired()) return;
             if (entry == nullptr)
             {
-                postNotice (tr (lyricsKind ? "model.lyrics.listFailed" : "model.listFailed", error));
+                postNotice (tr ("model.listFailed", error));
                 return;
             }
-            modelEntries[kind] = std::make_unique<models::ModelEntry> (*entry);
+            modelEntry = std::make_unique<models::ModelEntry> (*entry);
             openDialog (*entry);
         });
     });
@@ -1333,8 +1294,7 @@ void UiSession::requestModel (int kind)
 
 void UiSession::startModelDownload()
 {
-    const auto kind = s.modelDl.kind == 1 ? 1 : 0;
-    const auto* entry = modelEntries[kind].get();
+    const auto* entry = modelEntry.get();
     if (entry == nullptr || s.isRecording)
         return;
     if (modelDownloader == nullptr)
@@ -1345,7 +1305,7 @@ void UiSession::startModelDownload()
     s.modelDl.received = 0;
     s.modelDl.error = {};
     std::weak_ptr<bool> weak = alive;
-    const auto folder = kind == 1 ? lyrics::LyricsClient::modelFolder() : separation::SeparatorClient::modelFolder();
+    const auto folder = separation::SeparatorClient::modelFolder();
     modelDownloader->start (*entry, folder, [this, weak] (const models::DownloadStatus& st)
     {
         if (weak.expired()) return;
@@ -1359,13 +1319,6 @@ void UiSession::startModelDownload()
         s.modelDl.paused = st.paused;
         s.modelDl.error = st.error;
         notify (before != s.modelDl.stage ? (juce::uint32) (change::view | change::notice) : (juce::uint32) change::view);
-        // 歌詞の認識モデルが入った：押されていた「自動で合わせる」を続ける（B17）
-        if (st.stage == models::DownloadStatus::Stage::done && before != s.modelDl.stage && s.modelDl.kind == 1 && lyricsAfterModel)
-        {
-            lyricsAfterModel = false;
-            std::weak_ptr<bool> again = alive;
-            juce::MessageManager::callAsync ([this, again] { if (! again.expired()) alignLyricsAuto(); });
-        }
     });
     notify (change::view | change::notice);
 }
@@ -1376,104 +1329,6 @@ void UiSession::cancelModelDownload()
         modelDownloader->cancel();   // 届いた分（.part）は残す。次は続きから
     s.modelDl.stage = -1;
     notify (change::view | change::notice);
-}
-
-juce::String UiSession::lyricsAutoProblem() const
-{
-    if (engine == nullptr)                                     return "lyrics.auto.mock";
-    if (s.project.lyrics.empty())                              return "lyrics.auto.noLyrics";
-    if (! guideVocalsFile().existsAsFile())                    return "lyrics.auto.noGuide";
-    if (! lyrics::LyricsClient::executable().existsAsFile())   return "lyrics.auto.noProcess";
-    if (! lyrics::LyricsClient::cpuSupported())                return "lyrics.auto.cpu";
-    return {};
-}
-
-void UiSession::stopLyricsAlign()
-{
-    lyricsAfterModel = false;
-    if (lyricsRunner != nullptr)
-        lyricsRunner->stop();
-}
-
-void UiSession::alignLyricsAuto()
-{
-    if (s.lyricsAligning || s.isRecording)
-        return;
-    if (const auto why = lyricsAutoProblem(); why.isNotEmpty())
-    {
-        postNotice (tr (why.toRawUTF8()));
-        return;
-    }
-    // モデルが無い：押した時だけ確認を出す（11.7）。入ったら続けて合わせる
-    if (! lyrics::LyricsClient::modelInstalled())
-    {
-        lyricsAfterModel = true;
-        requestModel (1);
-        return;
-    }
-
-    // 手がかり：歌詞の頭から（whisper の手がかりは 224 トークンまで。日本語は 1 文字 1〜2 トークン）
-    juce::StringArray texts;
-    juce::String all;
-    for (auto& l : s.project.lyrics.lines)
-    {
-        texts.add (l.text);
-        all << l.text << " ";
-    }
-    const auto prompt = all.substring (0, 120).trim();
-    const auto language = lyrics::LyricsClient::languageFor (all);
-
-    s.lyricsAligning = true;
-    s.lyricsAlignProgress = 0.0f;
-    postNotice (tr ("lyrics.auto.started"));
-    notify (change::view);
-
-    if (lyricsRunner == nullptr)
-        lyricsRunner = std::make_unique<lyrics::LyricsClient>();
-    const auto serial = s.songSerial;
-    std::weak_ptr<bool> weak = alive;
-    lyrics::LyricsClient::Callbacks cb;
-    cb.progress = [this, weak] (float p)
-    {
-        if (weak.expired()) return;
-        s.lyricsAlignProgress = p;
-        notify (change::view);
-    };
-    cb.done = [this, weak, serial, texts] (bool ok, const juce::String& error, std::vector<song::RecognizedPiece> pieces)
-    {
-        if (weak.expired()) return;
-        s.lyricsAligning = false;
-        notify (change::view);
-        if (serial != s.songSerial || texts.size() != (int) s.project.lyrics.lines.size())
-            return;   // 別の曲を開いた・歌詞を入れ替えた
-        if (! ok)
-        {
-            postNotice (error == "stopped" ? tr ("lyrics.auto.stopped") : tr ("lyrics.auto.failed", error));
-            return;
-        }
-        // 行の時刻を推定して入れる。確定した時刻（.lrc・タップ）は変えない
-        const auto timing = song::alignLyrics (texts, pieces);
-        int set = 0, guessed = 0;
-        for (size_t i = 0; i < timing.size(); ++i)
-        {
-            auto& line = s.project.lyrics.lines[i];
-            if (timing[i].start < 0.0 || (line.timed() && line.source == song::Source::confirmed))
-                continue;
-            line.startSample = (int64) std::llround (timing[i].start * s.sampleRate());
-            line.source = song::Source::estimated;
-            ++set;
-            guessed += timing[i].interpolated ? 1 : 0;
-        }
-        song::updateLineEnds (s.project.lyrics, s.project.lengthSamples, s.sampleRate());
-        markDirty();
-        notify (change::songInfo | change::view);
-        postNotice (set == 0 ? tr ("lyrics.auto.none") : tr ("lyrics.auto.done", set, guessed));
-    };
-    if (! lyricsRunner->start (guideVocalsFile(), prompt, language, std::move (cb)))
-    {
-        s.lyricsAligning = false;
-        notify (change::view);
-    }
 }
 
 void UiSession::stopSeparation()
@@ -1664,9 +1519,8 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
     notify (change::view);
     const auto karaoke = s.songOriginal;
     const auto serial = s.songSerial;
-    const auto lyricsVocals = guideVocalsFile();
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, vocalsFile, backingFile, karaoke, serial, lyricsVocals]
+    juce::Thread::launch ([this, weak, vocalsFile, backingFile, karaoke, serial]
     {
         auto out = std::make_shared<GuideOutcome>();
         auto voc = readAudio (vocalsFile);
@@ -1687,10 +1541,8 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
             if (align.found())
             {
                 out->offsetSeconds = (double) align.offsetSamples / rate;
-                std::vector<float> onBacking;
+                std::vector<float> onBacking;   // お手本の声（オフボの時間）。聴く用
                 auto r = analysis::pitchFromVocals (vm.data(), (juce::int64) vm.size(), (juce::int64) kar.size(), rate, align, {}, &onBacking);
-                if (r.status == analysis::RefPitchResult::Status::ok)
-                    writeVocalsForLyrics (lyricsVocals, onBacking, rate);
                 if (r.status == analysis::RefPitchResult::Status::ok)
                 {
                     out->kind = GuideOutcome::Kind::ok;
