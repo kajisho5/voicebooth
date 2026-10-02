@@ -146,6 +146,10 @@ struct Session
     std::vector<RefNote> refNotes;
     std::vector<PitchPoint> refPitch;
     std::vector<PitchPoint> myPitch;
+
+    // お手本（声入りの原曲。B9。DESIGN 7.1.1）。refPitch はオフボの時間
+    juce::String guideName;               // 読み込んだ原曲のファイル名（空 = まだ）
+    bool guideBusy = false;               // 時間合わせ・声の取り出しの最中
     int64 myPitchLag = 0;                 // 自分のピッチの点が再生ヘッドより遅れて届く分（遅れ + 検出。今の音の点を出す許し幅。B8）
 
     int sampleRate() const { return project.sampleRate; }

@@ -14,6 +14,7 @@
                              skin-editor-borrow / confirm-rec / song-info / lyrics
       --open=<path>          その曲を開く（起動画面で読み込み → 波形。B1）
       --lyrics=<path>        歌詞パッドをその .txt / .lrc で開く（B4b）
+      --guide=<path>         --open の曲を開いたら、このお手本（声入りの原曲）を重ねる（B9）
       --mode=easy|standard|pro
       --track=main|double|harm1
       --rec                  録音中の見た目で開く
@@ -225,6 +226,8 @@ public:
             o.open = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         if (const auto path = argValue (args, "lyrics"); path.isNotEmpty())
             o.lyrics = juce::File::getCurrentWorkingDirectory().getChildFile (path);
+        if (const auto path = argValue (args, "guide"); path.isNotEmpty())
+            o.guide = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         if (auto* m = window->main())
             m->applyLaunchOptions (o);
 
