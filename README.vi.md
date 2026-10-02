@@ -42,9 +42,9 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 | Hệ điều hành | **Cả Windows và Mac** (Mac: Apple silicon và Intel). **Không có bản cho điện thoại hay máy tính bảng** |
 | Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: một bài 30 giây mất khoảng 2 phút trên CPU 4 nhân (ứng dụng hiển thị thời gian ước tính) |
 | Âm thanh có thể mở | **Chỉ file âm thanh trên máy của bạn** (wav / flac / aiff / ogg / mp3 / m4a). Không thể mở trực tiếp bài hát từ Spotify, Apple Music, YouTube Music hay dịch vụ streaming khác |
-| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Mô hình tách giọng và cao độ (khoảng 223 MB + 99 MB) chỉ được tải về **khi bạn bấm nút để dùng nó**. Không có gì được tải ngầm |
+| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Mô hình tách giọng và cao độ (khoảng 110 MB + 99 MB) chỉ được tải về **khi bạn bấm nút để dùng nó**. Không có gì được tải ngầm |
 | Xử lý nặng | Tách giọng chỉ chạy **khi bạn bấm nút**. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |
-| Bè | Bạn có thể thu các track bè. **Không có tính năng tách riêng phần bè từ bản mix để làm mẫu** (tách giọng cho ra hai phần: "toàn bộ giọng hát" và "nhạc đệm") |
+| Bè | Bạn có thể thu các track bè. Khi tách giọng mẫu, giọng chính và bè được chia riêng và **giọng mẫu bè (đường và giọng)** cũng được hiển thị (track bè được so với nó). Giọng mẫu lấy bằng bản gốc − karaoke thì không chia được |
 | Âm thanh đã tách | Giọng hát và nhạc đệm đã tách là **để bạn tự luyện tập**. VoiceBooth không thay đổi quyền đối với bài hát gốc. Chỉ phân phối hoặc đăng tải (kể cả chia sẻ làm beat để cover) trong phạm vi chủ sở hữu quyền gốc cho phép |
 | Giá | **Miễn phí.** Không thuê bao, không mua trong ứng dụng. Bạn có thể ủng hộ phát triển qua [GitHub Sponsors](https://github.com/sponsors/kajisho5) (tùy chọn; không thay đổi tính năng nào) |
 | Ngôn ngữ | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 | Chỉ có bản gốc | Tách bản gốc để tạo beat, đồng thời hiển thị đường mẫu (cần mô hình tách giọng) |
 | Cao độ có màu | Cao độ của bạn được vẽ thành một đường phía trên: xanh chanh khi đúng, chuyển sang hổ phách rồi đỏ khi lệch dần. Hát lệch một quãng tám vẫn có thể căn khớp trên màn hình |
 | Luyện tập | Tempo 50–150 %, tông ±6. Tập chậm cũng được, nhưng bản thu để bàn giao luôn được thu ở tempo và tông gốc |
-| Nghe giọng mẫu | Nghe giọng mẫu tách từ bản gốc, cùng với beat hoặc nghe riêng (áp dụng tempo/tông luyện tập). Giọng chính và bè không tách riêng được nên chỉ có một track |
+| Nghe giọng mẫu | Nghe giọng mẫu tách từ bản gốc, cùng với beat hoặc nghe riêng (áp dụng tempo/tông luyện tập). Khi tách giọng mẫu, có thể nghe riêng giọng chính và bè |
 | Âm vực và tông gợi ý | Đo âm vực của bạn (nốt thấp nhất và cao nhất) bằng micro và nhận tông giúp nốt thấp nhất và cao nhất của bản mẫu nằm gọn trong đó. Một cú bấm là áp dụng; nếu không tông nào vừa, ứng dụng cho biết vượt bao nhiêu nửa cung |
 | Thu âm | Thu một mạch, thu hồi tố (bấm REC muộn cũng không bao giờ mất chữ đầu), thu lại một vùng (crossfade 8 ms ở mỗi đầu; 0–20 ms ở Pro), đo và bù độ trễ |
 | Click và đếm vào | Click theo nhịp bài hát (phách 1 cao hơn; theo cả tempo luyện tập). Đếm 1–2 ô nhịp trước khi REC; thu lại một đoạn thì đếm trước đoạn đó. Chỉ nghe trong tai nghe, không bao giờ vào bản thu hay bản xuất |
@@ -73,7 +73,6 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 
 Những tính năng sau chưa có trong bản beta (và không hiển thị trong ứng dụng).
 
-- Đường mẫu cho bè (chọn track bè vẫn hiển thị đường mẫu của giọng chính)
 - Tách những thứ khác ngoài giọng hát (guitar, trống, v.v.)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ Mã nguồn được cấp phép theo **GNU Affero General Public License v3.0 t
 | Monocypher 4.0.3 (xác minh chữ ký Ed25519 của danh sách mô hình; tải khi build) | Kép CC0 / BSD-2-Clause |
 | Rubber Band Library 4 (tempo / tông luyện tập; tải khi build) | Kép GPL v2 trở lên / thương mại (ở đây dùng theo GPL) |
 | Steinberg ASIO SDK 2.3.4 (chỉ bản build Windows; gói chính thức được tải khi build) | Kép GPLv3 / thương mại (ở đây dùng theo GPLv3). Bản thân SDK không được lưu trong kho này. ASIO là nhãn hiệu của Steinberg Media Technologies GmbH |
-| Mô hình (tách biệt khỏi ứng dụng, chỉ tải khi bạn bấm nút): tách giọng Mel-Band RoFormer (Kimberley Jensen) | MIT. Chỉ phân phối những mô hình đã kiểm tra giấy phép trọng số |
+| Mô hình (tách biệt khỏi ứng dụng, chỉ tải khi bạn bấm nút): tách giọng BS-RoFormer ft1 và giọng chính BS-RoFormer karaoke (đều của anvuew), cao độ RMVPE (RVC) | Hai mô hình tách giọng theo GPL-3.0 (bản đã sửa: chia thành các phần ONNX và lượng tử hóa int8; các bước chuyển đổi và trọng số gốc ở tools/separation); RMVPE theo MIT. Chỉ phân phối những mô hình đã kiểm tra giấy phép trọng số |
 
 ## Đóng góp
 

@@ -121,6 +121,11 @@ public:
     void setGuideLevel (float fader);
     void setGuideMuted (bool);
     void setGuideSolo (bool);
+    // ハモリのお手本（2026-10-02）：分離でリードとハモリを分けられた時だけ鳴る
+    void setHarmGuideLevel (float fader);
+    void setHarmGuideMuted (bool);
+    void setHarmGuideSolo (bool);
+    bool hasHarmGuideVocals() const { return s.guideHarmVocals != nullptr; }
     void setBackingSolo (bool);
     /** 自分の S：自分の声だけを聴く（オフボ・お手本・録ったトラックを止める）。モニターの S は同時に 1 つ */
     void setSelfSolo (bool);
@@ -363,11 +368,14 @@ private:
     juce::String stemSignature[4];
     std::unique_ptr<models::ModelDownloader> modelDownloader;   // B16
     std::unique_ptr<models::ModelEntry> modelEntry;              // 署名を確かめた一覧の中の分離モデル
+    std::unique_ptr<models::ModelEntry> karaokeEntry;            // 同じ一覧のリードボーカルのモデル（ハモリのお手本。2026-10-02）
     std::unique_ptr<models::ModelEntry> pitchEntry;              // 同じ一覧の音程モデル（RMVPE。分離と続けて入れる。2026-10-02）
-    void startModelFile (const models::ModelEntry&, const juce::File& folder, juce::int64 offset, juce::int64 total, bool more);
+    std::vector<std::pair<models::ModelEntry, juce::File>> downloadQueue;   // まとめて入れる物（分離 → リード → 音程）
+    std::vector<std::pair<models::ModelEntry, juce::File>> modelsToDownload() const;
+    void startQueuedModel (size_t index, juce::int64 offset, juce::int64 total);
+    void startQueuedModelWhenFree (size_t index, juce::int64 offset, juce::int64 total);
     juce::File separationCacheFolder() const;
     bool separationCached() const;
-    void startPitchModelWhenFree (juce::int64 offset, juce::int64 total);
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
@@ -384,7 +392,7 @@ private:
     // お手本の声・声域（2026-10-02）
     void syncBackingLevel();
     void syncGuideGain();
-    bool anyMonitorSolo() const { return s.guideSolo || s.backingSolo || s.selfSolo; }
+    bool anyMonitorSolo() const { return s.guideSolo || s.guideHarmSolo || s.backingSolo || s.selfSolo; }
     void finishUpdateCheck (const update::CheckResult&, bool userAsked);
     update::Checker updateChecker;   // 新しいバージョンの確認（裏のスレッド。消える時に通信を切る）
     void syncGuideToEngine();

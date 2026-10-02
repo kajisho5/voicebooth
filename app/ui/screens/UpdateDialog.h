@@ -67,8 +67,8 @@ private:
     UiSession* live = nullptr;
     void readLive();
     void build (float from);
-    double modelMB = 220.0;
-    juce::String modelName { "Mel-Band RoFormer" }, modelLicense { "MIT" };
+    double modelMB = 210.0;
+    juce::String modelName { "BS-RoFormer ft1 + BS-RoFormer karaoke + RMVPE" }, modelLicense { "GPL-3.0 / MIT" };
     bool verifying = false;     // ダウンロード中の最後：照合（青が走る）
     bool handedOff = false;
 

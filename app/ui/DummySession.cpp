@@ -298,6 +298,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.clickLevel          = prev.clickLevel;
     s.backingMeterDb      = prev.backingMeterDb;
     s.guideMeterDb        = prev.guideMeterDb;
+    s.harmGuideMeterDb    = prev.harmGuideMeterDb;
     s.clickMeterDb        = prev.clickMeterDb;
     s.loopOn              = prev.loopOn;
     // オフボは 0 dB（0.75）から。前も開いた曲なら、その音量を引き継ぐ
@@ -305,6 +306,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.backingMuted        = prev.backingWave != nullptr && prev.backingMuted;
     s.mainGain            = prev.mainGain;
     s.guideMuted          = prev.guideMuted;
+    s.guideHarmMuted      = prev.guideHarmMuted;
     s.voiceLow            = prev.voiceLow;
     s.voiceHigh           = prev.voiceHigh;
     s.harmonyGain         = prev.harmonyGain;

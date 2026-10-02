@@ -483,7 +483,7 @@ void UiSession::attachEngine (audio::AudioEngine* e)
         // ここからはダミーの値を出さない（入力が開くまでメーターは消灯）
         s.inputPeakDb = s.inputRmsDb = s.inputPeakHoldDb = audio::InputMeter::floorDb;
         s.inputClipped = false;
-        s.backingMeterDb = s.guideMeterDb = s.clickMeterDb = audio::LevelFollower::floorDb;
+        s.backingMeterDb = s.guideMeterDb = s.clickMeterDb = s.harmGuideMeterDb = audio::LevelFollower::floorDb;
     }
     sentClickSpb = -1.0;
     syncClickToEngine();
@@ -563,6 +563,7 @@ void UiSession::pollMonitorLevels()
     };
     take (s.backingMeterDb, l.backingDb);
     take (s.guideMeterDb, l.guideDb);
+    take (s.harmGuideMeterDb, l.harmGuideDb);
     take (s.clickMeterDb, l.clickDb);
     if (changed)
         notify (change::meter);
@@ -1074,11 +1075,15 @@ namespace
         double offsetSeconds = 0.0;                // 原曲の位置 = オフボの位置 + offset
         int keyShift = 0;
         std::shared_ptr<const audio::SongAudio> vocals;   // 取り出した声（オフボの時間・オフボの元の SR・モノラル）。聴く用
+        // ハモリのお手本（2026-10-02）：分離の時、リードを取れていれば。vocals はリードだけになる
+        std::vector<audio::PitchFrame> harmPoints;
+        std::shared_ptr<const audio::SongAudio> harmVocals;
     };
 
     /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
         伴奏の残りに強く、オクターブの誤りがほぼ無い（Rmvpe.h）。モデルが無い・失敗したら false（YIN の線のまま） */
-    bool pitchWithModel (const std::vector<float>& vocals, double rate, std::vector<audio::PitchFrame>& points)
+    bool pitchWithModel (const std::vector<float>& vocals, double rate, std::vector<audio::PitchFrame>& points,
+                         const std::vector<float>* loudFrom = nullptr)
     {
         if (vocals.empty() || ! separation::SeparatorClient::pitchAvailable())
             return false;
@@ -1108,7 +1113,8 @@ namespace
         for (auto& [c, s] : raw)
             frames.push_back ({ c, s });
         points = analysis::rmvpe::toPitchFrames (frames, rate);
-        analysis::rmvpe::gateQuiet (points, vocals.data(), (juce::int64) vocals.size(), rate);
+        analysis::rmvpe::gateQuiet (points, vocals.data(), (juce::int64) vocals.size(), rate, 35.0f,
+                                    loudFrom != nullptr && loudFrom->size() == vocals.size() ? loudFrom->data() : nullptr);
         return true;
     }
 
@@ -1243,8 +1249,10 @@ void UiSession::loadGuide (const juce::File& file)
                     rejudgeAll();
                     updateTakeStats();
                     s.guideVocals = out->vocals;
+                    s.refPitchHarm.clear();          // 引き算ではリードとハモリを分けない（声 1 本）
+                    s.guideHarmVocals = nullptr;
                     syncGuideToEngine();
-                    notify (change::takes);
+                    notify (change::takes | change::monitor);
                     postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
                     break;
                 }
@@ -1341,32 +1349,46 @@ void UiSession::requestSeparationModel()
         postNotice (tr ("model.notYet"));   // 配布の鍵がまだ（持ち主が用意したら使える）
         return;
     }
-    auto openDialog = [this] (const models::ModelEntry& entry)
+    auto openDialog = [this]
     {
-        // 音程のモデル（RMVPE）も一覧にあり、まだ入っていなければ続けて入れる（大きさ・名前・ライセンスも並べる）
-        const bool withPitch = pitchEntry != nullptr && ! separation::SeparatorClient::pitchModelFile().existsAsFile();
+        // 分離・リードボーカル（ハモリのお手本）・音程のモデルのうち、まだ入っていない物をまとめて入れる（名前・ライセンス・大きさを並べる）
+        juce::StringArray titles, licenses;
+        juce::int64 size = 0;
+        for (auto& [entry, folder] : modelsToDownload())
+        {
+            titles.add (entry.title);
+            licenses.addIfNotAlreadyThere (entry.license);
+            size += entry.totalSize();
+        }
+        if (titles.isEmpty() && modelEntry != nullptr)   // すべて入っている：分離のモデルを照合し直す
+        {
+            titles.add (modelEntry->title);
+            licenses.add (modelEntry->license);
+            size = modelEntry->totalSize();
+        }
         s.modelDl.known = true;
-        s.modelDl.title = entry.title + (withPitch ? " + " + pitchEntry->title : juce::String());
-        s.modelDl.license = withPitch && pitchEntry->license != entry.license ? entry.license + " / " + pitchEntry->license : entry.license;
-        s.modelDl.size = entry.totalSize() + (withPitch ? pitchEntry->totalSize() : 0);
+        s.modelDl.title = titles.joinIntoString (" + ");
+        s.modelDl.license = licenses.joinIntoString (" / ");
+        s.modelDl.size = size;
         ++s.modelDl.dialogSerial;
         notify (change::notice);
     };
     if (modelEntry != nullptr)
     {
-        openDialog (*modelEntry);
+        openDialog();
         return;
     }
 
     postNotice (tr ("model.checking"));
     const auto wantedId = separation::SeparatorClient::modelId();
+    const auto karaokeId = separation::SeparatorClient::karaokeModelId();
     const auto pitchId = separation::SeparatorClient::pitchModelId();
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, keys, wantedId, pitchId, openDialog]
+    juce::Thread::launch ([this, weak, keys, wantedId, karaokeId, pitchId, openDialog]
     {
         auto http = models::makeHttpSource();
         juce::String error;
-        std::unique_ptr<models::ModelEntry> found, foundPitch;
+        std::shared_ptr<models::ModelEntry> found, foundKaraoke, foundPitch;
         juce::MemoryBlock list, sig;
         const auto url = models::manifestUrl();
         if (! fetchSmall (*http, url, list) || ! fetchSmall (*http, url + ".sig", sig))
@@ -1384,35 +1406,47 @@ void UiSession::requestSeparationModel()
                 error = "bad model list: " + error;
             else if (const auto* e = m.find (wantedId))
             {
-                found = std::make_unique<models::ModelEntry> (*e);
-                if (const auto* p = m.find (pitchId))   // 無くても分離は入れられる（線は YIN のまま）
-                    foundPitch = std::make_unique<models::ModelEntry> (*p);
+                found = std::make_shared<models::ModelEntry> (*e);
+                // 無くても分離は入れられる（ハモリのお手本が出ない・線は YIN のまま）
+                if (const auto* k = m.find (karaokeId)) foundKaraoke = std::make_shared<models::ModelEntry> (*k);
+                if (const auto* p = m.find (pitchId))   foundPitch = std::make_shared<models::ModelEntry> (*p);
             }
             else
                 error = "the model isn't in the list";
         }
-        auto entry = std::shared_ptr<models::ModelEntry> (found.release());
-        auto pitch = std::shared_ptr<models::ModelEntry> (foundPitch.release());
-        juce::MessageManager::callAsync ([this, weak, entry, pitch, error, openDialog]
+        juce::MessageManager::callAsync ([this, weak, found, foundKaraoke, foundPitch, error, openDialog]
         {
             if (weak.expired()) return;
-            if (entry == nullptr)
+            if (found == nullptr)
             {
                 postNotice (tr ("model.listFailed", error));
                 return;
             }
-            modelEntry = std::make_unique<models::ModelEntry> (*entry);
-            if (pitch != nullptr)
-                pitchEntry = std::make_unique<models::ModelEntry> (*pitch);
-            openDialog (*entry);
+            modelEntry = std::make_unique<models::ModelEntry> (*found);
+            if (foundKaraoke != nullptr) karaokeEntry = std::make_unique<models::ModelEntry> (*foundKaraoke);
+            if (foundPitch != nullptr)   pitchEntry = std::make_unique<models::ModelEntry> (*foundPitch);
+            openDialog();
         });
     });
 }
 
+std::vector<std::pair<models::ModelEntry, juce::File>> UiSession::modelsToDownload() const
+{
+    // 分離 → リードボーカル → 音程の順。入っている物は飛ばす
+    std::vector<std::pair<models::ModelEntry, juce::File>> list;
+    using SC = separation::SeparatorClient;
+    if (modelEntry != nullptr && ! SC::modelInstalled())
+        list.push_back ({ *modelEntry, SC::modelFolder() });
+    if (karaokeEntry != nullptr && ! SC::karaokeInstalled())
+        list.push_back ({ *karaokeEntry, SC::karaokeModelFolder() });
+    if (pitchEntry != nullptr && ! SC::pitchModelFile().existsAsFile())
+        list.push_back ({ *pitchEntry, SC::pitchModelFile().getParentDirectory() });
+    return list;
+}
+
 void UiSession::startModelDownload()
 {
-    const auto* entry = modelEntry.get();
-    if (entry == nullptr || s.isRecording)
+    if (modelEntry == nullptr || s.isRecording)
         return;
     if (modelDownloader == nullptr)
         modelDownloader = std::make_unique<models::ModelDownloader> (models::makeHttpSource());
@@ -1421,30 +1455,31 @@ void UiSession::startModelDownload()
     s.modelDl.stage = (int) models::DownloadStatus::Stage::downloading;
     s.modelDl.received = 0;
     s.modelDl.error = {};
-    // 分離 → 音程（RMVPE）の順に。入っている物は飛ばす。進み具合は 2 つを合わせた大きさで出す
-    const auto pitchFolder = separation::SeparatorClient::pitchModelFile().getParentDirectory();
-    const bool needSeparation = ! separation::SeparatorClient::modelInstalled();
-    const bool needPitch = pitchEntry != nullptr && ! separation::SeparatorClient::pitchModelFile().existsAsFile();
-    const auto total = (needSeparation ? entry->totalSize() : 0) + (needPitch ? pitchEntry->totalSize() : 0);
-    if (needSeparation)
-        startModelFile (*entry, separation::SeparatorClient::modelFolder(), 0, total, needPitch);
-    else if (needPitch)
-        startModelFile (*pitchEntry, pitchFolder, 0, total, false);
-    else
-        startModelFile (*entry, separation::SeparatorClient::modelFolder(), 0, entry->totalSize(), false);   // 照合し直す
+    // 進み具合はまとめた大きさで出す。すべて入っていれば分離のモデルを照合し直す
+    downloadQueue = modelsToDownload();
+    if (downloadQueue.empty())
+        downloadQueue.push_back ({ *modelEntry, separation::SeparatorClient::modelFolder() });
+    juce::int64 total = 0;
+    for (auto& q : downloadQueue)
+        total += q.first.totalSize();
+    startQueuedModel (0, 0, total);
     notify (change::view | change::notice);
 }
 
-void UiSession::startModelFile (const models::ModelEntry& entry, const juce::File& folder, juce::int64 offset, juce::int64 total, bool more)
+void UiSession::startQueuedModel (size_t index, juce::int64 offset, juce::int64 total)
 {
+    if (index >= downloadQueue.size())
+        return;
     std::weak_ptr<bool> weak = alive;
-    modelDownloader->start (entry, folder, [this, weak, offset, total, more] (const models::DownloadStatus& st)
+    const bool more = index + 1 < downloadQueue.size();
+    modelDownloader->start (downloadQueue[index].first, downloadQueue[index].second,
+                            [this, weak, index, offset, total, more] (const models::DownloadStatus& st)
     {
         if (weak.expired()) return;
         const auto before = s.modelDl.stage;
         auto stage = st.stage;
-        // 分離が終わっても音程のモデルが残っていれば、まだ「受け取り中」
-        const bool next = more && stage == models::DownloadStatus::Stage::done && pitchEntry != nullptr;
+        // 1 つ終わっても次が残っていれば、まだ「受け取り中」
+        const bool next = more && stage == models::DownloadStatus::Stage::done;
         if (next)
             stage = models::DownloadStatus::Stage::downloading;
         s.modelDl.stage = (int) stage;
@@ -1457,22 +1492,22 @@ void UiSession::startModelFile (const models::ModelEntry& entry, const juce::Fil
         s.modelDl.error = st.error;
         notify (before != s.modelDl.stage ? (juce::uint32) (change::view | change::notice) : (juce::uint32) change::view);
         if (next)
-            startPitchModelWhenFree (offset + st.total, total);
+            startQueuedModelWhenFree (index + 1, offset + st.total, total);
     });
 }
 
-void UiSession::startPitchModelWhenFree (juce::int64 offset, juce::int64 total)
+void UiSession::startQueuedModelWhenFree (size_t index, juce::int64 offset, juce::int64 total)
 {
-    // 分離を受け取ったスレッドが終わるのを待ってから始める（終わる前は start が断る）
+    // 前の物を受け取ったスレッドが終わるのを待ってから始める（終わる前は start が断る）
     std::weak_ptr<bool> weak = alive;
-    juce::Timer::callAfterDelay (100, [this, weak, offset, total]
+    juce::Timer::callAfterDelay (100, [this, weak, index, offset, total]
     {
-        if (weak.expired() || pitchEntry == nullptr || modelDownloader == nullptr || s.modelDl.stage < 0)
+        if (weak.expired() || modelDownloader == nullptr || s.modelDl.stage < 0)
             return;   // 消えた・やめた
         if (modelDownloader->isBusy())
-            startPitchModelWhenFree (offset, total);
+            startQueuedModelWhenFree (index, offset, total);
         else
-            startModelFile (*pitchEntry, separation::SeparatorClient::pitchModelFile().getParentDirectory(), offset, total, false);
+            startQueuedModel (index, offset, total);
     });
 }
 
@@ -1517,7 +1552,8 @@ void UiSession::separateGuide()
         return;
 
     const auto dir = separationCacheFolder();
-    const auto vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav"), mix = dir.getChildFile ("mix.wav");
+    const auto vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav"), mix = dir.getChildFile ("mix.wav"),
+               lead = dir.getChildFile ("lead.wav");   // リードボーカル（karaoke のモデルが入っていれば。ハモリのお手本）
     if (vocals.existsAsFile() && backing.existsAsFile())
     {
         analyseSeparated (vocals, backing);
@@ -1534,7 +1570,7 @@ void UiSession::separateGuide()
     // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
     std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
-    juce::Thread::launch ([this, weak, guide, mix, vocals, backing, serial]
+    juce::Thread::launch ([this, weak, guide, mix, vocals, backing, lead, serial]
     {
         bool ok = false;
         if (auto a = readAudio (guide))
@@ -1544,7 +1580,7 @@ void UiSession::separateGuide()
                 at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
             ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
         }
-        juce::MessageManager::callAsync ([this, weak, ok, mix, vocals, backing, serial]
+        juce::MessageManager::callAsync ([this, weak, ok, mix, vocals, backing, lead, serial]
         {
             if (weak.expired())
                 return;
@@ -1581,7 +1617,7 @@ void UiSession::separateGuide()
                 }
                 analyseSeparated (vocals, backing);
             };
-            if (! separator->start (mix, vocals, backing, std::move (cb)))
+            if (! separator->start (mix, vocals, backing, std::move (cb), lead))
                 fail (tr ("separation.failed", "busy"));
         });
     });
@@ -1708,14 +1744,47 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
             if (align.found())
             {
                 out->offsetSeconds = (double) align.offsetSamples / rate;
+                // リードボーカル（karaoke のモデル、2026-10-02）があれば、お手本はリード、ハモリ = 声 − リード
+                std::vector<float> leadMono;
+                if (auto l = readAudio (vocalsFile.getSiblingFile ("lead.wav")))
+                {
+                    std::shared_ptr<const audio::SongAudio> la = l;
+                    if (std::abs (la->sampleRate - rate) > 0.5) la = audio::resampleSong (*la, rate);
+                    if (la != nullptr)
+                        leadMono = mono (*la);
+                }
+                const bool split = ! leadMono.empty();
+                leadMono.resize (vm.size(), 0.0f);
+
                 std::vector<float> onBacking;   // お手本の声（オフボの時間）。聴く用
-                auto r = analysis::pitchFromVocals (vm.data(), (juce::int64) vm.size(), (juce::int64) kar.size(), rate, align, {}, &onBacking);
+                const auto& mainSrc = split ? leadMono : vm;
+                auto r = analysis::pitchFromVocals (mainSrc.data(), (juce::int64) mainSrc.size(), (juce::int64) kar.size(), rate, align, {}, &onBacking);
                 if (r.status == analysis::RefPitchResult::Status::ok)
                 {
                     out->kind = GuideOutcome::Kind::ok;
                     out->points = std::move (r.points);
                     pitchWithModel (onBacking, rate, out->points);   // モデルがあれば線は RMVPE で取り直す
                     out->vocals = vocalsAudio (onBacking, rate);
+                }
+                if (split && out->kind == GuideOutcome::Kind::ok)
+                {
+                    std::vector<float> harm (vm.size()), allOnBacking, harmOnBacking;
+                    for (size_t i = 0; i < vm.size(); ++i)
+                        harm[i] = vm[i] - leadMono[i];
+                    analysis::pitchFromVocals (vm.data(), (juce::int64) vm.size(), (juce::int64) kar.size(), rate, align, {}, &allOnBacking);
+                    auto h = analysis::pitchFromVocals (harm.data(), (juce::int64) harm.size(), (juce::int64) kar.size(), rate, align, {}, &harmOnBacking);
+                    if (h.status == analysis::RefPitchResult::Status::ok)
+                    {
+                        // 声全体の大きさで門をかける（リードを引いた残りのかすかな音に線を出さない）
+                        pitchWithModel (harmOnBacking, rate, h.points, &allOnBacking);
+                        int harmVoiced = 0, mainVoiced = 0;
+                        for (auto& p : h.points)   harmVoiced += p.confidence >= 0.5f ? 1 : 0;
+                        for (auto& p : out->points) mainVoiced += p.confidence >= 0.5f ? 1 : 0;
+                        // ハモリがほとんど無い曲（メインの 3% 未満）は、ハモリの線を出さない（音は聴ける）
+                        if (harmVoiced * 100 >= mainVoiced * 3)
+                            out->harmPoints = std::move (h.points);
+                        out->harmVocals = vocalsAudio (harmOnBacking, rate);
+                    }
                 }
             }
         }
@@ -1727,16 +1796,23 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
             if (out->kind == GuideOutcome::Kind::ok)
             {
                 const auto ratio = (double) s.sampleRate() / songRate;
-                s.refPitch.clear();
-                s.refPitch.reserve (out->points.size());
-                for (auto& f : out->points)
-                    s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
+                auto toRef = [ratio] (const std::vector<audio::PitchFrame>& points)
+                {
+                    std::vector<dummy::PitchPoint> ref;
+                    ref.reserve (points.size());
+                    for (auto& f : points)
+                        ref.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
+                    return ref;
+                };
+                s.refPitch = toRef (out->points);
+                s.refPitchHarm = toRef (out->harmPoints);
                 rejudgeAll();
                 updateTakeStats();
                 s.guideVocals = out->vocals;
+                s.guideHarmVocals = out->harmVocals;
                 syncGuideToEngine();
-                notify (change::takes);
-                postNotice (tr ("separation.done", juce::String (out->offsetSeconds, 2)));
+                notify (change::takes | change::monitor);
+                postNotice (tr (out->harmVocals != nullptr ? "separation.doneHarmony" : "separation.done", juce::String (out->offsetSeconds, 2)));
             }
             else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", "can't read the result"));
             else                                                  postNotice (tr ("guide.problem.notAligned"));
@@ -1750,13 +1826,13 @@ void UiSession::judge (dummy::PitchPoint& p) const
     // 同じ位置（10 ms 以内）のお手本の点と比べる。どちらかに声が無ければ「比べていない」
     p.judged = false;
     p.centsOff = 0.0f;
-    if (s.refPitch.empty() || p.confidence < 0.5f)
+    if (s.activeRef().empty() || p.confidence < 0.5f)
         return;
     const auto tolerance = (int64) (audio::pitch::hopSeconds * s.sampleRate());
-    auto it = std::lower_bound (s.refPitch.begin(), s.refPitch.end(), p.sample - tolerance,
+    auto it = std::lower_bound (s.activeRef().begin(), s.activeRef().end(), p.sample - tolerance,
                                 [] (const dummy::PitchPoint& r, int64 v) { return r.sample < v; });
     const dummy::PitchPoint* best = nullptr;
-    for (; it != s.refPitch.end() && it->sample <= p.sample + tolerance; ++it)
+    for (; it != s.activeRef().end() && it->sample <= p.sample + tolerance; ++it)
         if (best == nullptr || std::abs (it->sample - p.sample) < std::abs (best->sample - p.sample))
             best = &*it;
     if (best == nullptr || best->confidence < 0.5f)
@@ -1809,21 +1885,24 @@ namespace
 
 void UiSession::updateTakeStats (const juce::String& onlyKey)
 {
-    // お手本と比べる（B18）。お手本が無ければ消すだけ
+    // お手本と比べる（B18）。お手本が無ければ消すだけ。ハモリのトラックはハモリのお手本（あれば）と
     if (s.refPitch.empty())
     {
         s.takeStats.clear();
         return;
     }
     const auto guide = guideFrames (s.refPitch);
+    const auto harmGuide = s.refPitchHarm.empty() ? std::vector<audio::PitchFrame>() : guideFrames (s.refPitchHarm);
     const auto rate = (double) s.sampleRate();
 
     for (auto& [key, frames] : s.takePitch)
     {
         if ((onlyKey.isNotEmpty() && key != onlyKey) || frames == nullptr || frames->empty())
             continue;
+        const bool harm = key.startsWith (juce::String (project::trackKey (project::TrackType::harm1)) + "/")
+                       || key.startsWith (juce::String (project::trackKey (project::TrackType::harm2)) + "/");
         const auto from = frames->front().songSample, to = frames->back().songSample + 1;
-        s.takeStats[key] = statsFor (guide, *frames, rate, from, to, s.pitchToleranceCents);
+        s.takeStats[key] = statsFor (harm && ! harmGuide.empty() ? harmGuide : guide, *frames, rate, from, to, s.pitchToleranceCents);
     }
 }
 
@@ -2214,7 +2293,7 @@ std::optional<dummy::Session::TakeStats> UiSession::takeStatsIn (project::TrackT
     const auto it = s.takePitch.find (key);
     if (s.refPitch.empty() || it == s.takePitch.end() || it->second == nullptr || it->second->empty())
         return std::nullopt;
-    return statsFor (guideFrames (s.refPitch), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents);
+    return statsFor (guideFrames (s.refFor (type)), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents);
 }
 
 juce::String undoKeyName()
@@ -2914,39 +2993,43 @@ void UiSession::syncGuideGain()
     if (engine == nullptr) return;
     const bool audible = s.guideVocals != nullptr && ! s.guideMuted && (! anyMonitorSolo() || s.guideSolo);
     engine->setVocalGain (audio::PlaybackCore::guideSlot, audible ? audio::PlaybackCore::faderToGain (s.mainGain) : 0.0f);
+    const bool harmAudible = s.guideHarmVocals != nullptr && ! s.guideHarmMuted && (! anyMonitorSolo() || s.guideHarmSolo);
+    engine->setVocalGain (audio::PlaybackCore::harmGuideSlot, harmAudible ? audio::PlaybackCore::faderToGain (s.harmonyGain) : 0.0f);
 }
 
 void UiSession::syncGuideToEngine()
 {
     if (engine == nullptr) return;
-    const auto guide = s.guideVocals;
     const auto rate = s.sampleRate();
     const auto generation = ++guideGeneration;
-    if (guide == nullptr || rate <= 0.0)
+    // お手本（リード、または分けていない声）とハモリのお手本。録音形式で SR をそろえている時は裏でそろえてから鳴らす
+    const std::pair<int, std::shared_ptr<const audio::SongAudio>> stems[] = { { audio::PlaybackCore::guideSlot, s.guideVocals },
+                                                                             { audio::PlaybackCore::harmGuideSlot, s.guideHarmVocals } };
+    for (auto& [slot, guide] : stems)
     {
-        engine->setVocalStem (audio::PlaybackCore::guideSlot, nullptr);
-        syncGuideGain();
-        return;
-    }
-    if (std::abs (guide->sampleRate - rate) < 0.5)
-    {
-        engine->setVocalStem (audio::PlaybackCore::guideSlot, std::shared_ptr<const juce::AudioBuffer<float>> (guide, &guide->buffer));
-        syncGuideGain();
-        return;
-    }
-    // 録音形式で SR をそろえている：裏でそろえてから鳴らす
-    std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, guide, rate, generation]
-    {
-        std::shared_ptr<const audio::SongAudio> r = audio::resampleSong (*guide, rate);
-        juce::MessageManager::callAsync ([this, weak, r, generation]
+        if (guide == nullptr || rate <= 0.0)
         {
-            if (weak.expired() || engine == nullptr || generation != guideGeneration) return;
-            engine->setVocalStem (audio::PlaybackCore::guideSlot,
-                                  r != nullptr ? std::shared_ptr<const juce::AudioBuffer<float>> (r, &r->buffer) : nullptr);
-            syncGuideGain();
+            engine->setVocalStem (slot, nullptr);
+            continue;
+        }
+        if (std::abs (guide->sampleRate - rate) < 0.5)
+        {
+            engine->setVocalStem (slot, std::shared_ptr<const juce::AudioBuffer<float>> (guide, &guide->buffer));
+            continue;
+        }
+        std::weak_ptr<bool> weak = alive;
+        juce::Thread::launch ([this, weak, guide, rate, generation, slot = slot]
+        {
+            std::shared_ptr<const audio::SongAudio> r = audio::resampleSong (*guide, rate);
+            juce::MessageManager::callAsync ([this, weak, r, generation, slot]
+            {
+                if (weak.expired() || engine == nullptr || generation != guideGeneration) return;
+                engine->setVocalStem (slot, r != nullptr ? std::shared_ptr<const juce::AudioBuffer<float>> (r, &r->buffer) : nullptr);
+                syncGuideGain();
+            });
         });
-    });
+    }
+    syncGuideGain();
 }
 
 void UiSession::setGuideLevel (float fader)
@@ -2958,10 +3041,28 @@ void UiSession::setGuideLevel (float fader)
 
 void UiSession::setGuideMuted (bool m)   { s.guideMuted = m; syncGuideGain(); notify (change::monitor); }
 
+void UiSession::setHarmGuideLevel (float fader)
+{
+    s.harmonyGain = juce::jlimit (0.0f, 1.0f, fader);
+    syncGuideGain();
+    notify (change::monitor);
+}
+
+void UiSession::setHarmGuideMuted (bool m) { s.guideHarmMuted = m; syncGuideGain(); notify (change::monitor); }
+
+void UiSession::setHarmGuideSolo (bool on)
+{
+    s.guideHarmSolo = on;
+    if (on) s.guideSolo = s.backingSolo = s.selfSolo = false;
+    syncBackingLevel();
+    syncStemGains();
+    notify (change::monitor);
+}
+
 void UiSession::setGuideSolo (bool on)
 {
     s.guideSolo = on;
-    if (on) s.backingSolo = s.selfSolo = false;
+    if (on) s.backingSolo = s.selfSolo = s.guideHarmSolo = false;
     syncBackingLevel();
     syncStemGains();
     notify (change::monitor);
@@ -2970,7 +3071,7 @@ void UiSession::setGuideSolo (bool on)
 void UiSession::setBackingSolo (bool on)
 {
     s.backingSolo = on;
-    if (on) s.guideSolo = s.selfSolo = false;
+    if (on) s.guideSolo = s.selfSolo = s.guideHarmSolo = false;
     syncBackingLevel();
     syncStemGains();
     notify (change::monitor);
@@ -2980,7 +3081,7 @@ void UiSession::setSelfSolo (bool on)
 {
     // 自分の声のモニター（入力 → ヘッドホン）はエンジンの別の経路なので、ここでは他を止めるだけ（自分の量・M はそのまま）
     s.selfSolo = on;
-    if (on) s.guideSolo = s.backingSolo = false;
+    if (on) s.guideSolo = s.backingSolo = s.guideHarmSolo = false;
     syncBackingLevel();
     syncStemGains();   // お手本（syncGuideGain）もここで
     notify (change::monitor);

@@ -83,12 +83,16 @@ struct Session
     float offVocalGain = 0.51f, mainGain = 0.72f, harmonyGain = 0.40f, monitorGain = 0.64f;
     float monitorReverb = 0.25f;
     // モニターの帯のメーター（フェーダー後のピーク、dBFS。2026-10-02）。エンジンがあれば 30 Hz で上書き、UI_MOCK はこの見本の値
-    float backingMeterDb = -18.2f, guideMeterDb = -23.0f, clickMeterDb = -20.0f;
+    float backingMeterDb = -18.2f, guideMeterDb = -23.0f, clickMeterDb = -20.0f, harmGuideMeterDb = -26.0f;
     bool backingMuted = false;
     // お手本の声を聴く（2026-10-02）。取り出した声（オフボの時間・オフボの元の SR・モノラル）。無ければ nullptr。
     // 音量は mainGain。S（ソロ）はオフボ・お手本・録ったトラックのうち、それだけを鳴らす
     std::shared_ptr<const audio::SongAudio> guideVocals;
     bool guideMuted = false, guideSolo = false, backingSolo = false;
+    // ハモリのお手本（2026-10-02）：分離した声からリードボーカル（karaoke のモデル）を引いた残り。無ければ nullptr。
+    // これがある時、guideVocals はリードだけ。音量は harmonyGain
+    std::shared_ptr<const audio::SongAudio> guideHarmVocals;
+    bool guideHarmMuted = false, guideHarmSolo = false;
     // 自分の S（ソロ）：自分の声だけを聴く（オフボ・お手本・録ったトラックを止める）。モニターの S は同時に 1 つ。
     // 自分の声はほかの S では消さない（お手本だけを流して重ねて歌う時に、自分が聞こえなくならない）
     bool selfSolo = false;
@@ -204,6 +208,7 @@ struct Session
 
     std::vector<RefNote> refNotes;
     std::vector<PitchPoint> refPitch;
+    std::vector<PitchPoint> refPitchHarm;   // ハモリのお手本の音程（オフボの時間。2026-10-02）。空ならハモリのトラックもメインと比べる
     std::vector<PitchPoint> myPitch;
 
     // お手本（声入りの原曲。B9。DESIGN 7.1.1）。refPitch はオフボの時間
@@ -254,6 +259,12 @@ struct Session
         const auto t = currentTrack().type;
         return t == TrackType::harm1 || t == TrackType::harm2;
     }
+    /** そのトラックが比べるお手本：ハモリのトラックはハモリのお手本（あれば）、ほかはメイン */
+    const std::vector<PitchPoint>& refFor (TrackType t) const
+    {
+        return (t == TrackType::harm1 || t == TrackType::harm2) && ! refPitchHarm.empty() ? refPitchHarm : refPitch;
+    }
+    const std::vector<PitchPoint>& activeRef() const { return refFor (currentTrack().type); }
     const song::Line* lyricAt (int64 sample) const;
     const song::Line* lyricAfter (int64 sample) const;
 };

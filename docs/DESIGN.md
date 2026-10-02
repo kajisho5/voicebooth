@@ -657,6 +657,12 @@ REC中差分:
     ずれはサンプル単位で一致、音符の 100% が 15 セント以内、休みの誤検出 0%。引き算の残りは wav 同士 -79 dB、mp3・m4a 混じりで -32〜-36 dB。
     カラオケだけ EQ を変えた版は -14 dB で「引けない」、別の曲も「引けない」と判定
   - 今後：EQ 違いの版は周波数帯ごとの引き算で救えるかもしれない（未実装）。救えない組は B16 の分離で取る
+- 分離のモデルの切り替えとハモリのお手本（2026-10-02、持ち主の決定「オープンソースやから大丈夫」）：
+  - 分離は BS-RoFormer ft1（anvuew、GPL-3.0）に替えた（MUSDB18-HQ 6 曲で Mel-Band RoFormer より +0.67 dB、ファイルは 1/4）。分離プロセスはフォルダの `parts.json`（hop・層の数）を読み、
+    BS-RoFormer の hop 512・12 層と Mel-Band RoFormer の 441・6 層の両方を回せる（`analysis/Separation` の STFT は hop を引数に）。C++ と Python の参照の差は SNR 36.9 dB（SDR 14.26 / 14.27）
+  - リードボーカルのモデル（BS-RoFormer karaoke、anvuew、GPL-3.0）が入っていれば、分離に続けて同じ元の音から**リードだけ**を取る（`VoiceBoothSeparator --karaoke <フォルダ> --lead <WAV>`。メモリは 1 つずつ）。
+    お手本はリード、ハモリのお手本 = 分離した声 − リード。どちらも RMVPE で線を取る（ハモリの門は声全体の大きさで測る）。モニターの「お手本 Harm」・ハモリのトラックの判定とテイクの数値はハモリのお手本と比べる
+  - まだ：原曲 − カラオケ（引き算）で取ったお手本・「原曲だけで始める」のハモリ分け（リードのモデルを原曲にもう 1 回回せばできる。時間が倍になるので、押した時だけにする予定）
 - お手本の線のモデル（2026-10-02）：取り出した声（引き算・分離どちらも）の音程は、モデルが入っていれば **RMVPE** で取り直す（`analysis/Rmvpe`）。
   分離・引き算の残り（伴奏が少し残った声）に、自分の声用の YIN は弱い。pitchbench（MIR-1K に伴奏を混ぜた声、test100）で、
   伴奏と声が同じ大きさの時に正しい音程（50 セント以内）YIN 20%・RMVPE 94%、オクターブの誤り 30%・0.2%、線の 1 半音を超える段差（伴奏 −5 dB）は 1 分あたり 153 → 4。
@@ -1471,12 +1477,14 @@ Phase A だけやれ。音声デバイスは開くな。
 
 | 用途 | 候補 | 性能の目安 | ライセンス | 判断 |
 |---|---|---|---|---|
-| 分離：ボーカル / オフボ（B16） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記。モデルのコード・設定の MSST も MIT） | **第一候補**。ONNX Runtime（CPU）で動くことを確認済み（11.3） |
+| 分離：ボーカル / オフボ（B16） | **BS-RoFormer ft1（anvuew）を採用（2026-10-02）**：MUSDB18-HQ の 6 曲で Mel-Band RoFormer（int8 どうし）より vocals SDR +0.67 dB、int8 55 MB・ピーク RAM 約 1.6 GB。GPL-3.0（AGPL と合う。変更版として変換の手順と元の重みの場所を tools/separation に置く） | — | GPL-3.0 | 採用 |
+| 〃（前の既定） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記。モデルのコード・設定の MSST も MIT） | **第一候補**。ONNX Runtime（CPU）で動くことを確認済み（11.3） |
 | 〃 | BS PolarFormer（ZFTurbo） | 11.00 | 配布元リポジトリは MIT。重み単体の明記は未確認 | 確認できれば候補 |
 | 〃 | BS-RoFormer（viperx） | 10.87 | 明記なし | 使わない（許可待ち） |
 | 〃 | MVSEP の最新（BS Roformer 2026.07 など） | 12.33 | サービス側のモデル。重みの配布は未確認 | 使えない見込み |
 | 〃 | HTDemucs v4 | 約 9 前後 | MIT | 予備（品質は下） |
-| 分離：Main / ハモリ（リード / バック） | Mel-RoFormer Karaoke（aufr33 / viperx） | lead SDR 9.45 / back+inst 14.84（MVSEP） | **明記なし**（UVR の Issue #2295 で質問中・未回答） | 使わない（許可待ち）。代わりを探す |
+| 分離：Main / ハモリ（リード / バック） | **BS-RoFormer karaoke（anvuew）を採用（2026-10-02）**：MedleyVox の 13 区間でリード SDR 6.98・バック 8.09（Cyru5 MedleyVox の上限 4.69 / 5.80）。元の音（ミックス）から 1 本目にリードを出す。int8 約 55 MB。GPL-3.0 | — | GPL-3.0 | 採用 |
+| 〃 | Mel-RoFormer Karaoke（aufr33 / viperx） | lead SDR 9.45 / back+inst 14.84（MVSEP） | **明記なし**（UVR の Issue #2295 で質問中・未回答） | 使わない（許可待ち）。代わりを探す |
 | お手本ピッチ（B9） | RMVPE（伴奏入りの歌から直接ピッチ） | 論文：全 SNR で頑健 | 実装は Apache-2.0。学習済み重みの所在・条件は未確認 | 第一候補（重みを確認） |
 | 〃 | FCPE（高速） | MIR-1K RPA 96.79% | 未確認 | 速度が要る時の候補 |
 | 拍・小節の頭・BPM（B9b） | Beat This!（CPJKU、ISMIR 2024） | ダウンビートも出す。小さいモデルは約 8 MB | **コードと公開の重みが MIT**（リポジトリに明記） | **第一候補** |

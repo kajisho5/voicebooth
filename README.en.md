@@ -42,9 +42,9 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
 | Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
 | Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
-| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. The separation and pitch models (about 223 MB + 99 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
+| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. The separation and pitch models (about 110 MB + 99 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
 | Heavy processing | Separation runs **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
-| Harmonies | You can record harmony tracks. **There is no feature that pulls just the harmony out of a mix to use as a reference** (separation gives two parts: "all vocals" and "accompaniment") |
+| Harmonies | You can record harmony tracks. When the guide is separated, the lead vocal and harmonies are split and **a harmony guide (line and voice)** is shown too (a harmony track is compared against it). A guide taken as original − karaoke can't be split |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
 | Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
 | Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Original only | Separate the original to make an instrumental, and show the reference line too (needs the separation model) |
 | Pitch in color | Your pitch is drawn as a line on top: lime when you are on pitch, amber then red as you drift. Singing an octave off can still be lined up on the display |
 | Practice | Tempo 50–150 %, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key |
-| Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). Main and harmonies can't be split, so it's one track |
+| Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). When the guide is separated, the lead and harmonies can be heard on their own |
 | Range and suggested key | Measure your range (lowest and highest notes) with the mic and get a key that fits the guide's lowest and highest notes. One click applies it; if nothing fits, it says how many semitones stick out |
 | Recording | Full-pass recording, retroactive recording (pressing REC late never cuts off the first word), re-recording a range (8 ms crossfade at each edge; 0–20 ms in Pro), latency measurement and compensation |
 | Click and count-in | A click on the song's beat (higher on beat 1; follows the practice tempo). Counts 1–2 bars before REC; re-recording a range counts in before the range. Headphones only, never recorded or exported |
@@ -73,7 +73,6 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 
 These are not in the beta yet (and are not shown in the app).
 
-- A reference line for harmonies (selecting a harmony track still shows the main reference line)
 - Separating anything other than vocals (guitar, drums and so on)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ The source code is licensed under the **GNU Affero General Public License v3.0 o
 | Monocypher 4.0.3 (verifies the Ed25519 signature of the model list; fetched at build time) | Dual CC0 / BSD-2-Clause |
 | Rubber Band Library 4 (practice tempo / key; fetched at build time) | Dual GPL v2 or later / commercial (used here under GPL) |
 | Steinberg ASIO SDK 2.3.4 (Windows builds only; the official package is fetched at build time) | Dual GPLv3 / commercial (used here under GPLv3). The SDK itself is not kept in this repository. ASIO is a trademark of Steinberg Media Technologies GmbH |
-| Models (separate from the app, downloaded only when you press the button): separation Mel-Band RoFormer (Kimberley Jensen) | MIT. Only models whose weight licenses have been checked are distributed |
+| Models (separate from the app, downloaded only when you press the button): separation BS-RoFormer ft1 and lead-vocal BS-RoFormer karaoke (both by anvuew), pitch RMVPE (RVC) | The two separation models are GPL-3.0 (modified: split into ONNX parts and quantized to int8; conversion steps and the original weights are listed in tools/separation); RMVPE is MIT. Only models whose weight licenses have been checked are distributed |
 
 ## Contributing
 

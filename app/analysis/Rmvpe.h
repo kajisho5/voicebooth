@@ -51,8 +51,10 @@ std::vector<float> smoothPath (const std::vector<Frame>&);
 inline float centsToMidi (float cents) { return cents / 100.0f + 3.4868205f; }   // 69 − 12·log2(440 / 10)
 
 /** 声がほとんど無い所は無声にする：その点の ±10 ms の声のピークが、声の大きい所（99 パーセンタイル）より dbBelow 以上小さい。
-    vocals は points と同じ時間（曲のサンプル）。引き算・分離で残ったかすかな音に線を出さない */
-void gateQuiet (std::vector<audio::PitchFrame>& points, const float* vocals, int64_t n, double rate, float dbBelow = 35.0f);
+    vocals は points と同じ時間（曲のサンプル）。引き算・分離で残ったかすかな音に線を出さない。
+    loudFrom を渡すと「声の大きい所」はそちらで測る（ハモリの線：全体の声より小さすぎる残りを消す） */
+void gateQuiet (std::vector<audio::PitchFrame>& points, const float* vocals, int64_t n, double rate, float dbBelow = 35.0f,
+                const float* loudFrom = nullptr);
 
 /** 解析の結果をアプリの音程の点にする。offsetSamples = 16 kHz の 0 フレーム目が曲のどこか、rate = 曲の SR */
 std::vector<audio::PitchFrame> toPitchFrames (const std::vector<Frame>&, double rate, int64_t offsetSamples = 0);

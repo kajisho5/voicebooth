@@ -99,6 +99,8 @@ float PlaybackCore::mixAt (const SongAudio& s, int channel, juce::int64 pos, con
             const auto x = stems[k]->getSample (0, (int) pos) * g.stem[k];
             if (k == guideSlot)
                 peakGuide = juce::jmax (peakGuide, std::abs (x));
+            else if (k == harmGuideSlot)
+                peakHarmGuide = juce::jmax (peakHarmGuide, std::abs (x));
             v += x;
         }
     return v;
@@ -161,6 +163,7 @@ void PlaybackCore::prepare (double outputSampleRate)
     metronome.prepare (r);
     backingLevel.prepare (r);
     guideLevel.prepare (r);
+    harmGuideLevel.prepare (r);
     clickLevel.prepare (r);
     countLeft = 0.0;
     prepared = true;
@@ -223,7 +226,7 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
             juce::FloatVectorOperations::clear (out[c], numSamples);
 
     // メーター：このブロックの最大を、どの道を通っても最後に入れる（止まっている間は 0 が入って下がっていく）
-    peakBacking = peakGuide = peakClick = 0.0f;
+    peakBacking = peakGuide = peakClick = peakHarmGuide = 0.0f;
     struct PushLevels
     {
         PlaybackCore& core;
@@ -232,6 +235,7 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
         {
             core.backingLevel.push (core.peakBacking, n);
             core.guideLevel.push (core.peakGuide, n);
+            core.harmGuideLevel.push (core.peakHarmGuide, n);
             core.clickLevel.push (core.peakClick, n);
         }
     } pushLevels { *this, numSamples };

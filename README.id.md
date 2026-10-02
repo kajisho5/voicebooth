@@ -42,9 +42,9 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 | OS | **Windows dan Mac** (Mac: Apple silicon dan Intel). **Tidak ada versi ponsel atau tablet** |
 | Kartu grafis | **Tidak perlu.** Berjalan hanya dengan CPU. Yang berat hanya pemisahan vokal: lagu 30 detik butuh sekitar 2 menit di CPU 4 core (aplikasi menampilkan perkiraan waktunya) |
 | Audio yang bisa dimuat | **Hanya file audio di komputer Anda** (wav / flac / aiff / ogg / mp3 / m4a). Lagu dari Spotify, Apple Music, YouTube Music, atau layanan streaming lain tidak bisa dimuat langsung |
-| Ukuran | Installer sekitar 13 MB di Windows dan sekitar 40 MB di Mac. Model pemisahan dan nada (sekitar 223 MB + 99 MB) diunduh **hanya saat Anda menekan tombol untuk memakainya**. Tidak ada yang diunduh diam-diam |
+| Ukuran | Installer sekitar 13 MB di Windows dan sekitar 40 MB di Mac. Model pemisahan dan nada (sekitar 110 MB + 99 MB) diunduh **hanya saat Anda menekan tombol untuk memakainya**. Tidak ada yang diunduh diam-diam |
 | Proses berat | Pemisahan berjalan **hanya saat Anda menekan tombolnya**. Tampilan lirik **mati secara default** (nyalakan di Pengaturan) |
-| Harmoni | Anda bisa merekam trek harmoni. **Tidak ada fitur yang mengambil harmoninya saja dari sebuah mix untuk dijadikan panduan** (pemisahan menghasilkan dua bagian: "semua vokal" dan "iringan") |
+| Harmoni | Anda bisa merekam trek harmoni. Saat panduan dipisahkan, vokal utama dan harmoni dipisah dan **panduan harmoni (garis dan suara)** juga ditampilkan (trek harmoni dibandingkan dengannya). Panduan yang diambil dari lagu asli − karaoke tidak bisa dipisah |
 | Audio hasil pemisahan | Vokal dan iringan hasil pemisahan **untuk latihan pribadi Anda**. VoiceBooth tidak mengubah hak atas lagu aslinya. Sebarkan atau publikasikan (termasuk membagikannya sebagai instrumental untuk cover) hanya sejauh diizinkan pemegang hak aslinya |
 | Harga | **Gratis.** Tanpa langganan, tanpa pembelian dalam aplikasi. Anda bisa mendukung pengembangan lewat [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opsional; tidak mengubah fitur apa pun) |
 | Bahasa | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 | Hanya lagu asli | Memisahkan lagu asli untuk membuat instrumental, sekaligus menampilkan garis panduan (perlu model pemisahan) |
 | Pitch berwarna | Pitch Anda digambar sebagai garis di atasnya: hijau limau saat pas, lalu kuning amber dan merah saat meleset. Bernyanyi satu oktaf berbeda pun tetap bisa diselaraskan di layar |
 | Latihan | Tempo 50–150 %, nada ±6. Berlatihlah pelan-pelan, tetapi take untuk diserahkan selalu direkam dengan tempo dan nada asli |
-| Dengar panduan | Dengarkan vokal panduan yang diambil dari lagu asli, bersama instrumental atau solo (tempo/nada latihan ikut berlaku). Vokal utama dan harmoni tidak bisa dipisah, jadi hanya satu trek |
+| Dengar panduan | Dengarkan vokal panduan yang diambil dari lagu asli, bersama instrumental atau solo (tempo/nada latihan ikut berlaku). Saat panduan dipisahkan, vokal utama dan harmoni bisa didengar terpisah |
 | Rentang dan nada saran | Ukur rentang vokal Anda (nada terendah dan tertinggi) dengan mik dan dapatkan nada dasar yang memuat nada terendah dan tertinggi panduan. Satu klik untuk menerapkannya; jika tidak ada yang muat, ditampilkan berapa semitone yang keluar |
 | Rekaman | Rekam dari awal sampai akhir, rekaman retroaktif (terlambat menekan REC tidak pernah memotong kata pertama), rekam ulang satu rentang (crossfade 8 ms di tiap ujung; 0–20 ms di Pro), pengukuran dan kompensasi latensi |
 | Klik dan hitungan awal | Klik mengikuti ketukan lagu (lebih tinggi di ketukan 1; mengikuti tempo latihan). Menghitung 1–2 bar sebelum REC; rekam ulang rentang menghitung sebelum rentang. Hanya di headphone, tidak pernah ikut terekam atau diekspor |
@@ -73,7 +73,6 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 
 Fitur berikut belum ada di beta (dan tidak ditampilkan di aplikasi).
 
-- Garis panduan untuk harmoni (memilih trek harmoni tetap menampilkan garis panduan utama)
 - Memisahkan selain vokal (gitar, drum, dan sebagainya)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ Kode sumbernya berlisensi **GNU Affero General Public License v3.0 atau lebih ba
 | Monocypher 4.0.3 (memverifikasi tanda tangan Ed25519 daftar model; diambil saat build) | Ganda CC0 / BSD-2-Clause |
 | Rubber Band Library 4 (tempo / nada latihan; diambil saat build) | Ganda GPL v2 atau lebih baru / komersial (di sini dipakai di bawah GPL) |
 | Steinberg ASIO SDK 2.3.4 (hanya build Windows; paket resmi diambil saat build) | Ganda GPLv3 / komersial (di sini dipakai di bawah GPLv3). SDK-nya sendiri tidak disimpan di repositori ini. ASIO adalah merek dagang Steinberg Media Technologies GmbH |
-| Model (terpisah dari aplikasi, diunduh hanya saat Anda menekan tombol): pemisahan Mel-Band RoFormer (Kimberley Jensen) | MIT. Hanya model yang lisensi bobotnya sudah diperiksa yang didistribusikan |
+| Model (terpisah dari aplikasi, diunduh hanya saat Anda menekan tombol): pemisahan BS-RoFormer ft1 dan vokal utama BS-RoFormer karaoke (keduanya dari anvuew), nada RMVPE (RVC) | Kedua model pemisahan berlisensi GPL-3.0 (versi yang diubah: dipecah menjadi bagian ONNX dan dikuantisasi ke int8; langkah konversi dan bobot aslinya ada di tools/separation); RMVPE berlisensi MIT. Hanya model yang lisensi bobotnya sudah diperiksa yang didistribusikan |
 
 ## Berkontribusi
 

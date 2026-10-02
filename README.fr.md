@@ -42,9 +42,9 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 | Système | **Windows et Mac** (Mac : Apple silicon et Intel). **Pas de version pour téléphone ni tablette** |
 | Carte graphique | **Inutile.** Il fonctionne avec le processeur seul. Seule la séparation vocale est lourde : un titre de 30 secondes a pris environ 2 minutes sur un processeur 4 cœurs (l'app affiche une durée estimée) |
 | Audio chargeable | **Uniquement les fichiers audio de votre ordinateur** (wav / flac / aiff / ogg / mp3 / m4a). Impossible de charger directement des titres de Spotify, Apple Music, YouTube Music ou d'autres services de streaming |
-| Taille | L'installeur fait environ 13 Mo sous Windows et environ 40 Mo sur Mac. Les modèles de séparation et de hauteur (environ 223 Mo + 99 Mo) ne sont téléchargés **que lorsque vous appuyez sur le bouton pour les utiliser**. Rien n'est téléchargé dans votre dos |
+| Taille | L'installeur fait environ 13 Mo sous Windows et environ 40 Mo sur Mac. Les modèles de séparation et de hauteur (environ 110 Mo + 99 Mo) ne sont téléchargés **que lorsque vous appuyez sur le bouton pour les utiliser**. Rien n'est téléchargé dans votre dos |
 | Traitements lourds | La séparation ne s'exécute **que lorsque vous appuyez sur le bouton**. L'affichage des paroles est **désactivé par défaut** (à activer dans Réglages) |
-| Harmonies | Vous pouvez enregistrer des pistes d'harmonie. **Aucune fonction n'extrait uniquement l'harmonie d'un mix pour s'en servir de référence** (la séparation donne deux parties : « toutes les voix » et « accompagnement ») |
+| Harmonies | Vous pouvez enregistrer des pistes d'harmonie. Quand la référence est séparée, la voix principale et les harmonies sont distinguées et **une référence d'harmonies (ligne et voix)** est aussi affichée (les pistes d'harmonie sont comparées à elle). Une référence obtenue par original − karaoké ne peut pas être divisée |
 | Audio séparé | La voix et l'accompagnement séparés sont **destinés à votre entraînement personnel**. VoiceBooth ne change rien aux droits du titre original. Ne les diffusez ou publiez (y compris en les partageant comme instrumental pour des reprises) que dans la mesure autorisée par les ayants droit d'origine |
 | Prix | **Gratuit.** Pas d'abonnement, pas d'achats intégrés. Vous pouvez soutenir le développement via [GitHub Sponsors](https://github.com/sponsors/kajisho5) (facultatif ; cela ne change aucune fonctionnalité) |
 | Langues | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 | Original seul | Sépare l'original pour créer un instrumental et afficher aussi la ligne de référence (nécessite le modèle de séparation) |
 | Justesse en couleur | Votre hauteur est tracée en ligne par-dessus : vert citron quand c'est juste, puis ambre et rouge à mesure que vous vous écartez. Chanter à l'octave peut quand même être aligné à l'affichage |
 | Entraînement | Tempo 50–150 %, tonalité ±6. Entraînez-vous lentement, mais la prise livrée est toujours enregistrée au tempo et à la tonalité d'origine |
-| Écouter le guide | Écoutez la voix guide extraite de l'original, avec l'instrumental ou en solo (tempo et tonalité d'entraînement appliqués). Lead et harmonies ne peuvent pas être séparées, c'est donc une seule piste |
+| Écouter le guide | Écoutez la voix guide extraite de l'original, avec l'instrumental ou en solo (tempo et tonalité d'entraînement appliqués). Quand la référence est séparée, la voix principale et les harmonies s'écoutent séparément |
 | Tessiture et tonalité suggérée | Mesurez votre tessiture (notes la plus grave et la plus aiguë) au micro et obtenez une tonalité où tiennent les notes la plus grave et la plus aiguë du guide. Un clic l'applique ; si rien ne convient, il indique de combien de demi-tons ça dépasse |
 | Enregistrement | Enregistrement d'une traite, enregistrement rétroactif (appuyer sur REC en retard ne coupe jamais le premier mot), réenregistrement d'une plage (fondu de 8 ms à chaque bord ; 0–20 ms en Pro), mesure et compensation de la latence |
 | Clic et décompte | Un clic sur le tempo du morceau (plus aigu sur le temps 1 ; suit le tempo d'entraînement). Compte 1 à 2 mesures avant REC ; le réenregistrement d'une plage décompte avant la plage. Uniquement au casque, jamais enregistré ni exporté |
@@ -73,7 +73,6 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 
 Ces éléments ne sont pas encore dans la bêta (et ne sont pas affichés dans l'app).
 
-- Une ligne de référence pour les harmonies (sélectionner une piste d'harmonie affiche toujours la ligne de référence principale)
 - Séparation d'autre chose que la voix (guitare, batterie, etc.)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ Le code source est sous licence **GNU Affero General Public License v3.0 ou ult�
 | Monocypher 4.0.3 (vérifie la signature Ed25519 de la liste de modèles ; récupéré à la compilation) | Double CC0 / BSD-2-Clause |
 | Rubber Band Library 4 (tempo / tonalité d'entraînement ; récupéré à la compilation) | Double GPL v2 ou ultérieure / commerciale (utilisé ici sous GPL) |
 | Steinberg ASIO SDK 2.3.4 (builds Windows uniquement ; le paquet officiel est récupéré à la compilation) | Double GPLv3 / commerciale (utilisé ici sous GPLv3). Le SDK lui-même n'est pas conservé dans ce dépôt. ASIO est une marque de Steinberg Media Technologies GmbH |
-| Modèles (séparés de l'app, téléchargés uniquement quand vous appuyez sur le bouton) : séparation Mel-Band RoFormer (Kimberley Jensen) | MIT. Seuls les modèles dont les licences des poids ont été vérifiées sont distribués |
+| Modèles (séparés de l'app, téléchargés uniquement quand vous appuyez sur le bouton) : séparation BS-RoFormer ft1 et voix principale BS-RoFormer karaoke (tous deux d'anvuew), hauteur RMVPE (RVC) | Les deux modèles de séparation sont sous GPL-3.0 (version modifiée : découpée en parties ONNX et quantifiée en int8 ; étapes de conversion et poids d'origine dans tools/separation) ; RMVPE est sous MIT. Seuls les modèles dont les licences des poids ont été vérifiées sont distribués |
 
 ## Contribuer
 

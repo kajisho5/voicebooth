@@ -314,16 +314,22 @@ std::vector<float> smoothPath (const std::vector<Frame>& frames)
     return path;
 }
 
-void gateQuiet (std::vector<audio::PitchFrame>& points, const float* vocals, int64_t n, double rate, float dbBelow)
+void gateQuiet (std::vector<audio::PitchFrame>& points, const float* vocals, int64_t n, double rate, float dbBelow,
+                const float* loudFrom)
 {
     if (n <= 0 || points.empty())
         return;
     // 10 ms ごとのピーク
     const auto block = std::max ((int64_t) 1, (int64_t) std::llround (0.01 * rate));
-    std::vector<float> peaks ((size_t) ((n + block - 1) / block), 0.0f);
-    for (int64_t i = 0; i < n; ++i)
-        peaks[(size_t) (i / block)] = std::max (peaks[(size_t) (i / block)], std::abs (vocals[i]));
-    auto sorted = peaks;
+    auto blockPeaks = [&] (const float* x)
+    {
+        std::vector<float> p ((size_t) ((n + block - 1) / block), 0.0f);
+        for (int64_t i = 0; i < n; ++i)
+            p[(size_t) (i / block)] = std::max (p[(size_t) (i / block)], std::abs (x[i]));
+        return p;
+    };
+    const auto peaks = blockPeaks (vocals);
+    auto sorted = loudFrom != nullptr ? blockPeaks (loudFrom) : peaks;
     const auto k = (size_t) ((double) (sorted.size() - 1) * 0.99);
     std::nth_element (sorted.begin(), sorted.begin() + (ptrdiff_t) k, sorted.end());
     const auto loud = sorted[k];

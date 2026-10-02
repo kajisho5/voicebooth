@@ -129,7 +129,7 @@ public:
     virtual int64 getCountInPosition() const { return getPlayheadSample(); }
 
     // モニターの帯のメーター（2026-10-02）：オフボ・お手本・クリックのフェーダー後のピーク（dBFS。UI が 30 Hz で読む）
-    struct MonitorLevels { float backingDb = -100.0f, guideDb = -100.0f, clickDb = -100.0f; };
+    struct MonitorLevels { float backingDb = -100.0f, guideDb = -100.0f, clickDb = -100.0f, harmGuideDb = -100.0f; };
     virtual MonitorLevels getMonitorLevels() const { return {}; }
 
     // 録ったトラックの再生（B12）。slot 0..3 = Main / Double / Harm1 / Harm2。buffer は曲の SR・曲の長さのモノラル（nullptr で外す）。

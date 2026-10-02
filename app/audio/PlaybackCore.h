@@ -59,8 +59,9 @@ public:
     bool isPracticeShifted() const;
 
     /** 録ったトラックの音（B12）。slot は 0..maxStems-1、buffer は曲の SR・曲の長さのモノラル（nullptr で外す）。メッセージスレッド */
-    static constexpr int maxStems = 5;   // 0..3 = 録ったトラック（Main / Double / Harm 1 / Harm 2）、4 = お手本の声
+    static constexpr int maxStems = 6;   // 0..3 = 録ったトラック（Main / Double / Harm 1 / Harm 2）、4 = お手本の声（リード）、5 = ハモリのお手本
     static constexpr int guideSlot = 4;
+    static constexpr int harmGuideSlot = 5;
     void setStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> buffer);
     /** トラックの音量（直線の倍率。0 で鳴らさない）。どのスレッドからでも。20 ms でなめらかに */
     void setStemGain (int slot, float linearGain);
@@ -81,9 +82,10 @@ public:
     /** モニターの帯のメーター（フェーダー後のピーク。dBFS、下限 -100）。UI が 30 Hz で読む */
     struct Levels
     {
-        float backingDb = LevelFollower::floorDb, guideDb = LevelFollower::floorDb, clickDb = LevelFollower::floorDb;
+        float backingDb = LevelFollower::floorDb, guideDb = LevelFollower::floorDb, clickDb = LevelFollower::floorDb,
+              harmGuideDb = LevelFollower::floorDb;
     };
-    Levels getLevels() const { return { backingLevel.readDb(), guideLevel.readDb(), clickLevel.readDb() }; }
+    Levels getLevels() const { return { backingLevel.readDb(), guideLevel.readDb(), clickLevel.readDb(), harmGuideLevel.readDb() }; }
 
     /** 曲の終わりまで行って止まったら、1 度だけ true */
     bool consumeReachedEnd() { return reachedEnd.exchange (false); }
@@ -132,7 +134,7 @@ private:
     std::atomic<bool> playing { false }, reachedEnd { false }, muted { false }, loopOn { false };
     std::atomic<juce::int64> position { 0 }, pendingSeek { -1 }, loopIn { 0 }, loopOut { 0 };
     std::atomic<float> gain { 1.0f };
-    std::atomic<float> stemGain[maxStems] { { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f } };
+    std::atomic<float> stemGain[maxStems] { { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f } };
     std::atomic<double> speed { 1.0 };
     std::atomic<int> semitones { 0 };
     std::atomic<bool> stretchReset { true };        // 次のブロックでストレッチを頭からやり直す（再生開始・シーク・曲替え）
@@ -144,7 +146,7 @@ private:
     std::atomic<juce::int64> countLeftOut { 0 };    // カウントインの残り（曲のサンプル。UI の表示用）
 
     // モニターの帯のメーター（2026-10-02）
-    LevelFollower backingLevel, guideLevel, clickLevel;
+    LevelFollower backingLevel, guideLevel, clickLevel, harmGuideLevel;
 
     // オーディオスレッドだけが触る
     double fraction = 0.0;                          // SR 変換時の小数部
@@ -156,7 +158,7 @@ private:
     struct Gains { float backing; float stem[maxStems]; };
     Gains nextGains() noexcept;
     float mixAt (const SongAudio&, int channel, juce::int64 pos, const Gains&) noexcept;
-    float peakBacking = 0.0f, peakGuide = 0.0f, peakClick = 0.0f;   // このブロックの最大（フェーダー後）
+    float peakBacking = 0.0f, peakGuide = 0.0f, peakClick = 0.0f, peakHarmGuide = 0.0f;   // このブロックの最大（フェーダー後）
     double countLeft = 0.0;                         // カウントインの残り（曲のサンプル。出力 1 サンプルで step ずつ減る）
     juce::int64 countUntil = -1;                    // この位置まではクリック Off でも拍を鳴らす
     bool prepared = false;

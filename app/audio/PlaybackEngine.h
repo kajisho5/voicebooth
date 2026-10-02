@@ -54,7 +54,7 @@ public:
     MonitorLevels getMonitorLevels() const override
     {
         const auto l = core.getLevels();
-        return { l.backingDb, l.guideDb, l.clickDb };
+        return { l.backingDb, l.guideDb, l.clickDb, l.harmGuideDb };
     }
     void  setVocalStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> b) override { core.setStem (slot, std::move (b)); }
     void  setVocalGain (int slot, float g) override     { core.setStemGain (slot, g); }

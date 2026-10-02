@@ -262,14 +262,17 @@ MonitorModule::MonitorModule (UiSession& u)
     for (auto* st : strips)
         addAndMakeVisible (st);
 
-    // オフボ（B2）・自分の声とモニターリバーブ（B4）・お手本の声とクリック・S（ソロ）（2026-10-02）は音に効く。ハモリだけのお手本はまだ無いので、本物のアプリでは出さない（見本だけ）
+    // オフボ（B2）・自分の声とモニターリバーブ（B4）・お手本の声とクリック・S（ソロ）（2026-10-02）は音に効く。
+    // ハモリのお手本（2026-10-02）：分離でリードとハモリを分けられた時だけ鳴る（それまでは薄くして触れない）
     if (u->engineAttached)
     {
-        // お手本：取り出した声（メインとハモリは分けられないので 1 本）
-        harmStrip->setVisible (false);
         mainStrip->fader().setTooltip (tr ("monitor.guide.tooltip"));
         mainStrip->onFaderChange = [this] { session.setGuideLevel ((float) mainStrip->fader().getValue()); };
         mainStrip->muteKey().onClick = [this] { session.setGuideMuted (mainStrip->muteKey().getToggleState()); };
+        harmStrip->onFaderChange = [this] { session.setHarmGuideLevel ((float) harmStrip->fader().getValue()); };
+        harmStrip->muteKey().onClick = [this] { session.setHarmGuideMuted (harmStrip->muteKey().getToggleState()); };
+        harmStrip->soloKey().onClick = [this] { session.setHarmGuideSolo (harmStrip->soloKey().getToggleState()); };
+        harmStrip->soloKey().setTooltip (tr ("monitor.harmGuide.solo"));
     }
     backingStrip->onFaderChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
     backingStrip->muteKey().onClick = [this] { session.setBackingMuted (backingStrip->muteKey().getToggleState()); };
@@ -332,6 +335,8 @@ void MonitorModule::updateMeters()
     // オフボ・お手本・クリック：エンジンがフェーダーの後で測った量（2026-10-02。ミュート・ソロ込み）。UI_MOCK は見本の値
     backingStrip->fader().setMeter (audio::meterFraction (s.backingMeterDb));
     mainStrip->fader().setMeter (audio::meterFraction (s.guideMeterDb));
+    if (s.engineAttached)
+        harmStrip->fader().setMeter (audio::meterFraction (s.harmGuideMeterDb));
     clickStrip->fader().setMeter (audio::meterFraction (s.clickMeterDb));
 }
 
@@ -356,6 +361,9 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
         {
             mainStrip->fader().setValue (s.mainGain, juce::dontSendNotification);
             mainStrip->muteKey().setToggleState (s.guideMuted, juce::dontSendNotification);
+            harmStrip->fader().setValue (s.harmonyGain, juce::dontSendNotification);
+            harmStrip->muteKey().setToggleState (s.guideHarmMuted, juce::dontSendNotification);
+            harmStrip->soloKey().setToggleState (s.guideHarmSolo, juce::dontSendNotification);
         }
     }
 
@@ -365,6 +373,10 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
         const bool has = session.hasGuideVocals();
         mainStrip->setEnabled (has);
         mainStrip->setAlpha (has ? 1.0f : 0.4f);
+        const bool harm = session.hasHarmGuideVocals();
+        harmStrip->setEnabled (harm);
+        harmStrip->setAlpha (harm ? 1.0f : 0.4f);
+        harmStrip->fader().setTooltip (tr (harm ? "monitor.harmGuide.tooltip" : "monitor.harmGuide.none"));
     }
 
     if (c & (change::meter | change::monitor | change::device))

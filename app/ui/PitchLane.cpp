@@ -125,9 +125,15 @@ juce::Colour PitchLane::colourFor (const dummy::PitchPoint& p) const
 
 // 練習でキーを変えている時（B11）は、お手本の線もその分ずらす（伴奏と同じキーで歌う）
 // ハモリのお手本はまだ作れない。本物のアプリでハモリのトラックを選んでも、メインのお手本をそのまま出す（ずらした嘘の線を出さない）
-bool PitchLane::harmonyGuide() const { return state().isHarmonySelected() && ! state().engineAttached; }
-float PitchLane::refOffset() const  { return (harmonyGuide() ? harmonyOffset : 0.0f) + (float) state().keyShift; }
-float PitchLane::mineOffset() const { return (harmonyGuide() ? harmonyOffset : 0.0f) + (state().octaveUp ? 12.0f : 0.0f); }
+// ハモリのトラックを選んでいて、ハモリのお手本がある（本物：分離でリードと分けられた時。見本：メインを長 3 度上げた物）
+bool PitchLane::harmonyGuide() const
+{
+    const auto& s = state();
+    return s.isHarmonySelected() && (! s.engineAttached || ! s.refPitchHarm.empty());
+}
+float PitchLane::mockHarmonyOffset() const { return harmonyGuide() && ! state().engineAttached ? harmonyOffset : 0.0f; }
+float PitchLane::refOffset() const  { return mockHarmonyOffset() + (float) state().keyShift; }
+float PitchLane::mineOffset() const { return mockHarmonyOffset() + (state().octaveUp ? 12.0f : 0.0f); }
 
 //==============================================================================
 int PitchLane::tagAt (juce::Point<float> p) const
@@ -341,14 +347,16 @@ void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
 const std::vector<analysis::NoteSpan>& PitchLane::refNotes() const
 {
     const auto& s = state();
-    const auto key = s.refPitch.empty() ? 0
-                   : (juce::int64) s.refPitch.size() * 1000003 + s.refPitch.front().sample * 31 + s.refPitch.back().sample
-                     + (juce::int64) s.sampleRate();
+    const auto& ref = s.activeRef();
+    // メインとハモリは同じ時間の並び（数・頭・終わりが同じ）なので、どちらかも鍵に入れる
+    const auto key = ref.empty() ? 0
+                   : (juce::int64) ref.size() * 1000003 + ref.front().sample * 31 + ref.back().sample
+                     + (juce::int64) s.sampleRate() + (&ref == &s.refPitchHarm ? 7919 : 0);
     if (key != notesKey)
     {
         std::vector<audio::PitchFrame> frames;
-        frames.reserve (s.refPitch.size());
-        for (auto& p : s.refPitch)
+        frames.reserve (s.activeRef().size());
+        for (auto& p : s.activeRef())
             frames.push_back ({ p.sample, p.midi, p.confidence, 0.0f });
         notesCache = analysis::segmentNotes (frames, s.sampleRate());
         notesKey = key;
@@ -388,7 +396,7 @@ void PitchLane::drawReference (juce::Graphics& g, const TimeMap& m)
     }
 
     // 細かい音程の線：音符の中は濃く、音符の外（しゃくり・フォール・つなぎ・取り切れない外れ）は薄く
-    forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
+    forEachRun (s.activeRef(), s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
         juce::Path all, inNotes;
         bool drawingIn = false;

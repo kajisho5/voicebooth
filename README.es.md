@@ -42,9 +42,9 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Sistema | **Windows y Mac** (Mac: Apple silicon e Intel). **No hay versión para móvil ni tableta** |
 | Tarjeta gráfica | **No hace falta.** Funciona solo con la CPU. Lo único pesado es la separación de voz: una canción de 30 segundos tardó unos 2 minutos en una CPU de 4 núcleos (la app muestra un tiempo estimado) |
 | Audio que puedes cargar | **Solo archivos de audio de tu equipo** (wav / flac / aiff / ogg / mp3 / m4a). No puedes cargar canciones directamente desde Spotify, Apple Music, YouTube Music ni otros servicios de streaming |
-| Tamaño | El instalador ocupa unos 13 MB en Windows y unos 40 MB en Mac. Los modelos de separación y de tono (unos 223 MB + 99 MB) se descargan **solo cuando pulsas el botón para usarlos**. No se descarga nada a tus espaldas |
+| Tamaño | El instalador ocupa unos 13 MB en Windows y unos 40 MB en Mac. Los modelos de separación y de tono (unos 110 MB + 99 MB) se descargan **solo cuando pulsas el botón para usarlos**. No se descarga nada a tus espaldas |
 | Procesos pesados | La separación se ejecuta **solo cuando pulsas el botón**. La letra está **desactivada por defecto** (actívala en Ajustes) |
-| Armonías | Puedes grabar pistas de armonía. **No hay ninguna función que saque solo la armonía de una mezcla para usarla como referencia** (la separación da dos partes: "todas las voces" y "acompañamiento") |
+| Armonías | Puedes grabar pistas de armonía. Al separar la guía, se dividen la voz principal y las armonías y también se muestra **una guía de armonías (línea y voz)** (las pistas de armonía se comparan con ella). Una guía obtenida como original − karaoke no se puede dividir |
 | Audio separado | La voz y el acompañamiento separados son **para tu práctica personal**. VoiceBooth no cambia los derechos de la canción original. Distribúyelos o publícalos (incluido compartirlos como instrumental para covers) solo en la medida en que lo permitan los titulares de los derechos originales |
 | Precio | **Gratis.** Sin suscripción ni compras dentro de la app. Puedes apoyar el desarrollo a través de [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opcional; no cambia ninguna función) |
 | Idiomas | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Solo la original | Separa la original para crear un instrumental y mostrar también la línea de referencia (necesita el modelo de separación) |
 | Afinación en color | Tu tono se dibuja como una línea encima: verde lima cuando estás afinado, ámbar y luego rojo cuando te desvías. Aunque cantes una octava por encima o por debajo, se puede alinear en pantalla |
 | Práctica | Tempo 50–150 %, tono ±6. Practica despacio, pero la toma de entrega siempre se graba con el tempo y el tono originales |
-| Escuchar la guía | Escucha la voz guía extraída de la original, con el instrumental o en solo (se aplican el tempo y el tono de práctica). La principal y los coros no se pueden separar, así que es una sola pista |
+| Escuchar la guía | Escucha la voz guía extraída de la original, con el instrumental o en solo (se aplican el tempo y el tono de práctica). Al separar la guía, la principal y las armonías se pueden escuchar por separado |
 | Tesitura y tono sugerido | Mide tu tesitura (nota más grave y más aguda) con el micrófono y obtén un tono en el que quepan la nota más grave y la más aguda de la guía. Se aplica con un clic; si no cabe, indica cuántos semitonos se sale |
 | Grabación | Grabación de principio a fin, grabación retroactiva (pulsar REC tarde nunca corta la primera palabra), regrabación de un rango (fundido de 8 ms en cada borde; 0–20 ms en Pro), medición y compensación de latencia |
 | Clic y cuenta previa | Clic al pulso de la canción (más agudo en el tiempo 1; sigue el tempo de práctica). Cuenta 1–2 compases antes de REC; al regrabar un rango, cuenta antes del rango. Solo en los auriculares: nunca se graba ni se exporta |
@@ -73,7 +73,6 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 
 Esto todavía no está en la beta (y no aparece en la app).
 
-- Una línea de referencia para las armonías (al seleccionar una pista de armonía se sigue mostrando la línea de referencia principal)
 - Separar algo que no sea la voz (guitarra, batería, etc.)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ El código fuente está bajo la **GNU Affero General Public License v3.0 o poste
 | Monocypher 4.0.3 (verifica la firma Ed25519 de la lista de modelos; se descarga al compilar) | Doble CC0 / BSD-2-Clause |
 | Rubber Band Library 4 (tempo / tono de práctica; se descarga al compilar) | Doble GPL v2 o posterior / comercial (aquí se usa bajo GPL) |
 | Steinberg ASIO SDK 2.3.4 (solo en las compilaciones para Windows; el paquete oficial se descarga al compilar) | Doble GPLv3 / comercial (aquí se usa bajo GPLv3). El SDK en sí no se guarda en este repositorio. ASIO es una marca comercial de Steinberg Media Technologies GmbH |
-| Modelos (aparte de la app, se descargan solo cuando pulsas el botón): separación Mel-Band RoFormer (Kimberley Jensen) | MIT. Solo se distribuyen modelos cuyas licencias de pesos se han comprobado |
+| Modelos (aparte de la app, se descargan solo cuando pulsas el botón): separación BS-RoFormer ft1 y voz principal BS-RoFormer karaoke (ambos de anvuew), tono RMVPE (RVC) | Los dos de separación son GPL-3.0 (versión modificada: dividida en partes ONNX y cuantizada a int8; los pasos de conversión y los pesos originales están en tools/separation); RMVPE es MIT. Solo se distribuyen modelos cuyas licencias de pesos se han comprobado |
 
 ## Contribuir
 

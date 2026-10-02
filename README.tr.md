@@ -42,9 +42,9 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 | İşletim sistemi | **Hem Windows hem Mac** (Mac: Apple silicon ve Intel). **Telefon veya tablet sürümü yoktur** |
 | Ekran kartı | **Gerekmez.** Yalnızca CPU ile çalışır. Tek ağır iş vokal ayırmadır: 30 saniyelik bir şarkı 4 çekirdekli bir CPU'da yaklaşık 2 dakika sürdü (uygulama tahmini süreyi gösterir) |
 | Yüklenebilen ses | **Yalnızca bilgisayarınızdaki ses dosyaları** (wav / flac / aiff / ogg / mp3 / m4a). Spotify, Apple Music, YouTube Music veya diğer akış hizmetlerindeki şarkılar doğrudan yüklenemez |
-| Boyut | Kurulum dosyası Windows'ta yaklaşık 13 MB, Mac'te yaklaşık 40 MB. Ayırma ve perde modelleri (yaklaşık 223 MB + 99 MB) **yalnızca kullanmak için düğmeye bastığınızda** indirilir. Arka planda gizlice hiçbir şey indirilmez |
+| Boyut | Kurulum dosyası Windows'ta yaklaşık 13 MB, Mac'te yaklaşık 40 MB. Ayırma ve perde modelleri (yaklaşık 110 MB + 99 MB) **yalnızca kullanmak için düğmeye bastığınızda** indirilir. Arka planda gizlice hiçbir şey indirilmez |
 | Ağır işlemler | Ayırma **yalnızca düğmeye bastığınızda** çalışır. Şarkı sözü gösterimi **varsayılan olarak kapalıdır** (Ayarlar'dan açın) |
-| Armoniler | Armoni kanalları kaydedebilirsiniz. **Bir miksten yalnızca armoniyi çıkarıp referans olarak kullanan bir özellik yoktur** (ayırma iki parça verir: "tüm vokaller" ve "eşlik") |
+| Armoniler | Armoni kanalları kaydedebilirsiniz. Referans ayrıldığında ana vokal ve armoniler ayrılır ve **bir armoni referansı (çizgi ve ses)** da gösterilir (armoni kanalları onunla karşılaştırılır). Orijinal − karaoke ile alınan referans ayrılamaz |
 | Ayrılan ses | Ayrılan vokal ve eşlik **kişisel pratiğiniz içindir**. VoiceBooth orijinal şarkının haklarını değiştirmez. Yalnızca orijinal hak sahiplerinin izin verdiği ölçüde dağıtın veya yayınlayın (cover için altyapı olarak paylaşmak dahil) |
 | Fiyat | **Ücretsiz.** Abonelik yok, uygulama içi satın alma yok. Geliştirmeyi [GitHub Sponsors](https://github.com/sponsors/kajisho5) üzerinden destekleyebilirsiniz (isteğe bağlı; hiçbir özelliği değiştirmez) |
 | Diller | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 | Yalnızca orijinal | Orijinali ayırarak bir altyapı oluşturur ve referans çizgisini de gösterir (ayırma modeli gerekir) |
 | Renkli perde | Perdeniz üstte bir çizgi olarak çizilir: doğruyken limon yeşili, kaydıkça kehribar ve sonra kırmızı. Bir oktav farklı söyleseniz bile ekranda hizalanabilir |
 | Pratik | Tempo %50–150, ton ±6. Yavaş çalışabilirsiniz, ancak teslim edilecek take her zaman orijinal tempo ve tonda kaydedilir |
-| Referansı dinleme | Orijinalden çıkarılan referans vokali altyapıyla birlikte veya tek başına dinleyin (pratik tempo/tonu uygulanır). Ana vokal ve armoniler ayrılamadığı için tek kanaldır |
+| Referansı dinleme | Orijinalden çıkarılan referans vokali altyapıyla birlikte veya tek başına dinleyin (pratik tempo/tonu uygulanır). Referans ayrıldığında ana vokal ve armoniler ayrı ayrı dinlenebilir |
 | Ses aralığı ve önerilen ton | Ses aralığınızı (en pes ve en tiz notalar) mikrofonla ölçün ve referansın en pes ve en tiz notalarını sığdıran bir ton alın. Tek tıkla uygulanır; hiçbiri uymazsa kaç yarım ses taştığını söyler |
 | Kayıt | Baştan sona kayıt, geriye dönük kayıt (REC'e geç basmak ilk kelimeyi asla kesmez), bir aralığı yeniden kayıt (her iki uçta 8 ms crossfade; Pro'da 0–20 ms), gecikme ölçümü ve telafisi |
 | Klik ve ön sayım | Şarkının temposunda klik (1. vuruşta daha ince; çalışma temposunu da izler). REC'ten önce 1–2 ölçü sayar; bir aralığı yeniden kaydederken aralıktan önce sayar. Yalnızca kulaklıkta duyulur, kayda ve dışa aktarıma girmez |
@@ -73,7 +73,6 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 
 Bunlar henüz betada yok (ve uygulamada gösterilmez).
 
-- Armoniler için referans çizgisi (bir armoni kanalı seçildiğinde ana referans çizgisi gösterilmeye devam eder)
 - Vokal dışındakileri ayırma (gitar, davul vb.)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ Kaynak kodu **GNU Affero General Public License v3.0 veya sonrası (AGPL-3.0-or-
 | Monocypher 4.0.3 (model listesinin Ed25519 imzasını doğrular; derleme sırasında indirilir) | CC0 / BSD-2-Clause çift lisans |
 | Rubber Band Library 4 (pratik tempo / ton; derleme sırasında indirilir) | GPL v2 veya sonrası / ticari çift lisans (burada GPL altında kullanılır) |
 | Steinberg ASIO SDK 2.3.4 (yalnızca Windows derlemeleri; resmî paket derleme sırasında indirilir) | GPLv3 / ticari çift lisans (burada GPLv3 altında kullanılır). SDK'nın kendisi bu depoda tutulmaz. ASIO, Steinberg Media Technologies GmbH'nin ticari markasıdır |
-| Modeller (uygulamadan ayrı, yalnızca düğmeye bastığınızda indirilir): ayırma Mel-Band RoFormer (Kimberley Jensen) | MIT. Yalnızca ağırlık lisansları kontrol edilmiş modeller dağıtılır |
+| Modeller (uygulamadan ayrı, yalnızca düğmeye bastığınızda indirilir): ayırma BS-RoFormer ft1 ve ana vokal BS-RoFormer karaoke (ikisi de anvuew), perde RMVPE (RVC) | İki ayırma modeli GPL-3.0'dır (değiştirilmiş sürüm: ONNX parçalarına bölünüp int8'e nicelenmiştir; dönüştürme adımları ve özgün ağırlıklar tools/separation içinde); RMVPE MIT'dir. Yalnızca ağırlık lisansları kontrol edilmiş modeller dağıtılır |
 
 ## Katkıda bulunma
 

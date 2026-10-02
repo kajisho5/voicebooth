@@ -16,7 +16,27 @@ namespace vb::separation
 {
 namespace
 {
-    const char* const partNames[] = { "front", "layer0", "layer1", "layer2", "layer3", "layer4", "layer5", "head" };
+    /** 分けた ONNX（front・layer0..N-1・head）がそろっているか。層の数は parts.json（無ければ前の既定の 6） */
+    bool partsInstalled (const juce::File& dir)
+    {
+        int layers = 6;
+        if (auto* o = juce::JSON::parse (dir.getChildFile ("parts.json")).getDynamicObject())
+            if (const int n = o->getProperty ("layers"); n > 0)
+                layers = juce::jmin (64, n);
+        juce::StringArray names { "front", "head" };
+        for (int i = 0; i < layers; ++i)
+            names.add ("layer" + juce::String (i));
+        for (auto& n : names)
+            if (! dir.getChildFile (n + ".onnx").existsAsFile())
+                return false;
+        return true;
+    }
+
+    juce::File modelsDir (const juce::String& kind)
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                   .getChildFile ("VoiceBooth").getChildFile ("Models").getChildFile (kind);
+    }
 
     juce::String processId()
     {
@@ -46,23 +66,32 @@ juce::File SeparatorClient::executable()
    #endif
 }
 
-juce::String SeparatorClient::modelId() { return "mel-band-roformer-kj-int8-1"; }
+juce::String SeparatorClient::modelId() { return "bs-roformer-anvuew-ft1-int8-1"; }
 
 juce::File SeparatorClient::modelFolder()
 {
     if (const auto env = juce::SystemStats::getEnvironmentVariable ("VB_SEPARATION_MODEL", {}); env.isNotEmpty())
         return juce::File (env);
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-               .getChildFile ("VoiceBooth").getChildFile ("Models").getChildFile ("separation").getChildFile (modelId());
+    return modelsDir ("separation").getChildFile (modelId());
 }
 
 bool SeparatorClient::modelInstalled()
 {
-    const auto dir = modelFolder();
-    for (auto* n : partNames)
-        if (! dir.getChildFile (juce::String (n) + ".onnx").existsAsFile())
-            return false;
-    return true;
+    return partsInstalled (modelFolder());
+}
+
+juce::String SeparatorClient::karaokeModelId() { return "bs-roformer-anvuew-karaoke-int8-1"; }
+
+juce::File SeparatorClient::karaokeModelFolder()
+{
+    if (const auto env = juce::SystemStats::getEnvironmentVariable ("VB_KARAOKE_MODEL", {}); env.isNotEmpty())
+        return juce::File (env);
+    return modelsDir ("karaoke").getChildFile (karaokeModelId());
+}
+
+bool SeparatorClient::karaokeInstalled()
+{
+    return partsInstalled (karaokeModelFolder());
 }
 
 bool SeparatorClient::available()
@@ -76,9 +105,7 @@ juce::File SeparatorClient::pitchModelFile()
 {
     if (const auto env = juce::SystemStats::getEnvironmentVariable ("VB_PITCH_MODEL", {}); env.isNotEmpty())
         return juce::File (env);
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-               .getChildFile ("VoiceBooth").getChildFile ("Models").getChildFile ("pitch").getChildFile (pitchModelId())
-               .getChildFile ("rmvpe.onnx");
+    return modelsDir ("pitch").getChildFile (pitchModelId()).getChildFile ("rmvpe.onnx");
 }
 
 bool SeparatorClient::pitchAvailable()
@@ -119,13 +146,15 @@ bool SeparatorClient::runPitch (const juce::File& wav, std::vector<std::pair<flo
     return true;
 }
 
-bool SeparatorClient::start (const juce::File& in, const juce::File& outVocals, const juce::File& outBacking, Callbacks cb)
+bool SeparatorClient::start (const juce::File& in, const juce::File& outVocals, const juce::File& outBacking, Callbacks cb,
+                             const juce::File& outLead)
 {
     if (isThreadRunning())
         return false;
     input = in;
     vocals = outVocals;
     backing = outBacking;
+    lead = outLead != juce::File() && karaokeInstalled() ? outLead : juce::File();
     callbacks = std::move (cb);
     startThread (juce::Thread::Priority::low);
     return true;
@@ -160,6 +189,8 @@ void SeparatorClient::run()
                              "--backing", backing.getFullPathName(),
                              "--threads", juce::String (threads),
                              "--parent-pid", processId() };
+    if (lead != juce::File())   // ハモリのお手本：続けてリードボーカルを取る（2026-10-02）
+        args.addArray ({ "--karaoke", karaokeModelFolder().getFullPathName(), "--lead", lead.getFullPathName() });
     {
         const juce::ScopedLock sl (childLock);
         child = std::make_unique<juce::ChildProcess>();

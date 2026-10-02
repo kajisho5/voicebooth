@@ -42,9 +42,9 @@ Sing zu einem Instrumental, sieh deine Tonhöhe auf dem Bildschirm, nimm nur die
 | Betriebssystem | **Windows und Mac** (Mac: Apple Silicon und Intel). **Es gibt keine Version für Smartphone oder Tablet** |
 | Grafikkarte | **Nicht nötig.** Läuft nur mit der CPU. Schwer ist nur die Gesangstrennung: Ein 30-Sekunden-Song brauchte auf einer 4-Kern-CPU etwa 2 Minuten (die App zeigt eine geschätzte Dauer) |
 | Ladbares Audio | **Nur Audiodateien auf deinem Computer** (wav / flac / aiff / ogg / mp3 / m4a). Songs aus Spotify, Apple Music, YouTube Music oder anderen Streamingdiensten lassen sich nicht direkt laden |
-| Größe | Der Installer hat unter Windows etwa 13 MB und auf dem Mac etwa 40 MB. Das Trennungs- und das Tonhöhenmodell (etwa 223 MB + 99 MB) werden **nur geladen, wenn du den Button drückst, um sie zu nutzen**. Nichts wird heimlich heruntergeladen |
+| Größe | Der Installer hat unter Windows etwa 13 MB und auf dem Mac etwa 40 MB. Das Trennungs- und das Tonhöhenmodell (etwa 110 MB + 99 MB) werden **nur geladen, wenn du den Button drückst, um sie zu nutzen**. Nichts wird heimlich heruntergeladen |
 | Rechenintensives | Die Trennung läuft **nur, wenn du den Button drückst**. Die Songtext-Anzeige ist **standardmäßig aus** (in den Einstellungen einschalten) |
-| Harmonien | Du kannst Harmoniespuren aufnehmen. **Es gibt keine Funktion, die nur die Harmonie aus einem Mix holt, um sie als Referenz zu nutzen** (die Trennung liefert zwei Teile: „gesamter Gesang“ und „Begleitung“) |
+| Harmonien | Du kannst Harmoniespuren aufnehmen. Wird die Referenz getrennt, werden Lead und Harmonien aufgeteilt und **eine Harmonie-Referenz (Linie und Stimme)** wird ebenfalls angezeigt (Harmoniespuren werden mit ihr verglichen). Eine per Original − Karaoke gewonnene Referenz lässt sich nicht aufteilen |
 | Getrenntes Audio | Getrennter Gesang und getrennte Begleitung sind **für dein persönliches Üben**. VoiceBooth ändert nichts an den Rechten am Originalsong. Verbreite oder veröffentliche sie (auch als Instrumental für Cover) nur, soweit die ursprünglichen Rechteinhaber es erlauben |
 | Preis | **Kostenlos.** Kein Abo, keine In-App-Käufe. Du kannst die Entwicklung über [GitHub Sponsors](https://github.com/sponsors/kajisho5) unterstützen (freiwillig; ändert keine Funktionen) |
 | Sprachen | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -58,7 +58,7 @@ Sing zu einem Instrumental, sieh deine Tonhöhe auf dem Bildschirm, nimm nur die
 | Nur das Original | Trennt das Original, um ein Instrumental zu erstellen, und zeigt auch die Referenzlinie (braucht das Trennungsmodell) |
 | Tonhöhe in Farbe | Deine Tonhöhe wird als Linie darübergelegt: Limettengrün, wenn du triffst, dann Bernstein und Rot, je weiter du abweichst. Auch eine Oktave versetzt gesungen lässt sich in der Anzeige ausrichten |
 | Üben | Tempo 50–150 %, Tonart ±6. Übe langsam, aber der Abgabe-Take wird immer in Originaltempo und -tonart aufgenommen |
-| Referenz anhören | Hör den aus dem Original extrahierten Referenzgesang, mit dem Instrumental oder solo (Übungstempo/-tonart gelten). Lead und Harmonien lassen sich nicht trennen, daher eine Spur |
+| Referenz anhören | Hör den aus dem Original extrahierten Referenzgesang, mit dem Instrumental oder solo (Übungstempo/-tonart gelten). Wird die Referenz getrennt, lassen sich Lead und Harmonien einzeln anhören |
 | Stimmumfang und Tonartvorschlag | Miss deinen Stimmumfang (tiefster und höchster Ton) mit dem Mikrofon und erhalte eine Tonart, in die der tiefste und höchste Ton der Referenz passen. Ein Klick übernimmt sie; passt nichts, zeigt sie, wie viele Halbtöne überstehen |
 | Aufnahme | Aufnahme am Stück, rückwirkende Aufnahme (zu spät gedrücktes REC schneidet nie das erste Wort ab), Neuaufnahme eines Bereichs (8 ms Crossfade an jeder Kante; 0–20 ms in Pro), Latenzmessung und -ausgleich |
 | Klick und Einzähler | Ein Klick im Takt des Songs (höher auf Schlag 1; folgt dem Übungstempo). Zählt vor REC 1–2 Takte ein; bei der Neuaufnahme eines Bereichs wird vor dem Bereich eingezählt. Nur im Kopfhörer, nie in Aufnahme oder Export |
@@ -73,7 +73,6 @@ Sing zu einem Instrumental, sieh deine Tonhöhe auf dem Bildschirm, nimm nur die
 
 Das ist noch nicht in der Beta (und wird in der App nicht angezeigt).
 
-- Eine Referenzlinie für Harmonien (bei ausgewählter Harmoniespur wird weiter die Haupt-Referenzlinie angezeigt)
 - Anderes als Gesang trennen (Gitarre, Schlagzeug usw.)
 
 > [!IMPORTANT]
@@ -185,7 +184,7 @@ Der Quellcode steht unter der **GNU Affero General Public License v3.0 oder neue
 | Monocypher 4.0.3 (prüft die Ed25519-Signatur der Modellliste; wird beim Build geladen) | Dual CC0 / BSD-2-Clause |
 | Rubber Band Library 4 (Übungstempo / -tonart; wird beim Build geladen) | Dual GPL v2 oder neuer / kommerziell (hier unter GPL genutzt) |
 | Steinberg ASIO SDK 2.3.4 (nur Windows-Builds; das offizielle Paket wird beim Build geladen) | Dual GPLv3 / kommerziell (hier unter GPLv3 genutzt). Das SDK selbst liegt nicht in diesem Repository. ASIO ist eine Marke der Steinberg Media Technologies GmbH |
-| Modelle (getrennt von der App, nur auf Knopfdruck geladen): Trennung Mel-Band RoFormer (Kimberley Jensen) | MIT. Es werden nur Modelle verteilt, deren Gewichtslizenzen geprüft wurden |
+| Modelle (getrennt von der App, nur auf Knopfdruck geladen): Trennung BS-RoFormer ft1 und Lead-Gesang BS-RoFormer karaoke (beide von anvuew), Tonhöhe RMVPE (RVC) | Die beiden Trennungsmodelle stehen unter GPL-3.0 (geänderte Fassung: in ONNX-Teile aufgeteilt und auf int8 quantisiert; Konvertierungsschritte und Originalgewichte in tools/separation); RMVPE steht unter MIT. Es werden nur Modelle verteilt, deren Gewichtslizenzen geprüft wurden |
 
 ## Mitmachen
 
