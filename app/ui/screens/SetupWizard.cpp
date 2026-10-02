@@ -77,6 +77,28 @@ namespace
     }
 
     // 実デバイスの画面の配置（layoutBody と paintBody で同じものを使う）
+    /** レイテンシ（Step 3）の並び。layoutBody と paintBody で同じ形にする */
+    constexpr int latencyLabelW = 74;
+    struct LatencyLayout
+    {
+        juce::Rectangle<int> instruction, sub, button, status, box, manual, note;
+
+        explicit LatencyLayout (juce::Rectangle<int> r)
+        {
+            instruction = r.removeFromTop (26);
+            sub = r.removeFromTop (34);
+            r.removeFromTop (12);
+            status = r.removeFromTop (34);
+            button = status;
+            r.removeFromTop (16);
+            box = r.removeFromTop (78);
+            r.removeFromTop (14);
+            manual = r.removeFromTop (30);
+            r.removeFromTop (14);
+            note = r.removeFromTop (40);
+        }
+    };
+
     enum InfoRow { rowDriver, rowChannel, rowRate, rowFormat, rowBuffer, rowLatency, rowMic, numInfoRows };
 
     struct LiveLayout
@@ -223,7 +245,9 @@ private:
 //==============================================================================
 SetupWizard::SetupWizard (UiSession& u, int initialStep)
     : DialogPanel (tr ("setup.title"), tr ("setup.micro")), SessionView (u),
-      measure (tr ("setup.latency.measure"))
+      measure (tr ("setup.latency.measure")),
+      manualUse (tr ("setup.latency.manual.use")),
+      manualClear (tr ("setup.latency.manual.clear"))
 {
     next = &addFooterKey (tr ("setup.next"), KeyRole::primary, [this]
     {
@@ -238,8 +262,25 @@ SetupWizard::SetupWizard (UiSession& u, int initialStep)
     addChildComponent (meter);
 
     measure.withIcon (Icon::metronome);
-    measure.setEnabled (! live());   // 実測は B6。いまは押せない（申告値だけ出す）
+    measure.onClick = [this] { session.measureLatency(); };
     addChildComponent (measure);
+
+    // 手入力（測れない時）。0〜1000 ms、小数 1 桁まで
+    manualField.setIndents (10, 6);
+    manualField.setJustification (juce::Justification::centredLeft);
+    manualField.setSelectAllWhenFocused (true);
+    manualField.setScrollbarsShown (false);
+    manualField.setFont (mono (14.0f, Weight::semibold));
+    manualField.setInputRestrictions (6, "0123456789.,");
+    manualField.setTextToShowWhenEmpty ("-", colours::textMute);
+    manualField.onReturnKey = [this] { commitManual(); };
+    manualField.setTooltip (tr ("setup.latency.manual.tooltip"));
+    addChildComponent (manualField);
+    manualUse.onClick = [this] { commitManual(); };
+    manualClear.onClick = [this] { session.clearLatencyManual(); };
+    addChildComponent (manualUse);
+    addChildComponent (manualClear);
+    refreshLatencyControls();
 
     if (live())
     {
@@ -265,9 +306,40 @@ void SetupWizard::selected (const juce::String& error)
     repaint();
 }
 
+void SetupWizard::commitManual()
+{
+    const auto text = manualField.getText().trim().replace (",", ".");
+    if (text.isEmpty() || ! live())
+        return;
+    session.setLatencyManualMs (text.getDoubleValue());
+    refreshLatencyControls();
+}
+
+void SetupWizard::refreshLatencyControls()
+{
+    const auto& s = state();
+    const bool ready = ! live() || (s.input.open && s.output.open);
+    measure.setEnabled (ready && ! s.latencyMeasuring && ! s.isRecording);
+    measure.setButtonText (s.latencyMeasuring ? tr ("setup.latency.measuring") : tr ("setup.latency.measure"));
+
+    const auto ld = latencyDisplay (s);
+    manualField.setEnabled (live() && s.input.open && ! s.latencyMeasuring);
+    manualUse.setEnabled (manualField.isEnabled());
+    if (! manualField.hasKeyboardFocus (true))
+        manualField.setText (ld.manual ? juce::String (ld.ms, 1) : juce::String(), false);
+    manualClear.setVisible (step == 2 && ld.manual);
+    resized();
+}
+
 void SetupWizard::onSessionChanged (juce::uint32 c)
 {
     const auto& s = state();
+    if (c & (change::latency | change::device | change::transport))
+    {
+        refreshLatencyControls();
+        if (step == 2)
+            repaint();
+    }
     if (c & (change::meter | change::device))
     {
         meter.setLevels (s.inputPeakDb, s.inputRmsDb, s.inputPeakHoldDb, s.inputClipped);
@@ -464,6 +536,10 @@ void SetupWizard::setStep (int s)
     next->setButtonText (step == 2 ? tr ("setup.finish") : tr ("setup.next"));
     meter.setVisible (step == 1);
     measure.setVisible (step == 2);
+    manualField.setVisible (step == 2);
+    manualUse.setVisible (step == 2);
+    manualClear.setVisible (false);
+    refreshLatencyControls();
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              inputList.get(), outputList.get(), driverPick.get(), channelKeys.get(), channelPick.get(), bufferPick.get(),
@@ -510,9 +586,15 @@ void SetupWizard::layoutBody (juce::Rectangle<int> body)
     }
     if (step == 2)
     {
-        r.removeFromTop (70);
+        const LatencyLayout l (r);
         measure.setSize (10, 34);
-        measure.setBounds (r.removeFromTop (34).removeFromLeft (measure.idealWidth()));
+        measure.setBounds (l.button.withWidth (juce::jmax (measure.idealWidth(), 132)));
+        auto m = l.manual.withTrimmedLeft (latencyLabelW);
+        manualField.setBounds (m.removeFromLeft (92));
+        m.removeFromLeft (34);   // 「ms」
+        manualUse.setBounds (m.removeFromLeft (manualUse.idealWidth()));
+        m.removeFromLeft (8);
+        manualClear.setBounds (m.removeFromLeft (manualClear.idealWidth()));
     }
 }
 
@@ -665,12 +747,14 @@ void SetupWizard::paintDeviceLive (juce::Graphics& g, juce::Rectangle<int> body)
     if (bufferPick != nullptr) row (rowBuffer, tr ("setup.device.buffer"), {}, colours::text, bufferPick.get());
     else row (rowBuffer, tr ("setup.device.buffer"), tr ("setup.device.buffer.auto", devices.bufferSize), colours::text);
 
-    // レイテンシ（デバイスの申告値。実測は B6）
+    // レイテンシ（録音位置の補正に使う値。手入力 → 実測 → 申告値。測るのは Step 3）
     {
         const auto ld = latencyDisplay (s);
-        const auto value = ! ld.known   ? juce::String ("-")
-                         : ld.estimated ? tr ("setup.device.latency.estimated", juce::String (ld.ms, 1), ld.samples)
-                                        : tr ("setup.device.latency.value", juce::String (ld.ms, 1), ld.samples);
+        const auto value = ! ld.known    ? juce::String ("-")
+                         : ld.manual     ? tr ("setup.device.latency.manual", juce::String (ld.ms, 1), ld.samples)
+                         : ! ld.reported ? tr ("setup.device.latency.measured", juce::String (ld.ms, 1), ld.samples)
+                         : ld.estimated  ? tr ("setup.device.latency.estimated", juce::String (ld.ms, 1), ld.samples)
+                                         : tr ("setup.device.latency.value", juce::String (ld.ms, 1), ld.samples);
         row (rowLatency, tr ("setup.device.latency"), value, colours::text);
     }
 
@@ -766,21 +850,57 @@ void SetupWizard::paintLevel (juce::Graphics& g, juce::Rectangle<int> r)
 void SetupWizard::paintLatency (juce::Graphics& g, juce::Rectangle<int> r)
 {
     const auto& s = state();
+    const LatencyLayout l (r);
     g.setColour (colours::text);
     g.setFont (sans (15.0f, Weight::semibold));
-    g.drawText (tr ("setup.latency.instruction"), r.removeFromTop (26), juce::Justification::centredLeft, true);
+    g.drawText (tr ("setup.latency.instruction"), l.instruction, juce::Justification::centredLeft, true);
     g.setColour (colours::textDim);
     g.setFont (sans (12.0f));
-    g.drawText (tr ("setup.latency.sub"), r.removeFromTop (22), juce::Justification::centredLeft, true);
+    g.drawFittedText (tr ("setup.latency.sub"), l.sub, juce::Justification::topLeft, 2, 1.0f);
 
-    r.removeFromTop (22 + 34 + 20);
+    // ボタンの右：測定中・最後の測定の結果（失敗の理由）
+    {
+        auto st = l.status.toFloat().withTrimmedLeft ((float) juce::jmax (measure.getWidth(), 132) + 16.0f);
+        juce::String text;
+        juce::Colour c = colours::textDim;
+        if (s.latencyMeasuring)
+        {
+            text = tr ("setup.latency.status.measuring");
+            c = colours::ref;   // 測っている間（青）
+        }
+        else if (s.latencyHasResult)
+        {
+            const auto& res = s.latencyResult;
+            using Status = audio::latency::Result::Status;
+            switch (res.status)
+            {
+                case Status::ok:       text = tr ("setup.latency.status.ok", res.agreeing, res.bursts, juce::String (res.spreadMs, 2)); c = colours::signal; break;
+                case Status::silent:   text = tr ("setup.latency.status.silent"); c = colours::warn; break;
+                case Status::weak:     text = tr ("setup.latency.status.weak"); c = colours::warn; break;
+                case Status::unstable: text = tr ("setup.latency.status.unstable"); c = colours::warn; break;
+                case Status::failed:   text = tr ("setup.latency.status.failed"); c = colours::warn; break;
+            }
+            if (res.clipped)
+                text << "  " << tr ("setup.latency.status.clipped");
+        }
+        if (text.isNotEmpty())
+        {
+            paint::led (g, { st.getX() + 4.0f, st.getCentreY() }, 3.0f, c, true);
+            g.setColour (s.latencyMeasuring ? (juce::Colour) colours::text : c);
+            g.setFont (sans (12.0f));
+            g.drawFittedText (text, st.withTrimmedLeft (16.0f).toNearestInt(), juce::Justification::centredLeft, 2, 1.0f);
+        }
+    }
 
-    // 実デバイス：デバイスが申告した値（実測ではない。B6 で測る）。UI_MOCK：ダミーの実測値
+    // 録音位置の補正に使う値（手入力 → 実測 → 申告値）
     const auto ld = latencyDisplay (s);
-    auto box = r.removeFromTop (78).toFloat();
+    auto box = l.box.toFloat();
     paint::inset (g, box);
     auto b = box.reduced (16.0f, 10.0f);
-    paint::microLabel (g, b.removeFromTop (12.0f), ld.reported ? tr ("setup.latency.reported") : tr ("setup.latency.result"), colours::textMute);
+    const auto label = ld.manual ? tr ("setup.latency.manualLabel")
+                     : ld.reported ? tr ("setup.latency.reported")
+                                   : tr ("setup.latency.result");
+    paint::microLabel (g, b.removeFromTop (12.0f), label, colours::textMute);
     g.setColour (colours::text);
     g.setFont (mono (26.0f, Weight::semibold));
     const auto val = ld.known ? juce::String (ld.ms, 1) + " ms" : juce::String ("-");
@@ -789,15 +909,25 @@ void SetupWizard::paintLatency (juce::Graphics& g, juce::Rectangle<int> r)
     g.setFont (mono (12.0f));
     juce::String detail;
     if (! ld.known)        detail = tr ("setup.level.noInput");
+    else if (ld.manual)    detail = tr ("setup.latency.manualSamples", ld.samples);
     else if (! ld.reported) detail = tr ("setup.latency.samples", ld.samples);
     else if (ld.estimated) detail = tr ("setup.latency.estimatedSamples", ld.samples);
     else                   detail = tr ("setup.latency.reportedSamples", ld.samples, s.input.inputLatency, s.input.outputLatency);
     g.drawText (detail, b, juce::Justification::centredLeft, true);
 
-    r.removeFromTop (16);
+    // 手入力の行
+    {
+        auto m = l.manual.toFloat();
+        paint::microLabel (g, m.removeFromLeft ((float) latencyLabelW), tr ("setup.latency.manual"), colours::textMute);
+        m.removeFromLeft (92.0f);
+        g.setColour (colours::textDim);
+        g.setFont (mono (12.0f));
+        g.drawText ("ms", m.removeFromLeft (34.0f).withTrimmedLeft (8.0f), juce::Justification::centredLeft, false);
+    }
+
     g.setColour (colours::textMute);
     g.setFont (sans (11.5f));
-    g.drawFittedText (ld.reported || live() ? tr ("setup.latency.reportedNote") : tr ("setup.latency.note"),
-                      r.removeFromTop (40), juce::Justification::topLeft, 2, 1.0f);
+    g.drawFittedText (ld.reported && live() ? tr ("setup.latency.reportedNote") : tr ("setup.latency.note"),
+                      l.note, juce::Justification::topLeft, 2, 1.0f);
 }
 } // namespace vb

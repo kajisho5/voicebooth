@@ -10,7 +10,7 @@ TakeRecorder::~TakeRecorder()
     writerThread.stopThread (2000);
 }
 
-juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool floatSamples)
+juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool floatSamples, juce::int64 tailSamples)
 {
     finish();
 
@@ -49,6 +49,8 @@ juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool f
     startSample = 0;
     recorded = 0;
     peak = 0.0f;
+    tail = juce::jmax ((juce::int64) 0, tailSamples);
+    tailLeft = -1;
     file = f;
     {
         const juce::SpinLock::ScopedLockType sl (lock);
@@ -92,7 +94,7 @@ void TakeRecorder::process (const float* input, int numSamples, juce::int64 song
     if (! sl.isLocked() || writer == nullptr)
         return;
 
-    // 曲が鳴り始めたブロックから録る。始まった後に止まった・ループで戻った（録音中はループしない）ら閉じる
+    // 曲が鳴り始めたブロックから録る。録音中はループしない（戻ったら曲の終わりと同じに扱う）
     if (! started.load())
     {
         if (songPlayed <= 0 || wrapped)
@@ -100,21 +102,39 @@ void TakeRecorder::process (const float* input, int numSamples, juce::int64 song
         startSample = songStart;
         started = true;
     }
-    else if (songPlayed <= 0 || wrapped)
+
+    // 曲の中の分。曲が止まった・終わったら、残りは後ろの分（遅れて届く歌の終わり）
+    int offset = 0;
+    if (tailLeft < 0)
     {
-        ended = true;
-        return;
+        const auto inSong = (songPlayed <= 0 || wrapped) ? 0 : juce::jmin (numSamples, songPlayed);
+        write (input, 0, inSong);
+        offset = inSong;
+        if (inSong == numSamples)
+            return;
+        tailLeft = tail;
     }
 
-    const auto n = juce::jmin (numSamples, songPlayed);
+    const auto n = (int) juce::jmin<juce::int64> (numSamples - offset, tailLeft);
+    write (input, offset, n);
+    tailLeft -= n;
+    if (tailLeft <= 0)
+        ended = true;
+}
+
+void TakeRecorder::write (const float* input, int offset, int n) noexcept
+{
+    if (n <= 0)
+        return;
     bool ok = true;
     if (input != nullptr)
     {
-        ok = writer->write (&input, n);
-        auto p = peak.load();
+        const float* p = input + offset;
+        ok = writer->write (&p, n);
+        auto pk = peak.load();
         for (int i = 0; i < n; ++i)
-            p = juce::jmax (p, std::abs (input[i]));
-        peak = p;
+            pk = juce::jmax (pk, std::abs (p[i]));
+        peak = pk;
     }
     else
     {
@@ -128,8 +148,5 @@ void TakeRecorder::process (const float* input, int numSamples, juce::int64 song
     if (! ok)
         dropped = true;   // 裏の書き込みが追いつかない（このテイクは壊れている）
     recorded += n;
-
-    if (n < numSamples)
-        ended = true;     // 曲の終わり
 }
 } // namespace vb::audio

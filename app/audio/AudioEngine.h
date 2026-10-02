@@ -3,10 +3,11 @@
 #include <juce_core/juce_core.h>
 #include <functional>
 #include <memory>
+#include "LatencyProbe.h"
 
 /*  音声エンジンの境界（DESIGN 7）
     UI はこのインターフェース越しにだけ音声へ触る。B2 で再生（オフボ）、B3 でデバイス列挙と入力メーター、
-    B4 で自分の声のモニター（入力 → 出力。リバーブはモニターだけ）、B5 で通し録音を結線。
+    B4 で自分の声のモニター（入力 → 出力。リバーブはモニターだけ）、B5 で通し録音、B6 で往復の遅れの実測を結線。
 
     ルール（DESIGN 17）
       - オーディオスレッドでメモリ確保・ファイル I/O・長いロック待ちをしない
@@ -31,7 +32,7 @@ struct InputLevel
 struct RecordedTake
 {
     juce::File file;
-    juce::int64 startSample = 0;   // 曲頭基準（デバイスの遅れの補正は B6）
+    juce::int64 startSample = 0;   // ファイルの 1 サンプル目と同じコールバックで鳴らした曲の位置（遅れの補正前。補正は UiSession）
     juce::int64 length = 0;
     float peak = 0.0f;
     bool clipped = false;          // -0.1 dBFS 以上が来た
@@ -74,7 +75,7 @@ struct InputStatus
     int numChannels = 0;          // デバイスの入力チャンネル数
     double sampleRate = 0.0;
     int bufferSize = 0;
-    int inputLatency = 0, outputLatency = 0;   // デバイスが申告した値（サンプル）。実測は B6
+    int inputLatency = 0, outputLatency = 0;   // デバイスが申告した値（サンプル）。実測は startLatencyProbe（B6）
     MicPermission permission = MicPermission::notNeeded;
     bool silent = false;          // 開いているのに 0 ちょうどが続く（許可・ミュートの疑い）
     bool bluetooth = false;       // 名前から見た当て推量（DeviceRules）
@@ -134,8 +135,9 @@ public:
     virtual void setDeviceChangeCallback (std::function<void (bool lost)>) {}
 
     // 録音（B5）。素の声（モニターより前）を file にモノラルで書く（24bit か 32bit float）。始まるのは次に曲が鳴ったブロックから。
-    // 曲が止まった・終わったら recordingEnded() が true になる（stopRecording() を呼ぶ合図）。戻り値は失敗の理由
-    virtual juce::String startRecording (const juce::File&, bool /*floatSamples*/ = false) { return "not supported"; }
+    // 曲が終わったら tailSamples（遅れの補正量。B6）だけ録り足してから recordingEnded() が true になる（stopRecording() を呼ぶ合図）。
+    // 戻り値は失敗の理由
+    virtual juce::String startRecording (const juce::File&, bool /*floatSamples*/ = false, int64 /*tailSamples*/ = 0) { return "not supported"; }
     virtual RecordedTake stopRecording() { return {}; }
     virtual bool isRecording() const { return false; }
     virtual bool recordingEnded() const { return false; }
@@ -144,6 +146,13 @@ public:
     virtual InputStatus getInputStatus() const { return {}; }
     virtual InputLevel getInputLevel() const { return {}; }
     virtual void resetInputClip() {}
-    virtual int64 getLatencyCompensationSamples() const { return 0; }
+
+    // 往復の遅れの実測（B6）。出力を測定音に置き換え（曲・自分の声は鳴らさない）、入力を録る。約 3.6 秒。
+    // 終わったら latencyProbeFinished() が true。録った入力を取り出して latency::analyse に渡す（重いので裏で）
+    virtual juce::String startLatencyProbe() { return "not supported"; }
+    virtual void cancelLatencyProbe() {}
+    virtual bool isLatencyProbeRunning() const { return false; }
+    virtual bool latencyProbeFinished() const { return false; }
+    virtual std::vector<float> latencyProbeCapture (latency::Plan&) const { return {}; }
 };
 } // namespace vb::audio

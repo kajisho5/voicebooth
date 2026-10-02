@@ -219,7 +219,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
                 "tempo: 100",
                 "peak_vocal_dbfs: -0.1",
                 "normalized: no",
-                "latency_compensation_ms: " + juce::String ((double) s.latencySamples * 1000.0 / s.sampleRate(), 1),
+                "latency_compensation_ms: " + juce::String (latencyDisplay (s).ms, 1),   // いま補正に使っている値（B6）
             };
             g.setColour (colours::textDim);
             g.setFont (mono (11.0f));

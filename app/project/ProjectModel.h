@@ -20,13 +20,13 @@ struct Take
 {
     juce::String id;                 // "take4"
     juce::String path;               // プロジェクトフォルダ相対
-    int64 startSample = 0;           // 曲頭基準
-    int64 endSample   = 0;
+    int64 startSample = 0;           // ファイルの 1 サンプル目が曲のどこか（曲頭基準。遅れを補正した結果、負になることがある）
+    int64 endSample   = 0;           // startSample + ファイルの長さ
     juce::Time created;
     bool clip = false;
     float peak = 0.0f;               // 最大振幅（ノーマライズはしない。書き出しの表示・notes.txt 用）
     RecMode recMode = RecMode::delivery;
-    int64 latencySamples = 0;        // 適用済みのレイテンシ補正
+    int64 latencySamples = 0;        // 適用済みのレイテンシ補正（録った位置からこの分だけ前にずらした。B6）
 };
 
 /** 採用区間。ユーザーには 1 本の波形として見せる */

@@ -300,6 +300,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.inputPeakHoldDb = prev.inputPeakHoldDb;
     s.inputClipped    = prev.inputClipped;
     s.latencySamples  = prev.latencySamples;
+    s.latencyProfiles = prev.latencyProfiles;   // 遅れは機器のもの（曲と関係ない）
+    s.latencyHasResult = prev.latencyHasResult;
+    s.latencyResult   = prev.latencyResult;
     s.input           = prev.input;
     s.deviceLostCount = prev.deviceLostCount;
     s.noticeSerial    = prev.noticeSerial;      // 前の知らせを出し直さない
