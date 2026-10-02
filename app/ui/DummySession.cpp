@@ -436,7 +436,8 @@ const PitchPoint* myPitchAt (const Session& s, int64 sample)
     if (it == s.myPitch.begin())
         return nullptr;
     --it;
-    if (sample - it->sample > 960 || it->confidence < 0.5f)
+    // 実際の声（B8）は遅れて届くので、その分だけ許す
+    if (sample - it->sample > (int64) (0.02 * s.sampleRate()) + s.myPitchLag || it->confidence < 0.5f)
         return nullptr;
     return &*it;
 }

@@ -215,6 +215,7 @@ private:
     void songInfoChanged (juce::uint32 also = 0);
     void pollLatencyProbe();
     void updateShadow();
+    void pollPitch();
     int64 retroStart (int64 pressSample) const;
     void latencyMeasured (const audio::latency::Result&, const juce::String& key);
 
@@ -231,7 +232,8 @@ private:
     // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
     bool shadowActive = false;
     juce::File shadowFile;
-    int shadowSerial = 0;   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
+    int shadowSerial = 0;
+    std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
     juce::ListenerList<Listener> listeners;
 };
 

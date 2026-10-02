@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include "LatencyProbe.h"
+#include "PitchTracker.h"
 
 /*  音声エンジンの境界（DESIGN 7）
     UI はこのインターフェース越しにだけ音声へ触る。B2 で再生（オフボ）、B3 でデバイス列挙と入力メーター、
@@ -150,6 +151,9 @@ public:
     virtual InputStatus getInputStatus() const { return {}; }
     virtual InputLevel getInputLevel() const { return {}; }
     virtual void resetInputClip() {}
+
+    // 自分の声のピッチ（B8）。曲が鳴っている間の入力から 10 ms ごとの点（位置は遅れの補正前）。メッセージスレッドで取り出す
+    virtual void popPitch (std::vector<PitchFrame>&) {}
 
     // 往復の遅れの実測（B6）。出力を測定音に置き換え（曲・自分の声は鳴らさない）、入力を録る。約 3.6 秒。
     // 終わったら latencyProbeFinished() が true。録った入力を取り出して latency::analyse に渡す（重いので裏で）
