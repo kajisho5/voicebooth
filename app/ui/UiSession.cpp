@@ -1103,9 +1103,16 @@ void UiSession::loadGuide (const juce::File& file)
                 case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
                 case Kind::notAligned:      postNotice (tr ("guide.problem.notAligned")); break;
                 case Kind::needsSeparation:
-                    // 引き算では声が取れない：分離（B16）が使えれば勧める。無ければ理由だけ
+                    // 引き算では声が取れない：分離（B16）が使えれば勧める。モデルが無ければ理由と「分離モデルを入れる」キー
+                    // （ダウンロードは使う人が押した時だけ。勝手に始めない・この知らせを出すだけ）
+                    s.guideNeedsSeparation = true;
                     if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); }
-                    else                       postNotice (tr ("separation.noModel"));
+                    else
+                    {
+                        if (separation::SeparatorClient::executable().existsAsFile() && ! models::trustedKeys().empty())
+                            s.modelDl.noticeSerial = s.noticeSerial + 1;
+                        postNotice (tr ("separation.noModel"));
+                    }
                     break;
                 case Kind::keyShift:        postNotice (tr ("guide.problem.keyShift", (out->keyShift > 0 ? "+" : "") + juce::String (out->keyShift))); break;
             }
@@ -1156,6 +1163,122 @@ double UiSession::separationEstimateSeconds() const
     // 4 コアの Xeon で 30 秒の曲が 109 秒（11.3）。手元のパソコンでは最初の区間を測ってから出し直す
     const auto seconds = s.sampleRate() > 0 ? (double) s.project.lengthSamples / s.sampleRate() : 0.0;
     return seconds * 3.7;
+}
+
+//==============================================================================
+namespace
+{
+    /** 小さいファイル（一覧・署名）を取る。大きすぎる・取れなければ false */
+    bool fetchSmall (models::HttpSource& http, const juce::String& url, juce::MemoryBlock& out)
+    {
+        auto r = http.get (url, 0, {});
+        if (r.body == nullptr || r.status != 200)
+            return false;
+        out.reset();
+        juce::MemoryOutputStream m (out, false);
+        return m.writeFromInputStream (*r.body, 2 * 1024 * 1024) >= 0 && r.body->isExhausted();
+    }
+}
+
+void UiSession::requestSeparationModel()
+{
+    if (! isEngineDriven())
+        return;
+    const auto keys = models::trustedKeys();
+    if (keys.empty())
+    {
+        postNotice (tr ("model.notYet"));   // 配布の鍵がまだ（持ち主が用意したら使える）
+        return;
+    }
+    if (modelEntry != nullptr)
+    {
+        ++s.modelDl.dialogSerial;
+        notify (change::notice);
+        return;
+    }
+
+    postNotice (tr ("model.checking"));
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, keys]
+    {
+        auto http = models::makeHttpSource();
+        juce::String error;
+        std::unique_ptr<models::ModelEntry> found;
+        juce::MemoryBlock list, sig;
+        const auto url = models::manifestUrl();
+        if (! fetchSmall (*http, url, list) || ! fetchSmall (*http, url + ".sig", sig))
+            error = "can't reach " + url;
+        else
+        {
+            // 署名を確かめてから中身を読む（HTTPS だけに頼らない。11.7）
+            bool signedOk = false;
+            for (auto& k : keys)
+                signedOk = signedOk || models::verifySignature (list, sig.toString(), k);
+            models::Manifest m;
+            if (! signedOk)
+                error = "the model list's signature doesn't match";
+            else if (! models::parseManifest (list.toString(), m, error))
+                error = "bad model list: " + error;
+            else if (const auto* e = m.find (separation::SeparatorClient::modelId()))
+                found = std::make_unique<models::ModelEntry> (*e);
+            else
+                error = "the model isn't in the list";
+        }
+        auto entry = std::shared_ptr<models::ModelEntry> (found.release());
+        juce::MessageManager::callAsync ([this, weak, entry, error]
+        {
+            if (weak.expired()) return;
+            if (entry == nullptr)
+            {
+                postNotice (tr ("model.listFailed", error));
+                return;
+            }
+            modelEntry = std::make_unique<models::ModelEntry> (*entry);
+            s.modelDl.known = true;
+            s.modelDl.title = entry->title;
+            s.modelDl.license = entry->license;
+            s.modelDl.size = entry->totalSize();
+            ++s.modelDl.dialogSerial;
+            notify (change::notice);
+        });
+    });
+}
+
+void UiSession::startModelDownload()
+{
+    if (modelEntry == nullptr || s.isRecording)
+        return;
+    if (modelDownloader == nullptr)
+        modelDownloader = std::make_unique<models::ModelDownloader> (models::makeHttpSource());
+    if (modelDownloader->isBusy())
+        return;
+    s.modelDl.stage = (int) models::DownloadStatus::Stage::downloading;
+    s.modelDl.received = 0;
+    s.modelDl.error = {};
+    std::weak_ptr<bool> weak = alive;
+    modelDownloader->start (*modelEntry, separation::SeparatorClient::modelFolder(), [this, weak] (const models::DownloadStatus& st)
+    {
+        if (weak.expired()) return;
+        const auto before = s.modelDl.stage;
+        s.modelDl.stage = (int) st.stage;
+        s.modelDl.received = st.received;
+        s.modelDl.size = st.total;
+        s.modelDl.bytesPerSecond = st.bytesPerSecond;
+        s.modelDl.retryIn = st.retryInSeconds;
+        s.modelDl.attempt = st.attempt;
+        s.modelDl.paused = st.paused;
+        s.modelDl.error = st.error;
+        notify (before != s.modelDl.stage ? (juce::uint32) (change::view | change::notice) : (juce::uint32) change::view);
+    });
+    notify (change::view | change::notice);
+}
+
+void UiSession::cancelModelDownload()
+{
+    if (modelDownloader != nullptr)
+        modelDownloader->cancel();   // 届いた分（.part）は残す。次は続きから
+    s.modelDl.stage = -1;
+    notify (change::view | change::notice);
 }
 
 void UiSession::stopSeparation()
@@ -1812,6 +1935,10 @@ void UiSession::tick (double seconds)
 
     if (stemsDirty && ! s.conforming)
         renderStems();
+
+    // モデルのダウンロードは再生・録音の間は止める（音切れを起こさない。11.7）
+    if (modelDownloader != nullptr && modelDownloader->isBusy())
+        modelDownloader->setPaused (s.isPlaying || s.isRecording);
 
     // 自動保存（B14）：変更から 1.5 秒たったら。録音中・SR をそろえている間は待つ
     if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500)

@@ -160,6 +160,23 @@ struct Session
     bool guideBusy = false;               // 時間合わせ・声の取り出しの最中
     // ボーカル分離（B16）：引き算では声が取れない時に勧める。分離は別プロセスで裏で進む
     int separationOfferSerial = 0;        // 「分離しますか？」を出す合図（増えたら出す）
+    // 分離モデルのダウンロード（B16。使う人が押した時だけ）
+    struct ModelDownload
+    {
+        int dialogSerial = 0;             // 増えたらダウンロードの画面を開く（確認から）
+        bool known = false;               // 一覧（署名を確かめた manifest）を読めた
+        juce::String title, license;
+        juce::int64 size = 0;             // 合計のバイト数
+        int stage = -1;                   // models::DownloadStatus::Stage（-1 = 始めていない）
+        juce::int64 received = 0;
+        double bytesPerSecond = 0.0;
+        int retryIn = 0, attempt = 0;
+        bool paused = false;
+        juce::String error;
+        int noticeSerial = -1;            // この番号の知らせには「分離モデルを入れる」キーを付ける
+    } modelDl;
+    bool guideNeedsSeparation = false;    // 引き算で声が取れなかった（モデルが入ったら分離を勧める）
+
     // リハーサルで録ったテイクの救済：この番号の知らせには「本番に入れる」を付ける
     int rescueNoticeSerial = -1;
     project::TrackType rescueTrack = project::TrackType::main;
