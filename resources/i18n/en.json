@@ -396,7 +396,7 @@
   "setup.level.ok": "OK  peak {0} dBFS",
   "setup.level.rule.gain": "The OS microphone level is never changed automatically",
   "setup.level.rule.hot": "Above -3 dBFS: turn GAIN down",
-  "setup.level.rule.loopback": "Also checks that playback is not leaking into the input",
+  "setup.level.rule.loopback": "Listen on headphones (sound from speakers leaks into the mic and ends up in the recording)",
   "setup.level.rule.low": "Below -20 dBFS: turn GAIN up",
   "setup.level.sub": "Adjust the GAIN on your interface so peaks land in the target band (-12 to -6 dBFS)",
   "setup.micro": "SETUP",

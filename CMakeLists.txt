@@ -254,6 +254,51 @@ if(WIN32)
 endif()
 
 # ---------------------------------------------------------------------------
+# Windows：ASIO（DESIGN 5 / 11.1 / B13）
+#   Steinberg ASIO SDK 2.3.4（2025-10-15）は Steinberg の独自ライセンスと GPL v3 のデュアル。ここでは GPL v3 で使う
+#   （AGPL-3.0 と組み合わせられる）。SDK はリポジトリに入れない：configure 時に Steinberg の公式の zip を取り、
+#   SHA-256 で中身を確かめる。手元の SDK を使う時は -DVOICEBOOTH_ASIO_SDK_DIR=/path/to/ASIOSDK、使わない時は -DVOICEBOOTH_ASIO=OFF
+#   （ASIO が無くても WASAPI で動く）。ASIO のロゴは使わない（Steinberg の使用ガイドラインに従う）
+# ---------------------------------------------------------------------------
+if(WIN32 AND NOT VOICEBOOTH_UI_MOCK)
+    option(VOICEBOOTH_ASIO "Enable ASIO (fetches the Steinberg ASIO SDK, GPLv3 option)" ON)
+    set(VOICEBOOTH_ASIO_SDK_DIR "" CACHE PATH "Local ASIO SDK (folder that contains common/iasiodrv.h)")
+    if(VOICEBOOTH_ASIO)
+        if(VOICEBOOTH_ASIO_SDK_DIR)
+            set(VB_ASIO_SDK "${VOICEBOOTH_ASIO_SDK_DIR}")
+        else()
+            # zip の中にロゴのファイル名で「®」があり、CMake の展開は日本語版 Windows（CP932）で失敗しうるので、
+            # 取るのは file(DOWNLOAD)（SHA-256 で確かめる）、展開は PowerShell の Expand-Archive にする
+            set(VB_ASIO_ROOT "${CMAKE_BINARY_DIR}/_deps/asiosdk")
+            set(VB_ASIO_ZIP "${VB_ASIO_ROOT}/ASIO-SDK_2.3.4_2025-10-15.zip")
+            if(NOT EXISTS "${VB_ASIO_ROOT}/ASIOSDK/common/iasiodrv.h")
+                file(MAKE_DIRECTORY "${VB_ASIO_ROOT}")
+                file(DOWNLOAD https://download.steinberg.net/sdk_downloads/ASIO-SDK_2.3.4_2025-10-15.zip "${VB_ASIO_ZIP}"
+                     EXPECTED_HASH SHA256=d5ebf0c20dd2c5f43771fd0c1418f4b361bf52434ee670097cfa6b3a335e2eca
+                     STATUS vb_asio_status)
+                list(GET vb_asio_status 0 vb_asio_code)
+                if(NOT vb_asio_code EQUAL 0)
+                    message(FATAL_ERROR "Can't download the ASIO SDK (${vb_asio_status}). Use -DVOICEBOOTH_ASIO_SDK_DIR=... or -DVOICEBOOTH_ASIO=OFF.")
+                endif()
+                execute_process(COMMAND powershell -NoProfile -NonInteractive -Command
+                                "Expand-Archive -LiteralPath '${VB_ASIO_ZIP}' -DestinationPath '${VB_ASIO_ROOT}' -Force"
+                                RESULT_VARIABLE vb_asio_unzip)
+                if(NOT vb_asio_unzip EQUAL 0)
+                    message(FATAL_ERROR "Can't extract the ASIO SDK. Use -DVOICEBOOTH_ASIO_SDK_DIR=... or -DVOICEBOOTH_ASIO=OFF.")
+                endif()
+            endif()
+            set(VB_ASIO_SDK "${VB_ASIO_ROOT}/ASIOSDK")
+        endif()
+        if(NOT EXISTS "${VB_ASIO_SDK}/common/iasiodrv.h")
+            message(FATAL_ERROR "ASIO SDK not found at ${VB_ASIO_SDK} (expected common/iasiodrv.h). Use -DVOICEBOOTH_ASIO=OFF to build without ASIO.")
+        endif()
+        target_include_directories(VoiceBooth SYSTEM PRIVATE "${VB_ASIO_SDK}/common")
+        target_compile_definitions(VoiceBooth PRIVATE JUCE_ASIO=1)
+        message(STATUS "VoiceBooth: ASIO enabled (${VB_ASIO_SDK})")
+    endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
 # ---------------------------------------------------------------------------
 if(VOICEBOOTH_TESTS)
