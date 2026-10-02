@@ -3,6 +3,7 @@
 #include "audio/SongLoader.h"
 #include "audio/Resample.h"
 #include "analysis/RefPitch.h"
+#include "analysis/MusicInfo.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -49,6 +50,61 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         conformSong();
     else
         checkDeviceRate();
+
+    estimateSongInfo();
+}
+
+void UiSession::estimateSongInfo()
+{
+    // テンポ・1 小節目・キーを裏で推定する（B9b）。結果は「推定」。手で入れた（確定の）値は上書きしない
+    if (s.songOriginal == nullptr)
+        return;
+    const auto audio = s.songOriginal;
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, audio, serial]
+    {
+        const auto n = audio->buffer.getNumSamples(), ch = juce::jmax (1, audio->buffer.getNumChannels());
+        std::vector<float> m ((size_t) n, 0.0f);
+        for (int c = 0; c < audio->buffer.getNumChannels(); ++c)
+        {
+            const auto* x = audio->buffer.getReadPointer (c);
+            for (int i = 0; i < n; ++i)
+                m[(size_t) i] += x[i] / (float) ch;
+        }
+        const auto tempo = analysis::estimateTempo (m.data(), (int64) n, audio->sampleRate);
+        const auto key = analysis::estimateKey (m.data(), (int64) n, audio->sampleRate);
+        juce::MessageManager::callAsync ([this, weak, serial, tempo, key, songRate = audio->sampleRate]
+        {
+            if (weak.expired() || serial != s.songSerial)
+                return;
+            bool changed = false;
+            auto& t = s.project.tempo;
+            if (! t.confirmed() && tempo.bpm > 0.0)
+            {
+                // 曲の元の SR → いまの時間軸の SR（録音形式で SR をそろえていれば）
+                const auto ratio = (double) s.sampleRate() / songRate;
+                t.bpm = tempo.bpm;
+                t.signature = { 4, 4 };
+                t.downbeatSample = (int64) std::llround ((double) tempo.downbeatSample * ratio);
+                t.source = song::Source::estimated;
+                t.confidence = tempo.confidence;
+                t.beats.clear();
+                changed = true;
+            }
+            auto& k = s.project.key;
+            if (k.source != song::Source::confirmed && key.tonic >= 0)
+            {
+                k.tonic = key.tonic;
+                k.minor = key.minor;
+                k.source = song::Source::estimated;
+                k.confidence = key.confidence;
+                changed = true;
+            }
+            if (changed)
+                songInfoChanged();
+        });
+    });
 }
 
 void UiSession::checkDeviceRate()
