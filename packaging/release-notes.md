@@ -29,7 +29,7 @@ English follows Japanese.
 
 ## まだのもの・注意
 
-- **分離と歌詞の自動合わせのモデルは配布の準備中です。** それまでは「原曲だけで始める」と歌詞の自動合わせは使えません（原曲＋カラオケの組は使えます）
+- **分離のモデルは配布の準備中です。** それまでは「原曲だけで始める」は使えません（原曲＋カラオケの組は使えます）
 - お手本の声だけをソロで聴く、ハモリのお手本の線、自分の声域に合うキーの提案、メトロノームはまだありません
 - 分離した声・伴奏は個人の練習用です。配布・公開（歌ってみたのオフボとして配るのを含む）は、元の曲の権利者が許している範囲だけにしてください
 - 作者の手元の実機での確認はこれからです。おかしな所は [Issues](https://github.com/kajisho5/voicebooth/issues) へどうぞ
@@ -65,7 +65,7 @@ English follows Japanese.
 
 ## Not yet / please note
 
-- **The separation and lyrics-alignment models are still being prepared for download.** Until then, "start from the original only" and automatic lyrics alignment are unavailable (the original + karaoke pair works).
+- **The separation model is still being prepared for download.** Until then, "start from the original only" is unavailable (the original + karaoke pair works).
 - Soloing the reference vocal, a harmony reference line, a key suggestion for your vocal range and a metronome are not in this version.
 - Separated vocals and backing are for personal practice. Only share or publish them (including as an off-vocal for a cover) where the rights holder of the original song allows it.
 - Real-hardware testing is still under way. Please report problems in [Issues](https://github.com/kajisho5/voicebooth/issues).

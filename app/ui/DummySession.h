@@ -189,11 +189,7 @@ struct Session
         bool paused = false;
         juce::String error;
         int noticeSerial = -1;            // この番号の知らせには「分離モデルを入れる」キーを付ける
-        int kind = 0;                     // 0 = 分離（B16）、1 = 歌詞の認識（B17）
     } modelDl;
-    // 歌詞の自動合わせ（B17）：お手本から取り出した声を認識して、行の時刻を推定する
-    bool lyricsAligning = false;
-    float lyricsAlignProgress = 0.0f;     // 0..1
     bool guideNeedsSeparation = false;    // 引き算で声が取れなかった（モデルが入ったら分離を勧める）
 
     // リハーサルで録ったテイクの救済：この番号の知らせには「本番に入れる」を付ける

@@ -222,9 +222,7 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
             // 画面を閉じても裏で続く（進み具合は状態バー）。終わったら知らせる
             modelStageBehind = m.stage;
             juce::Component::SafePointer<MainComponent> safe (this);
-            if (m.stage == (int) DS::done && m.kind == 1)
-                showToast (tr ("model.lyrics.readyToast"));   // 歌詞はそのまま合わせ始める（UiSession が続ける）
-            else if (m.stage == (int) DS::done)
+            if (m.stage == (int) DS::done)
             {
                 if (pendingOriginal != juce::File() && state().songOriginal == nullptr && session.separationAvailable())
                 {
@@ -239,7 +237,7 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
                     showToast (tr ("model.readyToast"));
             }
             else if (m.stage == (int) DS::failed)
-                showToast (tr (m.kind == 1 ? "model.lyrics.failedToast" : "model.failedToast"), tr ("model.details"),
+                showToast (tr ("model.failedToast"), tr ("model.details"),
                            [safe] { if (safe != nullptr) safe->openLiveModelDownload ((int) MS::failed); });
         }
     }
@@ -864,7 +862,7 @@ void MainComponent::openLiveModelDownload (int stage)
         modelStageBehind = state().modelDl.stage;
         overlay.close();
         // 原曲だけで始めようとしていた（曲はまだ無い）：起動画面に戻る。入っていればそのまま分離へ
-        if (state().modelDl.kind == 0 && pendingOriginal != juce::File() && state().songOriginal == nullptr)
+        if (pendingOriginal != juce::File() && state().songOriginal == nullptr)
         {
             const auto original = pendingOriginal;
             if (done) pendingOriginal = juce::File();
@@ -878,7 +876,7 @@ void MainComponent::openLiveModelDownload (int stage)
             return;
         }
         // 入ったら、待っていた分離を勧める（お手本の原曲が引き算で取れなかった時）
-        if (done && state().modelDl.kind == 0 && state().guideNeedsSeparation && session.separationAvailable())
+        if (done && state().guideNeedsSeparation && session.separationAvailable())
             juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.offerSeparation(); });
     };
     overlay.show (std::move (dlg), false);
