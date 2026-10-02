@@ -18,6 +18,9 @@ UiSession::UiSession() : s (dummy::makeSession()) {}
 
 void UiSession::notify (juce::uint32 changes)
 {
+    // プロジェクトに入るものが変わったら、少し待ってから自動保存（B14）
+    if ((changes & (change::takes | change::songInfo | change::recordFormat)) != 0 && changes != change::all)
+        markDirty();
     listeners.call ([changes] (Listener& l) { l.sessionChanged (changes); });
 }
 
@@ -27,10 +30,52 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
                           std::shared_ptr<const audio::SongAudio> audio)
 {
     finishRecording();   // 録音中に別の曲を開いたら、そこまでのテイクは残す
+    flushSave();         // 前の曲のプロジェクトを保存してから
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
-    s.projectFolder = projectFolderFor (s.songName);
     s.songRate = sampleRate;
+    lastBackupMs = 0;
+
+    // プロジェクトフォルダ（B14）：.vbooth から開いたらそのフォルダ。曲ファイルから開いたら Projects/{曲名}/。
+    // 同じ名前のプロジェクトがあり、同じ曲（ファイル名と長さ）なら続きから開く。違う曲なら「{曲名} (2)」…の別のフォルダ
+    if (pendingProject != nullptr)
+    {
+        s.projectFile = pendingProjectFile;
+        s.projectFolder = pendingProjectFile.getParentDirectory();
+    }
+    else
+    {
+        auto folder = projectFolderFor (s.songName);
+        auto sameSong = [&] (const juce::File& vbooth)
+        {
+            auto l = project::fromJson (vbooth.loadFileAsString());
+            if (! l.ok || l.project.sampleRate <= 0)
+                return false;
+            const auto len = (double) l.project.lengthSamples * sampleRate / l.project.sampleRate;
+            if (juce::File (l.project.songPath).getFileName() != file.getFileName() || std::abs (len - (double) lengthSamples) > 2.0)
+                return false;
+            pendingProject = std::make_unique<project::LoadedProject> (std::move (l));
+            return true;
+        };
+        for (int n = 2; ; ++n)
+        {
+            const auto f = folder.getChildFile (folder.getFileName() + project::fileExtension);
+            if (! f.exists() || sameSong (f))
+                break;
+            folder = projectFolderFor (s.songName + " (" + juce::String (n) + ")");
+        }
+        s.projectFolder = folder;
+        s.projectFile = folder.getChildFile (folder.getFileName() + project::fileExtension);
+    }
+
+    // 曲はプロジェクトの中にコピーして持つ（持ち運べるように。元のファイルはそのまま）
+    if (file.isAChildOf (s.projectFolder))
+        s.project.songPath = file.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
+    else
+    {
+        s.project.songPath = "Audio/" + file.getFileName();
+        copyIntoProject (file, s.project.songPath);
+    }
     // 前に落ちた時の裏録りの残り（B7。REC にならなかった分）を消す
     for (auto& f : s.projectFolder.getChildFile ("Audio/Takes").findChildFiles (juce::File::findFiles, false, ".retro-*.wav"))
         f.deleteFile();
@@ -45,13 +90,173 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     }
     notify (change::all);
 
-    // 録音の SR を曲と違う値にしていれば、伴奏をその SR にそろえる（裏で）
+    // 続きから開くプロジェクトの録音形式（時間軸の SR を前と同じにする）
+    if (pendingProject != nullptr)
+    {
+        const auto& ex = pendingProject->extras;
+        s.recordRate = ex.recordRate;
+        s.recordFloat = ex.recordFloat;
+        s.deviceFallbackRate = ex.deviceFallbackRate;
+        s.project.bitDepthExport = ex.recordFloat ? 32 : 24;
+        notify (change::recordFormat);
+    }
+
+    // 録音の SR を曲と違う値にしていれば、伴奏をその SR にそろえる（裏で）。そろえ終わってからプロジェクトの中身を戻す
     if (s.targetRate() != s.songRate)
         conformSong();
     else
         checkDeviceRate();
+    if (! s.conforming)
+        restoreProject();
 
     estimateSongInfo();
+    markDirty();   // 新しい曲はすぐに .vbooth を作る
+}
+
+//==============================================================================
+void UiSession::markDirty()
+{
+    if (! isEngineDriven() || restoring)
+        return;
+    dirty = true;
+    dirtySince = juce::Time::getMillisecondCounter();
+}
+
+void UiSession::setPendingProject (const juce::File& vboothFile, const project::LoadedProject& p)
+{
+    pendingProject = std::make_unique<project::LoadedProject> (p);
+    pendingProjectFile = vboothFile;
+}
+
+void UiSession::restoreProject()
+{
+    if (pendingProject == nullptr)
+        return;
+    const auto loaded = std::move (pendingProject);
+    pendingProjectFile = juce::File();
+    const auto& lp = loaded->project;
+    restoring = true;
+
+    // テイク・採用区間（ファイルはプロジェクトフォルダ相対）
+    int takes = 0;
+    for (auto& t : lp.tracks)
+    {
+        auto* mine = const_cast<project::Track*> (s.project.findTrack (t.type));
+        if (mine == nullptr)
+        {
+            s.project.tracks.push_back (t);
+            mine = &s.project.tracks.back();
+        }
+        mine->takes = t.takes;
+        mine->comp = t.comp;
+        for (auto& k : t.takes)
+        {
+            ++takes;
+            if (s.projectFolder.getChildFile (k.path).existsAsFile())
+                loadTakeWave (t.type, k);
+        }
+    }
+
+    // 曲の情報（推定のままの値も戻す。あとから届く自動推定は確定した値を上書きしない）
+    if (lp.tempo.known()) s.project.tempo = lp.tempo;
+    if (lp.key.known())   s.project.key = lp.key;
+    s.project.sections = lp.sections;
+    s.project.lyrics = lp.lyrics;
+    song::updateLineEnds (s.project.lyrics, s.project.lengthSamples, s.sampleRate());
+
+    if (lp.sampleRate != s.sampleRate())
+        postNotice (tr ("project.rateChanged", formatKhz (lp.sampleRate), formatKhz (s.sampleRate())));
+    else if (takes > 0)
+        postNotice (tr ("project.resumed", takes));
+
+    restoring = false;
+    notify (change::takes | change::tracks | change::songInfo | change::view);
+
+    // お手本（声入りの原曲）はもう一度合わせ直す（数秒〜。結果は知らせで）
+    if (loaded->extras.guidePath.isNotEmpty())
+    {
+        const auto guide = s.projectFolder.getChildFile (loaded->extras.guidePath);
+        if (guide.existsAsFile())
+            loadGuide (guide);
+    }
+}
+
+void UiSession::copyIntoProject (const juce::File& source, const juce::String& relativePath)
+{
+    // 裏でコピー（数十 MB）。同じ名前・同じ大きさのものが既にあれば何もしない
+    const auto dest = s.projectFolder.getChildFile (relativePath);
+    if (dest.existsAsFile() && dest.getSize() == source.getSize())
+        return;
+    juce::Thread::launch ([source, dest]
+    {
+        dest.getParentDirectory().createDirectory();
+        const auto temp = dest.getSiblingFile (dest.getFileName() + ".part");
+        if (source.copyFileTo (temp))
+            temp.moveFileTo (dest);
+        else
+            temp.deleteFile();
+    });
+}
+
+void UiSession::saveProject()
+{
+    if (! isEngineDriven() || s.projectFile == juce::File() || s.songOriginal == nullptr || restoring)
+        return;
+
+    project::ProjectExtras ex;
+    ex.guidePath = s.guidePath;
+    ex.recordRate = s.recordRate;
+    ex.recordFloat = s.recordFloat;
+    ex.deviceFallbackRate = s.deviceFallbackRate;
+
+    // 世代バックアップ：開いてから最初の保存と、その後 10 分ごとに、前の .vbooth を Backups/ へ（新しい 10 個を残す）
+    const auto now = juce::Time::getMillisecondCounter();
+    if (s.projectFile.existsAsFile() && (lastBackupMs == 0 || now - lastBackupMs > 10 * 60 * 1000))
+    {
+        const auto dir = s.projectFolder.getChildFile ("Backups");
+        dir.createDirectory();
+        s.projectFile.copyFileTo (dir.getChildFile (s.projectFile.getFileNameWithoutExtension() + "-"
+                                                   + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + project::fileExtension));
+        auto old = dir.findChildFiles (juce::File::findFiles, false, juce::String ("*") + project::fileExtension);
+        std::sort (old.begin(), old.end(), [] (const juce::File& a, const juce::File& b) { return a.getFileName() > b.getFileName(); });
+        for (int i = 10; i < old.size(); ++i)
+            old.getReference (i).deleteFile();
+        lastBackupMs = now;
+    }
+
+    if (! project::writeAtomically (s.projectFile, project::toJson (s.project, ex)))
+    {
+        postNotice (tr ("project.saveFailed", s.projectFile.getFullPathName()));
+        dirty = false;   // 何度も出さない（次の変更でまた試す）
+        return;
+    }
+    dirty = false;
+
+    // 最近のプロジェクト（新しい順、8 件まで）
+    const auto path = s.projectFile.getFullPathName();
+    if (s.recentProjects[0] != path)
+    {
+        s.recentProjects.removeString (path);
+        s.recentProjects.insert (0, path);
+        while (s.recentProjects.size() > 8)
+            s.recentProjects.remove (s.recentProjects.size() - 1);
+        notify (change::project);
+    }
+}
+
+void UiSession::flushSave()
+{
+    if (dirty)
+        saveProject();
+}
+
+void UiSession::restoreRecentProjects (const juce::StringArray& list)
+{
+    s.recentProjects.clear();
+    for (auto& p : list)
+        if (p.isNotEmpty() && juce::File (p).existsAsFile() && ! s.recentProjects.contains (p))
+            s.recentProjects.add (p);
+    notify (change::project);
 }
 
 void UiSession::estimateSongInfo()
@@ -222,6 +427,7 @@ void UiSession::conformSong()
                 postNotice (tr ("format.deviceFallback", formatKhz (s.songRate), formatKhz (target)));
             else
                 postNotice (tr ("format.conformed", formatKhz (target), formatBits (s.project.bitDepthExport)));
+            restoreProject();   // 続きから開くプロジェクト（B14）は、時間軸の SR がそろってから戻す
             notify (change::all);
         });
     });
@@ -793,6 +999,16 @@ void UiSession::loadGuide (const juce::File& file)
 
     s.guideBusy = true;
     s.guideName = file.getFileName();
+
+    // 原曲もプロジェクトの中にコピーして持つ（次に開いた時に合わせ直す。書き出しやプロジェクトの外には出さない。B14）
+    if (file.isAChildOf (s.projectFolder))
+        s.guidePath = file.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
+    else
+    {
+        s.guidePath = "Audio/Guide/" + file.getFileName();
+        copyIntoProject (file, s.guidePath);
+    }
+    markDirty();
     postNotice (tr ("guide.analysing", s.guideName));
     notify (change::view);
 
@@ -1220,6 +1436,10 @@ void UiSession::tick (double seconds)
     pollLatencyProbe();
     updateShadow();
     pollPitch();
+
+    // 自動保存（B14）：変更から 1.5 秒たったら。録音中・SR をそろえている間は待つ
+    if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500)
+        saveProject();
 
     if (! s.isPlaying) return;
 
