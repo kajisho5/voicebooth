@@ -110,7 +110,8 @@ set(VOICEBOOTH_SONG_SOURCES
     app/song/LyricsImport.cpp
     app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
-    app/analysis/Align.cpp)
+    app/analysis/Align.cpp
+    app/analysis/RefPitch.cpp)
 
 # スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SKIN_SOURCES
@@ -244,6 +245,7 @@ if(VOICEBOOTH_TESTS)
         tests/LatencyTests.cpp
         tests/RetroTests.cpp
         tests/PitchTests.cpp
+        tests/RefPitchTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
