@@ -74,6 +74,7 @@ public:
     void resetInputClip() override            { meter.resetClip(); }
 
     void popPitch (std::vector<PitchFrame>& out) override { pitch.pop (out); }
+    void setPitchFreeRun (bool on) override { pitch.setFreeRun (on); }
 
     juce::String startLatencyProbe() override;
     void cancelLatencyProbe() override              { probe.cancel(); }

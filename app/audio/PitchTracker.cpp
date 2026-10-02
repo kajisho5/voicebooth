@@ -145,6 +145,15 @@ void PitchTracker::push (const float* input, int numSamples, int64 songStart, in
     if (! sl.isLocked() || ! ready.load())
         return;
 
+    if (songPlayed <= 0 && freeRun.load (std::memory_order_relaxed))
+    {
+        // 曲が止まっている：声域を測る間だけ、曲の外の位置を振って音程を取る
+        songStart = freeCounter;
+        songPlayed = numSamples;
+        songStep = 1.0;
+        freeCounter += numSamples;
+    }
+
     int s1, n1, s2, n2;
     fifo.prepareToWrite (numSamples, s1, n1, s2, n2);
     if (n1 + n2 < numSamples)

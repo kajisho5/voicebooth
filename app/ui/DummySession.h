@@ -79,6 +79,12 @@ struct Session
     float offVocalGain = 0.51f, mainGain = 0.72f, harmonyGain = 0.40f, monitorGain = 0.64f;
     float monitorReverb = 0.25f;
     bool backingMuted = false;
+    // お手本の声を聴く（2026-10-02）。取り出した声（オフボの時間・オフボの元の SR・モノラル）。無ければ nullptr。
+    // 音量は mainGain。S（ソロ）はオフボ・お手本・録ったトラックのうち、それだけを鳴らす
+    std::shared_ptr<const audio::SongAudio> guideVocals;
+    bool guideMuted = false, guideSolo = false, backingSolo = false;
+    // 声域（MIDI。-1 = まだ）。設定に保存。おすすめのキーに使う
+    int voiceLow = -1, voiceHigh = -1;
 
     // 自分の声のモニター（B4）。出力がスピーカーらしい機器に替わったら、ハウリングしないよう最初だけミュート
     bool selfMuted = false;

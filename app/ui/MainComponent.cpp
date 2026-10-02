@@ -9,6 +9,7 @@
 #include "screens/UpdateDialog.h"
 #include "screens/SongInfoDialog.h"
 #include "screens/LyricsDialog.h"
+#include "screens/RangeDialog.h"
 #include "SongMarks.h"
 
 namespace vb
@@ -25,6 +26,12 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openSetup    = [this] { openSetup(); };
     actions.openExport   = [this] { openExport(); };
     actions.openSettings = [this] { openSettings(); };
+    actions.openVoiceRange = [this]
+    {
+        auto dlg = std::make_unique<RangeDialog> (session);
+        dlg->onCloseRequest = [this] { overlay.close(); };
+        overlay.show (std::move (dlg));
+    };
     actions.openSongInfo = [this] { openSongInfo(); };
     actions.openLyrics   = [this] { openLyrics(); };
     actions.editSectionName = [this] (int i) { openSectionName (i); };
@@ -112,6 +119,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "setup3")       openSetup (2);
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
+    if (o.screen == "range" && actions.openVoiceRange) actions.openVoiceRange();
     if (o.screen == "skin-templates") openSkinTemplates();
     if (o.screen == "skin-editor" || o.screen == "skin-editor-borrow")
         openSkinEditor();

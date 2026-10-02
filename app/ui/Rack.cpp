@@ -160,12 +160,51 @@ PracticeModule::PracticeModule (UiSession& u, Actions& a)
 
     addAndMakeVisible (tempo);
     addAndMakeVisible (key);
+
+    // 声域に合うキー：声域を測る → お手本の最高音・最低音が収まるキーを出す。押すとそのキーにする
+    rangeKey.withIcon (Icon::mic).withFont (mono (10.5f));
+    rangeKey.setTooltip (tr ("range.key.tooltip"));
+    rangeKey.onClick = [this] { if (actions.openVoiceRange) actions.openVoiceRange(); };
+    suggestKey.withFont (sans (11.0f, Weight::medium));
+    suggestKey.onClick = [this] { session.applySuggestedKey(); };
+    addChildComponent (rangeKey);
+    addChildComponent (suggestKey);
+    rangeKey.setVisible (u->engineAttached);
     onSessionChanged (change::all);
+}
+
+void PracticeModule::updateKeyHelp()
+{
+    const auto& s = state();
+    if (! s.engineAttached)
+        return;
+    const bool hasRange = s.voiceLow >= 0 && s.voiceHigh > s.voiceLow;
+    rangeKey.setButtonText (hasRange ? tr ("range.key.value", dummy::noteName ((float) s.voiceLow), dummy::noteName ((float) s.voiceHigh))
+                                     : tr ("range.key.measure"));
+
+    const auto k = session.keySuggestion();
+    suggestKey.setVisible (k.ok);
+    if (k.ok)
+    {
+        const auto v = (k.shift > 0 ? "+" : "") + juce::String (k.shift);
+        auto text = k.octave < 0 ? tr ("range.suggest.octDown", v) : k.octave > 0 ? tr ("range.suggest.octUp", v) : tr ("range.suggest", v);
+        suggestKey.setButtonText (text);
+        const auto g = session.guideRange();
+        juce::String tip = tr ("range.suggest.tooltip", dummy::noteName (g.low), dummy::noteName (g.high));
+        if (! k.fits)
+            tip << "\n" << tr ("range.suggest.over", juce::String (juce::roundToInt (k.overLow)), juce::String (juce::roundToInt (k.overHigh)));
+        suggestKey.setTooltip (tip);
+        const bool applied = k.shift == s.keyShift;
+        suggestKey.withIconColour (k.fits ? colours::signal : colours::warn);
+        suggestKey.withIcon (applied ? Icon::check : (k.fits ? Icon::chevronRight : Icon::warning));
+        suggestKey.setEnabled (! session.deliveryLocked());
+    }
+    resized();
 }
 
 void PracticeModule::onSessionChanged (juce::uint32 changes)
 {
-    if ((changes & (change::practice | change::transport | change::songInfo)) == 0)
+    if ((changes & (change::practice | change::transport | change::songInfo | change::takes)) == 0)
         return;
 
     const auto& s = state();
@@ -183,12 +222,21 @@ void PracticeModule::onSessionChanged (juce::uint32 changes)
     const bool lock = session.deliveryLocked();
     tempo.setLocked (lock);
     key.setLocked (lock);
+    updateKeyHelp();
     repaint();
 }
 
 void PracticeModule::resized()
 {
     auto r = content();
+    if (rangeKey.isVisible())
+    {
+        auto row = r.removeFromBottom (26);
+        r.removeFromBottom (6);
+        rangeKey.setSize (10, 26);
+        rangeKey.setBounds (row.removeFromLeft (juce::jmin (row.getWidth() / 2, juce::jmax (96, rangeKey.idealWidth()))).reduced (4, 0));
+        suggestKey.setBounds (row.reduced (4, 0));
+    }
     tempo.setBounds (r.removeFromLeft (r.getWidth() / 2).reduced (4, 0));
     key.setBounds (r.reduced (4, 0));
 }
@@ -209,10 +257,17 @@ MonitorModule::MonitorModule (UiSession& u)
     // オフボ（B2）と自分の声・モニターリバーブ（B4）は音に効く。お手本を聴く・S（ソロ）はまだ無いので、本物のアプリでは出さない（見本だけ）
     if (u->engineAttached)
     {
-        mainStrip->setVisible (false);
+        // お手本：取り出した声（メインとハモリは分けられないので 1 本）。ハモリだけのお手本はまだ無い
         harmStrip->setVisible (false);
-        backingStrip->setSoloShown (false);
         selfStrip->setSoloShown (false);
+        mainStrip->fader().setTooltip (tr ("monitor.guide.tooltip"));
+        mainStrip->onFaderChange = [this] { session.setGuideLevel ((float) mainStrip->fader().getValue()); };
+        mainStrip->muteKey().onClick = [this] { session.setGuideMuted (mainStrip->muteKey().getToggleState()); };
+        mainStrip->soloKey().onClick = [this] { session.setGuideSolo (mainStrip->soloKey().getToggleState()); };
+        mainStrip->soloKey().setTooltip (tr ("monitor.guide.solo"));
+        backingStrip->soloKey().onClick = [this] { session.setBackingSolo (backingStrip->soloKey().getToggleState()); };
+        backingStrip->soloKey().setTooltip (tr ("monitor.backing.solo"));
+        mainStrip->fader().setMeter (-1.0f);
         backingStrip->fader().setMeter (-1.0f);   // オフボの量はまだ測っていない（見本の値を出さない）
     }
     backingStrip->onFaderChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
@@ -223,7 +278,7 @@ MonitorModule::MonitorModule (UiSession& u)
     selfStrip->fader().setTooltip (tr ("monitor.self.tooltip"));
     reverbStrip->onFaderChange = [this] { session.setMonitorReverb ((float) reverbStrip->fader().getValue()); };
     reverbStrip->fader().setTooltip (tr ("monitor.reverb.tooltip"));
-    onSessionChanged (change::monitor | change::meter);
+    onSessionChanged (change::monitor | change::meter | change::takes);
 }
 
 MonitorModule::Notice MonitorModule::noticeFor (const dummy::Session& s)
@@ -277,6 +332,21 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
         selfStrip->fader().setValue (s.monitorGain, juce::dontSendNotification);
         selfStrip->muteKey().setToggleState (s.selfMuted, juce::dontSendNotification);
         reverbStrip->fader().setValue (s.monitorReverb, juce::dontSendNotification);
+        if (s.engineAttached)
+        {
+            mainStrip->fader().setValue (s.mainGain, juce::dontSendNotification);
+            mainStrip->muteKey().setToggleState (s.guideMuted, juce::dontSendNotification);
+            mainStrip->soloKey().setToggleState (s.guideSolo, juce::dontSendNotification);
+            backingStrip->soloKey().setToggleState (s.backingSolo, juce::dontSendNotification);
+        }
+    }
+
+    if (state().engineAttached && (c & (change::monitor | change::takes | change::view)) != 0)
+    {
+        // お手本の声がまだ無い：触れない（お手本を入れると聴ける）
+        const bool has = session.hasGuideVocals();
+        mainStrip->setEnabled (has);
+        mainStrip->setAlpha (has ? 1.0f : 0.4f);
     }
 
     if (c & (change::meter | change::monitor | change::device))
@@ -413,9 +483,9 @@ Rack::Rack (UiSession& u, Actions& a)
 void Rack::resized()
 {
     // 既定の高さ（合計 756）と最小の高さ。足りない分は (既定 - 最小) の比で各段から削る
-    constexpr int desired[] = { 156, 186, 246, 168 };
-    constexpr int minimum[] = { 140, 164, 186, 146 };
-    constexpr int desiredSum = 156 + 186 + 246 + 168, slackSum = 16 + 22 + 60 + 22;
+    constexpr int desired[] = { 156, 214, 218, 168 };   // 練習：声域とおすすめのキーの段（2026-10-02）
+    constexpr int minimum[] = { 140, 190, 170, 146 };
+    constexpr int desiredSum = 156 + 214 + 218 + 168, slackSum = 16 + 24 + 48 + 22;
 
     auto r = getLocalBounds().withTrimmedLeft (1);
     const auto deficit = juce::jlimit (0, slackSum, desiredSum - r.getHeight());

@@ -163,6 +163,8 @@ public:
 
     // 自分の声のピッチ（B8）。曲が鳴っている間の入力から 10 ms ごとの点（位置は遅れの補正前）。メッセージスレッドで取り出す
     virtual void popPitch (std::vector<PitchFrame>&) {}
+    /** 曲が止まっていても音程を取る（声域を測る）。その点の位置は PitchTracker::freeRunBase 以上（曲の線に入れない） */
+    virtual void setPitchFreeRun (bool) {}
 
     // 往復の遅れの実測（B6）。出力を測定音に置き換え（曲・自分の声は鳴らさない）、入力を録る。約 3.6 秒。
     // 終わったら latencyProbeFinished() が true。録った入力を取り出して latency::analyse に渡す（重いので裏で）

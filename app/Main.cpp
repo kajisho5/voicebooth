@@ -238,7 +238,8 @@ public:
         if (savedMode == "standard") session->setMode (project::Mode::standard);
         if (savedMode == "pro")      session->setMode (project::Mode::pro);
         session->setShowLyrics (stored->getBoolValue ("showLyrics", false));
-        session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));   // 歌詞レーン（既定は出さない）
+        session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));
+        session->setVoiceRange (stored->getIntValue ("voiceLow", -1), stored->getIntValue ("voiceHigh", -1));   // 声域（おすすめのキー）   // 歌詞レーン（既定は出さない）
         session->addListener (this);
 
         window = std::make_unique<MainWindow> (*session, hooks);
@@ -334,6 +335,17 @@ private:
             if (json != settings()->getValue ("latencyProfiles"))
             {
                 settings()->setValue ("latencyProfiles", json);
+                settings()->saveIfNeeded();
+            }
+        }
+
+        if (changes & change::practice)
+        {
+            const auto& st = session->get();
+            if (st.voiceLow != settings()->getIntValue ("voiceLow", -1) || st.voiceHigh != settings()->getIntValue ("voiceHigh", -1))
+            {
+                settings()->setValue ("voiceLow", st.voiceLow);
+                settings()->setValue ("voiceHigh", st.voiceHigh);
                 settings()->saveIfNeeded();
             }
         }

@@ -83,6 +83,10 @@ public:
         songStep は入力 1 サンプルで進む曲のサンプル数（練習のテンポを変えている時だけ 1 でない。B11） */
     void push (const float* input, int numSamples, int64 songStart, int songPlayed, double songStep = 1.0) noexcept;
 
+    /** 曲が止まっている間も音程を取る（声域を測る）。その点の songSample は freeRunBase から数える */
+    static constexpr int64 freeRunBase = (int64) 1 << 40;
+    void setFreeRun (bool on) noexcept { freeRun.store (on); }
+
     /** メッセージスレッド：出てきた点を取り出す */
     void pop (std::vector<PitchFrame>& out);
 
@@ -101,6 +105,8 @@ private:
     std::vector<int64> ringPos;            // そのサンプルの曲の位置（-1 = 止まっている）
     std::atomic<double> sampleRate { 0.0 };
     std::atomic<bool> ready { false };
+    std::atomic<bool> freeRun { false };
+    int64 freeCounter = freeRunBase;   // オーディオスレッドだけ
     std::atomic<int> overflow { 0 };
 
     // 検出スレッド

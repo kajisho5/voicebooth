@@ -613,6 +613,12 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
     g.setColour (colours::textDim);
     g.setFont (sans (12.5f));
     g.drawText (tr ("analyze.sub"), r.removeFromTop (24), juce::Justification::centredLeft, true);
+    if (fromOriginal)   // 分離した音の扱い（配ってよいか）を最初から一文で
+    {
+        g.setColour (colours::warn);
+        g.setFont (sans (12.0f));
+        g.drawFittedText (tr ("separation.personalUse"), r.removeFromTop (34), juce::Justification::topLeft, 2, 1.0f);
+    }
     r.removeFromTop (20);
 
     for (size_t i = 0; i < std::size (stepKeys); ++i)

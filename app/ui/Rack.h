@@ -57,8 +57,11 @@ public:
 private:
     void onSessionChanged (juce::uint32) override;
 
+    void updateKeyHelp();
+
     Actions& actions;
     EncoderBlock tempo, key;
+    KeyButton rangeKey, suggestKey;   // 声域（測る）と、声域に合うキー（2026-10-02）
     bool syncing = false;
 };
 

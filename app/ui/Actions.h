@@ -17,6 +17,7 @@ struct Actions
     std::function<void()> openSetup;
     std::function<void()> openExport;
     std::function<void()> openSettings;
+    std::function<void()> openVoiceRange;         // 声域を測る（おすすめのキー）
 
     // 曲の情報（B4b。DESIGN 7.5）
     std::function<void()> openSongInfo;           // テンポ・拍子・キー・区間のパネル

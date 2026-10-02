@@ -282,6 +282,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.offVocalGain        = prev.backingWave != nullptr ? prev.offVocalGain : 0.75f;
     s.backingMuted        = prev.backingWave != nullptr && prev.backingMuted;
     s.mainGain            = prev.mainGain;
+    s.guideMuted          = prev.guideMuted;
+    s.voiceLow            = prev.voiceLow;
+    s.voiceHigh           = prev.voiceHigh;
     s.harmonyGain         = prev.harmonyGain;
     s.monitorGain         = prev.monitorGain;
     s.monitorReverb       = prev.monitorReverb;

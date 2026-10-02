@@ -181,6 +181,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/Separation.cpp
     app/analysis/OffVocal.cpp
     app/analysis/TakeStats.cpp
+    app/analysis/KeySuggest.cpp
     app/separation/SeparatorClient.cpp
     app/lyrics/LyricsClient.cpp
     app/models/ModelManifest.cpp
@@ -238,7 +239,8 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/SkinEditor.cpp
     app/ui/screens/SkinTemplates.cpp
     app/ui/screens/SongInfoDialog.cpp
-    app/ui/screens/LyricsDialog.cpp)
+    app/ui/screens/LyricsDialog.cpp
+    app/ui/screens/RangeDialog.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 
@@ -526,6 +528,7 @@ if(VOICEBOOTH_TESTS)
         tests/ModelDownloadTests.cpp
         tests/LyricsAlignTests.cpp
         tests/TakeStatsTests.cpp
+        tests/KeySuggestTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

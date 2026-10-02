@@ -6,6 +6,7 @@
 #include "lyrics/LyricsClient.h"
 #include "models/ModelDownloader.h"
 #include "audio/SongLoader.h"
+#include "analysis/KeySuggest.h"
 
 /*  画面の状態（Phase A）
     UI 部品はここから読み、ここを変更し、変更通知で描き直す。
@@ -108,6 +109,23 @@ public:
     /** 歌詞レーンを出すか（設定。既定は出さない） */
     void setShowLyrics (bool);
     void setCrossfade (double ms);   // 0 / 5 / 8 / 20 ms
+
+    // お手本の声を聴く（モニターの「お手本」）。オフボ・お手本の S は、それだけを鳴らす
+    void setGuideLevel (float fader);
+    void setGuideMuted (bool);
+    void setGuideSolo (bool);
+    void setBackingSolo (bool);
+    bool hasGuideVocals() const { return s.guideVocals != nullptr; }
+
+    // 声域（MIDI）とおすすめのキー
+    void setVoiceRange (int low, int high);
+    analysis::KeySuggestion keySuggestion() const;
+    analysis::SongRange guideRange() const;   // お手本の最低音・最高音（MIDI）
+    void applySuggestedKey();
+    // 声域を測る：測っている間は曲を止め、マイクの音程を集める（曲の線には入れない）
+    void startRangeMeasure();
+    void stopRangeMeasure();
+    const std::vector<float>& rangeSamples() const { return rangeNotes; }
     void setOctaveUp (bool);
     void setFullRange (bool);
 
@@ -321,6 +339,15 @@ private:
     juce::File shadowFile;
     int shadowSerial = 0;
     std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）
+    // お手本の声・声域（2026-10-02）
+    void syncBackingLevel();
+    void syncGuideGain();
+    void syncGuideToEngine();
+    juce::uint32 guideGeneration = 0;
+    bool rangeMeasuring = false;
+    std::vector<float> rangeNotes;
+    mutable juce::int64 songRangeKey = -1;
+    mutable analysis::SongRange cachedSongRange;
 
     // 保存（B14）
     bool dirty = false, restoring = false;

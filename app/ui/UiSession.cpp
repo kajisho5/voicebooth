@@ -104,7 +104,8 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         engine->setSong (std::move (audio));   // 止まって頭へ。出力の SR を曲に合わせる（録ったトラックも外れる）
         for (auto& sig : stemSignature) sig.clear();
         stemsDirty = true;
-        engine->setBackingLevel (s.offVocalGain, s.backingMuted);
+        syncBackingLevel();
+        syncGuideToEngine();
         syncLoopToEngine();
         syncPracticeToEngine();
         refreshOutputStatus();
@@ -442,7 +443,8 @@ void UiSession::conformSong()
                 engine->setSong (audio);   // デバイスもこの SR に切り替える（対応していれば）
                 for (auto& sig : stemSignature) sig.clear();
                 stemsDirty = true;
-                engine->setBackingLevel (s.offVocalGain, s.backingMuted);
+                syncBackingLevel();
+                syncGuideToEngine();   // お手本の声もこの SR にそろえ直す
                 engine->seek (s.playhead);
                 syncLoopToEngine();
                 syncPracticeToEngine();
@@ -614,14 +616,14 @@ bool UiSession::practiceShifted() const
 void UiSession::setBackingLevel (float fader)
 {
     s.offVocalGain = juce::jlimit (0.0f, 1.0f, fader);
-    if (engine != nullptr) engine->setBackingLevel (s.offVocalGain, s.backingMuted);
+    syncBackingLevel();
     notify (change::monitor);
 }
 
 void UiSession::setBackingMuted (bool m)
 {
     s.backingMuted = m;
-    if (engine != nullptr) engine->setBackingLevel (s.offVocalGain, s.backingMuted);
+    syncBackingLevel();
     notify (change::monitor);
 }
 
@@ -1004,7 +1006,18 @@ namespace
         std::vector<audio::PitchFrame> points;     // オフボ（曲の SR）の時間
         double offsetSeconds = 0.0;                // 原曲の位置 = オフボの位置 + offset
         int keyShift = 0;
+        std::shared_ptr<const audio::SongAudio> vocals;   // 取り出した声（オフボの時間・オフボの元の SR・モノラル）。聴く用
     };
+
+    std::shared_ptr<const audio::SongAudio> vocalsAudio (const std::vector<float>& v, double rate)
+    {
+        if (v.empty()) return nullptr;
+        auto a = std::make_shared<audio::SongAudio>();
+        a->sampleRate = rate;
+        a->buffer.setSize (1, (int) v.size());
+        a->buffer.copyFrom (0, 0, v.data(), (int) v.size());
+        return a;
+    }
 
     std::vector<float> mono (const audio::SongAudio& a)
     {
@@ -1094,6 +1107,7 @@ namespace
                 out.kind = GuideOutcome::Kind::ok;
                 out.points = std::move (r.points);
                 writeVocalsForLyrics (vocalsFile, vocals, rate);
+                out.vocals = vocalsAudio (vocals, rate);
                 break;
             case analysis::RefPitchResult::Status::needsSeparation: out.kind = GuideOutcome::Kind::needsSeparation; break;
             case analysis::RefPitchResult::Status::notAligned:
@@ -1153,6 +1167,8 @@ void UiSession::loadGuide (const juce::File& file)
                         s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
                     rejudgeAll();
                     updateTakeStats();
+                    s.guideVocals = out->vocals;
+                    syncGuideToEngine();
                     notify (change::takes);
                     postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
                     break;
@@ -1679,6 +1695,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 {
                     out->kind = GuideOutcome::Kind::ok;
                     out->points = std::move (r.points);
+                    out->vocals = vocalsAudio (onBacking, rate);
                 }
             }
         }
@@ -1696,6 +1713,8 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                     s.refPitch.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
                 rejudgeAll();
                 updateTakeStats();
+                s.guideVocals = out->vocals;
+                syncGuideToEngine();
                 notify (change::takes);
                 postNotice (tr ("separation.done", juce::String (out->offsetSeconds, 2)));
             }
@@ -1798,6 +1817,19 @@ void UiSession::pollPitch()
     engine->popPitch (pitchFrames);
     if (pitchFrames.empty())
         return;
+
+    // 声域を測っている間の点（曲の外の位置）は曲の線に入れない。測っている時だけ集める
+    {
+        const auto firstFree = std::stable_partition (pitchFrames.begin(), pitchFrames.end(),
+                                                      [] (const audio::PitchFrame& f) { return f.songSample < audio::PitchTracker::freeRunBase; });
+        if (rangeMeasuring)
+            for (auto it = firstFree; it != pitchFrames.end(); ++it)
+                if (it->midi > 0.0f && it->confidence >= 0.6f && rangeNotes.size() < 6000)
+                    rangeNotes.push_back (it->midi);
+        pitchFrames.erase (firstFree, pitchFrames.end());
+        if (pitchFrames.empty())
+            return;
+    }
 
     // 位置を歌い手が聞いた伴奏の位置に直す（往復の遅れの分だけ前へ。録音と同じ。B6）
     const auto ld = latencyDisplay (s);
@@ -2411,7 +2443,7 @@ void UiSession::setView (int64 start, int64 end)
 void UiSession::setCrossfade (double ms)
 {
     ms = juce::jlimit (0.0, 50.0, ms);
-    if (s.crossfadeMs == ms) return;
+    if (juce::exactlyEqual (s.crossfadeMs, ms)) return;
     s.crossfadeMs = ms;
     stemsDirty = true;   // 試聴のトラックも同じ継ぎ目で作り直す（renderStems が変わった物だけ）
     notify (change::mode);   // 設定に保存する
@@ -2549,11 +2581,148 @@ void UiSession::syncStemGains()
             {
                 // 録っているトラックは鳴らさない（自分の声だけを聞く。録り直す前の声と重ならない）
                 const bool recordingHere = s.isRecording && s.recordingTrack == t.type;
-                const bool audible = ! t.mute && (! anySolo || t.solo) && ! recordingHere && isTrackVisible (t.type);
+                const bool audible = ! t.mute && (! anySolo || t.solo) && ! recordingHere && isTrackVisible (t.type)
+                                  && ! (s.guideSolo || s.backingSolo);   // モニターの S（お手本・オフボだけを聴く）
                 gain = audible ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
             }
         engine->setVocalGain (k, gain);
     }
+    syncGuideGain();
+}
+
+//==============================================================================
+// お手本の声を聴く（2026-10-02）：取り出した声を、録ったトラックと同じ経路（練習のテンポ・キーも掛かる）で鳴らす
+void UiSession::syncBackingLevel()
+{
+    if (engine == nullptr) return;
+    const bool soloedAway = (s.guideSolo || s.backingSolo) && ! s.backingSolo;
+    engine->setBackingLevel (s.offVocalGain, s.backingMuted || soloedAway);
+}
+
+void UiSession::syncGuideGain()
+{
+    if (engine == nullptr) return;
+    const bool audible = s.guideVocals != nullptr && ! s.guideMuted && (! s.backingSolo || s.guideSolo);
+    engine->setVocalGain (audio::PlaybackCore::guideSlot, audible ? audio::PlaybackCore::faderToGain (s.mainGain) : 0.0f);
+}
+
+void UiSession::syncGuideToEngine()
+{
+    if (engine == nullptr) return;
+    const auto guide = s.guideVocals;
+    const auto rate = s.sampleRate();
+    const auto generation = ++guideGeneration;
+    if (guide == nullptr || rate <= 0.0)
+    {
+        engine->setVocalStem (audio::PlaybackCore::guideSlot, nullptr);
+        syncGuideGain();
+        return;
+    }
+    if (std::abs (guide->sampleRate - rate) < 0.5)
+    {
+        engine->setVocalStem (audio::PlaybackCore::guideSlot, std::shared_ptr<const juce::AudioBuffer<float>> (guide, &guide->buffer));
+        syncGuideGain();
+        return;
+    }
+    // 録音形式で SR をそろえている：裏でそろえてから鳴らす
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, guide, rate, generation]
+    {
+        std::shared_ptr<const audio::SongAudio> r = audio::resampleSong (*guide, rate);
+        juce::MessageManager::callAsync ([this, weak, r, generation]
+        {
+            if (weak.expired() || engine == nullptr || generation != guideGeneration) return;
+            engine->setVocalStem (audio::PlaybackCore::guideSlot,
+                                  r != nullptr ? std::shared_ptr<const juce::AudioBuffer<float>> (r, &r->buffer) : nullptr);
+            syncGuideGain();
+        });
+    });
+}
+
+void UiSession::setGuideLevel (float fader)
+{
+    s.mainGain = juce::jlimit (0.0f, 1.0f, fader);
+    syncGuideGain();
+    notify (change::monitor);
+}
+
+void UiSession::setGuideMuted (bool m)   { s.guideMuted = m; syncGuideGain(); notify (change::monitor); }
+
+void UiSession::setGuideSolo (bool on)
+{
+    s.guideSolo = on;
+    if (on) s.backingSolo = false;
+    syncBackingLevel();
+    syncStemGains();
+    notify (change::monitor);
+}
+
+void UiSession::setBackingSolo (bool on)
+{
+    s.backingSolo = on;
+    if (on) s.guideSolo = false;
+    syncBackingLevel();
+    syncStemGains();
+    notify (change::monitor);
+}
+
+//==============================================================================
+// 声域とおすすめのキー（2026-10-02。DESIGN 18.1）
+void UiSession::setVoiceRange (int low, int high)
+{
+    if (low > high) std::swap (low, high);
+    s.voiceLow = juce::jlimit (-1, 108, low);
+    s.voiceHigh = juce::jlimit (-1, 108, high);
+    notify (change::practice);
+}
+
+analysis::KeySuggestion UiSession::keySuggestion() const
+{
+    if (s.refPitch.empty() || s.voiceLow < 0 || s.voiceHigh <= s.voiceLow)
+        return {};
+    // お手本の広がりは点が変わった時だけ数え直す
+    const auto key = (juce::int64) s.refPitch.size() * 1000003 + (s.refPitch.empty() ? 0 : s.refPitch.front().sample);
+    if (key != songRangeKey)
+    {
+        std::vector<float> midi;
+        midi.reserve (s.refPitch.size());
+        for (auto& p : s.refPitch)
+            if (p.confidence >= 0.5f)
+                midi.push_back (p.midi);
+        cachedSongRange = analysis::songRange (midi);
+        songRangeKey = key;
+    }
+    return analysis::suggestKey (cachedSongRange, s.voiceLow, s.voiceHigh);
+}
+
+analysis::SongRange UiSession::guideRange() const
+{
+    (void) keySuggestion();   // 数え直す
+    return cachedSongRange;
+}
+
+void UiSession::applySuggestedKey()
+{
+    const auto k = keySuggestion();
+    if (! k.ok || deliveryLocked()) return;
+    if (k.octave != 0 && ! s.octaveAlign)
+        setOctaveAlign (true);   // 1 オクターブ下（上）で歌う：同じ音として比べる
+    setKey (k.shift);
+}
+
+void UiSession::startRangeMeasure()
+{
+    if (engine == nullptr) return;
+    if (s.isPlaying) setPlaying (false);
+    rangeNotes.clear();
+    rangeMeasuring = true;
+    engine->setPitchFreeRun (true);
+}
+
+void UiSession::stopRangeMeasure()
+{
+    rangeMeasuring = false;
+    if (engine != nullptr) engine->setPitchFreeRun (false);
 }
 
 void UiSession::setMute (int i, bool m) { if (juce::isPositiveAndBelow (i, (int) s.trackUi.size())) { s.trackUi[(size_t) i].mute = m; notify (change::tracks); } }
