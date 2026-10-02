@@ -9,6 +9,7 @@
 #include "audio/InputMeter.h"
 #include "project/Comp.h"
 #include "export/ExportService.h"
+#include "audio/PlaybackCore.h"
 #include "Timeline.h"
 #include "audio/Resample.h"
 
@@ -21,6 +22,14 @@ void UiSession::notify (juce::uint32 changes)
     // プロジェクトに入るものが変わったら、少し待ってから自動保存（B14）
     if ((changes & (change::takes | change::songInfo | change::recordFormat)) != 0 && changes != change::all)
         markDirty();
+    // 録ったトラックの再生（B12）：採用区間が変わったら作り直し、音量・M / S・録音中は今すぐ
+    if (isEngineDriven())
+    {
+        if ((changes & change::takes) != 0)
+            stemsDirty = true;
+        if ((changes & (change::tracks | change::transport | change::practice)) != 0)
+            syncStemGains();
+    }
     listeners.call ([changes] (Listener& l) { l.sessionChanged (changes); });
 }
 
@@ -83,7 +92,9 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
 
     if (engine != nullptr)
     {
-        engine->setSong (std::move (audio));   // 止まって頭へ。出力の SR を曲に合わせる
+        engine->setSong (std::move (audio));   // 止まって頭へ。出力の SR を曲に合わせる（録ったトラックも外れる）
+        for (auto& sig : stemSignature) sig.clear();
+        stemsDirty = true;
         engine->setBackingLevel (s.offVocalGain, s.backingMuted);
         syncLoopToEngine();
         syncPracticeToEngine();
@@ -419,6 +430,8 @@ void UiSession::conformSong()
             if (engine != nullptr)
             {
                 engine->setSong (audio);   // デバイスもこの SR に切り替える（対応していれば）
+                for (auto& sig : stemSignature) sig.clear();
+                stemsDirty = true;
                 engine->setBackingLevel (s.offVocalGain, s.backingMuted);
                 engine->seek (s.playhead);
                 syncLoopToEngine();
@@ -1465,6 +1478,9 @@ void UiSession::tick (double seconds)
     updateShadow();
     pollPitch();
 
+    if (stemsDirty && ! s.conforming)
+        renderStems();
+
     // 自動保存（B14）：変更から 1.5 秒たったら。録音中・SR をそろえている間は待つ
     if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500)
         saveProject();
@@ -1630,6 +1646,105 @@ void UiSession::armTrack (int index)
     s.trackUi[(size_t) index].armed = ! wasArmed;
     if (! wasArmed) s.selectedTrack = index;   // アームしたトラックを前面に
     notify (change::tracks);
+}
+
+void UiSession::setTrackGain (int i, float fader)
+{
+    if (! juce::isPositiveAndBelow (i, (int) s.trackUi.size()))
+        return;
+    s.trackUi[(size_t) i].monitorGain = juce::jlimit (0.0f, 1.0f, fader);
+    notify (change::tracks);
+}
+
+//==============================================================================
+namespace
+{
+    constexpr project::TrackType stemTypes[] { project::TrackType::main, project::TrackType::doubleTrack,
+                                               project::TrackType::harm1, project::TrackType::harm2 };
+}
+
+void UiSession::renderStems()
+{
+    stemsDirty = false;
+    if (engine == nullptr || s.project.lengthSamples <= 0)
+        return;
+
+    // 採用区間・テイクが変わったトラックだけ作り直す（書き出しと同じ計算。exporter::renderTrackDry）
+    std::vector<int> slots;
+    for (int k = 0; k < 4; ++k)
+    {
+        juce::String sig;
+        if (const auto* t = s.project.findTrack (stemTypes[k]))
+        {
+            for (auto& c : t->comp)
+                sig << c.takeId << ':' << c.startSample << '-' << c.endSample << ';';
+            for (auto& tk : t->takes)
+                sig << tk.id << '=' << tk.path << '@' << tk.startSample << ';';
+        }
+        sig << '|' << s.project.lengthSamples << '|' << s.project.sampleRate;
+        if (sig != stemSignature[k])
+        {
+            stemSignature[k] = sig;
+            slots.push_back (k);
+        }
+    }
+    if (slots.empty())
+        return;
+
+    const auto generation = ++stemGeneration;
+    for (auto k : slots)
+        stemSlotGeneration[k] = generation;
+    const auto project = s.project;
+    const auto folder = s.projectFolder;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, generation, project, folder, slots]
+    {
+        using Buffer = std::shared_ptr<const juce::AudioBuffer<float>>;
+        auto made = std::make_shared<std::vector<std::pair<int, Buffer>>>();
+        for (auto k : slots)
+        {
+            Buffer b;
+            const auto* t = project.findTrack (stemTypes[k]);
+            if (t != nullptr && ! t->comp.empty())
+            {
+                auto buf = std::make_shared<juce::AudioBuffer<float>>();
+                if (exporter::ExportService::renderTrackDry (project, stemTypes[k], folder, *buf).ok)
+                    b = std::move (buf);
+            }
+            made->push_back ({ k, std::move (b) });
+        }
+        juce::MessageManager::callAsync ([this, weak, generation, made]
+        {
+            if (weak.expired() || engine == nullptr)
+                return;
+            for (auto& [k, b] : *made)
+                if (stemSlotGeneration[k] == generation)   // そのトラックを後で作り直していれば、古い方は捨てる
+                    engine->setVocalStem (k, b);
+            syncStemGains();
+        });
+    });
+}
+
+void UiSession::syncStemGains()
+{
+    if (engine == nullptr)
+        return;
+    bool anySolo = false;
+    for (auto& t : s.trackUi)
+        anySolo = anySolo || t.solo;
+    for (int k = 0; k < 4; ++k)
+    {
+        float gain = 0.0f;
+        for (auto& t : s.trackUi)
+            if (t.type == stemTypes[k])
+            {
+                // 録っているトラックは鳴らさない（自分の声だけを聞く。録り直す前の声と重ならない）
+                const bool recordingHere = s.isRecording && s.recordingTrack == t.type;
+                const bool audible = ! t.mute && (! anySolo || t.solo) && ! recordingHere && isTrackVisible (t.type);
+                gain = audible ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
+            }
+        engine->setVocalGain (k, gain);
+    }
 }
 
 void UiSession::setMute (int i, bool m) { if (juce::isPositiveAndBelow (i, (int) s.trackUi.size())) { s.trackUi[(size_t) i].mute = m; notify (change::tracks); } }

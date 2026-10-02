@@ -110,6 +110,8 @@ public:
     void armTrack (int index);          // アームは同時に 1 本
     void setMute (int index, bool);
     void setSolo (int index, bool);
+    /** トラックのモニター量（フェーダーと同じ 0..1、0.75 = 0 dB）。再生に効く（B12） */
+    void setTrackGain (int index, float fader);
 
     /** 新しいバージョンの知らせ（ステータスバー）。空で消す */
     void setUpdateAvailable (const juce::String& version) { s.updateVersion = version; notify (change::device); }
@@ -242,6 +244,8 @@ private:
     void updateShadow();
     void pollPitch();
     void saveProject();
+    void renderStems();            // 録ったトラックを裏で作り直す（B12）
+    void syncStemGains();          // トラックの音量・M / S・録音中を再生に反映
     void restoreProject();
     void markDirty();
     void copyIntoProject (const juce::File& source, const juce::String& relativePath);
@@ -255,6 +259,10 @@ private:
     song::TapTempo tapper;
     audio::AudioEngine* engine = nullptr;
     double sinceStatus = 0.0;
+    // 録ったトラックの再生（B12）。トラックごとに、最後に作った時の採用区間（変わった物だけ作り直す）
+    bool stemsDirty = false;
+    juce::uint32 stemGeneration = 0, stemSlotGeneration[4] {};
+    juce::String stemSignature[4];
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
     juce::uint32 tailWaitStart = 0;

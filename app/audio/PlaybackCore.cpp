@@ -15,10 +15,13 @@ void PlaybackCore::setSong (std::shared_ptr<const SongAudio> newSong)
     reachedEnd = false;
     stretchReset = true;
 
-    // 古い曲は lock の外で解放する（オーディオスレッドを待たせない）
+    // 古い曲（と、その曲のトラック）は lock の外で解放する（オーディオスレッドを待たせない）
+    std::shared_ptr<const juce::AudioBuffer<float>> oldStems[maxStems];
     {
         const juce::SpinLock::ScopedLockType sl (songLock);
         std::swap (song, newSong);
+        for (int k = 0; k < maxStems; ++k)
+            std::swap (stems[k], oldStems[k]);
     }
     newSong.reset();
     rebuildStretcher();
@@ -59,6 +62,42 @@ void PlaybackCore::rebuildStretcher()
     stretchReset = true;
 }
 
+void PlaybackCore::setStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> buffer)
+{
+    if (! juce::isPositiveAndBelow (slot, maxStems))
+        return;
+    {
+        const juce::SpinLock::ScopedLockType sl (songLock);
+        std::swap (stems[slot], buffer);
+    }
+    buffer.reset();   // 古い方はここで解放
+}
+
+void PlaybackCore::setStemGain (int slot, float linearGain)
+{
+    if (juce::isPositiveAndBelow (slot, maxStems))
+        stemGain[slot] = juce::jmax (0.0f, linearGain);
+}
+
+PlaybackCore::Gains PlaybackCore::nextGains() noexcept
+{
+    Gains g;
+    g.backing = smoothedGain.getNextValue();
+    for (int k = 0; k < maxStems; ++k)
+        g.stem[k] = stemSmoothed[k].getNextValue();
+    return g;
+}
+
+float PlaybackCore::mixAt (const SongAudio& s, int channel, juce::int64 pos, const Gains& g) const noexcept
+{
+    const auto& b = s.buffer;
+    auto v = b.getSample (juce::jmin (channel, b.getNumChannels() - 1), (int) pos) * g.backing;   // モノラルの曲は両耳へ
+    for (int k = 0; k < maxStems; ++k)
+        if (stems[k] != nullptr && g.stem[k] > 0.0f && pos < stems[k]->getNumSamples())
+            v += stems[k]->getSample (0, (int) pos) * g.stem[k];
+    return v;
+}
+
 void PlaybackCore::setPractice (double newSpeed, int newSemitones)
 {
     speed = juce::jlimit (0.5, 1.5, newSpeed);
@@ -80,8 +119,16 @@ void PlaybackCore::prepare (double outputSampleRate)
 {
     outputRate = outputSampleRate;
     stretchReset = true;
-    smoothedGain.reset (outputSampleRate > 0.0 ? outputSampleRate : 48000.0, 0.02);   // 20 ms でなめらかに
+    const auto r = outputSampleRate > 0.0 ? outputSampleRate : 48000.0;
+    smoothedGain.reset (r, 0.02);   // 20 ms でなめらかに
     smoothedGain.setCurrentAndTargetValue (muted ? 0.0f : gain.load());
+    for (int k = 0; k < maxStems; ++k)
+    {
+        stemSmoothed[k].reset (r, 0.02);
+        stemSmoothed[k].setCurrentAndTargetValue (stemGain[k].load());
+    }
+    fade.reset (r, 0.02);
+    fade.setCurrentAndTargetValue (1.0f);
     fraction = 0.0;
     prepared = true;
 }
@@ -180,12 +227,15 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
             r.start = pos;
             fraction = 0.0;
         }
-        smoothedGain.setCurrentAndTargetValue (0.0f);
+        fade.setCurrentAndTargetValue (0.0f);
     }
     if (stretching)
         return renderStretched (out, numChannels, numSamples, *song);
 
     smoothedGain.setTargetValue (muted ? 0.0f : gain.load());
+    for (int k = 0; k < maxStems; ++k)
+        stemSmoothed[k].setTargetValue (stemGain[k].load());
+    fade.setTargetValue (1.0f);
 
     const auto rate = outputRate.load();
     const auto ratio = rate > 0.0 ? song->sampleRate / rate : 1.0;   // 1.0 なら変換なし（ふつう）
@@ -210,18 +260,18 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
             break;
         }
 
-        const auto g = smoothedGain.getNextValue();
+        const auto g = nextGains();
+        const auto f = fade.getNextValue();
         for (int c = 0; c < numChannels; ++c)
         {
             if (out[c] == nullptr) continue;
-            const auto* src = buffer.getReadPointer (juce::jmin (c, songChannels - 1));   // モノラルの曲は両耳へ
-            auto v = src[pos];
+            auto v = mixAt (*song, c, pos, g);
             if (convert)
             {
-                const auto next = pos + 1 < length ? src[pos + 1] : v;
+                const auto next = pos + 1 < length ? mixAt (*song, c, pos + 1, g) : v;
                 v += (next - v) * (float) fraction;
             }
-            out[c][i] = v * g;
+            out[c][i] = v * f;
         }
 
         if (convert)
@@ -248,9 +298,7 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
 {
     Rendered r;
     auto& st = *stretcher;
-    const auto& buffer = s.buffer;
-    const auto length = (juce::int64) buffer.getNumSamples();
-    const auto songChannels = buffer.getNumChannels();
+    const auto length = (juce::int64) s.buffer.getNumSamples();
     const auto chans = stretchIn.getNumChannels();
 
     const auto rate = outputRate.load();
@@ -280,7 +328,7 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
             pad -= n;
         }
         dropLeft = (int) st.getStartDelay();
-        smoothedGain.setCurrentAndTargetValue (0.0f);
+        fade.setCurrentAndTargetValue (0.0f);
     }
     else
     {
@@ -288,6 +336,9 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
         if (! juce::exactlyEqual (pitchScale, appliedPitch)) { st.setPitchScale (pitchScale); appliedPitch = pitchScale; }
     }
     smoothedGain.setTargetValue (muted ? 0.0f : gain.load());
+    for (int k = 0; k < maxStems; ++k)
+        stemSmoothed[k].setTargetValue (stemGain[k].load());
+    fade.setTargetValue (1.0f);
 
     r.start = (juce::int64) std::llround (heard);
     r.step = step;
@@ -322,10 +373,10 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
                     r.played = i;
                     return r;
                 }
-                const auto g = smoothedGain.getNextValue();
+                const auto f = fade.getNextValue();
                 for (int c = 0; c < numChannels; ++c)
                     if (out[c] != nullptr)
-                        out[c][i] = stretchOut.getSample (juce::jmin (c, chans - 1), k) * g;
+                        out[c][i] = stretchOut.getSample (juce::jmin (c, chans - 1), k) * f;
                 heard += step;
             }
             continue;
@@ -338,8 +389,9 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
         {
             if (loop && feedPos >= outPoint && outPoint > in)
                 feedPos = in + (feedPos - outPoint);
+            const auto g = nextGains();   // 音量は入れる側で掛ける（変えてから聞こえるまで Rubber Band の遅れの分かかる）
             for (int c = 0; c < chans; ++c)
-                inPtrs[c][k] = feedPos < length ? buffer.getSample (juce::jmin (c, songChannels - 1), (int) feedPos) : 0.0f;
+                inPtrs[c][k] = feedPos < length ? mixAt (s, c, feedPos, g) : 0.0f;
             ++feedPos;
         }
         st.process (inPtrs, (size_t) need, false);

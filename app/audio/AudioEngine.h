@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_core/juce_core.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <functional>
 #include <memory>
 #include "LatencyProbe.h"
@@ -115,6 +116,11 @@ public:
 
     // 練習用のテンポ（速さの倍率。1.0 = 原速）とキー（半音）。B11
     virtual void setPractice (double /*speed*/, int /*semitones*/) {}
+
+    // 録ったトラックの再生（B12）。slot 0..3 = Main / Double / Harm1 / Harm2。buffer は曲の SR・曲の長さのモノラル（nullptr で外す）。
+    // 出力（モニター）だけに足す。録音には入らない
+    virtual void setVocalStem (int /*slot*/, std::shared_ptr<const juce::AudioBuffer<float>> /*buffer*/) {}
+    virtual void setVocalGain (int /*slot*/, float /*linearGain*/) {}
 
     // モニター（オフボ）。fader は 0..1（0.75 = 0 dB）
     virtual void setBackingLevel (float fader, bool muted) = 0;
