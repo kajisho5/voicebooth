@@ -323,6 +323,8 @@ private:
     void estimateSongInfo();
     bool hasTakes() const;
     void loadTakeWave (project::TrackType, const project::Take&);
+    /** リハーサルのテイクを本番のテイクの所へ移す（ファイル・番号・採用区間の参照）。新しい番号、移せなければ空（B18c） */
+    juce::String moveRehearsalToTakes (project::Track&, const juce::String& takeId);
     void postNotice (const juce::String& text);
     void refreshInputStatus();
     void deviceChanged (bool lost);

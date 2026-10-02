@@ -26,7 +26,7 @@ namespace
         return s.trim();
     }
 
-    /** take1 で通し（0..1000）、take2 で 300..600 を録り直した Main。take3 は 200..800 だけ、take4 はリハーサル */
+    /** take1 で通し（0..1000）、take2 で 300..600 を録り直した Main。take3 は 200..800 だけ、take4 は原速のリハーサル、take5 は 80% のリハーサル */
     Track recorded()
     {
         Track t;
@@ -35,6 +35,9 @@ namespace
         applyTake (t, take ("take2", 300, 600, 20));
         applyTake (t, take ("take3", 200, 800, 10), 200, 250);   // 採用は頭の 50 だけ（残りはファイルにある）
         t.takes.push_back (take ("take4", 0, 1000, 5, RecMode::practice));
+        auto slow = take ("take5", 0, 1000, 1, RecMode::practice);
+        slow.tempoPercent = 80;
+        t.takes.push_back (slow);
         return t;
     }
 }
@@ -57,11 +60,11 @@ public:
                 for (auto* k : v) a.add (k->id);
                 return a.joinIntoString (",");
             };
-            // リハーサル（take4）は入らない。新しい順
-            expectEquals (ids (compareCandidates (t, 0, 1000)), juce::String ("take3,take2,take1"));
+            // 原速・原キーのリハーサル（take4）は入る。練習の速さで録った take5 は入らない。新しい順
+            expectEquals (ids (compareCandidates (t, 0, 1000)), juce::String ("take4,take3,take2,take1"));
             // 範囲に音が無いテイクは入らない（take2 は 300..600、take3 は 200..800）
-            expectEquals (ids (compareCandidates (t, 850, 950)), juce::String ("take1"));
-            expectEquals (ids (compareCandidates (t, 100, 200)), juce::String ("take1"));
+            expectEquals (ids (compareCandidates (t, 850, 950)), juce::String ("take4,take1"));
+            expectEquals (ids (compareCandidates (t, 100, 200)), juce::String ("take4,take1"));
 
             // 時刻が同じ（古い形式・見本）なら番号の大きい方を新しいとみなす
             Track same;
@@ -130,14 +133,16 @@ public:
             expectEquals (describe (t.comp), juce::String ("take1:0-200 take3:200-250 take1:250-1000"));
             expectEquals (a.previewing(), juce::String ("take1"));
 
-            expect (! a.preview (t, "take4"));                        // リハーサルは入れない
+            expect (! a.preview (t, "take5"));                        // 練習の速さで録ったリハーサルは入れない
             expect (! a.preview (t, "nope"));
             expectEquals (a.previewing(), juce::String ("take1"));    // 失敗しても今の試聴のまま
+            expect (a.preview (t, "take4"));                          // 原速のリハーサルは聴ける
+            expectEquals (describe (t.comp), juce::String ("take1:0-200 take3:200-250 take1:250-300 take4:300-600 take1:600-1000"));
 
             expect (a.preview (t, {}));                               // 「いまの採用」に戻して聴く
             expectEquals (describe (t.comp), describe (original));
             expect (a.preview (t, "take3"));
-            expectEquals ((int) t.takes.size(), 4);                   // テイクは足しも消しもしない
+            expectEquals ((int) t.takes.size(), 5);                   // テイクは足しも消しもしない
         }
 
         beginTest ("audition: cancel restores the comp exactly, also after several previews");

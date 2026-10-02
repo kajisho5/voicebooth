@@ -95,6 +95,7 @@ void TakeCompareDialog::rebuild()
             e.takeId = k->id;
             e.created = k->created;
             e.clip = k->clip;
+            e.rehearsal = k->recMode == project::RecMode::practice;
             e.coverage = project::takeCoverage (*k, c.from, c.to);
             e.share = project::compShare (c.original, k->id, c.from, c.to);
             e.stats = session.takeStatsIn (c.track, k->id, c.from, c.to);
@@ -327,6 +328,7 @@ void TakeCompareDialog::List::paintRow (juce::Graphics& g, juce::Rectangle<float
             g.setFont (f);
             g.drawText (text, box, juce::Justification::centred, false);
         };
+        if (e.rehearsal)           tag (tr ("record.practice"), colours::textDim, true);
         if (e.share >= 0.999f)     tag (tr ("compare.inUse"), colours::signal, true);
         else if (e.share > 0.0f)   tag (tr ("compare.inUsePart"), colours::signal, false);
         if (e.coverage < 0.999f)   tag (tr ("compare.partial", juce::jmax (1, juce::roundToInt (e.coverage * 100.0f))), colours::textDim, false);

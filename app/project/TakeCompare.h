@@ -13,8 +13,11 @@ namespace vb::project
 /** テイクが範囲 [from, to) の中で採用できる所（曲の頭より前は除く）。無ければ first >= second */
 std::pair<int64, int64> usableSpan (const Take&, int64 from, int64 to);
 
-/** 比べられるテイク：本番のテイクで、範囲の中に音がある物。新しい順（録った時刻、同じなら番号の大きい順）。
-    リハーサルのテイクは入れない（本番に入れるのは右クリックの救済から。ファイルの置き場が違う） */
+/** 比べられるテイクか：本番のテイクと、原速・原キーで録ったリハーサルのテイク（練習の速さ・キーで録った物は曲の時間に並ばない） */
+bool comparable (const Take&);
+
+/** 比べられるテイク（comparable）で、範囲の中に音がある物。新しい順（録った時刻、同じなら番号の大きい順）。
+    リハーサルのテイクを選んで決めた時は、呼ぶ側が本番のテイクに移す（UiSession::endTakeCompare。ファイルの置き場が違う） */
 std::vector<const Take*> compareCandidates (const Track&, int64 from, int64 to);
 
 /** 範囲 [from, to) のうち、そのテイクで埋められる割合（0..1。範囲の一部しか録っていないテイクは 1 未満） */

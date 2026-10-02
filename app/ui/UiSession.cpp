@@ -2004,9 +2004,21 @@ void UiSession::endTakeCompare (bool commit)
         return;
     auto* track = const_cast<project::Track*> (s.project.findTrack (audition.track()));
     const auto type = audition.track();
-    const auto id = audition.previewing();
     const auto from = audition.from(), to = audition.to();
     bool used = false, unchanged = false;
+    auto id = audition.previewing();
+    if (track != nullptr && commit && id.isNotEmpty())
+    {
+        // 原速のリハーサルを選んだ時は、本番のテイクに移してから決める（移せなければやめる）
+        const auto it = std::find_if (track->takes.begin(), track->takes.end(), [&] (const project::Take& k) { return k.id == id; });
+        if (it != track->takes.end() && it->recMode == project::RecMode::practice)
+        {
+            const auto moved = moveRehearsalToTakes (*track, id);
+            if (moved.isEmpty())
+                commit = false;
+            id = moved;
+        }
+    }
     if (track != nullptr && commit)
     {
         unchanged = id.isNotEmpty();   // 選んだテイクが元からその範囲に入っていた（下で上書き）
@@ -2045,6 +2057,43 @@ void UiSession::endTakeCompare (bool commit)
     else if (unchanged)
         postNotice (tr ("compare.unchanged", id));
     notify (change::takes | change::tracks | change::range | change::transport);
+}
+
+juce::String UiSession::moveRehearsalToTakes (project::Track& track, const juce::String& takeId)
+{
+    auto it = std::find_if (track.takes.begin(), track.takes.end(),
+                            [&] (const project::Take& k) { return k.id == takeId && k.recMode == project::RecMode::practice; });
+    if (it == track.takes.end() || s.projectFolder == juce::File())
+        return {};
+
+    // 本番のテイクの所へ（同じ名前があれば番号を進める。録った声は上書きしない）。救済（promoteRehearsalTake）と同じ置き場
+    const auto key = juce::String (project::trackKey (track.type));
+    auto id = project::nextTakeId (track);
+    auto rel = [&] { return "Audio/Takes/" + key + "_" + id + ".wav"; };
+    for (int n = id.substring (4).getIntValue(); s.projectFolder.getChildFile (rel()).exists(); )
+        id = "take" + juce::String (++n);
+    const auto src = s.projectFolder.getChildFile (it->path), dst = s.projectFolder.getChildFile (rel());
+    dst.getParentDirectory().createDirectory();
+    if (! src.existsAsFile() || ! src.moveFileTo (dst))
+    {
+        postNotice (tr ("rescue.failed", src.getFileName()));
+        return {};
+    }
+
+    const auto oldWave = dummy::takeWaveKey (track.type, it->id);
+    it->id = id;
+    it->path = rel();
+    it->recMode = project::RecMode::delivery;
+    it->useFrom = it->useTo = -1;
+    for (auto& c : track.comp)
+        if (c.takeId == takeId)
+            c.takeId = id;
+    if (s.rescueTakeId == takeId && s.rescueTrack == track.type)
+        s.rescueNoticeSerial = -1;   // 救済の「本番に入れる」はもう効かない
+    s.takeWaves.erase (oldWave);
+    s.takePitch.erase (oldWave);
+    loadTakeWave (track.type, *it);
+    return id;
 }
 
 std::optional<dummy::Session::TakeStats> UiSession::takeStatsIn (project::TrackType type, const juce::String& takeId, int64 from, int64 to) const

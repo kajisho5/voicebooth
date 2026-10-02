@@ -9,12 +9,17 @@ std::pair<int64, int64> usableSpan (const Take& t, int64 from, int64 to)
     return { std::max ({ (int64) 0, t.startSample, from }), std::min (t.endSample, to) };
 }
 
+bool comparable (const Take& t)
+{
+    return t.recMode == RecMode::delivery || (t.tempoPercent == 100 && t.keyShift == 0);
+}
+
 std::vector<const Take*> compareCandidates (const Track& track, int64 from, int64 to)
 {
     std::vector<const Take*> out;
     for (auto& k : track.takes)
     {
-        if (k.recMode != RecMode::delivery || k.endSample <= k.startSample)
+        if (k.endSample <= k.startSample || ! comparable (k))
             continue;
         const auto span = usableSpan (k, from, to);
         if (span.second > span.first)

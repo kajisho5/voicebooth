@@ -43,6 +43,7 @@ private:
         juce::String takeId;                   // 空 = いまの採用（元のまま）
         juce::Time created;
         bool clip = false;
+        bool rehearsal = false;                // 原速のリハーサル（使うと本番のテイクに移る）
         float coverage = 1.0f;                 // 範囲のうちテイクで埋められる割合
         float share = 0.0f;                    // 範囲のうち、比べ始めた時の採用区間で使っていた割合
         std::optional<dummy::Session::TakeStats> stats;
