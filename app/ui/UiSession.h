@@ -211,6 +211,7 @@ private:
     void finishRecording();
     void conformSong();
     void checkDeviceRate();
+    void estimateSongInfo();
     bool hasTakes() const;
     void loadTakeWave (project::TrackType, const project::Take&);
     void postNotice (const juce::String& text);
