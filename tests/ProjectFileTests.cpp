@@ -64,6 +64,8 @@ public:
             k.peak = 0.5f;
             k.recMode = RecMode::practice;
             k.latencySamples = 538;
+            k.tempoPercent = 85;    // 練習録音のテンポ・キー（B11）
+            k.keyShift = -2;
             t.takes.push_back (k);
             t.comp.push_back ({ 0, 400000, "take3" });
             p.tracks.push_back (t);
@@ -90,6 +92,9 @@ public:
             expectEquals (back.project.lengthSamples, 9876543210LL);
             expectEquals (back.project.tracks[0].takes[0].startSample, (juce::int64) -538);
             expect (back.project.tracks[0].takes[0].created == k.created);
+            expectEquals (back.project.tracks[0].takes[0].tempoPercent, 85);
+            expectEquals (back.project.tracks[0].takes[0].keyShift, -2);
+            expect (! json.contains ("\"tempo_percent\": 100"));
             expectEquals (back.extras.guidePath, ex.guidePath);
             expectEquals (back.project.tempo.signature.numerator, 6);
         }

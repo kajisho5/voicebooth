@@ -170,6 +170,8 @@ public:
     // --- 練習 / モード ------------------------------------------------------
     void setTempo (int percent);
     void setKey (int semitones);
+    /** 練習のテンポ（50〜150 %）とキー（-6〜+6）をまとめて。再生に効く（B11） */
+    void setPractice (int tempoPercent, int keyShift);
     void setRecMode (project::RecMode);
     void setMode (project::Mode);
     void setPitchTolerance (float cents);
@@ -219,6 +221,8 @@ private:
     void keepPlayheadInView();
     void followPlayhead (double seconds);
     void syncLoopToEngine();
+    void syncPracticeToEngine();
+    bool practiceShifted() const;
     void refreshOutputStatus();
     void checkSpeakerOutput();
     void pushMonitorToEngine();

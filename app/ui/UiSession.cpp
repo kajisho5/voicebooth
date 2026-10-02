@@ -86,6 +86,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         engine->setSong (std::move (audio));   // 止まって頭へ。出力の SR を曲に合わせる
         engine->setBackingLevel (s.offVocalGain, s.backingMuted);
         syncLoopToEngine();
+        syncPracticeToEngine();
         refreshOutputStatus();
     }
     notify (change::all);
@@ -421,6 +422,7 @@ void UiSession::conformSong()
                 engine->setBackingLevel (s.offVocalGain, s.backingMuted);
                 engine->seek (s.playhead);
                 syncLoopToEngine();
+                syncPracticeToEngine();
                 refreshOutputStatus();
             }
             if (s.recordRate <= 0.0 && s.deviceFallbackRate == target)
@@ -575,6 +577,17 @@ void UiSession::syncLoopToEngine()
         engine->setLoop (s.rangeIn, s.rangeOut, s.loopOn && s.hasRange());
 }
 
+void UiSession::syncPracticeToEngine()
+{
+    if (engine != nullptr)
+        engine->setPractice (s.tempoPercent / 100.0, s.keyShift);
+}
+
+bool UiSession::practiceShifted() const
+{
+    return s.tempoPercent != 100 || s.keyShift != 0;
+}
+
 void UiSession::setBackingLevel (float fader)
 {
     s.offVocalGain = juce::jlimit (0.0f, 1.0f, fader);
@@ -677,6 +690,10 @@ void UiSession::setRecording (bool r)
         return;
     }
 
+    // 納品録音は原速・原キー（DESIGN 6.1。画面では確認してから来る。念のためここでも戻す）
+    if (s.recMode == project::RecMode::delivery && practiceShifted())
+        setPractice (100, 0);
+
     // 通し録音（B5）。録れない時は理由を知らせて何もしない
     if (const auto problem = recordProblem(); problem.isNotEmpty())
     {
@@ -722,6 +739,8 @@ void UiSession::setRecording (bool r)
         s.recordingTake = id;
         s.recordingTrack = armed->type;
         s.recordingPath = rel();
+        s.recordingTempo = s.tempoPercent;   // 裏録りは原速・原キーの時だけ（updateShadow）
+        s.recordingKey = s.keyShift;
         s.isRecording = true;
         s.recordStart = punch ? s.rangeIn : retroStart (now);
         s.recordEnd = punch ? s.rangeOut : -1;
@@ -750,6 +769,8 @@ void UiSession::setRecording (bool r)
     s.recordingTake = id;
     s.recordingTrack = armed->type;
     s.recordingPath = rel();
+    s.recordingTempo = s.tempoPercent;
+    s.recordingKey = s.keyShift;
     s.isRecording = true;
     s.isPlaying = true;
     s.recordStart = punch ? s.rangeIn : s.playhead;
@@ -825,8 +846,13 @@ void UiSession::finishRecording()
     project::Take take;
     take.id = id;
     take.path = path;
-    take.startSample = res.startSample - s.recordingLatency;   // 歌い手が聞いた伴奏の位置にそろえる（ファイルは切らない）
-    take.endSample = take.startSample + res.length;
+    // 歌い手が聞いた伴奏の位置にそろえる（ファイルは切らない）。練習でテンポを変えて録った時（B11）は、
+    // ファイルの 1 サンプルが曲では速さの倍なので、遅れも長さも曲のサンプルに直す（採用区間には入らない。目安の位置）
+    const auto speed = s.recordingTempo / 100.0;
+    take.startSample = res.startSample - (int64) std::llround (s.recordingLatency * speed);
+    take.endSample = take.startSample + (int64) std::llround (res.length * speed);
+    take.tempoPercent = s.recordingTempo;
+    take.keyShift = s.recordingKey;
     take.created = juce::Time::getCurrentTime();
     take.clip = res.clipped;
     take.peak = res.peak;
@@ -1065,7 +1091,7 @@ void UiSession::judge (dummy::PitchPoint& p) const
     if (best == nullptr || best->confidence < 0.5f)
         return;
 
-    auto cents = (p.midi - best->midi) * 100.0f;
+    auto cents = (p.midi - (best->midi + (float) s.keyShift)) * 100.0f;   // 練習でキーを変えたら、お手本もその分ずらして比べる（B11）
     if (s.octaveAlign)   // オクターブ違い（男女・裏声）は同じ音として比べる
         cents -= 1200.0f * std::round (cents / 1200.0f);
     p.centsOff = cents;
@@ -1092,7 +1118,8 @@ void UiSession::pollPitch()
 
     // 位置を歌い手が聞いた伴奏の位置に直す（往復の遅れの分だけ前へ。録音と同じ。B6）
     const auto ld = latencyDisplay (s);
-    const auto lat = ld.known ? juce::jmax ((int64) 0, ld.samples) : 0;
+    // 練習でテンポを変えている時（B11）、遅れ（出力のサンプル）は曲のサンプルではその速さの倍
+    const auto lat = ld.known ? (int64) std::llround (juce::jmax ((int64) 0, ld.samples) * s.tempoPercent / 100.0) : 0;
     const auto rate = s.sampleRate();
     s.myPitchLag = lat + (int64) ((audio::PitchTracker::processingDelaySeconds() + 0.05) * rate);
 
@@ -1169,8 +1196,9 @@ void UiSession::updateShadow()
     if (! isEngineDriven() || s.isRecording)
         return;
 
-    // 裏で録るのは、再生中で、REC を押せば録れる時だけ（アーム・入力・SR がそろっている）
-    const bool want = s.isPlaying && recordProblem().isEmpty();
+    // 裏で録るのは、再生中で、REC を押せば録れる時だけ（アーム・入力・SR がそろっている）。
+    // 練習のテンポ・キーを変えている間は録らない（曲の位置と録った声の長さが合わないので、遡りに使えない。B11）
+    const bool want = s.isPlaying && recordProblem().isEmpty() && ! practiceShifted();
     if (shadowActive && (! want || ! engine->isRecording() || engine->recordingEnded()))
         finishRecording();   // ループで戻った・止まった：消す（戻った時は次で録り直す）
 
@@ -1608,8 +1636,33 @@ void UiSession::setMute (int i, bool m) { if (juce::isPositiveAndBelow (i, (int)
 void UiSession::setSolo (int i, bool v) { if (juce::isPositiveAndBelow (i, (int) s.trackUi.size())) { s.trackUi[(size_t) i].solo = v; notify (change::tracks); } }
 
 //==============================================================================
-void UiSession::setTempo (int p)              { s.tempoPercent = juce::jlimit (50, 150, p); notify (change::practice); }
-void UiSession::setKey (int k)                { s.keyShift = juce::jlimit (-6, 6, k); notify (change::practice); }
+void UiSession::setTempo (int p)              { setPractice (p, s.keyShift); }
+void UiSession::setKey (int k)                { setPractice (s.tempoPercent, k); }
+
+void UiSession::setPractice (int tempoPercent, int keyShift)
+{
+    tempoPercent = juce::jlimit (50, 150, tempoPercent);
+    keyShift = juce::jlimit (-6, 6, keyShift);
+    if (tempoPercent == s.tempoPercent && keyShift == s.keyShift)
+    {
+        notify (change::practice);   // つまみの表示を今の値に戻す
+        return;
+    }
+    // 録音中は変えない（テイクの途中で速さが変わると、曲の位置に戻せない。B11）
+    if (s.isRecording && isEngineDriven())
+    {
+        postNotice (tr ("practice.lockedRecording"));
+        notify (change::practice);
+        return;
+    }
+    s.tempoPercent = tempoPercent;
+    s.keyShift = keyShift;
+    // 裏録り（B7）は原速・原キーで鳴らした所だけ使える。変えたら消す（原速に戻れば次から録り直す）
+    if (shadowActive && ! s.isRecording)
+        finishRecording();
+    syncPracticeToEngine();
+    notify (change::practice);
+}
 void UiSession::setRecMode (project::RecMode m) { s.recMode = m; notify (change::practice); }
 void UiSession::setPitchTolerance (float c)   { s.pitchToleranceCents = c; notify (change::view); }
 

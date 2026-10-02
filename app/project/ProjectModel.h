@@ -27,6 +27,8 @@ struct Take
     float peak = 0.0f;               // 最大振幅（ノーマライズはしない。書き出しの表示・notes.txt 用）
     RecMode recMode = RecMode::delivery;
     int64 latencySamples = 0;        // 適用済みのレイテンシ補正（録った位置からこの分だけ前にずらした。B6）
+    int tempoPercent = 100;          // 練習録音のテンポ・キー（B11。ファイルはこの速さで録れている。納品は必ず 100 / 0）
+    int keyShift = 0;
 };
 
 /** 採用区間。ユーザーには 1 本の波形として見せる */

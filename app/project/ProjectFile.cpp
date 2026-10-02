@@ -125,6 +125,11 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
             set (o, "peak", k.peak);
             set (o, "rec_mode", k.recMode == RecMode::practice ? "practice" : "delivery");
             set (o, "latency_samples", k.latencySamples);
+            if (k.tempoPercent != 100 || k.keyShift != 0)   // 練習録音で変えていた時だけ（B11）
+            {
+                set (o, "tempo_percent", k.tempoPercent);
+                set (o, "key_shift", k.keyShift);
+            }
             takes.add (o);
         }
         set (t, "takes", takes);
@@ -274,6 +279,8 @@ LoadedProject fromJson (const juce::String& text)
                     k.peak = (float) getDouble (o, "peak");
                     k.recMode = getString (o, "rec_mode") == "practice" ? RecMode::practice : RecMode::delivery;
                     k.latencySamples = getInt64 (o, "latency_samples");
+                    k.tempoPercent = juce::jlimit (50, 150, getInt (o, "tempo_percent", 100));
+                    k.keyShift = juce::jlimit (-6, 6, getInt (o, "key_shift", 0));
                     if (k.id.isNotEmpty())
                         tr.takes.push_back (k);
                 }

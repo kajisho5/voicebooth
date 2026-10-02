@@ -133,6 +133,7 @@ struct Session
     bool latencyHasResult = false;        // この画面を開いてから測った（結果を出す）
     audio::latency::Result latencyResult; // 最後の測定の結果（失敗の理由を出す）
     int64 recordingLatency = 0;           // 録音を始めた時の補正量（テイクの頭をこの分だけ前へ）
+    int recordingTempo = 100, recordingKey = 0;   // 録音を始めた時の練習のテンポ・キー（B11）
 
     // 入力デバイス（B3。UI_MOCK では open = false のまま）
     audio::InputStatus input;

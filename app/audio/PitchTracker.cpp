@@ -137,7 +137,7 @@ void PitchTracker::release()
     stopThread (1000);
 }
 
-void PitchTracker::push (const float* input, int numSamples, int64 songStart, int songPlayed) noexcept
+void PitchTracker::push (const float* input, int numSamples, int64 songStart, int songPlayed, double songStep) noexcept
 {
     if (! ready.load() || input == nullptr || numSamples <= 0)
         return;
@@ -155,7 +155,9 @@ void PitchTracker::push (const float* input, int numSamples, int64 songStart, in
         {
             const auto k = offset + i;
             ring[(size_t) (start + i)] = input[k];
-            ringPos[(size_t) (start + i)] = k < songPlayed ? songStart + k : -1;
+            ringPos[(size_t) (start + i)] = k >= songPlayed ? -1
+                                          : juce::exactlyEqual (songStep, 1.0) ? songStart + k
+                                                            : songStart + (int64) std::llround (k * songStep);
         }
     };
     put (s1, n1, 0);
