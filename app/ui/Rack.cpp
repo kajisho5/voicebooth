@@ -20,7 +20,7 @@ InputModule::InputModule (UiSession& u, Actions& a)
     buffer.setButtonText (juce::String (u->bufferSize) + " smp");
     buffer.withIcon (Icon::chevronDown).withFont (mono (10.5f));
     buffer.setTooltip (tr ("rack.input.buffer.tooltip"));
-    buffer.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
+    buffer.onClick = [this] { if (actions.openSetup) actions.openSetup(); };   // バッファはデバイスの設定にある
     addChildComponent (buffer);
 }
 
@@ -198,7 +198,7 @@ MonitorModule::MonitorModule (UiSession& u)
     : RackModule (tr ("rack.monitor"), tr ("rack.monitor.sub")), SessionView (u)
 {
     backingStrip = strips.add (new ChannelStrip (tr ("monitor.backing"), u->offVocalGain, 0.62f));
-    strips.add (new ChannelStrip (tr ("monitor.refMain"), u->mainGain, 0.48f, colours::ref));
+    mainStrip = strips.add (new ChannelStrip (tr ("monitor.refMain"), u->mainGain, 0.48f, colours::ref));
     harmStrip = strips.add (new ChannelStrip (tr ("monitor.refHarm"), u->harmonyGain, 0.22f, colours::ref));
     selfStrip = strips.add (new ChannelStrip (tr ("monitor.self"), u->monitorGain, 0.70f));
     reverbStrip = strips.add (new ChannelStrip (tr ("monitor.reverb"), u->monitorReverb, -1.0f, colours::textDim, false, tr ("monitor.reverb.note")));
@@ -206,14 +206,22 @@ MonitorModule::MonitorModule (UiSession& u)
     for (auto* st : strips)
         addAndMakeVisible (st);
 
-    // オフボ（B2）と自分の声・モニターリバーブ（B4）は音に効く。お手本は B9 / B12 まで見た目だけ
-    backingStrip->fader().onValueChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
+    // オフボ（B2）と自分の声・モニターリバーブ（B4）は音に効く。お手本を聴く・S（ソロ）はまだ無いので、本物のアプリでは出さない（見本だけ）
+    if (u->engineAttached)
+    {
+        mainStrip->setVisible (false);
+        harmStrip->setVisible (false);
+        backingStrip->setSoloShown (false);
+        selfStrip->setSoloShown (false);
+        backingStrip->fader().setMeter (-1.0f);   // オフボの量はまだ測っていない（見本の値を出さない）
+    }
+    backingStrip->onFaderChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
     backingStrip->muteKey().onClick = [this] { session.setBackingMuted (backingStrip->muteKey().getToggleState()); };
-    selfStrip->fader().onValueChange = [this] { session.setSelfMonitorLevel ((float) selfStrip->fader().getValue()); };
+    selfStrip->onFaderChange = [this] { session.setSelfMonitorLevel ((float) selfStrip->fader().getValue()); };
     selfStrip->muteKey().onClick = [this] { session.setSelfMonitorMuted (selfStrip->muteKey().getToggleState()); };
     selfStrip->muteKey().setTooltip (tr ("monitor.self.mute.tooltip"));
     selfStrip->fader().setTooltip (tr ("monitor.self.tooltip"));
-    reverbStrip->fader().onValueChange = [this] { session.setMonitorReverb ((float) reverbStrip->fader().getValue()); };
+    reverbStrip->onFaderChange = [this] { session.setMonitorReverb ((float) reverbStrip->fader().getValue()); };
     reverbStrip->fader().setTooltip (tr ("monitor.reverb.tooltip"));
     onSessionChanged (change::monitor | change::meter);
 }
@@ -307,8 +315,8 @@ void MonitorModule::paint (juce::Graphics& g)
 
 void MonitorModule::resized()
 {
-    // 簡単モードはハモリのお手本を出さない（DESIGN 2）
-    harmStrip->setVisible (state().mode != project::Mode::easy);
+    // 簡単モードはハモリのお手本を出さない（DESIGN 2）。本物のアプリではお手本の帯そのものを出さない（まだ鳴らせない）
+    harmStrip->setVisible (state().mode != project::Mode::easy && ! state().engineAttached);
 
     int visible = 0;
     for (auto* st : strips) visible += st->isVisible() ? 1 : 0;

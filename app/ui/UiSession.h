@@ -107,6 +107,7 @@ public:
     void setOctaveAlign (bool);
     /** 歌詞レーンを出すか（設定。既定は出さない） */
     void setShowLyrics (bool);
+    void setCrossfade (double ms);   // 0 / 5 / 8 / 20 ms
     void setOctaveUp (bool);
     void setFullRange (bool);
 

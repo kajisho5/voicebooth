@@ -601,6 +601,7 @@
   "start.guide.set": "范唱：{0}",
   "start.guide.setSub": "读取伴奏后会对齐时间并叠加（点击重新选择）",
   "start.guide.title": "范唱（带人声的原曲）· 可选",
+  "start.localOnly": "只能放入本机的音频文件。Spotify、Apple Music、YouTube Music 等订阅服务中的歌曲无法直接放入。",
   "start.openProject": "打开项目",
   "start.recent": "RECENT",
   "start.recent.empty": "还没有。打开歌曲后会显示在这里",

@@ -601,6 +601,7 @@
   "start.guide.set": "範唱：{0}",
   "start.guide.setSub": "讀取伴奏後會對齊時間並疊加（點擊重新選擇）",
   "start.guide.title": "範唱（帶人聲的原曲）· 可選",
+  "start.localOnly": "只能放入本機的音訊檔。Spotify、Apple Music、YouTube Music 等訂閱服務中的歌曲無法直接放入。",
   "start.openProject": "開啟專案",
   "start.recent": "RECENT",
   "start.recent.empty": "還沒有。開啟歌曲後會顯示在這裡",

@@ -124,8 +124,10 @@ juce::Colour PitchLane::colourFor (const dummy::PitchPoint& p) const
 }
 
 // 練習でキーを変えている時（B11）は、お手本の線もその分ずらす（伴奏と同じキーで歌う）
-float PitchLane::refOffset() const  { return (state().isHarmonySelected() ? harmonyOffset : 0.0f) + (float) state().keyShift; }
-float PitchLane::mineOffset() const { return (state().isHarmonySelected() ? harmonyOffset : 0.0f) + (state().octaveUp ? 12.0f : 0.0f); }
+// ハモリのお手本はまだ作れない。本物のアプリでハモリのトラックを選んでも、メインのお手本をそのまま出す（ずらした嘘の線を出さない）
+bool PitchLane::harmonyGuide() const { return state().isHarmonySelected() && ! state().engineAttached; }
+float PitchLane::refOffset() const  { return (harmonyGuide() ? harmonyOffset : 0.0f) + (float) state().keyShift; }
+float PitchLane::mineOffset() const { return (harmonyGuide() ? harmonyOffset : 0.0f) + (state().octaveUp ? 12.0f : 0.0f); }
 
 //==============================================================================
 int PitchLane::tagAt (juce::Point<float> p) const
@@ -235,7 +237,7 @@ void PitchLane::paint (juce::Graphics& g)
 
         drawBackground (g, m);
         lane::drawRange (g, s, m, plot);
-        if (s.isHarmonySelected())
+        if (harmonyGuide())
             drawMainGhost (g, m);
         drawReference (g, m);
         drawMine (g, m);
@@ -462,7 +464,7 @@ void PitchLane::drawFooter (juce::Graphics& g)
         g.setColour (colours::ref.withAlpha (0.85f));
         g.fillRect (sw.withSizeKeepingCentre (sw.getWidth(), 1.4f));
         r.removeFromLeft (6.0f);
-        label (s.isHarmonySelected() ? tr ("pitch.legend.refHarmony", (int) s.pitchToleranceCents)
+        label (harmonyGuide() ? tr ("pitch.legend.refHarmony", (int) s.pitchToleranceCents)
                                      : tr ("pitch.legend.ref", (int) s.pitchToleranceCents), colours::textDim);
     }
 
@@ -479,7 +481,7 @@ void PitchLane::drawFooter (juce::Graphics& g)
         label (tr ("pitch.legend.mine"), colours::textDim);
     }
 
-    if (s.isHarmonySelected() && r.getWidth() > 60.0f)
+    if (harmonyGuide() && r.getWidth() > 60.0f)
     {
         g.setColour (colours::text.withAlpha (0.35f));
         g.fillRoundedRectangle (r.removeFromLeft (18.0f).withSizeKeepingCentre (18.0f, 2.0f), 1.0f);

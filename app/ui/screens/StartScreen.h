@@ -79,7 +79,7 @@ private:
     struct RecentRow { juce::String name, date, length; project::Mode mode = project::Mode::standard; juce::File file; };
     std::vector<RecentRow> recents;
 
-    juce::Rectangle<int> panel, dropArea, guideArea, recentArea, firstRunArea;
+    juce::Rectangle<int> panel, dropArea, guideArea, localNoteArea, recentArea, firstRunArea;
     std::vector<juce::Rectangle<int>> recentRows;
     juce::OwnedArray<KeyButton> firstRunKeys;
     KeyButton openFolder, continueKey, cancelKey, anotherKey, originalKey;
