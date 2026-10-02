@@ -1,6 +1,10 @@
 {
   "analysis.onset": "ONSET",
+  "analysis.onset.early": "{0} ms 早め",
+  "analysis.onset.onTime": "ぴったり",
   "analysis.onset.value": "{0} ms 遅め",
+  "analysis.pitch": "PITCH",
+  "analysis.pitch.value": "帯の中 {0}%",
   "analysis.vibrato": "VIB",
   "analysis.vibrato.value": "{0} Hz ±{1}c",
   "analyze.chooseAnother": "別の曲を選ぶ",
