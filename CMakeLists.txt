@@ -182,6 +182,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/OffVocal.cpp
     app/analysis/TakeStats.cpp
     app/analysis/KeySuggest.cpp
+    app/analysis/GuideClean.cpp
     app/separation/SeparatorClient.cpp
     app/models/ModelManifest.cpp
     app/models/ModelDownloader.cpp)
@@ -457,6 +458,7 @@ if(VOICEBOOTH_TESTS)
         tests/ModelDownloadTests.cpp
         tests/TakeStatsTests.cpp
         tests/KeySuggestTests.cpp
+        tests/GuideCleanTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
