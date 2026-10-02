@@ -142,6 +142,7 @@ VoiceBooth は無料です。気に入ったら [GitHub Sponsors](https://github
 | IBM Plex Sans JP / IBM Plex Mono（`resources/fonts`） | SIL Open Font License 1.1 |
 | ONNX Runtime 1.22.0（ボーカル分離の別プロセスだけ。ビルド時に公式のビルド済みを取得） | MIT |
 | Monocypher 4.0.3（分離モデルの一覧の Ed25519 署名を確かめる。ビルド時に取得） | CC0 / BSD-2-Clause のデュアル |
+| whisper.cpp v1.9.4（歌詞の自動合わせの別プロセスだけ。ビルド時に取得） | MIT |
 | Rubber Band Library 4（練習用のテンポ / キー。ビルド時に取得） | GPL v2 以降 / 商用のデュアル（ここでは GPL） |
 | Steinberg ASIO SDK 2.3.4（Windows のビルドだけ。ビルド時に公式の配布物を取得） | GPLv3 / 商用のデュアル（ここでは GPLv3）。SDK 自体はリポジトリに入れない。ASIO は Steinberg Media Technologies GmbH の商標 |
 | 予定：分離・ピッチ・歌詞のモデル | 重みのライセンスを確かめたものだけ。アプリとは別に配る |

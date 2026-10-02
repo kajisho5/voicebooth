@@ -111,7 +111,8 @@ ModelDownloadDialog::ModelDownloadDialog (Stage s, bool anim, float from)
 }
 
 ModelDownloadDialog::ModelDownloadDialog (Stage s, UiSession& session)
-    : DialogPanel (tr ("model.title"), tr ("model.micro")), stage (s), animate (false), live (&session)
+    : DialogPanel (tr (session->modelDl.kind == 1 ? "model.lyrics.title" : "model.title"), tr ("model.micro")),
+      stage (s), animate (false), live (&session), lyricsModel (session->modelDl.kind == 1)
 {
     const auto& m = session->modelDl;
     modelMB = juce::jmax (1.0, (double) m.size / (1024.0 * 1024.0));
@@ -141,7 +142,7 @@ void ModelDownloadDialog::build (float from)
         case Stage::confirm:
             addFooterKey (tr ("model.download", juce::roundToInt (modelMB)), KeyRole::primary,
                           [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
-            addFooterKey (tr ("model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr (lyricsModel ? "model.lyrics.later" : "model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
             break;
 
         case Stage::downloading:
@@ -167,14 +168,14 @@ void ModelDownloadDialog::build (float from)
             break;
 
         case Stage::done:
-            addFooterKey (tr ("model.continue"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr (lyricsModel ? "model.lyrics.continue" : "model.continue"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
             gotMB = modelMB;
             flash = 1.0f;     // 開いた時に全体が一度光る
             break;
 
         case Stage::failed:
             addFooterKey (tr ("model.retry"), KeyRole::primary, [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
-            addFooterKey (tr ("model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr (lyricsModel ? "model.lyrics.later" : "model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
             gotMB = modelMB;
             shakeT = 0.0;     // 開いた時に小さく揺れる
             break;
@@ -358,7 +359,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
 
     g.setColour (colours::textDim);
     g.setFont (sans (12.5f));
-    g.drawFittedText (tr ("model.sub"), r.removeFromTop (40.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
+    g.drawFittedText (tr (lyricsModel ? "model.lyrics.sub" : "model.sub"), r.removeFromTop (40.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
     r.removeFromTop (8.0f);
 
     // モデル（名前・用途・サイズ・ライセンス・配布元）
@@ -377,7 +378,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
         g.drawText (name, top.removeFromLeft (textWidth (mono (14.0f, Weight::semibold), name) + 14.0f), juce::Justification::centredLeft, false);
         g.setColour (colours::textDim);
         g.setFont (sans (12.0f));
-        g.drawText (tr ("model.role"), top, juce::Justification::centredLeft, true);
+        g.drawText (tr (lyricsModel ? "model.lyrics.role" : "model.role"), top, juce::Justification::centredLeft, true);
 
         g.setColour (colours::textMute);
         g.setFont (sans (11.0f));
@@ -488,7 +489,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
             g.setFont (sans (12.5f));
             g.drawFittedText (tr ("model.failed.sub"), r.removeFromTop (40.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
             r.removeFromTop (6.0f);
-            infoLine (g, r, Icon::check, colours::textMute, tr ("model.failed.safe"));
+            infoLine (g, r, Icon::check, colours::textMute, tr (lyricsModel ? "model.lyrics.failed.safe" : "model.failed.safe"));
             break;
         }
     }

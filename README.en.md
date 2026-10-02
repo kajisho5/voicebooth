@@ -142,6 +142,7 @@ The source code is licensed under the **GNU Affero General Public License v3.0 o
 | IBM Plex Sans JP / IBM Plex Mono (`resources/fonts`) | SIL Open Font License 1.1 |
 | ONNX Runtime 1.22.0 (only in the separate vocal-separation process; the official prebuilt package is fetched at build time) | MIT |
 | Monocypher 4.0.3 (verifies the Ed25519 signature of the model list; fetched at build time) | Dual CC0 / BSD-2-Clause |
+| whisper.cpp v1.9.4 (only in the separate lyrics-sync process; fetched at build time) | MIT |
 | Rubber Band Library 4 (practice tempo / key; fetched at build time) | Dual GPL v2 or later / commercial (used here under GPL) |
 | Steinberg ASIO SDK 2.3.4 (Windows builds only; the official package is fetched at build time) | Dual GPLv3 / commercial (used here under GPLv3). The SDK itself is not kept in this repository. ASIO is a trademark of Steinberg Media Technologies GmbH |
 | Planned: separation, pitch and lyrics models | Only models whose weight licenses have been checked. Distributed separately from the app |

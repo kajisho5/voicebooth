@@ -59,6 +59,7 @@ private:
     Stage stage;
     bool animate;
     UiSession* live = nullptr;
+    bool lyricsModel = false;   // 歌詞の認識モデル（B17）の画面：文言を替える
     void readLive();
     void build (float from);
     double modelMB = 220.0;
