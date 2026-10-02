@@ -337,36 +337,77 @@ void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
     });
 }
 
+const std::vector<analysis::NoteSpan>& PitchLane::refNotes() const
+{
+    const auto& s = state();
+    const auto key = s.refPitch.empty() ? 0
+                   : (juce::int64) s.refPitch.size() * 1000003 + s.refPitch.front().sample * 31 + s.refPitch.back().sample
+                     + (juce::int64) s.sampleRate();
+    if (key != notesKey)
+    {
+        std::vector<audio::PitchFrame> frames;
+        frames.reserve (s.refPitch.size());
+        for (auto& p : s.refPitch)
+            frames.push_back ({ p.sample, p.midi, p.confidence, 0.0f });
+        notesCache = analysis::segmentNotes (frames, s.sampleRate());
+        notesKey = key;
+    }
+    return notesCache;
+}
+
 void PitchLane::drawReference (juce::Graphics& g, const TimeMap& m)
 {
     const auto& s = state();
-    const auto halfBand = s.pitchToleranceCents / 100.0f;
     const auto off = refOffset();
+    const auto& notes = refNotes();
+    const auto rowH = std::abs (yForMidi (60.0f) - yForMidi (61.0f));
 
+    // 音符の棒：伸ばしている音を、いちばん近い半音の行に（「この音を歌う」がひと目で分かる）。入る時は音名も
+    const auto nameFont = mono (9.5f, Weight::semibold);
+    for (auto& n : notes)
+    {
+        if (n.end < s.viewStart || n.start > s.viewEnd)
+            continue;
+        const auto semi = std::round (n.midi + off);
+        const auto x0 = m.x (n.start), x1 = m.x (n.end);
+        const juce::Rectangle<float> bar (x0, yForMidi (semi) - rowH * 0.42f, juce::jmax (2.0f, x1 - x0), rowH * 0.84f);
+        const auto corner = juce::jmin (4.0f, bar.getHeight() * 0.5f);
+        g.setColour (colours::ref.withAlpha (0.18f));
+        g.fillRoundedRectangle (bar, corner);
+        g.setColour (colours::ref.withAlpha (0.5f));
+        g.drawRoundedRectangle (bar.reduced (0.5f), corner, 1.0f);
+
+        const auto name = dummy::noteName (semi);
+        if (rowH >= 9.0f && bar.getWidth() >= textWidth (nameFont, name) + 10.0f)
+        {
+            g.setColour (colours::ref.withAlpha (0.9f));
+            g.setFont (nameFont);
+            g.drawText (name, bar.withTrimmedLeft (5.0f), juce::Justification::centredLeft, false);
+        }
+    }
+
+    // 細かい音程の線：音符の中は濃く、音符の外（しゃくり・フォール・つなぎ・取り切れない外れ）は薄く
     forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
-        // 許容帯：上辺を左→右、下辺を右→左でつないだ多角形
-        juce::Path band, centre;
-        for (size_t i = 0; i < run.size(); ++i)
-        {
-            const auto x = m.x (run[i]->sample);
-            const auto y = yForMidi (run[i]->midi + off + halfBand);
-            if (i == 0) band.startNewSubPath (x, y); else band.lineTo (x, y);
-        }
-        for (size_t i = run.size(); i-- > 0;)
-            band.lineTo (m.x (run[i]->sample), yForMidi (run[i]->midi + off - halfBand));
-        band.closeSubPath();
-
+        juce::Path all, inNotes;
+        bool drawingIn = false;
         for (size_t i = 0; i < run.size(); ++i)
         {
             const juce::Point<float> pt { m.x (run[i]->sample), yForMidi (run[i]->midi + off) };
-            if (i == 0) centre.startNewSubPath (pt); else centre.lineTo (pt);
-        }
+            if (i == 0) all.startNewSubPath (pt); else all.lineTo (pt);
 
-        g.setColour (colours::ref.withAlpha (0.24f));
-        g.fillPath (band);
-        g.setColour (colours::ref.withAlpha (0.9f));
-        g.strokePath (centre, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            const auto sample = run[i]->sample;
+            auto it = std::upper_bound (notes.begin(), notes.end(), sample, [] (int64 v, const analysis::NoteSpan& n) { return v < n.start; });
+            const bool in = it != notes.begin() && sample <= std::prev (it)->end;
+            if (in && ! drawingIn) inNotes.startNewSubPath (pt);
+            else if (in)           inNotes.lineTo (pt);
+            drawingIn = in;
+        }
+        const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
+        g.setColour (colours::ref.withAlpha (0.32f));
+        g.strokePath (all, stroke (1.0f));
+        g.setColour (colours::ref.withAlpha (0.95f));
+        g.strokePath (inNotes, stroke (1.6f));
     });
 }
 
@@ -456,13 +497,15 @@ void PitchLane::drawFooter (juce::Graphics& g)
         r.removeFromLeft (16.0f);
     };
 
-    // お手本：帯
+    // お手本：音符の棒と線
     {
         auto sw = r.removeFromLeft (26.0f).withSizeKeepingCentre (26.0f, 8.0f);
-        g.setColour (colours::ref.withAlpha (0.22f));
-        g.fillRect (sw);
-        g.setColour (colours::ref.withAlpha (0.85f));
-        g.fillRect (sw.withSizeKeepingCentre (sw.getWidth(), 1.4f));
+        g.setColour (colours::ref.withAlpha (0.18f));
+        g.fillRoundedRectangle (sw, 3.0f);
+        g.setColour (colours::ref.withAlpha (0.5f));
+        g.drawRoundedRectangle (sw.reduced (0.5f), 3.0f, 1.0f);
+        g.setColour (colours::ref.withAlpha (0.95f));
+        g.fillRect (sw.withSizeKeepingCentre (sw.getWidth() - 6.0f, 1.4f));
         r.removeFromLeft (6.0f);
         label (harmonyGuide() ? tr ("pitch.legend.refHarmony", (int) s.pitchToleranceCents)
                                      : tr ("pitch.legend.ref", (int) s.pitchToleranceCents), colours::textDim);

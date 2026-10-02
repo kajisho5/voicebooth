@@ -4,11 +4,13 @@
 #include "LaneCommon.h"
 #include "Actions.h"
 #include "parts/KeyButton.h"
+#include "analysis/TakeStats.h"
 
 namespace vb
 {
 /** DESIGN 4.3 ピッチレーン（主役）
-    お手本 = アイスブルーの許容帯（±ピッチ許容）＋中心線、自分 = 状態色の線（再生ヘッドまで）
+    お手本 = 音符の棒（伸ばしている音を、いちばん近い半音の行に音名つきで。オートチューン / Melodyne の画面のように）＋
+    細かい音程の線（音符の中は濃く、音符の外のしゃくり・フォール・つなぎは薄く）。自分 = 状態色の線（再生ヘッドまで）
     ハモリ選択中は Main を薄い白で残す。ルーラー・面のクリックで移動、ドラッグで範囲
     ルーラーの区間の札（B4b）：クリックでその頭へ、ドラッグで動かす（小節線に吸い付く。Alt / Option で吸い付かない）、
     ダブルクリックで名前、右クリックでメニュー。札のない所を右クリックで「ここから○○」「ここを 1 小節目の頭に」 */
@@ -44,6 +46,8 @@ private:
     void drawNoteGutter (juce::Graphics&);
     void drawMainGhost (juce::Graphics&, const TimeMap&);
     void drawReference (juce::Graphics&, const TimeMap&);
+    /** お手本の音符（お手本の点が変わった時だけ作り直す） */
+    const std::vector<analysis::NoteSpan>& refNotes() const;
     void drawMine (juce::Graphics&, const TimeMap&);
     void drawCurrent (juce::Graphics&, const TimeMap&);
     void drawFooter (juce::Graphics&);
@@ -56,5 +60,7 @@ private:
     int draggingTag = -1;          // 掴んでいる区間の札
     bool tagMoved = false;
     float tagGrabOffset = 0.0f;
+    mutable std::vector<analysis::NoteSpan> notesCache;
+    mutable juce::int64 notesKey = -1;
 };
 } // namespace vb
