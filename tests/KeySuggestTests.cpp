@@ -27,9 +27,20 @@ public:
         {
             const auto r = songRange (points (57.0f, 69.0f, 6));
             expect (r.known);
-            expectWithinAbsoluteError (r.low, 57.0f, 0.6f);
-            expectWithinAbsoluteError (r.high, 69.0f, 0.6f);
+            expectWithinAbsoluteError (r.low, 57.6f, 0.3f);   // 5% の所
+            expectWithinAbsoluteError (r.high, 68.4f, 0.3f);   // 95% の所
             expect (! songRange (std::vector<float> (40, 60.0f)).known, "too few points");
+        }
+
+        beginTest ("sustained notes only: blips and octave jumps don't stretch the range");
+        {
+            std::vector<float> seq;
+            auto note = [&] (float m, int n) { for (int i = 0; i < n; ++i) seq.push_back (m + 0.05f * (float) (i % 3)); };
+            note (60.0f, 30); note (48.0f, 3); note (0.0f, 5); note (67.0f, 20); note (79.0f, 2); note (64.0f, 40);
+            const auto kept = sustainedNotes (seq);
+            expectEquals ((int) kept.size(), 90);
+            for (auto m : kept)
+                expect (m >= 59.9f && m <= 67.2f);
         }
 
         beginTest ("already fits: keep the original key");

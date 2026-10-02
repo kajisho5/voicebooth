@@ -2530,26 +2530,28 @@ void UiSession::setVoiceRange (int low, int high)
 
 analysis::KeySuggestion UiSession::keySuggestion() const
 {
-    if (s.refPitch.empty() || s.voiceLow < 0 || s.voiceHigh <= s.voiceLow)
-        return {};
-    // お手本の広がりは点が変わった時だけ数え直す
-    const auto key = (juce::int64) s.refPitch.size() * 1000003 + (s.refPitch.empty() ? 0 : s.refPitch.front().sample);
-    if (key != songRangeKey)
-    {
-        std::vector<float> midi;
-        midi.reserve (s.refPitch.size());
-        for (auto& p : s.refPitch)
-            if (p.confidence >= 0.5f)
-                midi.push_back (p.midi);
-        cachedSongRange = analysis::songRange (midi);
-        songRangeKey = key;
-    }
-    return analysis::suggestKey (cachedSongRange, s.voiceLow, s.voiceHigh);
+    return analysis::suggestKey (guideRange(), s.voiceLow, s.voiceHigh);
 }
 
 analysis::SongRange UiSession::guideRange() const
 {
-    (void) keySuggestion();   // 数え直す
+    // お手本の広がりは点が変わった時だけ数え直す
+    const auto key = (juce::int64) s.refPitch.size() * 1000003 + (s.refPitch.empty() ? 0 : s.refPitch.front().sample);
+    if (key != songRangeKey)
+    {
+        std::vector<float> midi;   // 10 ms ごとの並び（時間の飛び・自信の無い点は無声として切る）
+        midi.reserve (s.refPitch.size());
+        const auto hop = (int64) (audio::pitch::hopSeconds * s.sampleRate() * 1.5);
+        for (size_t i = 0; i < s.refPitch.size(); ++i)
+        {
+            const auto& p = s.refPitch[i];
+            if (i > 0 && p.sample - s.refPitch[i - 1].sample > hop)
+                midi.push_back (0.0f);
+            midi.push_back (p.confidence >= 0.5f ? p.midi : 0.0f);
+        }
+        cachedSongRange = analysis::songRange (analysis::sustainedNotes (midi));
+        songRangeKey = key;
+    }
     return cachedSongRange;
 }
 

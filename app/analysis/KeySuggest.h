@@ -11,7 +11,7 @@
 
 namespace vb::analysis
 {
-/** お手本の音程の広がり（MIDI。外れ値を除くため、声のある点の 3% / 97% の所） */
+/** お手本の音程の広がり（MIDI。外れ値を除くため、中央値 ±15 半音の中の 5% / 95% の所） */
 struct SongRange
 {
     float low = 0.0f, high = 0.0f;
@@ -20,6 +20,10 @@ struct SongRange
 
 /** midi は声のある点だけ（0 は無声として捨てる）。点が少なすぎれば known = false */
 SongRange songRange (const std::vector<float>& midi);
+
+/** 10 ms ごとの点の並びから、同じ音を 80 ms 以上伸ばしている所の点だけを残す（0 = 無声）。
+    分離・引き算の残りのオクターブ違い・息・子音の一瞬の点で、最高音・最低音を言い過ぎない */
+std::vector<float> sustainedNotes (const std::vector<float>& midiSequence, int minRun = 8, float maxSpread = 0.6f);
 
 struct KeySuggestion
 {

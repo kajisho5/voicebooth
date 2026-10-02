@@ -9,6 +9,25 @@ namespace
 {
     constexpr float tolerance = 0.3f;    // 30 セントまでのはみ出しは収まったとみなす（声域は半音単位で測る）
     constexpr size_t minPoints = 50;     // 0.5 秒分（10 ms ごと）。これより少なければ広がりは言えない
+    constexpr float maxFromMedian = 15.0f;
+}
+
+std::vector<float> sustainedNotes (const std::vector<float>& seq, int minRun, float maxSpread)
+{
+    std::vector<float> out;
+    size_t i = 0;
+    while (i < seq.size())
+    {
+        if (seq[i] <= 0.0f) { ++i; continue; }
+        // i から、最初の点から maxSpread 半音以内で続く所
+        size_t j = i + 1;
+        while (j < seq.size() && seq[j] > 0.0f && std::abs (seq[j] - seq[i]) <= maxSpread)
+            ++j;
+        if ((int) (j - i) >= minRun)
+            out.insert (out.end(), seq.begin() + (long) i, seq.begin() + (long) j);
+        i = j;
+    }
+    return out;
 }
 
 SongRange songRange (const std::vector<float>& midi)
@@ -22,9 +41,14 @@ SongRange songRange (const std::vector<float>& midi)
     if (v.size() < minPoints)
         return r;
     std::sort (v.begin(), v.end());
+    // 中央値から 15 半音より離れた点は、歌の音域ではなく伴奏の残り・オクターブ違いとみなして捨てる（1 曲の音域はふつう中央値 ±1 オクターブ程度）
+    const auto mid = v[v.size() / 2];
+    v.erase (std::remove_if (v.begin(), v.end(), [mid] (float m) { return std::abs (m - mid) > maxFromMedian; }), v.end());
+    if (v.size() < minPoints)
+        return r;
     auto at = [&] (double q) { return v[(size_t) std::llround (q * (double) (v.size() - 1))]; };
-    r.low = at (0.03);
-    r.high = at (0.97);
+    r.low = at (0.05);
+    r.high = at (0.95);
     r.known = true;
     return r;
 }

@@ -50,6 +50,8 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Original only | Separate the original to make an instrumental, and show the reference line too (needs the separation model) |
 | Pitch in color | Your pitch is drawn as a line on top: lime when you are on pitch, amber then red as you drift. Singing an octave off can still be lined up on the display |
 | Practice | Tempo 50–150 %, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key |
+| Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). Main and harmonies can't be split, so it's one track |
+| Range and suggested key | Measure your range (lowest and highest notes) with the mic and get a key that fits the guide's lowest and highest notes. One click applies it; if nothing fits, it says how many semitones stick out |
 | Recording | Full-pass recording, retroactive recording (pressing REC late never cuts off the first word), re-recording a range (8 ms crossfade at each edge; 0–20 ms in Pro), latency measurement and compensation |
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
 | Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
@@ -61,9 +63,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 
 These are not in the beta yet (and are not shown in the app).
 
-- Soloing just the reference vocal or just the accompaniment (for now you can play only the tracks you recorded and the instrumental)
 - A reference line for harmonies (selecting a harmony track still shows the main reference line)
-- **Suggesting a key that fits your vocal range** (measure your range and suggest a key that fits the song's highest and lowest notes; planned for the next version)
 - Metronome and count-in sounds, comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
 
 > [!IMPORTANT]

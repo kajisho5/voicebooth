@@ -50,6 +50,8 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Solo la original | Separa la original para crear un instrumental y mostrar también la línea de referencia (necesita el modelo de separación) |
 | Afinación en color | Tu tono se dibuja como una línea encima: verde lima cuando estás afinado, ámbar y luego rojo cuando te desvías. Aunque cantes una octava por encima o por debajo, se puede alinear en pantalla |
 | Práctica | Tempo 50–150 %, tono ±6. Practica despacio, pero la toma de entrega siempre se graba con el tempo y el tono originales |
+| Escuchar la guía | Escucha la voz guía extraída de la original, con el instrumental o en solo (se aplican el tempo y el tono de práctica). La principal y los coros no se pueden separar, así que es una sola pista |
+| Tesitura y tono sugerido | Mide tu tesitura (nota más grave y más aguda) con el micrófono y obtén un tono en el que quepan la nota más grave y la más aguda de la guía. Se aplica con un clic; si no cabe, indica cuántos semitonos se sale |
 | Grabación | Grabación de principio a fin, grabación retroactiva (pulsar REC tarde nunca corta la primera palabra), regrabación de un rango (fundido de 8 ms en cada borde; 0–20 ms en Pro), medición y compensación de latencia |
 | Main / Double / Armonía | Graba dobles y armonías con la misma duración y reprodúcelas juntas |
 | Entrada a tiempo | Comparado con la referencia, muestra cuántos ms entras antes o después (Estándar en adelante). Pro también muestra cuánto tiempo estás afinado y el vibrato |
@@ -61,9 +63,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 
 Esto todavía no está en la beta (y no aparece en la app).
 
-- Escuchar en solo únicamente la voz de referencia o únicamente el acompañamiento (por ahora puedes reproducir solo las pistas que grabaste y el instrumental)
 - Una línea de referencia para las armonías (al seleccionar una pista de armonía se sigue mostrando la línea de referencia principal)
-- **Sugerir un tono que se ajuste a tu tesitura** (medir tu tesitura y sugerir un tono que encaje con las notas más alta y más baja de la canción; previsto para la próxima versión)
 - Sonidos de metrónomo y cuenta previa, comparar tomas de oído, separar algo que no sea la voz (guitarra, batería, etc.)
 
 > [!IMPORTANT]
