@@ -54,6 +54,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 | Tesitura y tono sugerido | Mide tu tesitura (nota más grave y más aguda) con el micrófono y obtén un tono en el que quepan la nota más grave y la más aguda de la guía. Se aplica con un clic; si no cabe, indica cuántos semitonos se sale |
 | Grabación | Grabación de principio a fin, grabación retroactiva (pulsar REC tarde nunca corta la primera palabra), regrabación de un rango (fundido de 8 ms en cada borde; 0–20 ms en Pro), medición y compensación de latencia |
 | Main / Double / Armonía | Graba dobles y armonías con la misma duración y reprodúcelas juntas |
+| Comparar tomas | Lista tus tomas de la más reciente a la más antigua, escucha cada una en su sitio dentro de la canción para un rango (o un segmento del comp) y usa la que elijas (Estándar o superior; Ctrl / ⌘+Z lo deshace) |
 | Entrada a tiempo | Comparado con la referencia, muestra cuántos ms entras antes o después (Estándar en adelante). Pro también muestra cuánto tiempo estás afinado y el vibrato |
 | Exportar | WAV de duración completa desde el inicio de la canción, y un paquete de entrega (un WAV por pista, una mezcla de referencia, notas, zip) |
 | Letra (desactivada por defecto) | Carga .txt / .lrc, sincroniza marcando a mano o automáticamente a partir de la voz de referencia (necesita el modelo de letra) |
@@ -64,7 +65,7 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 Esto todavía no está en la beta (y no aparece en la app).
 
 - Una línea de referencia para las armonías (al seleccionar una pista de armonía se sigue mostrando la línea de referencia principal)
-- Sonidos de metrónomo y cuenta previa, comparar tomas de oído, separar algo que no sea la voz (guitarra, batería, etc.)
+- Sonidos de metrónomo y cuenta previa, separar algo que no sea la voz (guitarra, batería, etc.)
 
 > [!IMPORTANT]
 > Los modelos de separación y de sincronización automática de la letra **todavía se están preparando para su distribución** (a la espera de que se publique la lista de modelos firmada). Mientras tanto, puedes usar un par original + karaoke para mostrar la línea de referencia, grabar y exportar.
@@ -84,7 +85,7 @@ El motor es el mismo; solo cambia lo que ves. Un proyecto hecho en un modo se ab
 
 | Fácil | Estándar | Pro |
 |---|---|---|
-| Graba Main de una vez y entrégalo | Dobles, una armonía, punch-in, entrada a tiempo, paquete de entrega | Dos armonías, porcentaje de afinación y análisis de vibrato, duración del fundido en los bordes del punch-in |
+| Graba Main de una vez y entrégalo | Dobles, una armonía, punch-in, comparar tomas, entrada a tiempo, paquete de entrega | Dos armonías, porcentaje de afinación y análisis de vibrato, duración del fundido en los bordes del punch-in |
 
 | Modo Fácil | Modo Pro (armonía) |
 |---|---|

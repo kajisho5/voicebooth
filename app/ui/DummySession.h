@@ -128,6 +128,17 @@ struct Session
         int vibNotes = 0;
     };
     std::map<juce::String, TakeStats> takeStats;
+    // テイク比較（B18c）：比べている間の範囲と、いま試聴で入れているテイク（採用区間はその形に差し替わっている）
+    struct TakeCompare
+    {
+        bool active = false;
+        int serial = 0;                               // 比べ始めるたびに増える（閉じたパネルが次の比較を止めないように）
+        TrackType track = TrackType::main;
+        int64 from = 0, to = 0;
+        enum class Scope { song, inOut, segment } scope = Scope::song;
+        juce::String previewing;                      // 空 = いまの採用（元のまま）
+        std::vector<project::CompSegment> original;   // 比べ始めた時の採用区間（「採用中」の印・元に戻す形）
+    } compare;
     bool exporting = false;
 
     // 画面下に一度だけ出す知らせ（トースト）。noticeSerial が増えたら出す

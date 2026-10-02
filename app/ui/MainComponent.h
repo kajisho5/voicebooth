@@ -38,7 +38,7 @@ struct AppHooks
 struct LaunchOptions
 {
     juce::String screen;          // start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
-                                  // skin-editor-borrow / confirm-rec /
+                                  // skin-editor-borrow / confirm-rec / compare /
                                   // update / update-notice / model-download / model-downloading / model-interrupted / model-done / model-failed
     juce::File open;              // この曲を開く（--open=）
     bool recording = false;
@@ -88,6 +88,9 @@ public:
     void openSongInfo();
     void openLyrics (const juce::File& file = {});
     void openSectionName (int index);
+
+    /** テイク比較（B18c）。from >= to なら IN / OUT（無ければ曲全体）、そうでなければその区間 */
+    void openTakeCompare (int64 from, int64 to);
 
     void showToast (const juce::String&);
     /** 押せるキー付きの知らせ（長めに出す。録り間違いの救済など） */

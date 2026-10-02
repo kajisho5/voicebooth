@@ -10,6 +10,7 @@
 #include "screens/SongInfoDialog.h"
 #include "screens/LyricsDialog.h"
 #include "screens/RangeDialog.h"
+#include "screens/TakeCompareDialog.h"
 #include "SongMarks.h"
 
 namespace vb
@@ -17,7 +18,7 @@ namespace vb
 MainComponent::MainComponent (UiSession& u, AppHooks& h)
     : SessionView (u),
       hooks (h),
-      top (u, actions), transport (u, actions), pitch (u, actions), lyrics (u, actions), wave (u), tracks (u), rack (u, actions), status (u)
+      top (u, actions), transport (u, actions), pitch (u, actions), lyrics (u, actions), wave (u, actions), tracks (u, actions), rack (u, actions), status (u)
 {
     actions.toggleRecord = [this] { toggleRecord(); };
     actions.requestTempo = [this] (int v) { requestTempo (v); };
@@ -35,6 +36,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openSongInfo = [this] { openSongInfo(); };
     actions.openLyrics   = [this] { openLyrics(); };
     actions.editSectionName = [this] (int i) { openSectionName (i); };
+    actions.openTakeCompare = [this] (long long from, long long to) { openTakeCompare (from, to); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
@@ -135,6 +137,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
         });
     }
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
+    if (o.screen == "compare")      openTakeCompare (0, 0);   // テイク比較（B18c。見本は Main の IN / OUT）
 
     // DESIGN 11.7 のモック（通信しない）
     if (o.screen.startsWith ("update"))  session.setUpdateAvailable ("0.2.0");
@@ -386,6 +389,15 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     {
         if (key.getKeyCode() == juce::KeyPress::tabKey)
             return false;
+        // テイク比較（B18c）：Esc でやめる＝元の採用区間に戻してから閉じる。パネルにフォーカスが無くても ↑ ↓・Space は届ける
+        if (auto* compare = dynamic_cast<TakeCompareDialog*> (overlay.getContent()))
+        {
+            if (key == juce::KeyPress::escapeKey)
+                compare->cancel();
+            else
+                compare->keyPressed (key);
+            return true;
+        }
         if (key == juce::KeyPress::escapeKey)
             overlay.close();
         return true;
@@ -847,6 +859,30 @@ void MainComponent::openSectionName (int index)
     dlg->onDone = done;
     dlg->onCloseRequest = done;
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openTakeCompare (int64 from, int64 to)
+{
+    // テイク比較（B18c）：from >= to ならトラックのキーから（IN / OUT があればその範囲、無ければ曲全体）、
+    // そうでなければ採用区間のバーで選んだ区間。範囲はループで聴く（曲全体は今の位置から）
+    using Scope = dummy::Session::TakeCompare::Scope;
+    const auto& s = state();
+    auto scope = Scope::segment;
+    if (to <= from)
+    {
+        scope = s.hasRange() ? Scope::inOut : Scope::song;
+        from = s.hasRange() ? s.rangeIn : 0;
+        to = s.hasRange() ? s.rangeOut : s.project.lengthSamples;
+    }
+    if (! session.beginTakeCompare (from, to, scope))
+    {
+        notice (tr (s.isRecording ? "compare.disabled.recording" : "compare.none"));
+        return;
+    }
+    auto dlg = std::make_unique<TakeCompareDialog> (session);
+    dlg->onFinished = [this] { overlay.close(); };
+    // 右に出す（背景を暗くしない：波形レーンの採用区間が差し替わるのを見ながら選ぶ）。外をクリックしても閉じない（試聴中の誤操作で消えない）
+    overlay.show (std::move (dlg), false, OverlayHost::Placement::side);
 }
 
 void MainComponent::openUpdate()

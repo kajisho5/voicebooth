@@ -240,7 +240,8 @@ void PitchLane::paint (juce::Graphics& g)
         if (harmonyGuide())
             drawMainGhost (g, m);
         drawReference (g, m);
-        drawMine (g, m);
+        if (! drawCompareTake (g, m))   // テイク比較の間は、選んだテイクの線をお手本に重ねる（いま歌った線の代わりに）
+            drawMine (g, m);
 
         // お手本ピッチがまだない：解析中か、声入りの原曲をここにドロップする案内（B9）
         if (s.refPitch.empty())
@@ -403,6 +404,52 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
         }
         flush();
     });
+}
+
+bool PitchLane::drawCompareTake (juce::Graphics& g, const TimeMap& m)
+{
+    // テイク比較（B18c）：試聴中のテイクの音程（録った時に裏で取った線。原速・原キーのテイクだけ）を、比べている範囲だけ重ねる。
+    // 色は暖かい白（お手本のアイスブルーと見分ける）。いま歌っている線とは別物なので、比べている間は自分の線を描かない
+    const auto& s = state();
+    const auto& c = s.compare;
+    if (! c.active || c.previewing.isEmpty() || c.track != s.currentTrack().type)
+        return false;
+    const auto it = s.takePitch.find (dummy::takeWaveKey (c.track, c.previewing));
+    if (it == s.takePitch.end() || it->second == nullptr)
+        return false;
+
+    // お手本と同じだけずらす（練習のキー・ハモリ）。テイクは原キーで録っているので、ずらしたお手本と同じ所に並ぶ
+    const auto off = mineOffset() + (float) s.keyShift;
+    const auto from = juce::jmax (c.from, s.viewStart - 4800), to = juce::jmin (c.to, s.viewEnd + 4800);
+    const auto maxGap = (int64) (0.05 * s.sampleRate());
+    juce::Path path;
+    bool open = false;
+    int64 last = 0;
+    float lastMidi = 0.0f;
+    for (auto& f : *it->second)
+    {
+        if (f.songSample < from || f.songSample > to)
+            continue;
+        if (f.midi <= 0.0f || f.confidence < 0.5f)
+        {
+            open = false;   // 声の無い所・信頼の低い所はつながない（嘘でつながない）
+            continue;
+        }
+        const juce::Point<float> pt { m.x (f.songSample), yForMidi (f.midi + off) };
+        if (! open || f.songSample - last > maxGap || std::abs (f.midi - lastMidi) > 4.0f)
+            path.startNewSubPath (pt);
+        else
+            path.lineTo (pt);
+        open = true;
+        last = f.songSample;
+        lastMidi = f.midi;
+    }
+    const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
+    g.setColour (colours::text.withAlpha (0.14f));
+    g.strokePath (path, stroke (6.0f));
+    g.setColour (colours::text.withAlpha (0.9f));
+    g.strokePath (path, stroke (2.2f));
+    return true;
 }
 
 void PitchLane::drawCurrent (juce::Graphics& g, const TimeMap& m)

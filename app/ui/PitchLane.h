@@ -45,6 +45,7 @@ private:
     void drawMainGhost (juce::Graphics&, const TimeMap&);
     void drawReference (juce::Graphics&, const TimeMap&);
     void drawMine (juce::Graphics&, const TimeMap&);
+    bool drawCompareTake (juce::Graphics&, const TimeMap&);   // テイク比較で試聴中のテイクの線（B18c）。描いたら true
     void drawCurrent (juce::Graphics&, const TimeMap&);
     void drawFooter (juce::Graphics&);
 

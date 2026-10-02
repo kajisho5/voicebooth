@@ -26,13 +26,14 @@ English follows Japanese.
 - 声域を測って、お手本の最低音・最高音が収まるキーを提案（収まらない時は何半音はみ出すかも）
 - 通し録音・遡及録音・範囲の録り直し・遅延の測定と補正
 - Main / Double / Harmony のトラック、入りタイミング（標準以上）、音程の割合・ビブラート（プロ）
+- テイク比較（標準以上）：録ったテイクを範囲に差し替えて曲の中で聴き比べ、選んだテイクを使う
 - フル尺 WAV の書き出し、納品パック（WAV・確認用ミックス・メモ・zip）
 - 6 言語（日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español）、スキン 10 種
 
 ## まだのもの・注意
 
 - **分離のモデルは配布の準備中です。** それまでは「原曲だけで始める」は使えません（原曲＋カラオケの組は使えます）
-- ハモリだけのお手本（メインとハモリは分けられません）、メトロノーム、テイクの聴き比べはまだありません
+- ハモリだけのお手本（メインとハモリは分けられません）、メトロノームはまだありません
 - 歌詞の自動合わせ（音声認識）は入れていません（遅いため。.txt / .lrc の読み込みとタップで合わせるは使えます）
 - 分離した声・伴奏は個人の練習用です。配布・公開（歌ってみたのオフボとして配るのを含む）は、元の曲の権利者が許している範囲だけにしてください
 - 作者の手元の実機での確認はこれからです。おかしな所は [Issues](https://github.com/kajisho5/voicebooth/issues) へどうぞ
@@ -65,13 +66,14 @@ English follows Japanese.
 - Measure your vocal range and get a key that fits the guide's lowest and highest notes (or how many semitones stick out if none fits)
 - Full-length recording, retroactive recording, range re-recording, latency measurement and compensation
 - Main / Double / Harmony tracks, entry timing (Standard and up), pitch accuracy and vibrato (Pro)
+- Take comparison (Standard and up): hear each take in place for a range and use the one you pick
 - Full-length WAV export and a delivery pack (WAVs, reference mix, notes, zip)
 - Six languages (Japanese, English, Korean, Simplified and Traditional Chinese, Spanish) and ten built-in skins
 
 ## Not yet / please note
 
 - **The separation model is still being prepared for download.** Until then, "start from the original only" is unavailable (the original + karaoke pair works).
-- A harmony-only guide (main and harmonies can't be split), a metronome and take comparison are not in this version.
+- A harmony-only guide (main and harmonies can't be split) and a metronome are not in this version.
 - There is no automatic lyrics alignment (speech recognition was too slow). Loading .txt / .lrc and tap-to-sync work.
 - Separated vocals and backing are for personal practice. Only share or publish them (including as an off-vocal for a cover) where the rights holder of the original song allows it.
 - Real-hardware testing is still under way. Please report problems in [Issues](https://github.com/kajisho5/voicebooth/issues).
