@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="55" height="55" viewBox="0 0 55 55">
+<defs>
+  <linearGradient id="tile" x1="0" y1="0" x2="0" y2="55" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#36322C"/><stop offset="0.55" stop-color="#1E1C19"/><stop offset="1" stop-color="#121110"/>
+  </linearGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#0B0A09"/><stop offset="1" stop-color="#191714"/>
+  </linearGradient>
+  <linearGradient id="capsule" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#D9D2C5"/><stop offset="0.45" stop-color="#F7F3EA"/><stop offset="1" stop-color="#C9C1B3"/>
+  </linearGradient>
+  <radialGradient id="ledglow">
+    <stop offset="0" stop-color="#C6EE6A" stop-opacity="0.55"/><stop offset="1" stop-color="#C6EE6A" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="grain" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7"/>
+    <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.06 0"/>
+    <feComposite in2="SourceGraphic" operator="in"/>
+  </filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+    <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.45"/>
+  </filter>
+</defs>
+<rect x="0" y="0" width="55" height="55" rx="11.0" fill="url(#tile)"/>
+<rect x="0" y="0" width="55" height="55" rx="11.0" fill="#000" filter="url(#grain)"/>
+<rect x="0.22" y="0.22" width="54.56" height="54.56" rx="10.89" fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="0.44"/>
+  <rect x="12.58" y="13.13" width="29.84" height="29.84" rx="7.50" fill="url(#glass)"/>
+  <rect x="12.58" y="13.13" width="29.84" height="29.84" rx="7.50" fill="none" stroke="#F2EDE3" stroke-width="2.90"/>
+  <rect x="22.38" y="19.52" width="10.23" height="15.00" rx="5.12" fill="url(#capsule)"/>
+  <line x1="24.64" y1="21.93" x2="30.36" y2="21.93" stroke="#6F6A60" stroke-opacity="0.55" stroke-width="0.41" stroke-linecap="round"/>
+  <line x1="24.64" y1="23.43" x2="30.36" y2="23.43" stroke="#6F6A60" stroke-opacity="0.55" stroke-width="0.41" stroke-linecap="round"/>
+  <line x1="24.64" y1="24.93" x2="30.36" y2="24.93" stroke="#6F6A60" stroke-opacity="0.55" stroke-width="0.41" stroke-linecap="round"/>
+  <line x1="24.64" y1="26.43" x2="30.36" y2="26.43" stroke="#6F6A60" stroke-opacity="0.55" stroke-width="0.41" stroke-linecap="round"/>
+  <rect x="26.31" y="34.19" width="2.39" height="5.12" fill="#F2EDE3"/>
+  <circle cx="42.42" cy="13.13" r="6.48" fill="url(#tile)"/>
+  <circle cx="42.42" cy="13.13" r="10.23" fill="url(#ledglow)"/>
+  <circle cx="42.42" cy="13.13" r="3.92" fill="#C6EE6A"/>
+  <circle cx="41.40" cy="11.94" r="1.36" fill="#ffffff" fill-opacity="0.6"/>
+</svg>
