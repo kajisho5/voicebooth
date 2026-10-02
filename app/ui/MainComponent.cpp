@@ -11,6 +11,7 @@
 #include "screens/LyricsDialog.h"
 #include "screens/RangeDialog.h"
 #include "SongMarks.h"
+#include "system/AppCache.h"
 
 namespace vb
 {
@@ -136,8 +137,17 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     }
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
 
-    // DESIGN 11.7 のモック（通信しない）
-    if (o.screen.startsWith ("update"))  session.setUpdateAvailable ("0.2.0");
+    // DESIGN 11.7 の見本（通信しない。版・本文は見本、キーは本物のリリースのページを開く）
+    if (o.screen.startsWith ("update"))
+    {
+        update::Release sample;
+        sample.found = sample.sample = true;
+        sample.version = "0.2.0";
+        sample.published = "2026-10-15";
+        sample.pageUrl = "https://github.com/kajisho5/voicebooth/releases";
+        sample.notes = "- " + tr ("update.sample.note1") + "\n- " + tr ("update.sample.note2") + "\n- " + tr ("update.sample.note3");
+        session.setUpdateAvailable (sample);
+    }
     if (o.screen == "update")             openUpdate();
     using Stage = ModelDownloadDialog::Stage;
     if (o.screen == "model-download")     openModelDownload ((int) Stage::confirm, true);
@@ -269,6 +279,8 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         const auto& s = state();
         if (s.modelDl.noticeSerial == s.noticeSerial)
             showToast (s.noticeText, tr ("model.getButton"), [this] { session.requestSeparationModel(); });   // 押した時だけ一覧を見に行く
+        else if (s.updateNoticeSerial == s.noticeSerial)
+            showToast (s.noticeText, tr ("update.view"), [this] { openUpdate(); });   // 「今すぐ確かめる」で見つけた
         else if (s.rescueNoticeSerial == s.noticeSerial)
         {
             // リハーサルで録ったテイク（原速・原キー）：本番のつもりだったらその場で入れられる
@@ -753,7 +765,35 @@ void MainComponent::openSettings()
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSkinTemplates(); });
     };
+    dlg->onClearCache = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->confirmClearCache(); });
+    };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::confirmClearCache()
+{
+    // 消すのはアプリのキャッシュ（作ったオフボ）だけ。曲ごとの <プロジェクト>/Cache/ は消さない。どちらを選んでも設定に戻る
+    const auto folder = session.cacheFolder();
+    const auto size = system::cacheSize (folder);
+    juce::Component::SafePointer<MainComponent> safe (this);
+    auto backToSettings = [safe] { juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); }); };
+    showConfirm (tr ("settings.cache.clear.title"), tr ("settings.cache.clear.message", system::formatSize (size)),
+                 {
+                     { tr ("settings.cache.clear.yes"), DialogPanel::KeyRole::danger, [this, folder, backToSettings]
+                       {
+                           // 分離の途中（オフボを作っている）は消さない：作りかけのファイルを壊す
+                           if (state().separating)
+                               showToast (tr ("settings.cache.clear.busy"));
+                           else
+                               showToast (system::clearCache (folder) ? tr ("settings.cache.cleared")
+                                                                      : tr ("settings.cache.clear.failed"));
+                           backToSettings();
+                       } },
+                     { tr ("common.cancel"), DialogPanel::KeyRole::normal, backToSettings },
+                 });
 }
 
 void MainComponent::openSkinTemplates()
@@ -851,10 +891,21 @@ void MainComponent::openSectionName (int index)
 
 void MainComponent::openUpdate()
 {
-    auto dlg = std::make_unique<UpdateDialog>();
-    dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onInstall = [this] { overlay.close(); showToast (tr ("update.title")); };   // モック：何もしない
-    dlg->onSkip = [this] { overlay.close(); session.setUpdateAvailable ({}); };
+    const auto r = state().updateRelease;
+    if (! r.found)
+        return;
+    auto dlg = std::make_unique<UpdateDialog> (r);
+    dlg->onCloseRequest = [this] { overlay.close(); };   // あとで：知らせは残す
+    // 署名していないので自分では入れ替えない：ブラウザで開くだけ（インストーラーを入れ直すと更新。知らせは入れ替わるまで残す）
+    auto open = [this] (const juce::String& url)
+    {
+        overlay.close();
+        if (juce::URL (url).launchInDefaultBrowser()) showToast (tr ("update.opened"));
+        else                                          showToast (tr ("update.openFailed", url));
+    };
+    dlg->onOpen = [r, open] { open (r.assetUrl.isNotEmpty() ? r.assetUrl : r.pageUrl); };
+    dlg->onOpenPage = [r, open] { open (r.pageUrl); };
+    dlg->onSkip = [this] { overlay.close(); session.skipUpdate(); };
     overlay.show (std::move (dlg), true);
 }
 

@@ -256,25 +256,28 @@ MonitorModule::MonitorModule (UiSession& u)
     for (auto* st : strips)
         addAndMakeVisible (st);
 
-    // オフボ（B2）・自分の声とモニターリバーブ（B4）・お手本の声とクリック（2026-10-02）は音に効く。ハモリだけのお手本・自分の S は無いので、本物のアプリでは出さない（見本だけ）
+    // オフボ（B2）・自分の声とモニターリバーブ（B4）・お手本の声とクリック・S（ソロ）（2026-10-02）は音に効く。ハモリだけのお手本はまだ無いので、本物のアプリでは出さない（見本だけ）
     if (u->engineAttached)
     {
-        // お手本：取り出した声（メインとハモリは分けられないので 1 本）。ハモリだけのお手本はまだ無い
+        // お手本：取り出した声（メインとハモリは分けられないので 1 本）
         harmStrip->setVisible (false);
-        selfStrip->setSoloShown (false);
         mainStrip->fader().setTooltip (tr ("monitor.guide.tooltip"));
         mainStrip->onFaderChange = [this] { session.setGuideLevel ((float) mainStrip->fader().getValue()); };
         mainStrip->muteKey().onClick = [this] { session.setGuideMuted (mainStrip->muteKey().getToggleState()); };
-        mainStrip->soloKey().onClick = [this] { session.setGuideSolo (mainStrip->soloKey().getToggleState()); };
-        mainStrip->soloKey().setTooltip (tr ("monitor.guide.solo"));
-        backingStrip->soloKey().onClick = [this] { session.setBackingSolo (backingStrip->soloKey().getToggleState()); };
-        backingStrip->soloKey().setTooltip (tr ("monitor.backing.solo"));
     }
     backingStrip->onFaderChange = [this] { session.setBackingLevel ((float) backingStrip->fader().getValue()); };
     backingStrip->muteKey().onClick = [this] { session.setBackingMuted (backingStrip->muteKey().getToggleState()); };
     selfStrip->onFaderChange = [this] { session.setSelfMonitorLevel ((float) selfStrip->fader().getValue()); };
     selfStrip->muteKey().onClick = [this] { session.setSelfMonitorMuted (selfStrip->muteKey().getToggleState()); };
     selfStrip->muteKey().setTooltip (tr ("monitor.self.mute.tooltip"));
+    // S（ソロ）：オフボ・お手本・自分のどれか 1 つだけを聴く（モニターの S は同時に 1 つ。見本でも同じ動き）。
+    // 自分の S は自分の声だけ（オフボ・お手本・録ったトラックを止める）
+    mainStrip->soloKey().onClick = [this] { session.setGuideSolo (mainStrip->soloKey().getToggleState()); };
+    mainStrip->soloKey().setTooltip (tr ("monitor.guide.solo"));
+    backingStrip->soloKey().onClick = [this] { session.setBackingSolo (backingStrip->soloKey().getToggleState()); };
+    backingStrip->soloKey().setTooltip (tr ("monitor.backing.solo"));
+    selfStrip->soloKey().onClick = [this] { session.setSelfSolo (selfStrip->soloKey().getToggleState()); };
+    selfStrip->soloKey().setTooltip (tr ("monitor.self.solo"));
     selfStrip->fader().setTooltip (tr ("monitor.self.tooltip"));
     reverbStrip->onFaderChange = [this] { session.setMonitorReverb ((float) reverbStrip->fader().getValue()); };
     reverbStrip->fader().setTooltip (tr ("monitor.reverb.tooltip"));
@@ -338,14 +341,15 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
         backingStrip->muteKey().setToggleState (s.backingMuted, juce::dontSendNotification);
         selfStrip->fader().setValue (s.monitorGain, juce::dontSendNotification);
         selfStrip->muteKey().setToggleState (s.selfMuted, juce::dontSendNotification);
+        selfStrip->soloKey().setToggleState (s.selfSolo, juce::dontSendNotification);
+        mainStrip->soloKey().setToggleState (s.guideSolo, juce::dontSendNotification);
+        backingStrip->soloKey().setToggleState (s.backingSolo, juce::dontSendNotification);
         reverbStrip->fader().setValue (s.monitorReverb, juce::dontSendNotification);
         clickStrip->fader().setValue (s.clickLevel, juce::dontSendNotification);
         if (s.engineAttached)
         {
             mainStrip->fader().setValue (s.mainGain, juce::dontSendNotification);
             mainStrip->muteKey().setToggleState (s.guideMuted, juce::dontSendNotification);
-            mainStrip->soloKey().setToggleState (s.guideSolo, juce::dontSendNotification);
-            backingStrip->soloKey().setToggleState (s.backingSolo, juce::dontSendNotification);
         }
     }
 

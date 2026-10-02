@@ -1,4 +1,5 @@
 #include "SettingsDialog.h"
+#include "../../system/AppCache.h"
 
 namespace vb
 {
@@ -82,6 +83,11 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
       openSetup (tr ("settings.device.open")),
       cacheKey (tr ("settings.cache.change")),
       supportKey (tr ("settings.support.open")),
+      cacheOpen (tr ("settings.cache.open")),
+      cacheClear (tr ("settings.cache.clear")),
+      updateAuto (tr ("common.on")),
+      updateBetas (tr ("settings.update.betas")),
+      updateNow (tr ("settings.update.now")),
       systemInfo (system::gather (juce::File::getSpecialLocation (juce::File::userMusicDirectory).getChildFile ("VoiceBooth")))
 {
     language.onChange = [this] (int i) { if (onLanguage) onLanguage (i18n::available()[(size_t) i].id); };
@@ -101,7 +107,30 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     showLyrics.onClick = [this] { session.setShowLyrics (! state().showLyrics); };
     openSetup.withIcon (Icon::mic);
     openSetup.onClick = [this] { if (onOpenSetup) onOpenSetup(); };
+    // キャッシュの場所：変更（フォルダを選ぶ）・開く（Finder / エクスプローラー）・空にする（確かめてから）
     cacheKey.withIcon (Icon::folder);
+    cacheKey.setTooltip (tr ("settings.cache.change.tooltip"));
+    cacheKey.onClick = [this] { chooseCacheFolder(); };
+    cacheOpen.setTooltip (tr ("settings.cache.open.tooltip"));
+    cacheOpen.onClick = [this]
+    {
+        const auto dir = session.cacheFolder();
+        dir.createDirectory();   // まだ何も作っていなくても開けるように
+        dir.startAsProcess();
+    };
+    cacheClear.setTooltip (tr ("settings.cache.clear.tooltip"));
+    cacheClear.onClick = [this] { if (onClearCache) onClearCache(); };
+
+    // 新しいバージョン：自動で確かめる（入 / 切）・ベータも知らせる・今すぐ確かめる
+    updateAuto.withLed().withToggle (false);
+    updateAuto.setTooltip (tr ("settings.update.auto.tooltip"));
+    updateAuto.onClick = [this] { session.setUpdateAutoCheck (! state().updateAutoCheck); };
+    updateBetas.withLed().withToggle (false);
+    updateBetas.setTooltip (tr ("settings.update.betas.tooltip"));
+    updateBetas.onClick = [this] { session.setUpdateBetas (! state().updateBetas); };
+    updateNow.withIcon (Icon::download);
+    updateNow.setTooltip (tr ("settings.update.now.tooltip"));
+    updateNow.onClick = [this] { session.checkForUpdatesNow(); };
     supportKey.withIcon (Icon::globe);
     supportKey.onClick = [] { juce::URL ("https://github.com/sponsors/kajisho5").launchInDefaultBrowser(); };
 
@@ -137,22 +166,22 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.countIn"),    tr ("settings.countIn.note"),    &countIn,     200 },
         { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   240 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
-        { tr ("settings.cache"),      utf8 ("~/Music/VoiceBooth/Cache"), &cacheKey,  0 },
+        { tr ("settings.cache"),      {},                              &cacheKey,    0, {}, {}, { &cacheOpen, &cacheClear } },
+        { tr ("settings.update"),     {},                              &updateAuto,  0, {}, {}, { &updateBetas, &updateNow } },
         { tr ("settings.system"),     systemSummary (systemInfo),      nullptr,      330, systemValue, systemLed },
         { tr ("settings.skin"),       tr ("settings.skin.note"),       &skinPicker,  juce::jmax (200, skinPicker.idealWidth()), {}, {}, { &newSkin, &editSkin } },
         { tr ("settings.support"),    tr ("settings.support.note"),    &supportKey,  0 },
     };
 
-    // 本物のアプリでは、まだ効かない行を出さない（キャッシュの置き場所の変更は未実装）。見本（UI_MOCK）は出す。
-    // カウントインは 2026-10-02 から鳴る（クリックで数える）ので出す
-    if (u->engineAttached)
-        rows.erase (std::remove_if (rows.begin(), rows.end(), [this] (const Row& r) { return r.control == &cacheKey; }),
-                    rows.end());
-
     for (auto& r : rows)
     {
         if (r.control != nullptr)
             addAndMakeVisible (r.control);
+        if (auto* k = dynamic_cast<KeyButton*> (r.control); k != nullptr && ! r.extras.empty())
+        {
+            k->setSize (10, 32);
+            r.controlWidth = juce::jmax (96, k->idealWidth());   // キー自身の幅（左に並べる extras の分は下で足す）
+        }
         for (auto* k : r.extras)
         {
             // control の左に置くキーの分だけ、文言の幅を詰める
@@ -168,7 +197,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     onSessionChanged (change::all);
 }
 
-void SettingsDialog::onSessionChanged (juce::uint32)
+void SettingsDialog::onSessionChanged (juce::uint32 changes)
 {
     const auto& s = state();
     mode.setSelected ((int) s.mode, juce::dontSendNotification);
@@ -186,10 +215,66 @@ void SettingsDialog::onSessionChanged (juce::uint32)
         c->setAlpha (s.isRecording ? 0.45f : 1.0f);
     }
 
+    // 新しいバージョンの確認
+    updateAuto.setToggleState (s.updateAutoCheck, juce::dontSendNotification);
+    updateAuto.setButtonText (s.updateAutoCheck ? tr ("common.on") : tr ("common.off"));
+    updateBetas.setToggleState (s.updateBetas, juce::dontSendNotification);
+    // 録音・再生中は確かめない（DESIGN 11.7）
+    updateNow.setEnabled (! s.updateChecking && ! s.isPlaying && ! s.isRecording);
+    updateNow.setAlpha (s.isPlaying || s.isRecording ? 0.45f : 1.0f);
+    updateNow.setButtonText (s.updateChecking ? tr ("settings.update.checking") : tr ("settings.update.now"));
+
+    // 分離の途中（オフボを作っている）はキャッシュの場所を変えない・空にしない
+    for (auto* k : { &cacheKey, &cacheClear })
+    {
+        k->setEnabled (! s.separating);
+        k->setAlpha (s.separating ? 0.45f : 1.0f);
+    }
+    // キャッシュの大きさはフォルダを数えるので、場所・分離（オフボを作った）が変わった時だけ
+    if (changes & (change::prefs | change::view))
+        refreshNotes();
+
     // クロスフェードはプロのみ編集（DESIGN 6.4）
     crossfade.setEnabled (s.mode == project::Mode::pro);
     crossfade.setAlpha (crossfade.isEnabled() ? 1.0f : 0.45f);
     repaint();
+}
+
+void SettingsDialog::refreshNotes()
+{
+    // 行の下の小さな文字：キャッシュは場所と大きさ、更新は送る物と最後に確かめた時刻
+    const auto& s = state();
+    for (auto& row : rows)
+    {
+        if (row.control == &cacheKey)
+        {
+            const auto dir = session.cacheFolder();
+            // 曲ごとのキャッシュ（<プロジェクト>/Cache/）はここに入らない（空にしても消えない）ことも書く
+            row.note = system::displayPath (dir) + utf8 (" \xc2\xb7 ") + system::formatSize (system::cacheSize (dir))
+                     + utf8 (" \xc2\xb7 ") + tr ("settings.cache.note");
+        }
+        else if (row.control == &updateAuto)
+        {
+            row.note = tr ("settings.update.note");
+            if (s.updateVersion.isNotEmpty())
+                row.note << utf8 (" \xc2\xb7 ") << tr ("update.notice", s.updateVersion);
+            else if (s.updateLastCheck > 0)
+                row.note << utf8 (" \xc2\xb7 ") << tr ("settings.update.last", juce::Time (s.updateLastCheck).formatted ("%Y-%m-%d %H:%M"));
+        }
+    }
+}
+
+void SettingsDialog::chooseCacheFolder()
+{
+    chooser = std::make_unique<juce::FileChooser> (tr ("settings.cache.chooser"), session.cacheFolder());
+    juce::Component::SafePointer<SettingsDialog> safe (this);
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+                          [safe] (const juce::FileChooser& fc)
+                          {
+                              const auto dir = fc.getResult();
+                              if (safe != nullptr && dir != juce::File())   // 空ならやめた
+                                  safe->session.setCacheFolder (dir);   // 書けない場所なら知らせて変えない
+                          });
 }
 
 void SettingsDialog::layoutBody (juce::Rectangle<int> r)
@@ -208,6 +293,13 @@ void SettingsDialog::layoutBody (juce::Rectangle<int> r)
             k->setSize (10, 32);
             const auto w = juce::jmax (96, k->idealWidth());
             k->setBounds (c.removeFromRight (w).withSizeKeepingCentre (w, 32));
+            // キーの左に並べるキー（並びは extras の順）
+            for (auto it = row.extras.rbegin(); it != row.extras.rend(); ++it)
+            {
+                c.removeFromRight (8);
+                const auto keyW = juce::jmax (72, (*it)->idealWidth());
+                (*it)->setBounds (c.removeFromRight (keyW).withSizeKeepingCentre (keyW, 32));
+            }
         }
         else if (! row.extras.empty())
         {

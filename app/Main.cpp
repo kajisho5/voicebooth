@@ -23,6 +23,7 @@
       --no-first-run         初回起動の流れを出さない
       --reduce-motion        動きを減らす（OS の設定に関係なく。ばね・明滅・揺れを止めて最終状態だけ。DESIGN 4.10）
       --motion               動きを出す（OS で動きを減らす設定でも。確認用）
+      --no-update-check      起動時に新しいバージョンを確かめない（--screen= を付けた時も確かめない。スクリーンショット用）
 
     アプリ設定（PropertiesFile）に保存するもの
       language      表示言語（初回に選び、以後は設定から変更）
@@ -33,7 +34,12 @@
       recentProjects  最近のプロジェクト（.vbooth のフルパス。1 行に 1 つ、新しい順。B14）
       latencyProfiles  往復の遅れ（B6）。機器の組み合わせ（ドライバ|入力|出力|SR|バッファ）ごとの実測（サンプル）と手入力（ms）。JSON
       audioDevice   オーディオデバイスの設定（AudioDeviceManager の XML。ドライバ・入出力の機器・入力チャンネル・SR・バッファ）。
-                    戻せなければ既定のデバイスで開く */
+                    戻せなければ既定のデバイスで開く
+      updateAutoCheck / updateBetas  起動時に新しいバージョンを確かめるか（既定は入）・ベータも知らせるか（DESIGN 11.7）
+      updateLastCheck  最後に確かめられた時刻（ms。24 時間に 1 回まで）
+      updateSkipped    「このバージョンを飛ばす」で飛ばした版
+      updateFound      見つけた版（JSON。次の起動でも知らせを出す）
+      cacheFolder   アプリ共通のキャッシュの場所（空 = 既定のアプリのデータ/VoiceBooth/Cache。DESIGN 8） */
 
 namespace vb
 {
@@ -244,6 +250,14 @@ public:
         session->setClickLevel ((float) stored->getDoubleValue ("clickLevel", 0.62));
         session->restoreClickOn (stored->getBoolValue ("clickOn", false));
         session->setVoiceRange (stored->getIntValue ("voiceLow", -1), stored->getIntValue ("voiceHigh", -1));   // 声域（おすすめのキー）   // 歌詞レーン（既定は出さない）
+        {
+            // 新しいバージョンの確認（DESIGN 11.7）とアプリ共通のキャッシュの場所（DESIGN 8）
+            const auto cache = stored->getValue ("cacheFolder");
+            session->restoreAppPrefs (stored->getBoolValue ("updateAutoCheck", true), stored->getBoolValue ("updateBetas", false),
+                                      stored->getValue ("updateSkipped"), stored->getValue ("updateLastCheck").getLargeIntValue(),
+                                      stored->getValue ("updateFound"),
+                                      juce::File::isAbsolutePath (cache) ? juce::File (cache) : juce::File());
+        }
         session->addListener (this);
 
         window = std::make_unique<MainWindow> (*session, hooks);
@@ -265,6 +279,10 @@ public:
             o.guide = juce::File::getCurrentWorkingDirectory().getChildFile (path);
         if (auto* m = window->main())
             m->applyLaunchOptions (o);
+
+        // 新しいバージョン（DESIGN 11.7）：24 時間に 1 回まで、裏で確かめる。見つかればステータスバーに知らせ（失敗しても黙っている）
+        if (o.screen.isEmpty() && ! args.contains ("--no-update-check"))
+            session->checkForUpdatesIfDue();
 
         // 初回起動：言語を選ぶ → モードの質問
         const bool firstRun = args.contains ("--first-run")
@@ -366,6 +384,20 @@ private:
                 settings()->setValue ("clickLevel", st.clickLevel);
                 settings()->saveIfNeeded();
             }
+        }
+
+        if (changes & change::prefs)
+        {
+            // 値が同じなら PropertiesFile は書かない
+            const auto& st = session->get();
+            settings()->setValue ("updateAutoCheck", st.updateAutoCheck);
+            settings()->setValue ("updateBetas", st.updateBetas);
+            settings()->setValue ("updateSkipped", st.updateSkipped);
+            settings()->setValue ("updateLastCheck", juce::String (st.updateLastCheck));
+            if (! st.updateRelease.sample)   // 見本（--screen=update）は覚えない
+                settings()->setValue ("updateFound", st.updateRelease.found ? st.updateRelease.toJson() : juce::String());
+            settings()->setValue ("cacheFolder", st.cacheFolder.getFullPathName());
+            settings()->saveIfNeeded();
         }
 
         if ((changes & change::mode) == 0) return;

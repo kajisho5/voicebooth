@@ -5,18 +5,24 @@
 
 namespace vb
 {
-/** 新しいバージョンのお知らせ（DESIGN 11.7。静的モック）
-    ステータスバーの知らせを押すと開く。勝手に入れ替えない：ユーザーが押したら更新
-    実際の確認・ダウンロード・署名確認は配布前に WinSparkle / Sparkle で作る */
+/** 新しいバージョンのお知らせ（DESIGN 11.7）
+    ステータスバーの知らせを押すと開く。GitHub のリリース（UiSession::checkForUpdates*）で見つけた版の中身を見せる。
+    ビルドは署名していないので自分では入れ替えない：主のキーはブラウザでこの OS のインストーラー（無ければリリースのページ）を開く */
 class UpdateDialog : public DialogPanel
 {
 public:
-    UpdateDialog();
+    explicit UpdateDialog (const update::Release&);
 
-    std::function<void()> onInstall, onSkip;
+    /** onOpen：主のキー（インストーラーかページ）、onOpenPage：リリースのページ（インストーラーがある時だけキーを出す）、
+        onSkip：この版を飛ばす。「あとで」は閉じるだけ（onCloseRequest） */
+    std::function<void()> onOpen, onOpenPage, onSkip;
 
 protected:
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
+
+private:
+    update::Release release;
+    juce::String notes;   // 本文の平文（update::plainNotes）
 };
 
 /** モデルの初回ダウンロード（DESIGN 11.7。静的モック）

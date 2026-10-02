@@ -32,9 +32,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # プレリリースのタグ（v0.1.0-beta.1）なら、アプリの版に印（beta.1）を付ける。更新の確認（DESIGN 11.7）が
+      # いまの版をベータと分かり、次のベータ・同じ版の正式版を正しく比べられるように。タグ以外・正式版のタグは空
+      - name: Pre-release label
+        id: label
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v*-* ]]; then echo "suffix=${GITHUB_REF_NAME#*-}" >> "$GITHUB_OUTPUT"; fi
+
       # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "-DVOICEBOOTH_VERSION_SUFFIX=${{ steps.label.outputs.suffix }}" ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
 
       # 並列数は明示する。Mac は Makefile なので数なしの --parallel は make -j（上限なし）になり、
       # 3 コア・7 GB のランナーで約 100 個のコンパイルが同時に走ってメモリが溢れ、77 分かかっていた

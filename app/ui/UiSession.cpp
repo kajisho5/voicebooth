@@ -1488,12 +1488,12 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
     if (! separationAvailable()) { fail (tr ("separation.noModelOriginal")); return; }
     if (s.separating)            { fail (tr ("separation.failed", "busy")); return; }
 
-    // 作ったオフボはアプリのデータの Cache/offvocal/ に置く（曲を開くとプロジェクトの中にコピーされる）。同じ原曲・モデルなら作り直さない
+    // 作ったオフボはアプリ共通のキャッシュ（設定の「キャッシュの場所」）の offvocal/ に置く（曲を開くとプロジェクトの中にコピーされる）。
+    // 同じ原曲・モデルなら作り直さない
     const auto key = juce::String::toHexString ((juce::int64) (original.getFullPathName() + "|" + juce::String (original.getSize()) + "|"
                                                                + juce::String (original.getLastModificationTime().toMilliseconds()) + "|"
                                                                + separation::SeparatorClient::modelId()).hashCode64());
-    const auto dir = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                         .getChildFile ("VoiceBooth/Cache/offvocal/" + key);
+    const auto dir = cacheFolder().getChildFile ("offvocal/" + key);
     const auto out = dir.getChildFile (juce::File::createLegalFileName (original.getFileNameWithoutExtension() + " (off vocal)") + ".wav");
     if (out.existsAsFile())
     {
@@ -2542,7 +2542,7 @@ void UiSession::syncStemGains()
                 // 録っているトラックは鳴らさない（自分の声だけを聞く。録り直す前の声と重ならない）
                 const bool recordingHere = s.isRecording && s.recordingTrack == t.type;
                 const bool audible = ! t.mute && (! anySolo || t.solo) && ! recordingHere && isTrackVisible (t.type)
-                                  && ! (s.guideSolo || s.backingSolo);   // モニターの S（お手本・オフボだけを聴く）
+                                  && ! anyMonitorSolo();   // モニターの S（お手本・オフボ・自分だけを聴く）
                 gain = audible ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
             }
         engine->setVocalGain (k, gain);
@@ -2555,14 +2555,15 @@ void UiSession::syncStemGains()
 void UiSession::syncBackingLevel()
 {
     if (engine == nullptr) return;
-    const bool soloedAway = (s.guideSolo || s.backingSolo) && ! s.backingSolo;
+    // モニターの S はそれだけを鳴らす：ほかの S が点いていればオフボは止める
+    const bool soloedAway = anyMonitorSolo() && ! s.backingSolo;
     engine->setBackingLevel (s.offVocalGain, s.backingMuted || soloedAway);
 }
 
 void UiSession::syncGuideGain()
 {
     if (engine == nullptr) return;
-    const bool audible = s.guideVocals != nullptr && ! s.guideMuted && (! s.backingSolo || s.guideSolo);
+    const bool audible = s.guideVocals != nullptr && ! s.guideMuted && (! anyMonitorSolo() || s.guideSolo);
     engine->setVocalGain (audio::PlaybackCore::guideSlot, audible ? audio::PlaybackCore::faderToGain (s.mainGain) : 0.0f);
 }
 
@@ -2611,7 +2612,7 @@ void UiSession::setGuideMuted (bool m)   { s.guideMuted = m; syncGuideGain(); no
 void UiSession::setGuideSolo (bool on)
 {
     s.guideSolo = on;
-    if (on) s.backingSolo = false;
+    if (on) s.backingSolo = s.selfSolo = false;
     syncBackingLevel();
     syncStemGains();
     notify (change::monitor);
@@ -2620,9 +2621,19 @@ void UiSession::setGuideSolo (bool on)
 void UiSession::setBackingSolo (bool on)
 {
     s.backingSolo = on;
-    if (on) s.guideSolo = false;
+    if (on) s.guideSolo = s.selfSolo = false;
     syncBackingLevel();
     syncStemGains();
+    notify (change::monitor);
+}
+
+void UiSession::setSelfSolo (bool on)
+{
+    // 自分の声のモニター（入力 → ヘッドホン）はエンジンの別の経路なので、ここでは他を止めるだけ（自分の量・M はそのまま）
+    s.selfSolo = on;
+    if (on) s.guideSolo = s.backingSolo = false;
+    syncBackingLevel();
+    syncStemGains();   // お手本（syncGuideGain）もここで
     notify (change::monitor);
 }
 
