@@ -28,6 +28,7 @@ struct PitchPoint
     float midi = 0.0f;
     float confidence = 0.0f;    // 0..1。低い点は描かない（嘘でつながない）
     float centsOff = 0.0f;      // 自分ピッチのみ：お手本とのずれ
+    bool judged = true;         // お手本と比べた（false = お手本がまだ無い。線は中立の色。B8）
 };
 
 /** トラックの UI 状態（ミュート等。永続化の形は B14 で決める） */
@@ -145,6 +146,7 @@ struct Session
     std::vector<RefNote> refNotes;
     std::vector<PitchPoint> refPitch;
     std::vector<PitchPoint> myPitch;
+    int64 myPitchLag = 0;                 // 自分のピッチの点が再生ヘッドより遅れて届く分（遅れ + 検出。今の音の点を出す許し幅。B8）
 
     int sampleRate() const { return project.sampleRate; }
     int64 sec (double s) const { return (int64) std::llround (s * project.sampleRate); }

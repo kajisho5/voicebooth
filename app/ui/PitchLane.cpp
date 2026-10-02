@@ -8,7 +8,7 @@ namespace
     constexpr int rulerH = 24;
     constexpr int footerH = 38;
     constexpr float minConfidence = 0.5f;
-    constexpr int64 maxGapSamples = 720;   // 15 ms 以上空いたら線を切る（嘘でつながない）
+    constexpr double maxGapSeconds = 0.015;   // 15 ms 以上空いたら線を切る（嘘でつながない）
     constexpr float harmonyOffset = 4.0f;  // ダミーのハモリ（長 3 度上）
 
     bool isBlackKey (int midi)
@@ -19,10 +19,11 @@ namespace
 
     /** 信頼できる点だけを、途切れごとの区間に分ける */
     template <typename Fn>
-    void forEachRun (const std::vector<dummy::PitchPoint>& pts, int64 from, int64 to, Fn&& fn)
+    void forEachRun (const std::vector<dummy::PitchPoint>& pts, int64 from, int64 to, double sampleRate, Fn&& fn)
     {
         std::vector<const dummy::PitchPoint*> run;
         int64 last = 0;
+        const auto maxGapSamples = (int64) (maxGapSeconds * sampleRate);
 
         auto flush = [&] { if (run.size() > 1) fn (run); run.clear(); };
 
@@ -113,6 +114,12 @@ juce::Colour PitchLane::colourForCents (float cents) const
     if (a <= state().pitchToleranceCents) return colours::signal;
     if (a <= 50.0f)                       return colours::warn;
     return colours::bad;
+}
+
+juce::Colour PitchLane::colourFor (const dummy::PitchPoint& p) const
+{
+    // お手本がまだ無い（B9 の前）：合っている・外れているは言えないので中立の色
+    return p.judged ? colourForCents (p.centsOff) : (juce::Colour) colours::text;
 }
 
 float PitchLane::refOffset() const  { return state().isHarmonySelected() ? harmonyOffset : 0.0f; }
@@ -310,7 +317,7 @@ void PitchLane::drawNoteGutter (juce::Graphics& g)
 void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
 {
     const auto& s = state();
-    forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, [&] (const std::vector<const dummy::PitchPoint*>& run)
+    forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
         juce::Path p;
         for (size_t i = 0; i < run.size(); ++i)
@@ -329,7 +336,7 @@ void PitchLane::drawReference (juce::Graphics& g, const TimeMap& m)
     const auto halfBand = s.pitchToleranceCents / 100.0f;
     const auto off = refOffset();
 
-    forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, [&] (const std::vector<const dummy::PitchPoint*>& run)
+    forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
         // 許容帯：上辺を左→右、下辺を右→左でつないだ多角形
         juce::Path band, centre;
@@ -363,11 +370,11 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
     const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
 
     // 自分の線は「歌ったところ」＝再生ヘッドまで
-    forEachRun (s.myPitch, s.viewStart - 4800, s.playhead, [&] (const std::vector<const dummy::PitchPoint*>& run)
+    forEachRun (s.myPitch, s.viewStart - 4800, s.playhead, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
         // 同じ色の連続ごとに描く（境界点は両側で共有して途切れなく見せる）
         juce::Path path;
-        auto colour = colourForCents (run.front()->centsOff);
+        auto colour = colourFor (*run.front());
 
         auto flush = [&]
         {
@@ -381,7 +388,7 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
         for (size_t i = 0; i < run.size(); ++i)
         {
             const juce::Point<float> pt { m.x (run[i]->sample), yForMidi (run[i]->midi + off) };
-            const auto c = colourForCents (run[i]->centsOff);
+            const auto c = colourFor (*run[i]);
 
             if (i == 0)       { path.startNewSubPath (pt); continue; }
             path.lineTo (pt);
@@ -399,7 +406,7 @@ void PitchLane::drawCurrent (juce::Graphics& g, const TimeMap& m)
         return;   // 無音・子音では出さない
 
     const juce::Point<float> c { m.x (s.playhead), yForMidi (p->midi + mineOffset()) };
-    const auto col = colourForCents (p->centsOff);
+    const auto col = colourFor (*p);
 
     g.setColour (col.withAlpha (0.16f));
     g.fillEllipse (juce::Rectangle<float> (26.0f, 26.0f).withCentre (c));
@@ -409,8 +416,8 @@ void PitchLane::drawCurrent (juce::Graphics& g, const TimeMap& m)
     g.drawEllipse (juce::Rectangle<float> (13.0f, 13.0f).withCentre (c), 2.5f);
     g.fillEllipse (juce::Rectangle<float> (5.0f, 5.0f).withCentre (c));
 
-    // セント値はプロのみ（DESIGN 4.3）
-    if (s.mode == project::Mode::pro)
+    // セント値はプロのみ（DESIGN 4.3）。お手本が無ければ出さない
+    if (s.mode == project::Mode::pro && p->judged)
     {
         const auto cents = juce::roundToInt (p->centsOff);
         g.setFont (mono (11.0f, Weight::semibold));
@@ -476,7 +483,8 @@ void PitchLane::drawFooter (juce::Graphics& g)
     }
 
     // 入りタイミング（標準以上）/ 解析（プロ）— ダミー値。歌っていない（自分のピッチが無い）曲では出さない
-    if (! analysisArea.isEmpty() && ! s.myPitch.empty())
+    // 入りの早さ・ビブラートはまだ見本の値（解析は B18）。実際の声（お手本と比べていない点）では出さない
+    if (! analysisArea.isEmpty() && ! s.myPitch.empty() && s.myPitch.front().judged)
     {
         auto a = analysisArea.toFloat();
         auto chip = [&] (const juce::String& name, const juce::String& value, juce::Colour c)
