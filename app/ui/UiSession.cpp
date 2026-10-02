@@ -12,6 +12,7 @@
 #include "export/ExportService.h"
 #include "export/DeliveryPack.h"
 #include "SongMarks.h"
+#include "WaveLane.h"
 #include "audio/PlaybackCore.h"
 #include "Timeline.h"
 #include "audio/Resample.h"
@@ -889,7 +890,12 @@ void UiSession::finishRecording()
         s.canUndoTake = true;
     }
     else
+    {
+        // 本番で録っていたら採用した範囲を覚えておく（あとで「本番に入れる」時に同じにする）
+        take.useFrom = s.recordStart;
+        take.useTo = s.recordEnd >= 0 ? s.recordEnd : take.endSample;
         track->takes.push_back (take);
+    }
 
     loadTakeWave (type, take);
 
@@ -911,7 +917,18 @@ void UiSession::finishRecording()
                      + formatTime (juce::jmin (s.project.lengthSamples, usedEnd), s.sampleRate(), true);
     const bool punched = s.recordEnd >= 0;
     s.recordEnd = -1;
-    if (take.recMode == project::RecMode::practice) postNotice (tr ("record.donePractice", name, id, range));
+    if (take.recMode == project::RecMode::practice)
+    {
+        // 原速・原キーで録ったリハーサルは、知らせに「本番に入れる」を付ける（本番のつもりで録っていた時の救済）。
+        // 知らせを出すと画面がすぐ読むので、印は先に付ける（次の知らせの番号）
+        if (take.tempoPercent == 100 && take.keyShift == 0)
+        {
+            s.rescueNoticeSerial = s.noticeSerial + 1;
+            s.rescueTrack = type;
+            s.rescueTakeId = id;
+        }
+        postNotice (tr ("record.donePractice", name, id, range));
+    }
     else if (take.clip)                             postNotice (tr ("record.doneClip", name, id, range));
     else if (punched)                               postNotice (tr ("record.donePunch", name, id, range, undoKeyName()));
     else                                            postNotice (tr ("record.done", name, id, range));
@@ -1380,6 +1397,64 @@ int64 UiSession::prerollSamples() const
         pre = juce::jmax (pre, (int64) std::llround (s.project.tempo.samplesPerBeat (rate) * s.project.tempo.signature.beatsPerBar()
                                                         * juce::jmax (1, s.countInBars)));
     return pre;
+}
+
+bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::String& takeId)
+{
+    if (s.isRecording || s.projectFolder == juce::File())
+        return false;
+    auto* track = const_cast<project::Track*> (s.project.findTrack (type));
+    if (track == nullptr)
+        return false;
+    auto it = std::find_if (track->takes.begin(), track->takes.end(),
+                            [&] (const project::Take& k) { return k.id == takeId && k.recMode == project::RecMode::practice; });
+    if (it == track->takes.end())
+        return false;
+
+    auto take = *it;
+    if (take.tempoPercent != 100 || take.keyShift != 0)
+    {
+        postNotice (tr ("rescue.notOriginal", take.id, take.tempoPercent, (take.keyShift > 0 ? "+" : "") + juce::String (take.keyShift)));
+        return false;
+    }
+
+    // ファイルを本番のテイクの所へ移す（同じ名前があれば番号を進める。録った声は上書きしない）
+    track->takes.erase (it);
+    const auto key = juce::String (project::trackKey (type));
+    auto id = project::nextTakeId (*track);
+    auto rel = [&] { return "Audio/Takes/" + key + "_" + id + ".wav"; };
+    for (int n = id.substring (4).getIntValue(); s.projectFolder.getChildFile (rel()).exists(); )
+        id = "take" + juce::String (++n);
+    const auto src = s.projectFolder.getChildFile (take.path), dst = s.projectFolder.getChildFile (rel());
+    dst.getParentDirectory().createDirectory();
+    if (! src.existsAsFile() || ! src.moveFileTo (dst))
+    {
+        track->takes.push_back (take);   // 戻す
+        postNotice (tr ("rescue.failed", src.getFileName()));
+        return false;
+    }
+
+    const auto oldWave = dummy::takeWaveKey (type, take.id);
+    take.id = id;
+    take.path = rel();
+    take.recMode = project::RecMode::delivery;
+    const auto from = take.useFrom >= 0 ? take.useFrom : juce::jmax ((int64) 0, take.startSample + take.latencySamples);
+    const auto to = take.useTo > from ? take.useTo : take.endSample;
+    take.useFrom = take.useTo = -1;
+
+    compBeforeTake = track->comp;
+    undoTrack = type;
+    project::applyTake (*track, take, from, to);
+    s.canUndoTake = true;
+    s.takeWaves.erase (oldWave);
+    loadTakeWave (type, take);
+    s.rescueNoticeSerial = -1;
+
+    const auto range = formatTime (juce::jmax ((int64) 0, from), s.sampleRate(), true) + " - "
+                     + formatTime (juce::jmin (s.project.lengthSamples, to), s.sampleRate(), true);
+    postNotice (tr ("rescue.done", trackName (type), id, range));
+    notify (change::takes | change::tracks);
+    return true;
 }
 
 bool UiSession::undoTake()
