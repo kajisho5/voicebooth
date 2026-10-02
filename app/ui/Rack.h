@@ -82,6 +82,7 @@ private:
 
     juce::OwnedArray<ChannelStrip> strips;
     ChannelStrip* backingStrip = nullptr;   // B2：オフボ
+    ChannelStrip* mainStrip = nullptr;
     ChannelStrip* harmStrip = nullptr;
     ChannelStrip* selfStrip = nullptr;      // B4：自分の声
     ChannelStrip* reverbStrip = nullptr;    // B4：モニターリバーブ（耳だけ）

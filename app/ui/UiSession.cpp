@@ -2128,18 +2128,20 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
     const auto folder = s.projectFolder;
     const auto dest = folder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d"));
     const auto song = s.songName;
+    exporter::Options eo;
+    eo.crossfadeMs = s.crossfadeMs;
     s.exporting = true;
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, project, folder, dest, song, types]
+    juce::Thread::launch ([this, weak, project, folder, dest, song, types, eo]
     {
         juce::StringArray failed;
         int written = 0;
         for (auto t : types)
         {
             const auto res = exporter::ExportService::exportTrackDry (project, t, folder,
-                                                                      dest.getChildFile (exporter::ExportService::dryFileName (song, t)));
+                                                                      dest.getChildFile (exporter::ExportService::dryFileName (song, t)), eo);
             if (res.ok) ++written;
             else        failed.add (exporter::ExportService::dryFileName (song, t) + " (" + res.message + ")");
         }
@@ -2166,6 +2168,7 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     o.bitDepth = bitDepth == 16 || bitDepth == 24 || bitDepth == 32 ? bitDepth : s.project.bitDepthExport;
     o.takeMap = s.mode == project::Mode::pro;   // 標準は WAV + 基本、プロはフルパック（DESIGN 2）
     o.zip = true;
+    o.crossfadeMs = s.crossfadeMs;
     if (s.project.key.known())   o.songKey = s.project.key.shortName();
     if (s.project.tempo.known()) o.bpm = s.project.tempo.bpm;
 
@@ -2405,6 +2408,15 @@ void UiSession::setView (int64 start, int64 end)
     notify (change::view);
 }
 
+void UiSession::setCrossfade (double ms)
+{
+    ms = juce::jlimit (0.0, 50.0, ms);
+    if (s.crossfadeMs == ms) return;
+    s.crossfadeMs = ms;
+    stemsDirty = true;   // 試聴のトラックも同じ継ぎ目で作り直す（renderStems が変わった物だけ）
+    notify (change::mode);   // 設定に保存する
+}
+
 void UiSession::setShowLyrics (bool b)
 {
     if (s.showLyrics == b) return;
@@ -2476,7 +2488,7 @@ void UiSession::renderStems()
             for (auto& tk : t->takes)
                 sig << tk.id << '=' << tk.path << '@' << tk.startSample << ';';
         }
-        sig << '|' << s.project.lengthSamples << '|' << s.project.sampleRate;
+        sig << '|' << s.project.lengthSamples << '|' << s.project.sampleRate << '|' << s.crossfadeMs;
         if (sig != stemSignature[k])
         {
             stemSignature[k] = sig;
@@ -2491,8 +2503,10 @@ void UiSession::renderStems()
         stemSlotGeneration[k] = generation;
     const auto project = s.project;
     const auto folder = s.projectFolder;
+    exporter::Options eo;
+    eo.crossfadeMs = s.crossfadeMs;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, generation, project, folder, slots]
+    juce::Thread::launch ([this, weak, generation, project, folder, slots, eo]
     {
         using Buffer = std::shared_ptr<const juce::AudioBuffer<float>>;
         auto made = std::make_shared<std::vector<std::pair<int, Buffer>>>();
@@ -2503,7 +2517,7 @@ void UiSession::renderStems()
             if (t != nullptr && ! t->comp.empty())
             {
                 auto buf = std::make_shared<juce::AudioBuffer<float>>();
-                if (exporter::ExportService::renderTrackDry (project, stemTypes[k], folder, *buf).ok)
+                if (exporter::ExportService::renderTrackDry (project, stemTypes[k], folder, *buf, eo).ok)
                     b = std::move (buf);
             }
             made->push_back ({ k, std::move (b) });

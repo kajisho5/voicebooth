@@ -36,6 +36,7 @@ private:
     juce::Colour colourFor (const dummy::PitchPoint&) const;
 
     /** 選択トラックのお手本のずらし量（ハモリはダミーで +4 半音） */
+    bool harmonyGuide() const;   // ハモリのお手本を出す（見本だけ）
     float refOffset() const;
     float mineOffset() const;
 

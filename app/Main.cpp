@@ -237,7 +237,8 @@ public:
         if (savedMode == "easy")     session->setMode (project::Mode::easy);
         if (savedMode == "standard") session->setMode (project::Mode::standard);
         if (savedMode == "pro")      session->setMode (project::Mode::pro);
-        session->setShowLyrics (stored->getBoolValue ("showLyrics", false));   // 歌詞レーン（既定は出さない）
+        session->setShowLyrics (stored->getBoolValue ("showLyrics", false));
+        session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));   // 歌詞レーン（既定は出さない）
         session->addListener (this);
 
         window = std::make_unique<MainWindow> (*session, hooks);
@@ -340,6 +341,7 @@ private:
         if ((changes & change::mode) == 0) return;
         settings()->setValue ("mode", modeKey (session->get().mode));
         settings()->setValue ("showLyrics", session->get().showLyrics);
+        settings()->setValue ("crossfadeMs", session->get().crossfadeMs);
         settings()->saveIfNeeded();
     }
 

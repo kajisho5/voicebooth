@@ -6,6 +6,8 @@ name: build
 on:
   pull_request:
   workflow_dispatch:
+  push:
+    tags: ['v*']   # 版のタグ（v0.1.0、v0.1.0-beta.1 など）を push したら、作ったインストーラーで GitHub のリリースを作る
 
 # 同じブランチに新しく push したら、前の実行は止める（Mac のユニバーサル版は 30 分以上かかるため）
 concurrency:
@@ -144,3 +146,37 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure -V
+
+  # ---- リリース（タグの時だけ）。Win の setup.exe と Mac の DMG を GitHub のリリースに付ける ----
+  # タグと CMake の版がそろっていること。「-」の入るタグ（v0.1.0-beta.1 など）はプレリリース。本文は packaging/release-notes.md
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, ui-mock-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag against the version
+        id: tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          ver=$(sed -n 's/^project(VoiceBooth VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+          base="${tag#v}"; base="${base%%-*}"
+          if [ "$base" != "$ver" ]; then echo "::error::tag $tag does not match CMake version $ver"; exit 1; fi
+          if [[ "$tag" == *-* ]]; then echo "pre=--prerelease" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: VoiceBooth-[0-9]*   # 版つきのインストーラーだけ（VoiceBooth-Windows / -macOS の中身は付けない）
+          path: dist
+          merge-multiple: true
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          gh release create "$GITHUB_REF_NAME" dist/* --title "VoiceBooth $GITHUB_REF_NAME" \
+             --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag

@@ -187,7 +187,7 @@ void TrackTabs::onSessionChanged (juce::uint32 changes)
     for (auto* c : cards)
         c->setVisible (session.isTrackVisible (state().trackUi[(size_t) c->trackIndex()].type));
 
-    compare.setVisible (state().mode != project::Mode::easy);   // テイク比較は標準以上（DESIGN 2）
+    compare.setVisible (state().mode != project::Mode::easy && ! state().engineAttached);   // テイク比較は標準以上（DESIGN 2）。本物のアプリはまだ無い（B18c）
     resized();
 }
 

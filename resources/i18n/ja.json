@@ -601,6 +601,7 @@
   "start.guide.set": "お手本：{0}",
   "start.guide.setSub": "オフボを読み込んだら、時間を合わせて重ねます（クリックで選び直し）",
   "start.guide.title": "お手本（声入りの原曲）・任意",
+  "start.localOnly": "入れられるのは手元の音声ファイルだけです。Spotify・Apple Music・YouTube Music などサブスクの曲は直接入れられません。",
   "start.openProject": "プロジェクトを開く",
   "start.recent": "RECENT",
   "start.recent.empty": "まだありません。曲を開くと、ここに並びます",

@@ -60,6 +60,11 @@ public:
     KeyButton& muteKey() { return mute; }
     KeyButton& soloKey() { return solo; }
 
+    /** フェーダーが動いた（値の表示はこちらで書き直す。fader().onValueChange は上書きしない） */
+    std::function<void()> onFaderChange;
+    /** S を出さない（M だけを幅いっぱいに） */
+    void setSoloShown (bool shown) { soloShown = shown; solo.setVisible (withMuteSolo && shown); resized(); }
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -68,6 +73,7 @@ private:
     ConsoleFader slider;
     KeyButton mute { "M" }, solo { "S" };
     bool withMuteSolo;
+    bool soloShown = true;
     juce::Rectangle<int> nameArea, valueArea;
 };
 } // namespace vb

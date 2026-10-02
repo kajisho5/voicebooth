@@ -601,6 +601,7 @@
   "start.guide.set": "Guide: {0}",
   "start.guide.setSub": "Lined up and overlaid once the backing is loaded (click to choose another)",
   "start.guide.title": "Guide (the original with vocals) — optional",
+  "start.localOnly": "Only audio files on this computer. Songs in Spotify, Apple Music, YouTube Music and other streaming services can't be added directly.",
   "start.openProject": "Open project",
   "start.recent": "RECENT",
   "start.recent.empty": "Nothing yet. Projects appear here once you open a song",

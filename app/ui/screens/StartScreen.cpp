@@ -366,6 +366,8 @@ void StartScreen::resized()
         r.removeFromBottom (24);
     }
     dropArea = r.removeFromLeft (r.getWidth() * 55 / 100);
+    localNoteArea = dropArea.removeFromBottom (30);   // 手元のファイルだけ（サブスクの曲は入れられない）
+    dropArea.removeFromBottom (8);
     guideArea = dropArea.removeFromBottom (dropArea.getHeight() * 36 / 100);
     dropArea.removeFromBottom (12);
     r.removeFromLeft (28);
@@ -454,6 +456,10 @@ void StartScreen::paintHome (juce::Graphics& g)
                guideFile != juce::File() ? tr ("start.guide.setSub") : tr ("start.drop.sub"),
                guideFile != juce::File() && originalKey.isVisible() ? tr ("start.guide.noteSet") : tr ("start.guide.note"),
                overGuide, guideFile != juce::File(), originalKey.isVisible() ? originalKey.getWidth() + 16 : 0);
+
+    g.setColour (colours::textDim);
+    g.setFont (sans (11.0f));
+    g.drawFittedText (tr ("start.localOnly"), localNoteArea, juce::Justification::topLeft, 2, 1.0f);
 
     // 最近のプロジェクト
     paint::sectionHeader (g, recentArea.withHeight (24), tr ("start.recent"), tr ("start.recent.sub"));

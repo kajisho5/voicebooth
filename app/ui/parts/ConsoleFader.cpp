@@ -174,7 +174,7 @@ ChannelStrip::ChannelStrip (const juce::String& n, double value, float meterLeve
     : name (n), note (noteText), slider (value, capLine), withMuteSolo (ms)
 {
     slider.setMeter (meterLevel);
-    slider.onValueChange = [this] { repaint (valueArea); };
+    slider.onValueChange = [this] { repaint (valueArea); if (onFaderChange) onFaderChange(); };
     addAndMakeVisible (slider);
 
     mute.withLatch (colours::warn).withFont (mono (10.5f, Weight::semibold));
@@ -193,7 +193,11 @@ void ChannelStrip::resized()
     nameArea = r.removeFromTop (30);
 
     auto keys = r.removeFromBottom (22);
-    if (withMuteSolo)
+    if (withMuteSolo && ! soloShown)
+    {
+        mute.setBounds (keys);
+    }
+    else if (withMuteSolo)
     {
         const auto kw = (keys.getWidth() - 4) / 2;
         mute.setBounds (keys.removeFromLeft (kw));
