@@ -293,7 +293,7 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
             st.etag = resp.etag;
         writeState (stateFile, st, have);
 
-        bool progressed = false, verifyRestart = false;
+        bool progressed = false, verifyRestart = false, giveUp = false;
         {
             juce::FileOutputStream out (part);   // 続きに足す（JUCE は既存のファイルの終わりから書く）
             if (! out.openedOk() || out.getPosition() != have)
@@ -343,13 +343,8 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
                             // 同じ所が 2 回続けて壊れた：頭から。それでもだめなら失敗
                             if (++restarts >= 2)
                             {
-                                out.flush();
-                                part.deleteFile();
-                                stateFile.deleteFile();
-                                status.stage = Stage::failed;
-                                status.error = "verification failed";
-                                report (status);
-                                return false;
+                                giveUp = true;   // 消すのはファイルを閉じてから（Windows は開いたままでは消せない）
+                                break;
                             }
                             badCount.clear();
                             have = 0;
@@ -361,6 +356,15 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
                 }
             }
             out.flush();
+        }
+        if (giveUp)
+        {
+            part.deleteFile();
+            stateFile.deleteFile();
+            status.stage = Stage::failed;
+            status.error = "verification failed";
+            report (status);
+            return false;
         }
         if (verifyRestart)
             part.deleteFile();
