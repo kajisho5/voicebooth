@@ -85,19 +85,30 @@ void StartScreen::setPhase (Phase p)
     repaint();
 }
 
-void StartScreen::chooseFile()
+void StartScreen::chooseFile (bool guide)
 {
-    chooser = std::make_unique<juce::FileChooser> (tr ("start.chooser.title"),
+    chooser = std::make_unique<juce::FileChooser> (guide ? tr ("start.chooser.guide") : tr ("start.chooser.title"),
                                                    juce::File::getSpecialLocation (juce::File::userMusicDirectory),
                                                    audio::songWildcard());
     juce::Component::SafePointer<StartScreen> safe (this);
     chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-                          [safe] (const juce::FileChooser& fc)
+                          [safe, guide] (const juce::FileChooser& fc)
                           {
                               const auto f = fc.getResult();
-                              if (safe != nullptr && f != juce::File())
-                                  safe->openFile (f);
+                              if (safe == nullptr || f == juce::File())
+                                  return;
+                              if (guide) safe->setGuide (f);
+                              else       safe->openFile (f);
                           });
+}
+
+void StartScreen::setGuide (const juce::File& f)
+{
+    // 読むのはオフボを開いた後（時間合わせにオフボが要る）。ここでは覚えるだけ
+    if (! audio::hasSongExtension (f))
+        return;
+    guideFile = f;
+    repaint();
 }
 
 void StartScreen::openFile (const juce::File& f)
@@ -135,6 +146,10 @@ void StartScreen::loadFinished (audio::LoadResult r)
     // 曲を差し替える（後ろのメイン画面もこの時点で実波形になる）
     session.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview, r.audio);
     setPhase (Phase::loaded);
+
+    // お手本も入っていれば、オフボと時間を合わせて重ねる（裏で。結果はメイン画面の知らせ）
+    if (guideFile != juce::File())
+        session.loadGuide (std::exchange (guideFile, juce::File()));
 }
 
 //==============================================================================
@@ -149,16 +164,28 @@ void StartScreen::fileDragEnter (const juce::StringArray&, int, int)
     repaint();
 }
 
+void StartScreen::fileDragMove (const juce::StringArray&, int x, int y)
+{
+    dragPos = { x, y };
+    repaint();
+}
+
 void StartScreen::fileDragExit (const juce::StringArray&)
 {
     dragHover = false;
     repaint();
 }
 
-void StartScreen::filesDropped (const juce::StringArray& files, int, int)
+void StartScreen::filesDropped (const juce::StringArray& files, int x, int y)
 {
     dragHover = false;
-    openFile (juce::File (files[0]));   // 複数なら先頭だけ
+    // お手本の枠に落としたらお手本、それ以外はオフボ（複数なら先頭だけ）
+    if (phase == Phase::home && guideArea.contains (x, y))
+    {
+        setGuide (juce::File (files[0]));
+        return;
+    }
+    openFile (juce::File (files[0]));
 }
 
 void StartScreen::resized()
@@ -194,6 +221,8 @@ void StartScreen::resized()
         r.removeFromBottom (24);
     }
     dropArea = r.removeFromLeft (r.getWidth() * 55 / 100);
+    guideArea = dropArea.removeFromBottom (dropArea.getHeight() * 36 / 100);
+    dropArea.removeFromBottom (12);
     r.removeFromLeft (28);
     recentArea = r;
 
@@ -228,6 +257,11 @@ void StartScreen::mouseUp (const juce::MouseEvent& e)
         chooseFile();
         return;
     }
+    if (guideArea.contains (e.getPosition()))
+    {
+        chooseFile (true);
+        return;
+    }
 
     for (auto& row : recentRows)
         if (row.contains (e.getPosition()) && onDone)
@@ -255,40 +289,14 @@ void StartScreen::paint (juce::Graphics& g)
 
 void StartScreen::paintHome (juce::Graphics& g)
 {
-    // 曲を読み込む
-    {
-        const auto r = dropArea.toFloat();
-        paint::inset (g, r, 6.0f);
-        const bool hot = dragHover || dropArea.contains (getMouseXYRelative());
-        if (dragHover)
-        {
-            g.setColour (colours::signal.withAlpha (0.06f));
-            g.fillRoundedRectangle (r.reduced (10.0f), 6.0f);
-        }
-        const float dashes[] = { 6.0f, 5.0f };
-        juce::Path border;
-        border.addRoundedRectangle (r.reduced (10.0f), 6.0f);
-        juce::Path dashed;
-        juce::PathStrokeType (dragHover ? 1.6f : 1.2f).createDashedStroke (dashed, border, dashes, 2);
-        g.setColour (dragHover ? colours::signal : (hot ? colours::textMute : colours::lineHi));
-        g.fillPath (dashed);
-
-        auto c = r.reduced (40.0f);
-        drawIcon (g, Icon::note, c.removeFromTop (c.getHeight() * 0.42f).withTrimmedTop (20.0f).withSizeKeepingCentre (44.0f, 44.0f), colours::signal);
-        g.setColour (colours::text);
-        g.setFont (sans (18.0f, Weight::semibold));
-        g.drawText (tr ("start.drop.title"), c.removeFromTop (30.0f), juce::Justification::centred, false);
-        g.setColour (colours::textDim);
-        g.setFont (sans (12.5f));
-        g.drawText (tr ("start.drop.sub"), c.removeFromTop (22.0f), juce::Justification::centred, false);
-        c.removeFromTop (12.0f);
-        g.setColour (colours::textMute);
-        g.setFont (mono (11.0f));
-        g.drawText ("wav  flac  aiff  mp3  m4a  ogg", c.removeFromTop (18.0f), juce::Justification::centred, false);
-        c.removeFromTop (16.0f);
-        g.setFont (sans (11.5f));
-        g.drawFittedText (tr ("start.drop.note"), c.toNearestInt(), juce::Justification::centredTop, 2, 1.0f);
-    }
+    // オフボ（カラオケ。時間の基準）と、お手本（声入りの原曲。任意）。ドラッグ中は落とす先の枠を光らせる
+    const bool overGuide = dragHover && guideArea.contains (dragPos);
+    paintSlot (g, dropArea, Icon::note, tr ("start.drop.title"), tr ("start.drop.sub"), tr ("start.drop.note"),
+               dragHover && ! overGuide, false);
+    paintSlot (g, guideArea, Icon::mic,
+               guideFile != juce::File() ? tr ("start.guide.set", guideFile.getFileName()) : tr ("start.guide.title"),
+               guideFile != juce::File() ? tr ("start.guide.setSub") : tr ("start.drop.sub"),
+               tr ("start.guide.note"), overGuide, guideFile != juce::File());
 
     // 最近のプロジェクト
     paint::sectionHeader (g, recentArea.withHeight (24), tr ("start.recent"), tr ("start.recent.sub"));
@@ -337,6 +345,56 @@ void StartScreen::paintHome (juce::Graphics& g)
         g.setFont (sans (10.5f));
         g.drawText (tr (subs[i]), b.translated (0, b.getHeight() + 2).withHeight (16), juce::Justification::centred, true);
     }
+}
+
+void StartScreen::paintSlot (juce::Graphics& g, juce::Rectangle<int> area, Icon icon, const juce::String& title,
+                             const juce::String& sub, const juce::String& note, bool dropping, bool done)
+{
+    const auto r = area.toFloat();
+    paint::inset (g, r, 6.0f);
+    const bool hot = dropping || area.contains (getMouseXYRelative());
+    if (dropping)
+    {
+        g.setColour (colours::signal.withAlpha (0.06f));
+        g.fillRoundedRectangle (r.reduced (10.0f), 6.0f);
+    }
+    const float dashes[] = { 6.0f, 5.0f };
+    juce::Path border;
+    border.addRoundedRectangle (r.reduced (10.0f), 6.0f);
+    juce::Path dashed;
+    juce::PathStrokeType (dropping ? 1.6f : 1.2f).createDashedStroke (dashed, border, dashes, 2);
+    g.setColour (dropping || done ? colours::signal : (hot ? colours::textMute : colours::lineHi));
+    g.fillPath (dashed);
+
+    // 背の高い枠（オフボ）はアイコンを上に大きく、低い枠（お手本）は左に小さく
+    auto c = r.reduced (28.0f, 18.0f);
+    const bool tall = r.getHeight() > 220.0f;
+    if (tall)
+        drawIcon (g, icon, c.removeFromTop (c.getHeight() * 0.38f).withTrimmedTop (16.0f).withSizeKeepingCentre (44.0f, 44.0f), colours::signal);
+    else
+    {
+        drawIcon (g, done ? Icon::check : icon, c.removeFromLeft (40.0f).withSizeKeepingCentre (28.0f, 28.0f), done ? colours::signal : colours::ref);
+        c.removeFromLeft (10.0f);
+        c = c.withSizeKeepingCentre (c.getWidth(), juce::jmin (c.getHeight(), 92.0f));
+    }
+    const auto just = tall ? juce::Justification::centred : juce::Justification::centredLeft;
+    g.setColour (colours::text);
+    g.setFont (sansFor (title, tall ? 18.0f : 14.5f, Weight::semibold));
+    g.drawText (title, c.removeFromTop (tall ? 30.0f : 24.0f), just, true);
+    g.setColour (colours::textDim);
+    g.setFont (sans (tall ? 12.5f : 12.0f));
+    g.drawText (sub, c.removeFromTop (22.0f), just, true);
+    if (tall)
+    {
+        c.removeFromTop (12.0f);
+        g.setColour (colours::textMute);
+        g.setFont (mono (11.0f));
+        g.drawText ("wav  flac  aiff  mp3  m4a  ogg", c.removeFromTop (18.0f), juce::Justification::centred, false);
+    }
+    c.removeFromTop (tall ? 12.0f : 6.0f);
+    g.setColour (colours::textMute);
+    g.setFont (sans (11.5f));
+    g.drawFittedText (note, c.toNearestInt(), tall ? juce::Justification::centredTop : juce::Justification::topLeft, 2, 1.0f);
 }
 
 juce::String StartScreen::songInfoLine() const
