@@ -64,6 +64,7 @@ struct Session
     // 表示（ピッチ・波形で共有）
     int64 viewStart = 0, viewEnd = 0;
     bool octaveAlign = true;
+    bool showLyrics = false;              // 歌詞レーン（7.5.3）を出す。既定は出さない（2026-10-02 ユーザー決定：あまり使わない）
     bool octaveUp = false;                // 自分の声を 1 オクターブ上げて重ねる
     bool fullRange = false;
     int lowMidi = 48, highMidi = 84;      // C3–C6

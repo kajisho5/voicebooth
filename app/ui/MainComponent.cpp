@@ -288,7 +288,10 @@ void MainComponent::resized()
     canvasArea = r;
     tracks.setBounds (r.removeFromBottom (TrackTabs::height));
     wave.setBounds (r.removeFromBottom (WaveLane::preferredHeight (state().mode)));
-    lyrics.setBounds (r.removeFromBottom (LyricsLane::height));
+    // 歌詞レーンは設定で出した時だけ（既定は出さない）
+    lyrics.setVisible (state().showLyrics);
+    if (state().showLyrics)
+        lyrics.setBounds (r.removeFromBottom (LyricsLane::height));
     pitch.setBounds (r);
 
     overlay.setBounds (getLocalBounds());
@@ -476,7 +479,7 @@ bool MainComponent::songInfoKey (const juce::KeyPress& key)
     }
 
     // 歌詞：タップで合わせる（Enter で行の歌い出し、Backspace で 1 行戻す、Esc で終わる。DESIGN 7.5.3）
-    if (code == juce::KeyPress::returnKey && ! s.project.lyrics.empty())
+    if (code == juce::KeyPress::returnKey && s.showLyrics && ! s.project.lyrics.empty())
     {
         if (! s.lyricSyncing)
         {
@@ -666,6 +669,7 @@ void MainComponent::filesDropped (const juce::StringArray& files, int x, int y)
     // .txt / .lrc は歌詞（DESIGN 7.5.3：ウィンドウへのドロップ）
     if (LyricsDialog::isLyricsFile (f))
     {
+        session.setShowLyrics (true);   // 歌詞のファイルを落としたら、歌詞レーンを出す
         if (auto* open = dynamic_cast<LyricsDialog*> (overlay.getContent()))
             open->loadFile (f);
         else
@@ -816,7 +820,7 @@ void MainComponent::openLyrics (const juce::File& file)
     auto dlg = std::make_unique<LyricsDialog> (session);
     auto* raw = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onApplied = [this] (const juce::String& msg) { overlay.close(); notice (msg); };
+    dlg->onApplied = [this] (const juce::String& msg) { overlay.close(); session.setShowLyrics (true); notice (msg); };
     overlay.show (std::move (dlg), false);
     if (file != juce::File())
         raw->loadFile (file);

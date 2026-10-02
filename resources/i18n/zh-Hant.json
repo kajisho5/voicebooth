@@ -358,6 +358,8 @@
   "settings.device.open": "輸入設定",
   "settings.language": "語言 / Language",
   "settings.language.note": "立即生效",
+  "settings.lyrics": "歌詞",
+  "settings.lyrics.note": "顯示歌詞欄（載入・點按對齊・自動對齊）",
   "settings.micro": "SETTINGS",
   "settings.mode": "模式",
   "settings.mode.note": "任何模式建立的專案都能在所有模式下開啟",

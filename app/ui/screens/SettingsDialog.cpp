@@ -78,6 +78,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
       countIn ({ tr ("transport.countIn.off"), "1", "2" }, u->countInBars),
       crossfade ({ "0", "5", "8", "20" }, 2),
       octaveAlign (tr ("pitch.octaveAlign")),
+      showLyrics (tr ("common.off")),
       openSetup (tr ("settings.device.open")),
       cacheKey (tr ("settings.cache.change")),
       supportKey (tr ("settings.support.open")),
@@ -95,6 +96,8 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
 
     octaveAlign.withLed().withToggle (false);
     octaveAlign.onClick = [this] { session.setOctaveAlign (! state().octaveAlign); };
+    showLyrics.withLed().withToggle (false);
+    showLyrics.onClick = [this] { session.setShowLyrics (! state().showLyrics); };
     openSetup.withIcon (Icon::mic);
     openSetup.onClick = [this] { if (onOpenSetup) onOpenSetup(); };
     cacheKey.withIcon (Icon::folder);
@@ -129,6 +132,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.mode"),       tr ("settings.mode.note"),       &mode,        260 },
         { tr ("settings.tolerance"),  tr ("settings.tolerance.note"),  &tolerance,   200 },
         { tr ("settings.octave"),     tr ("settings.octave.note"),     &octaveAlign, 0 },
+        { tr ("settings.lyrics"),     tr ("settings.lyrics.note"),     &showLyrics,  0 },
         { tr ("settings.countIn"),    {},                              &countIn,     200 },
         { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   240 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
@@ -164,6 +168,8 @@ void SettingsDialog::onSessionChanged (juce::uint32)
     countIn.setSelected (s.countInBars, juce::dontSendNotification);
     octaveAlign.setToggleState (s.octaveAlign, juce::dontSendNotification);
     octaveAlign.setButtonText (s.octaveAlign ? tr ("common.on") : tr ("common.off"));
+    showLyrics.setToggleState (s.showLyrics, juce::dontSendNotification);
+    showLyrics.setButtonText (s.showLyrics ? tr ("common.on") : tr ("common.off"));
 
     // 録音中はスキンを切り替えない（DESIGN 4.11）
     for (auto* c : { (juce::Component*) &skinPicker, (juce::Component*) &editSkin, (juce::Component*) &newSkin })

@@ -358,6 +358,8 @@
   "settings.device.open": "Input setup",
   "settings.language": "Language / 表示言語",
   "settings.language.note": "Applies immediately",
+  "settings.lyrics": "Lyrics",
+  "settings.lyrics.note": "Show the lyrics lane (load, tap sync, auto-sync)",
   "settings.micro": "SETTINGS",
   "settings.mode": "Mode",
   "settings.mode.note": "Projects open in every mode",

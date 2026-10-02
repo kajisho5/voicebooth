@@ -358,6 +358,8 @@
   "settings.device.open": "输入设置",
   "settings.language": "语言 / Language",
   "settings.language.note": "立即生效",
+  "settings.lyrics": "歌词",
+  "settings.lyrics.note": "显示歌词栏（载入・点按对齐・自动对齐）",
   "settings.micro": "SETTINGS",
   "settings.mode": "模式",
   "settings.mode.note": "任何模式创建的项目都能在所有模式下打开",
