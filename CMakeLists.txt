@@ -450,6 +450,54 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
 endif()
 
 # ---------------------------------------------------------------------------
+# 同梱するもののライセンス全文（#15）。GPL / AGPL は条文を、MIT / BSD / OFL は著作権表示を、配る物と一緒に渡す。
+# 取ってきたソース（JUCE・Rubber Band・ONNX Runtime・Monocypher・ASIO SDK）の中のファイルをそのまま写す（中身を変えない）。
+# 本体の隣の licenses/（Mac は VoiceBooth.app/Contents/Resources/licenses）に置き、インストーラー・DMG にもそのまま入る。
+# 「このアプリについて」の［ライセンス全文］はこのフォルダを開く
+# ---------------------------------------------------------------------------
+if(VOICEBOOTH_JUCE_DIR)
+    set(VB_JUCE_SOURCE "${VOICEBOOTH_JUCE_DIR}")
+else()
+    set(VB_JUCE_SOURCE "${juce_SOURCE_DIR}")
+endif()
+set(VB_LICENSES_DIR "${CMAKE_BINARY_DIR}/licenses")
+file(REMOVE_RECURSE "${VB_LICENSES_DIR}")
+# 「元のファイル|置く名前」
+set(vb_license_files
+    "${CMAKE_SOURCE_DIR}/LICENSE|VoiceBooth-AGPL-3.0.txt"
+    "${VB_JUCE_SOURCE}/LICENSE.md|JUCE-LICENSE.md"
+    "${VB_RUBBERBAND_SOURCE}/COPYING|RubberBand-GPL-2.0.txt"
+    "${monocypher_SOURCE_DIR}/LICENCE.md|Monocypher-LICENCE.md"
+    "${CMAKE_SOURCE_DIR}/third_party/minimp3/LICENSE|minimp3-CC0.txt"
+    "${CMAKE_SOURCE_DIR}/resources/fonts/OFL-IBMPlexSansJP.txt|IBMPlexSansJP-OFL-1.1.txt"
+    "${CMAKE_SOURCE_DIR}/resources/fonts/OFL-IBMPlexMono.txt|IBMPlexMono-OFL-1.1.txt"
+    "${CMAKE_SOURCE_DIR}/third_party/licenses/GPL-3.0.txt|GPL-3.0.txt")
+if(VB_ORT)
+    list(APPEND vb_license_files "${VB_ORT}/LICENSE|ONNXRuntime-MIT.txt"
+                                 "${VB_ORT}/ThirdPartyNotices.txt|ONNXRuntime-ThirdPartyNotices.txt")
+endif()
+if(VB_ASIO_SDK)
+    list(APPEND vb_license_files "${VB_ASIO_SDK}/LICENSE.txt|ASIO-SDK-LICENSE.txt")
+endif()
+foreach(entry ${vb_license_files})
+    string(REPLACE "|" ";" pair "${entry}")
+    list(GET pair 0 vb_src)
+    list(GET pair 1 vb_dst)
+    if(NOT EXISTS "${vb_src}")
+        message(FATAL_ERROR "License file not found: ${vb_src}")
+    endif()
+    configure_file("${vb_src}" "${VB_LICENSES_DIR}/${vb_dst}" COPYONLY)
+endforeach()
+configure_file("${CMAKE_SOURCE_DIR}/third_party/licenses/README.txt" "${VB_LICENSES_DIR}/README.txt" COPYONLY)
+if(APPLE)
+    set(vb_licenses_dest "$<TARGET_FILE_DIR:VoiceBooth>/../Resources/licenses")
+else()
+    set(vb_licenses_dest "$<TARGET_FILE_DIR:VoiceBooth>/licenses")
+endif()
+add_custom_command(TARGET VoiceBooth POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory "${VB_LICENSES_DIR}" "${vb_licenses_dest}")
+
+# ---------------------------------------------------------------------------
 # テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
 # ---------------------------------------------------------------------------
 if(VOICEBOOTH_TESTS)
