@@ -5,7 +5,14 @@ name: build
 # テストが通ったら、試す人向けに未署名のインストーラー（Win: setup.exe / Mac: DMG）も作る（DESIGN 11.6）
 on:
   pull_request:
+  # 手で動かす時（GitHub の画面の Run workflow や API）。release_tag に版のタグ（v0.2.0-beta.2 など）を渡すと、
+  # テストが通った後にそのタグとリリースを CI が作る（タグを push できない環境からでも出せるように）
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to create after the tests pass (e.g. v0.2.0-beta.2). Empty = build only'
+        required: false
+        default: ''
   push:
     tags: ['v*']   # 版のタグ（v0.1.0、v0.1.0-beta.1 など）を push したら、作ったインストーラーで GitHub のリリースを作る
 
@@ -37,8 +44,11 @@ jobs:
       - name: Pre-release label
         id: label
         shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v*-* ]]; then echo "suffix=${GITHUB_REF_NAME#*-}" >> "$GITHUB_OUTPUT"; fi
+          if [[ "$RELEASE_TAG" == v*-* ]]; then echo "suffix=${RELEASE_TAG#*-}" >> "$GITHUB_OUTPUT"; fi
 
       # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように
       - name: Configure
@@ -155,10 +165,11 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure -V
 
-  # ---- リリース（タグの時だけ）。Win の setup.exe と Mac の DMG を GitHub のリリースに付ける ----
+  # ---- リリース（タグの push か、release_tag を付けて手で動かした時）。Win の setup.exe と Mac の DMG を GitHub のリリースに付ける ----
   # タグと CMake の版がそろっていること。「-」の入るタグ（v0.1.0-beta.1 など）はプレリリース。本文は packaging/release-notes.md
+  # 手で動かした時は、テストした commit（GITHUB_SHA）にタグを作る。main 以外からは出さない。同じタグが別の commit にあれば止める
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '')
     needs: [build, ui-mock-linux]
     runs-on: ubuntu-latest
     permissions:
@@ -168,8 +179,19 @@ jobs:
 
       - name: Check the tag against the version
         id: tag
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           tag="${GITHUB_REF_NAME}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$RELEASE_TAG"
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then echo "::error::releases are made from main only (got $GITHUB_REF)"; exit 1; fi
+            if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then echo "::error::bad tag $tag"; exit 1; fi
+            existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null || true)
+            if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then echo "::error::tag $tag already points to $existing"; exit 1; fi
+          fi
+          echo "name=$tag" >> "$GITHUB_OUTPUT"
           ver=$(sed -n 's/^project(VoiceBooth VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
           base="${tag#v}"; base="${base%%-*}"
           if [ "$base" != "$ver" ]; then echo "::error::tag $tag does not match CMake version $ver"; exit 1; fi
@@ -182,16 +204,21 @@ jobs:
           merge-multiple: true
 
       # GitHub の画面で先にリリースを作った時（タグもそこで作る）は、そのリリースにファイルを付けて題・本文をそろえる
+      # 手で動かした時はタグがまだ無いので、テストした commit（--target）に作る
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
         run: |
           ls -la dist
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "VoiceBooth $GITHUB_REF_NAME" \
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --title "VoiceBooth $TAG" \
+               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            gh release create "$TAG" dist/* --title "VoiceBooth $TAG" --target "$GITHUB_SHA" \
                --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
           else
-            gh release create "$GITHUB_REF_NAME" dist/* --title "VoiceBooth $GITHUB_REF_NAME" \
+            gh release create "$TAG" dist/* --title "VoiceBooth $TAG" \
                --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag
           fi

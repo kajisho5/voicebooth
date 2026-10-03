@@ -123,7 +123,9 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 
 1. `CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` を出すバージョンにする（インストーラーの名前もこのバージョンになる）
 2. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す。README（12 言語）冒頭の「ダウンロード」の欄のリンク（タグ `v…` とファイル名）と「いまの版」を新しい版にする（ボタンはその版のファイルを直接指す。プレリリースは `releases/latest` に出ないため）
-3. バージョンのタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
+3. 出す：次のどちらか
+   - main で `build` のワークフローを手で動かし、`release_tag` に版のタグ（例 `v0.2.0-beta.2`）を入れる（GitHub の Actions の画面の Run workflow か API）。テストが通ったら、CI がそのタグをテストした commit に作ってリリースを出す（タグを push できない環境からでも出せる。main 以外からは出さない）
+   - または、バージョンのタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
 4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake のバージョンと違えば止まる。`-` の入るタグはプレリリース
 
 まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
