@@ -51,7 +51,7 @@ La version actuelle est **0.2.0 bêta 2**. Les nouveautés et les anciennes vers
    - **Mac** : glissez VoiceBooth du DMG vers votre dossier Applications et ouvrez-le une fois → si macOS indique qu'il ne peut pas être ouvert, allez dans Réglages Système → Confidentialité et sécurité → dans la section Sécurité, cliquez sur « Ouvrir quand même » (le bouton apparaît pendant environ une heure après votre tentative d'ouverture) → saisissez votre mot de passe ([instructions d'Apple](https://support.apple.com/fr-fr/guide/mac-help/mh40616/mac))
 3. **Au démarrage**, choisissez la langue et un mode. Quand « Télécharger le modèle de séparation » apparaît, appuyez sur Télécharger (environ 210 Mo, la première fois seulement ; sert à la hauteur et à l'harmonie du guide et à démarrer avec l'original seul)
 
-![Écran principal de VoiceBooth](docs/screenshots/main-en.png)
+![Écran principal de VoiceBooth](docs/screenshots/main-fr.png)
 
 > Cette capture est une maquette de développement dessinée à partir de données d'exemple. L'affichage avec de vrais titres est encore en cours d'amélioration et peut être différent.
 
