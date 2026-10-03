@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="Support development"></a>
 </p>
 
 # VoiceBooth
@@ -187,6 +188,10 @@ Logo usage rules (clear space, minimum size, light-background versions) and ever
 ## Support development
 
 VoiceBooth is free. If you like it, you can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5). Sponsoring does not unlock any features; everyone gets the same app.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-Support%20development-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="Support development"></a>
+</p>
 
 ## License
 
