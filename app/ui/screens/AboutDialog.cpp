@@ -24,9 +24,25 @@ AboutDialog::AboutDialog()
     : DialogPanel (tr ("about.title"), tr ("about.micro"))
 {
     addFooterKey (tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
-    addFooterKey (tr ("about.license"), KeyRole::normal, [] { juce::URL (licenseUrl).launchInDefaultBrowser(); });
+    addFooterKey (tr ("about.license"), KeyRole::normal, []
+    {
+        // 配ったアプリにはライセンス全文が付いている（#15）。開発中のビルドなどで無ければ GitHub の LICENSE
+        const auto dir = licensesFolder();
+        if (! (dir.isDirectory() && dir.startAsProcess()))
+            juce::URL (licenseUrl).launchInDefaultBrowser();
+    });
     addFooterKey (tr ("about.source"), KeyRole::normal, [] { juce::URL (sourceUrl).launchInDefaultBrowser(); });
     setSize (860, 640);
+}
+
+juce::File AboutDialog::licensesFolder()
+{
+    const auto exeDir = juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory();
+   #if JUCE_MAC
+    return exeDir.getSiblingFile ("Resources").getChildFile ("licenses");
+   #else
+    return exeDir.getChildFile ("licenses");
+   #endif
 }
 
 void AboutDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
