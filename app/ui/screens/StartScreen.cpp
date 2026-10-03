@@ -53,7 +53,19 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     {
         auto* k = firstRunKeys.add (new KeyButton (tr (keys[i])));
         k->withFont (sans (13.0f, Weight::semibold));
-        k->onClick = [this, m = modes[i]] { session.setMode (m); if (onDone) onDone(); };
+        k->onClick = [this, m = modes[i]]
+        {
+            session.setMode (m);
+            // 本物のアプリでまだ曲が無ければ、閉じずにそのまま曲を選んでもらう（閉じると見本の画面が見えてしまう）
+            if (state().engineAttached && state().projectFile == juce::File())
+            {
+                firstRun = false;
+                resized();
+                repaint();
+                return;
+            }
+            if (onDone) onDone();
+        };
         addChildComponent (k);
     }
 
@@ -379,6 +391,8 @@ void StartScreen::resized()
         recentRows.push_back (rows.removeFromTop (58));
         rows.removeFromTop (6);
     }
+    if (recents.empty())
+        rows.removeFromTop (46);   // 「まだありません」の 1 行（paint）の下にキーを置く
     if (originalKey.isVisible())
     {
         // お手本の枠の右下（原曲だけで始める。B16）

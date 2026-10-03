@@ -410,7 +410,8 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
                 compare->keyPressed (key);
             return true;
         }
-        if (key == juce::KeyPress::escapeKey)
+        // 曲を開く前の起動画面は Esc で閉じない（閉じても使える画面が無い）
+        if (key == juce::KeyPress::escapeKey && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr))
             overlay.close();
         return true;
     }
@@ -668,6 +669,17 @@ StartScreen* MainComponent::openStart (bool firstRun)
     };
     overlay.show (std::move (screen), false);
     return raw;
+}
+
+bool MainComponent::needsSong() const
+{
+    return state().engineAttached && state().projectFile == juce::File();
+}
+
+void MainComponent::openStartIfNoSong()
+{
+    if (needsSong() && ! overlay.isShowing())
+        openStart();
 }
 
 void MainComponent::openSong (const juce::File& f)

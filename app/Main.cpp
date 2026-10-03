@@ -287,9 +287,13 @@ public:
         // 初回起動：言語を選ぶ → モードの質問
         const bool firstRun = args.contains ("--first-run")
                            || (! stored->getBoolValue ("firstRunDone", false) && ! args.contains ("--no-first-run"));
-        if (firstRun && o.screen.isEmpty() && o.open == juce::File())
-            if (auto* m = window->main())
+        if (auto* m = window->main())
+        {
+            if (firstRun && o.screen.isEmpty() && o.open == juce::File())
                 m->openWelcome();
+            else if (o.screen.isEmpty())
+                m->openStartIfNoSong();   // 2 回目からも、曲を開いていなければ起動画面（最近のプロジェクト）から
+        }
     }
 
     void shutdown() override
