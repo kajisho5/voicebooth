@@ -1582,21 +1582,6 @@ double UiSession::separationEstimateSeconds() const
     return seconds * 3.7;
 }
 
-//==============================================================================
-namespace
-{
-    /** 小さいファイル（一覧・署名）を取る。大きすぎる・取れなければ false */
-    bool fetchSmall (models::HttpSource& http, const juce::String& url, juce::MemoryBlock& out)
-    {
-        auto r = http.get (url, 0, {});
-        if (r.body == nullptr || r.status != 200)
-            return false;
-        out.reset();
-        juce::MemoryOutputStream m (out, false);
-        return m.writeFromInputStream (*r.body, 2 * 1024 * 1024) >= 0 && r.body->isExhausted();
-    }
-}
-
 bool UiSession::modelsMissing() const
 {
     using SC = separation::SeparatorClient;
@@ -1664,7 +1649,7 @@ void UiSession::requestSeparationModel (bool onlyIfMissing)
         std::shared_ptr<models::ModelEntry> found, foundKaraoke, foundPitch;
         juce::MemoryBlock list, sig;
         const auto url = models::manifestUrl();
-        if (! fetchSmall (*http, url, list) || ! fetchSmall (*http, url + ".sig", sig))
+        if (! models::fetchSmall (*http, url, list) || ! models::fetchSmall (*http, url + ".sig", sig))
             error = "can't reach " + url;
         else
         {

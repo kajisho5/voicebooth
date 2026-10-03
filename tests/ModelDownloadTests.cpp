@@ -269,6 +269,64 @@ public:
         }
 
         dir.deleteRecursively();
+
+        beginTest ("small files (model list, signature): judged by size, not isExhausted (Windows / Mac streams)");
+        {
+            // Windows・Mac の juce::URL のように、0 バイトを読むまで isExhausted() が false のままの流れ
+            struct LateEndStream final : juce::InputStream
+            {
+                juce::MemoryBlock data;
+                juce::int64 pos = 0;
+                bool sawEnd = false;
+                juce::int64 getTotalLength() override { return (juce::int64) data.getSize(); }
+                bool isExhausted() override { return sawEnd; }
+                juce::int64 getPosition() override { return pos; }
+                bool setPosition (juce::int64) override { return false; }
+                int read (void* dest, int n) override
+                {
+                    const auto k = (int) juce::jmin ((juce::int64) n, (juce::int64) data.getSize() - pos);
+                    if (k <= 0) { sawEnd = true; return 0; }
+                    std::memcpy (dest, static_cast<const char*> (data.getData()) + pos, (size_t) k);
+                    pos += k;
+                    return k;
+                }
+            };
+            struct SmallHttp final : HttpSource
+            {
+                juce::MemoryBlock body;
+                int status = 200;
+                juce::int64 length = -2;   // -2 = 本当の大きさ
+                Response get (const juce::String&, juce::int64, const juce::String&) override
+                {
+                    Response r;
+                    r.status = status;
+                    r.length = length == -2 ? (juce::int64) body.getSize() : length;
+                    auto st = std::make_unique<LateEndStream>();
+                    st->data = body;
+                    r.body = std::move (st);
+                    return r;
+                }
+            };
+            SmallHttp h;
+            h.body = randomData (13427, 7);
+            juce::MemoryBlock got;
+            expect (fetchSmall (h, "https://example.invalid/manifest.json", got));
+            expect (got == h.body);
+
+            h.length = -1;                                    // 大きさが分からない（chunked）：最後まで読めれば使う
+            expect (fetchSmall (h, "u", got) && got == h.body);
+
+            h.length = (juce::int64) h.body.getSize() + 100;  // 途中で切れた
+            expect (! fetchSmall (h, "u", got));
+
+            h.length = -2;
+            h.status = 404;
+            expect (! fetchSmall (h, "u", got));
+
+            h.status = 200;                                   // 大きすぎる
+            expect (! fetchSmall (h, "u", got, 1000));
+            expect (fetchSmall (h, "u", got, 13427));         // ちょうど上限はよい
+        }
     }
 };
 
