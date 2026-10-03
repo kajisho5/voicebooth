@@ -124,6 +124,27 @@ public:
             expect (! project::compIsValid (broken));
         }
 
+        beginTest ("comp: voiced spans not covered by the comp (unrecorded check before export)");
+        {
+            project::Track t;
+            project::applyTake (t, take ("take1", 100, 400));
+            project::applyTake (t, take ("take2", 600, 900));
+            // 声：0..1000（頭 0..100 と間 400..600 と終わり 900..1000 が抜け）・2000..2050（短い：数えない）
+            auto gaps = project::uncoveredSpans (t, { { 2000, 2050 }, { 0, 1000 } }, 80);
+            expectEquals ((int) gaps.size(), 3);
+            expect (gaps[0].start == 0 && gaps[0].end == 100);
+            expect (gaps[1].start == 400 && gaps[1].end == 600);
+            expect (gaps[2].start == 900 && gaps[2].end == 1000);
+            // 短い抜けは数えない
+            expectEquals ((int) project::uncoveredSpans (t, { { 380, 420 } }, 80).size(), 0);
+            // 全部録ってあれば無い・何も録っていなければ声の区間そのまま
+            expectEquals ((int) project::uncoveredSpans (t, { { 150, 350 } }, 10).size(), 0);
+            project::Track empty;
+            const auto all = project::uncoveredSpans (empty, { { 10, 500 }, { 500, 800 } }, 10);
+            expectEquals ((int) all.size(), 1);   // 隣り合う抜けはまとめる
+            expect (all[0].start == 10 && all[0].end == 800);
+        }
+
         beginTest ("comp: a take moved before the song start by latency compensation is used only from sample 0");
         {
             project::Track t;

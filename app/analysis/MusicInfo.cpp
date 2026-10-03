@@ -23,14 +23,15 @@ namespace
         return e[i] * (1.0f - f) + e[i + 1] * f;
     }
 
-    /** 低い音（maxHz 未満：キック・ベース）だけの立ち上がりの包絡。拍の上か裏かを決めるのに使う */
-    std::vector<float> lowOnsetEnvelope (const float* x, int64 length, int frameSize, int hop, double sampleRate, double maxHz)
+    /** minHz〜maxHz の帯だけの立ち上がりの包絡（キック・ベース / スネアの胴）。拍の上か裏かを決めるのに使う */
+    std::vector<float> bandOnsetEnvelope (const float* x, int64 length, int frameSize, int hop, double sampleRate, double minHz, double maxHz)
     {
         std::vector<float> env;
         if (length < frameSize)
             return env;
         const auto frames = (size_t) ((length - frameSize) / hop + 1);
-        const auto maxBin = juce::jlimit (2, frameSize / 2, (int) (maxHz * frameSize / sampleRate));
+        const auto minBin = juce::jlimit (1, frameSize / 2 - 1, (int) (minHz * frameSize / sampleRate));
+        const auto maxBin = juce::jlimit (minBin + 1, frameSize / 2, (int) (maxHz * frameSize / sampleRate));
         env.resize (frames, 0.0f);
         std::vector<double> window ((size_t) frameSize), prev ((size_t) maxBin, 0.0);
         for (int i = 0; i < frameSize; ++i)
@@ -43,7 +44,7 @@ namespace
                 buf[(size_t) i] = p[i] * window[(size_t) i];
             fft (buf, false);
             double flux = 0.0;
-            for (int k = 1; k < maxBin; ++k)
+            for (int k = minBin; k < maxBin; ++k)
             {
                 const auto mag = std::log1p (100.0 * std::abs (buf[(size_t) k]));
                 flux += std::max (0.0, mag - prev[(size_t) k]);
@@ -52,6 +53,16 @@ namespace
             env[f] = (float) flux;
         }
         return env;
+    }
+
+    /** 大きい方から 1% の所の値（とびぬけた 1 発に引っぱられない基準） */
+    float loudLevel (std::vector<float> v)
+    {
+        if (v.empty())
+            return 1.0f;
+        const auto k = (size_t) (0.99 * (double) (v.size() - 1));
+        std::nth_element (v.begin(), v.begin() + (long) k, v.end());
+        return std::max (1.0e-9f, v[k]);
     }
 
     /** 1 小節目を決めるための、拍ごとの和音の変わり目（直前の拍とのクロマの違い 0..2） */
@@ -216,28 +227,40 @@ TempoEstimate estimateTempo (const float* x, int64 length, double sampleRate)
     int chromaHop = 1;
     const auto chroma = chromaFrames (x, length, sampleRate, chromaHop);
 
-    // 3) 拍の上か裏か：全帯域ではハイハット（裏拍）が強く出ることがある。低い音（キック・ベース）の立ち上がりと
-    //    和音の変わり目が多い方を拍の上にする
+    // 3) 拍の上か裏か（16 分のずれも）：全帯域ではハイハット（裏拍・16 分）が強く出ることがある。
+    //    キック・ベース（150 Hz 未満）とスネアの胴（150〜500 Hz）の立ち上がり、和音の変わり目が多い所を拍の上にする。
+    //    強さは曲全体の基準（大きい方から 1%）で割る。候補ごとの最大値で割ると、拍の頭に特大の 1 発（キメ・シンバル）がある曲で
+    //    拍の上の点が下がり、裏に倒れていた（2026-10-02、実際の曲で拍の線が約 0.3 秒ずれた）
     {
-        const auto low = lowOnsetEnvelope (x, length, frame, hop, sampleRate, 200.0);
+        const auto kick = bandOnsetEnvelope (x, length, frame, hop, sampleRate, 30.0, 150.0);
+        const auto snare = bandOnsetEnvelope (x, length, frame, hop, sampleRate, 150.0, 500.0);
+        const auto kickLevel = loudLevel (kick), snareLevel = loudLevel (snare);
         auto onBeat = [&] (double phase)
         {
             const auto first = phase * hop + envOffset;
             const auto n = (int) (((double) length - first) / samplesPerBeat);
             const auto ch = chordChanges (chroma, chromaHop, first, samplesPerBeat, n);
-            double lowSum = 0.0, lowMax = 1.0e-12, changeSum = 0.0;
+            double sum = 0.0;
             for (int k = 0; k < n; ++k)
-                lowMax = std::max (lowMax, (double) at (low, phase + k * period));
-            for (int k = 0; k < n; ++k)
-            {
-                lowSum += at (low, phase + k * period) / lowMax;
-                changeSum += ch[(size_t) k];
-            }
-            return (lowSum + 4.0 * changeSum) / juce::jmax (1, n);
+                sum += std::min (1.5, (double) at (kick, phase + k * period) / kickLevel)
+                     + std::min (1.5, (double) at (snare, phase + k * period) / snareLevel)
+                     + 2.0 * ch[(size_t) k];
+            return sum / juce::jmax (1, n);
         };
-        const auto half = std::fmod (bestPhase + 0.5 * period, period);
-        if (onBeat (half) > onBeat (bestPhase))
-            bestPhase = half;
+        // くし（全帯域）で選んだ位相を少しだけ優先し、半拍・16 分ずらしの方がはっきり拍らしい時だけ動かす
+        auto chosen = bestPhase;
+        auto chosenScore = onBeat (bestPhase) * 1.05;
+        for (int j = 1; j < 4; ++j)
+        {
+            const auto phase = std::fmod (bestPhase + 0.25 * j * period, period);
+            const auto sc = onBeat (phase);
+            if (sc > chosenScore)
+            {
+                chosen = phase;
+                chosenScore = sc;
+            }
+        }
+        bestPhase = chosen;
     }
 
     // 4) 1 小節目：立ち上がりの強さ＋和音の変わり目を 4 拍の周期で足して、小節の頭の拍を選ぶ

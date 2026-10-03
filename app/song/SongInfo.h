@@ -82,6 +82,12 @@ int64 barSample (const TempoInfo&, int64 bar, double sampleRate);
 /** 一番近い小節線（テンポが分からなければそのまま） */
 int64 snapToBar (const TempoInfo&, int64 sample, double sampleRate);
 
+/** カウントイン・録り直しの助走の頭（2026-10-02）：at を含む小節の頭から bars 小節前。
+    数え始めがいつも小節の 1 拍目になる（at が小節線ちょうどなら、ちょうど bars 小節）。
+    小節線の 1/4 拍手前より後ろの at は次の小節の頭とみなす（頭ちょうどを少し外した位置で、1 小節まるごと余計に数えない）。
+    テンポが分からない・bars <= 0 なら at のまま（数えない） */
+int64 countInStart (const TempoInfo&, int64 at, int bars, double sampleRate);
+
 /** 1 小節目の頭を拍単位でずらす（目盛り全体が左右に動く） */
 int64 shiftDownbeat (const TempoInfo&, int beats, double sampleRate);
 

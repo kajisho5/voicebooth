@@ -7,7 +7,14 @@
   <b>English</b> ·
   <a href="README.ko.md">한국어</a> ·
   <a href="README.zh-Hans.md">简体中文</a> ·
-  <a href="README.zh-Hant.md">繁體中文</a>
+  <a href="README.zh-Hant.md">繁體中文</a> ·
+  <a href="README.es.md">Español</a> ·
+  <a href="README.pt-BR.md">Português (Brasil)</a> ·
+  <a href="README.id.md">Bahasa Indonesia</a> ·
+  <a href="README.vi.md">Tiếng Việt</a> ·
+  <a href="README.tr.md">Türkçe</a> ·
+  <a href="README.de.md">Deutsch</a> ·
+  <a href="README.fr.md">Français</a>
 </p>
 
 <p align="center">
@@ -23,6 +30,8 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 
 ![VoiceBooth main screen](docs/screenshots/main-en.png)
 
+> This screenshot is a development mock-up drawn from sample data. The display with real songs is still being improved and may look different.
+
 > [!NOTE]
 > **This is a beta.** The main features are in place, but they have not yet been checked on the author's own Windows PC and Mac. Please report bugs, or anything that is hard to understand, in [Issues](https://github.com/kajisho5/voicebooth/issues).
 
@@ -33,12 +42,12 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
 | Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
 | Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
-| Size | The installer is about 13 MB on Windows and about 42 MB on Mac. The separation model (about 223 MB) and the lyrics model (about 465 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
-| Heavy processing | Separation and automatic lyrics sync run **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
-| Harmonies | You can record harmony tracks. **There is no feature that pulls just the harmony out of a mix to use as a reference** (separation gives two parts: "all vocals" and "accompaniment") |
+| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. The separation and pitch models (about 210 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
+| Heavy processing | Separation runs **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
+| Harmonies | You can record harmony tracks. When the guide is separated, the lead vocal and harmonies are split and **a harmony guide (line and voice)** is shown too (a harmony track is compared against it). A guide taken as original − karaoke is split too, by extracting the lead from the original afterwards (takes a little while) |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
 | Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
-| Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 |
+| Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## What it does
 
@@ -49,24 +58,23 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | Original only | Separate the original to make an instrumental, and show the reference line too (needs the separation model) |
 | Pitch in color | Your pitch is drawn as a line on top: lime when you are on pitch, amber then red as you drift. Singing an octave off can still be lined up on the display |
 | Practice | Tempo 50–150 %, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key |
+| Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). When the guide is separated, the lead and harmonies can be heard on their own |
+| Range and suggested key | Measure your range (lowest and highest notes) with the mic and get a key that fits the guide's lowest and highest notes. One click applies it; if nothing fits, it says how many semitones stick out |
 | Recording | Full-pass recording, retroactive recording (pressing REC late never cuts off the first word), re-recording a range (8 ms crossfade at each edge; 0–20 ms in Pro), latency measurement and compensation |
+| Click and count-in | A click on the song's beat (higher on beat 1; follows the practice tempo). Counts 1–2 bars before REC; re-recording a range counts in before the range. Headphones only, never recorded or exported |
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
+| Take comparison | List your takes newest first, hear each one in place in the song for a range (or one comp segment), and use the one you pick (Standard and up; Ctrl / ⌘+Z undoes it) |
 | Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
 | Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
-| Lyrics (off by default) | Load .txt / .lrc, sync by tapping, or sync automatically from the reference vocal (needs the lyrics model) |
+| Lyrics (off by default) | Load .txt / .lrc, sync by tapping |
 | Skins | Recolour the whole app (10 built-in). Share them as `.vbskin` files |
 
 ### Not yet available
 
 These are not in the beta yet (and are not shown in the app).
 
-- Soloing just the reference vocal or just the accompaniment (for now you can play only the tracks you recorded and the instrumental)
-- A reference line for harmonies (selecting a harmony track still shows the main reference line)
-- **Suggesting a key that fits your vocal range** (measure your range and suggest a key that fits the song's highest and lowest notes; planned for the next version)
-- Metronome and count-in sounds, comparing takes by ear, separating anything other than vocals (guitar, drums and so on)
+- Separating anything other than vocals (guitar, drums and so on)
 
-> [!IMPORTANT]
-> The models for separation and automatic lyrics sync are **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
 
 ### What your mix engineer gets
 
@@ -83,11 +91,22 @@ The engine is the same; only what you see changes. A project made in one mode op
 
 | Easy | Standard | Pro |
 |---|---|---|
-| Record Main in one pass and hand it over | Doubles, one harmony, punch-in, entry timing, delivery pack | Two harmonies, on-pitch percentage and vibrato analysis, crossfade length at punch-in edges |
+| Record Main in one pass and hand it over | Doubles, one harmony, punch-in, take comparison, entry timing, delivery pack | Two harmonies, on-pitch percentage and vibrato analysis, crossfade length at punch-in edges |
 
 | Easy mode | Pro mode (harmony) |
 |---|---|
 | ![Easy mode](docs/screenshots/mode-easy.png) | ![Pro mode harmony](docs/screenshots/mode-pro-harmony.png) |
+
+## How to use it
+
+1. **Install** the installer from [Releases](https://github.com/kajisho5/voicebooth/releases) (see Download below). On first launch, pick your language and a mode (easy / standard / pro); you can change both later in Settings.
+2. **Open a song**: drop the **off-vocal (karaoke)** track on the upper box of the start screen and, optionally, the **original with vocals** on the lower box. With the original, the timing is aligned automatically and the **guide pitch** appears on the piano roll. With only the original, use "Start from the original only" to separate it (the first time, you are asked before the models are downloaded). Reopening the same song continues where you left off.
+3. **Set up input**: the first time, input setup opens — device → level → latency measurement. **Use headphones.**
+4. **Practise**: **Space** plays / stops. Guide notes are blue bars; your voice is a line (lime when in tune, amber → red when off). Change **tempo / key** in PRACTICE (delivery takes go back to the original tempo and key). Drag on a lane (or `[` `]`) for IN / OUT, **L** to loop, drag the edges to adjust. **Ctrl / ⌘ + wheel** zooms.
+5. **Record**: arm a track card (Main / Double / Harm), press **R** to record and **R** or Space to stop. With a range, only that range is re-recorded (punch-in). **Ctrl / ⌘ + Z** undoes a take; **Esc** → "Discard" during recording throws it away. Use "Compare takes" to pick the best one.
+6. **Export**: "Export" at the top right → choose tracks → full-length WAV from the start of the song (24-bit mono, original sample rate). Standard and above can make a **delivery pack** (WAVs, check mix, notes, zip).
+
+If the guide line looks off, right-click the pitch lane for "10 ms earlier / later" or "Align here", and use "Hear original" to check by ear.
 
 ## Logo and design
 
@@ -137,7 +156,7 @@ Logo usage rules (clear space, minimum size, light-background versions) and ever
 | Free disk space | 2 GB | 10 GB or more (SSD) |
 | Display | 1280×800 | 1440×900 or larger |
 | Audio | Built-in input/output works | An audio interface and wired headphones (ASIO on Windows gives lower latency) |
-| Internet | Only for the first download of the separation model (everything except separation works offline) | — |
+| Internet | For the first download of the separation model, and for the update check (looks at GitHub releases at most once a day and sends nothing else; can be turned off in Settings). Everything except separation works offline | — |
 
 - Only vocal separation is heavy. It takes longer on older CPUs and Intel Macs (to be measured and confirmed)
 - Bluetooth earphones and headphones have too much latency for recording
@@ -172,10 +191,9 @@ The source code is licensed under the **GNU Affero General Public License v3.0 o
 | IBM Plex Sans JP / IBM Plex Mono (`resources/fonts`) | SIL Open Font License 1.1 |
 | ONNX Runtime 1.22.0 (only in the separate vocal-separation process; the official prebuilt package is fetched at build time) | MIT |
 | Monocypher 4.0.3 (verifies the Ed25519 signature of the model list; fetched at build time) | Dual CC0 / BSD-2-Clause |
-| whisper.cpp v1.9.4 (only in the separate lyrics-sync process; fetched at build time) | MIT |
 | Rubber Band Library 4 (practice tempo / key; fetched at build time) | Dual GPL v2 or later / commercial (used here under GPL) |
 | Steinberg ASIO SDK 2.3.4 (Windows builds only; the official package is fetched at build time) | Dual GPLv3 / commercial (used here under GPLv3). The SDK itself is not kept in this repository. ASIO is a trademark of Steinberg Media Technologies GmbH |
-| Models (separate from the app, downloaded only when you press the button): separation Mel-Band RoFormer (Kimberley Jensen), lyrics Whisper small (OpenAI) | Both MIT. Only models whose weight licenses have been checked are distributed |
+| Models (separate from the app, downloaded only when you press the button): separation BS-RoFormer ft1 and lead-vocal BS-RoFormer karaoke (both by anvuew), pitch RMVPE (RVC) | The two separation models are GPL-3.0 (modified: split into ONNX parts and quantized to int8; conversion steps and the original weights are listed in tools/separation); RMVPE is MIT. Only models whose weight licenses have been checked are distributed |
 
 ## Contributing
 

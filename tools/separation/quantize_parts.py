@@ -1,9 +1,23 @@
-import onnx, os, sys
+"""分割 ONNX（fp32）を int8 にする：重みだけ per-channel・動的量子化（MatMul の定数側だけ）。Gemm は先に MatMul + Add に直す。
+Mel-Band RoFormer（Kim）も BS-RoFormer（anvuew）も同じ手順。
+
+使い方：
+  python quantize_parts.py                      parts/ -> parts8/（Kim の既定。前と同じ）
+  python quantize_parts.py <in_dir> <out_dir>   例：bs_ft1_parts bs-roformer-anvuew-ft1-int8-1
+in_dir に parts.json があれば out_dir に写す。
+"""
+import onnx, os, shutil, sys
 from onnx import numpy_helper, helper
 from onnxruntime.quantization import quantize_dynamic, QuantType
-os.makedirs('parts8', exist_ok=True)
-for name in sorted(os.listdir('parts')):
-    m = onnx.load('parts/' + name)
+
+src = sys.argv[1] if len(sys.argv) > 1 else 'parts'
+dst = sys.argv[2] if len(sys.argv) > 2 else 'parts8'
+os.makedirs(dst, exist_ok=True)
+tmp = os.path.join(dst, 'tmp_mm.onnx')
+for name in sorted(os.listdir(src)):
+    if not name.endswith('.onnx'):
+        continue
+    m = onnx.load(os.path.join(src, name))
     inits = {i.name: i for i in m.graph.initializer}
     new_nodes = []
     for n in m.graph.node:
@@ -22,8 +36,11 @@ for name in sorted(os.listdir('parts')):
         else:
             new_nodes.append(n)
     del m.graph.node[:]; m.graph.node.extend(new_nodes)
-    onnx.save(m, 'tmp_mm.onnx')
-    quantize_dynamic('tmp_mm.onnx', 'parts8/' + name, weight_type=QuantType.QInt8, per_channel=True,
+    onnx.save(m, tmp)
+    quantize_dynamic(tmp, os.path.join(dst, name), weight_type=QuantType.QInt8, per_channel=True,
                      op_types_to_quantize=['MatMul'], extra_options={'MatMulConstBOnly': True})
-    print(name, os.path.getsize('parts8/' + name) // 2**20, 'MB', flush=True)
-os.remove('tmp_mm.onnx')
+    print(name, os.path.getsize(os.path.join(dst, name)) // 2**20, 'MB', flush=True)
+if os.path.exists(tmp):
+    os.remove(tmp)
+if os.path.exists(os.path.join(src, 'parts.json')):
+    shutil.copyfile(os.path.join(src, 'parts.json'), os.path.join(dst, 'parts.json'))

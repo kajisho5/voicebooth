@@ -399,4 +399,62 @@ KeyShiftResult estimateKeyShift (const float* ref, juce::int64 refLen, const flo
     k.confidence = score[(size_t) best] > 0.0 ? juce::jlimit (0.0, 1.0, (score[(size_t) best] - second) / score[(size_t) best]) : 0.0;
     return k;
 }
+LocalLag localLag (const float* a, juce::int64 aLength, const float* b, juce::int64 bLength,
+                   juce::int64 center, juce::int64 window, juce::int64 maxLag)
+{
+    LocalLag out;
+    const auto from = juce::jmax ((juce::int64) 0, center - window), to = juce::jmin (bLength, center + window);
+    if (to - from < 64 || aLength <= 0)
+        return out;
+
+    // 正規化した相関。x(i) と y(i + lag) を i = [lo, hi) で
+    auto corr = [] (auto&& x, auto&& y, juce::int64 lo, juce::int64 hi, juce::int64 lag, juce::int64 yLength) -> double
+    {
+        double xy = 0.0, xx = 0.0, yy = 0.0;
+        for (auto i = lo; i < hi; ++i)
+        {
+            const auto j = i + lag;
+            if (j < 0 || j >= yLength)
+                continue;
+            const double p = x (i), q = y (j);
+            xy += p * q; xx += p * p; yy += q * q;
+        }
+        return xx > 1e-9 && yy > 1e-9 ? xy / std::sqrt (xx * yy) : -2.0;
+    };
+
+    // 粗く：4 サンプルずつ平均して間引いた音で（高い音が消えるので、間引いても外さない）
+    static constexpr int coarse = 4;   // static：ラムダでキャプチャせずに使える（MSVC は constexpr のローカルも暗黙にはキャプチャしない）
+    auto decimate = [] (const float* x, juce::int64 n)
+    {
+        std::vector<float> d ((size_t) (n / coarse));
+        for (size_t k = 0; k < d.size(); ++k)
+            d[k] = 0.25f * (x[k * coarse] + x[k * coarse + 1] + x[k * coarse + 2] + x[k * coarse + 3]);
+        return d;
+    };
+    const auto da = decimate (a, aLength), db = decimate (b, bLength);
+    const auto dLen = (juce::int64) da.size();
+    double best = -2.0;
+    juce::int64 bestLag = 0;
+    for (auto lag = -maxLag / coarse; lag <= maxLag / coarse; ++lag)
+    {
+        const auto s = corr ([&] (juce::int64 i) { return db[(size_t) i]; }, [&] (juce::int64 j) { return da[(size_t) j]; },
+                             from / coarse, juce::jmin ((juce::int64) db.size(), to / coarse), lag, dLen);
+        if (s > best) { best = s; bestLag = lag * coarse; }
+    }
+    if (best <= -2.0)
+        return out;
+
+    // 細かく：元の SR で前後 8 サンプル
+    const auto centreLag = bestLag;
+    best = -2.0;
+    for (auto lag = centreLag - 2 * coarse; lag <= centreLag + 2 * coarse; ++lag)
+    {
+        const auto s = corr ([&] (juce::int64 i) { return b[i]; }, [&] (juce::int64 j) { return a[j]; }, from, to, lag, aLength);
+        if (s > best) { best = s; bestLag = lag; }
+    }
+    out.found = best > -2.0;
+    out.lag = bestLag;
+    out.correlation = best;
+    return out;
+}
 } // namespace vb::analysis

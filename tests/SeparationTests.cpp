@@ -54,6 +54,36 @@ public:
             expect (err < 1.0e-5f, juce::String (err));
         }
 
+        beginTest ("hop 512 (BS-RoFormer): 690 frames per chunk, round trip and pass-through demix");
+        {
+            const auto b = noise (chunkSamples, 9);
+            int frames = 0;
+            const auto spec = stft (b.getArrayOfReadPointers(), chunkSamples, frames, 512);
+            expectEquals (frames, 690);
+            expectEquals (framesFor (chunkSamples, 512), 690);
+            juce::AudioBuffer<float> out (2, chunkSamples);
+            istft (spec, frames, chunkSamples, out.getArrayOfWritePointers(), 512);
+            float err = 0.0f;
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < chunkSamples; ++i)
+                    err = juce::jmax (err, std::abs (out.getSample (ch, i) - b.getSample (ch, i)));
+            expect (err < 1.0e-5f, juce::String (err));
+
+            const Model pass = [] (const std::vector<float>& sp, int f, std::vector<float>& est)
+            {
+                est = sp;
+                return f == 690;   // モデルに渡る長さも hop 512 の数
+            };
+            const auto mix = noise (882000, 3);
+            juce::AudioBuffer<float> vocals;
+            expect (demix (mix, pass, 2, vocals, {}, 512));
+            float e2 = 0.0f;
+            for (int ch = 0; ch < 2; ++ch)
+                for (int i = 0; i < mix.getNumSamples(); ++i)
+                    e2 = juce::jmax (e2, std::abs (vocals.getSample (ch, i) - mix.getSample (ch, i)));
+            expect (e2 < 1.0e-4f, juce::String (e2));
+        }
+
         beginTest ("demix with a pass-through model returns the mix (short, long, odd tails)");
         {
             const Model pass = [] (const std::vector<float>& spec, int, std::vector<float>& est) { est = spec; return true; };

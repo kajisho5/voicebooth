@@ -1,4 +1,5 @@
 #include "RefPitch.h"
+#include "GuideClean.h"
 
 namespace vb::analysis
 {
@@ -176,6 +177,9 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
         }
     }
 
+    // 検出の誤り（子音・息・短いオクターブの飛び・小さな切れ目）だけを取り、歌い方は残す（GuideClean）
+    result.points = cleanGuideContour (result.points, sampleRate);
+
     int voiced = 0;
     for (auto& p : result.points)
         voiced += p.confidence >= 0.5f ? 1 : 0;
@@ -231,6 +235,9 @@ RefPitchResult pitchFromVocals (const float* vocals, int64 vocalsLength, int64 k
             }
         }
     }
+
+    // 検出の誤り（子音・息・短いオクターブの飛び・小さな切れ目）だけを取り、歌い方は残す（GuideClean）
+    result.points = cleanGuideContour (result.points, sampleRate);
 
     int voiced = 0;
     for (auto& p : result.points)

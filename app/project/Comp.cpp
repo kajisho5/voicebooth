@@ -1,4 +1,5 @@
 #include "Comp.h"
+#include <algorithm>
 
 namespace vb::project
 {
@@ -99,5 +100,35 @@ const Take* takeAt (const Track& t, int64 sample)
         if (sample >= c.startSample && sample < c.endSample)
             return findTake (t, c.takeId);
     return nullptr;
+}
+std::vector<Span> uncoveredSpans (const Track& track, std::vector<Span> voiced, int64 minLength)
+{
+    std::sort (voiced.begin(), voiced.end(), [] (const Span& a, const Span& b) { return a.start < b.start; });
+    std::vector<Span> out;
+    for (auto v : voiced)
+    {
+        // 採用区間（start の順・重ならない）で順に削る
+        auto from = v.start;
+        for (auto& c : track.comp)
+        {
+            if (c.endSample <= from || c.startSample >= v.end)
+                continue;
+            if (c.startSample > from && c.startSample - from >= minLength)
+                out.push_back ({ from, c.startSample });
+            from = std::max (from, c.endSample);
+            if (from >= v.end)
+                break;
+        }
+        if (v.end - from >= minLength)
+            out.push_back ({ from, v.end });
+    }
+    // 隣り合う抜けはまとめる（声の区間の切れ目で分かれた分）
+    std::vector<Span> merged;
+    for (auto& s : out)
+        if (! merged.empty() && s.start <= merged.back().end)
+            merged.back().end = std::max (merged.back().end, s.end);
+        else
+            merged.push_back (s);
+    return merged;
 }
 } // namespace vb::project

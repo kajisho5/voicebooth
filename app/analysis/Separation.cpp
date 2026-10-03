@@ -30,7 +30,7 @@ namespace
     inline size_t at (int ch, int bin, int frame, int frames) { return (((size_t) ch * bins + (size_t) bin) * (size_t) frames + (size_t) frame) * 2; }
 }
 
-std::vector<float> stft (const float* const* x, int n, int& framesOut)
+std::vector<float> stft (const float* const* x, int n, int& framesOut, int hop)
 {
     const int pad = nFft / 2;
     const int frames = 1 + n / hop;   // = 1 + (n + 2·pad − nFft) / hop
@@ -54,7 +54,7 @@ std::vector<float> stft (const float* const* x, int n, int& framesOut)
     return spec;
 }
 
-void istft (const std::vector<float>& spec, int frames, int length, float* const* out)
+void istft (const std::vector<float>& spec, int frames, int length, float* const* out, int hop)
 {
     const int pad = nFft / 2;
     const int total = nFft + hop * (frames - 1);
@@ -101,7 +101,7 @@ int chunkCount (int samples, int overlap)
 }
 
 bool demix (const juce::AudioBuffer<float>& mixIn, const Model& model, int overlap, juce::AudioBuffer<float>& vocals,
-            const std::function<bool (float)>& progress)
+            const std::function<bool (float)>& progress, int hop)
 {
     const int chunk = chunkSamples, fade = chunk / 10;
     const int step = chunk / juce::jmax (1, overlap);
@@ -148,10 +148,10 @@ bool demix (const juce::AudioBuffer<float>& mixIn, const Model& model, int overl
         }
 
         int frames = 0;
-        const auto spec = stft (part.getArrayOfReadPointers(), chunk, frames);
+        const auto spec = stft (part.getArrayOfReadPointers(), chunk, frames, hop);
         if (! model (spec, frames, est))
             return false;
-        istft (est, frames, chunk, outPart.getArrayOfWritePointers());
+        istft (est, frames, chunk, outPart.getArrayOfWritePointers(), hop);
 
         const bool first = i == 0, last = i + step >= n;
         for (int k = 0; k < len; ++k)

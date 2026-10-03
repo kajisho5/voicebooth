@@ -96,6 +96,15 @@ int64 snapToBar (const TempoInfo& t, int64 sample, double sampleRate)
     return (sample - a) <= (b - sample) ? a : b;
 }
 
+int64 countInStart (const TempoInfo& t, int64 at, int bars, double sampleRate)
+{
+    if (! t.known() || bars <= 0)
+        return at;
+    const auto quarterBeat = (int64) std::llround (0.25 * t.samplesPerBeat (sampleRate));
+    const auto bar = barBeatAt (t, at + quarterBeat, sampleRate).bar;
+    return barSample (t, bar - bars, sampleRate);
+}
+
 int64 shiftDownbeat (const TempoInfo& t, int beats, double sampleRate)
 {
     return t.downbeatSample + (int64) std::llround ((double) beats * t.samplesPerBeat (sampleRate));

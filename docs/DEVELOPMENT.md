@@ -6,7 +6,7 @@
 
 - Phase A（A1–A7）：メイン画面・操作の見た目（再生ヘッド・REC・範囲・ショートカット）・モード出し分け・起動 / 入力セットアップ / 書き出し / 設定
 - **B1**：曲ファイル（wav / flac / aiff / ogg / mp3 / m4a。mp3 は同梱の minimp3、m4a は Win・Mac の OS 標準デコーダ。曲の頭の位置は OS で変わらない）を開くと、形式・長さ・SR・ch を読み、実波形を描く。起動画面のクリック / ドロップ、メイン画面へのドロップ、`--open=<path>`
-- **日本語 / English / 한국어 / 简体中文 / 繁體中文**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
+- **日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français**。初回起動で言語を選び、以後は記憶（設定から変更可。DESIGN 10.1）
 - **スキン**（DESIGN 4.11）：色トークン 16 個の着せ替え。内蔵 10 種＋テンプレートから自作（`.vbskin`、`Skins/` に保存）。設定で選ぶと画面を作り直す。`--skin=<id>`
 - **B2**：開いた曲（オフボ）を既定の出力デバイスで再生・シーク・ループ。オフボのフェーダーと M が効く
 - **B3**：ドライバ・入出力の機器・SR・バッファを列挙し、入力セットアップで選べる（設定に保存）。入力は 1 ch（モノラル、既定 L）を開いてメーターだけ（ピーク・ホールド・RMS・クリップ）。レイテンシはデバイスの申告値（実測は B6）。Mac はマイクの許可を確かめる
@@ -26,8 +26,10 @@
 - **B15**：書き出しの「納品パック」で `export_YYYYMMDD/`（各トラックの Dry・確認用ミックス・notes.txt、プロは take_map.txt）と同じ名前の zip を作る。前の納品は上書きしない
 - **B14**：曲を開くと `Projects/{曲名}/{曲名}.vbooth`（JSON）を作って自動保存（変更から 1.5 秒・曲を替える時・終了時）、世代バックアップ 10 個。同じ曲を開き直すと続きから。起動画面の「最近」、`.vbooth` のダブルクリック（Win インストーラ・Mac の Info.plist で関連付け）
 - **B16**（一部）：お手本の原曲が引き算で取れない時、分離（別プロセス `VoiceBoothSeparator`、ONNX Runtime）で声を取り出してお手本の線にする（`Cache/separation/` に残す）。原曲だけなら起動画面の「原曲だけで始める」で原曲 − 分離した声をオフボにして開く（`--guide=` だけで起動するとお手本の枠に入る）。モデルが無ければ知らせのキー「分離モデルを入れる…」から、署名した一覧を確かめてダウンロード（途中再開・8 MB ごとの照合・再生中は一時停止）。開発用：`VB_SEPARATION_MODEL=<フォルダ>`（手元のモデル）、`VB_MODEL_PUBKEY`・`VB_MODEL_MANIFEST_URL`・`VB_MODEL_ALLOW_HTTP=1`（手元のサーバーで試す。`tools/models/README.md`）
-- **B17**（一部）：歌詞レーンの「自動で合わせる」で、お手本から取り出した声を whisper.cpp の別プロセス `VoiceBoothLyrics`（ビルド時に v1.9.4 を取得）で認識し、歌詞の行に時刻（推定）を入れる。モデルは押した時だけダウンロード。開発用：`VB_LYRICS_MODEL=<ggml-small.bin のあるフォルダ>`、手元の whisper.cpp は `-DVOICEBOOTH_WHISPER_DIR=...`、作らない時は `-DVOICEBOOTH_LYRICS=OFF`
+- **B17**：歌詞の自動合わせ（whisper.cpp の別プロセス `VoiceBoothLyrics`）は**取りやめ**（2026-10-02 持ち主の決定：遅く、役に立たなかった。Whisper のモデルはダウンロードしない）。コードとビルドから外した（git の履歴に残る）。歌詞は .txt / .lrc の読み込みとタップで合わせる（B4b）だけ
 - `-DVOICEBOOTH_UI_MOCK=ON` でビルドすると音声デバイスを一切開かない（画面確認・スクリーンショット用）
+- 新しいバージョンの確認（DESIGN 11.7）：起動時に 24 時間に 1 回まで GitHub のリリースを見て、新しければステータスバーに知らせる（ブラウザでインストーラーを開くだけで、入れ替えない）。
+  アプリのバージョンは CMake のバージョン＋`-DVOICEBOOTH_VERSION_SUFFIX=beta.1`（CI がプレリリースのタグから付ける。手元は空）。`--screen=…` か `--no-update-check` で起動時の確認を止める
 
 | 曲を読み込んだところ | 開いた曲の画面（実波形） |
 |---|---|
@@ -45,7 +47,7 @@
 |---|---|---|
 | ![](screenshots/recording.png) | ![](screenshots/export.png) | ![](screenshots/settings-zh-Hant.png) |
 
-見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）が既定で、スキンで色を着せ替えられる（[一覧](screenshots/skins/all.png)）。機能の参考にした 既存の練習アプリ とは配色・書体・部品・配置を変えている（DESIGN 4 / 4.9）。動きは DESIGN 4.10（キーのばね・LED の余韻・フェーダーとツマミの吸い付き・ダウンロードの LED の列・再生ヘッドの先回りなど。実装は 4.10.2。OS の「動きを減らす」に従う）。
+見た目は v2 "Booth"（夜の録音ブース：暖色グラファイト＋LED＋タリー）が既定で、スキンで色を着せ替えられる（[一覧](screenshots/skins/all.png)）。配色・書体・部品・配置はすべて独自に作っている（DESIGN 4 / 4.9）。動きは DESIGN 4.10（キーのばね・LED の余韻・フェーダーとツマミの吸い付き・ダウンロードの LED の列・再生ヘッドの先回りなど。実装は 4.10.2。OS の「動きを減らす」に従う）。
 
 起動オプション（`--lang=en` `--mode=pro` `--screen=export` など）は [`UI_STATES.md`](UI_STATES.md)。
 
@@ -97,19 +99,19 @@ ctest --test-dir build -C Release --output-on-failure
 
 ### インストーラー（未署名。DESIGN 11.6）
 
-CI はテストが通ると `VoiceBooth-<版>-win-x64-setup.exe` と `VoiceBooth-<版>-mac-universal.dmg` を Actions の成果物に置く。手元で作る時は、Release ビルドの後に：
+CI はテストが通ると `VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を Actions の成果物に置く。手元で作る時は、Release ビルドの後に：
 
 ```powershell
 # Windows：Inno Setup 6.5.2 以上（winget install JRSoftware.InnoSetup）
 # 配る exe は CI と同じく C++ ランタイムを静的リンクする（VC++ 再頒布パッケージの無い PC でも起動するように）
 cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 cmake --build build --config Release
-pwsh packaging/windows/build_installer.ps1      # → build/installer/VoiceBooth-<版>-win-x64-setup.exe
+pwsh packaging/windows/build_installer.ps1      # → build/installer/VoiceBooth-<バージョン>-win-x64-setup.exe
 ```
 
 ```bash
 # macOS：追加の道具は要らない（hdiutil / codesign / osascript）
-packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth-<版>-mac-universal.dmg
+packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth-<バージョン>-mac-universal.dmg
 ```
 
 - 版は `build/CMakeCache.txt` の `CMAKE_PROJECT_VERSION`（`CMakeLists.txt` の `project(... VERSION ...)`）。`-Version` / `--version` で上書きできる
@@ -119,12 +121,12 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 
 ## リリースの出し方
 
-1. `CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` を出す版にする（インストーラーの名前もこの版になる）
+1. `CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` を出すバージョンにする（インストーラーの名前もこのバージョンになる）
 2. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す
-3. 版のタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
-4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<版>-win-x64-setup.exe` と `VoiceBooth-<版>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake の版と違えば止まる。`-` の入るタグはプレリリース
+3. バージョンのタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
+4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake のバージョンと違えば止まる。`-` の入るタグはプレリリース
 
-まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離・歌詞のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
+まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
 
 ## 構成
 
@@ -132,7 +134,7 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 docs/DESIGN.md        仕様（唯一の正）
 docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
-app/i18n/             多言語対応 tr("key")（5 言語）
+app/i18n/             多言語対応 tr("key")（12 言語）
 app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）。曲の情報の操作は UiSessionSong.cpp（B4b）
 app/ui/SongMarks.*    区間の名前・区間とルーラーのメニュー（B4b）
 app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、自分の声のモニターとリバーブ（MonitorMixer）、通し録音（TakeRecorder）、往復の遅れの実測（LatencyProbe）、遡及録音のフレーズの頭（Retro）、自分の声のピッチ（PitchTracker）、伴奏の SR 変換（Resample）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
@@ -154,7 +156,7 @@ app/ui/DummySession.* 固定ダミー（DESIGN 20）。結線時に差し替え�
 app/project/          データモデル（保存は B14）+ project.example.json、テイクと採用区間（Comp）
 app/export/           書き出し（ExportService：フル尺の Dry。納品パックは B15）
 resources/fonts/      IBM Plex Sans JP / IBM Plex Mono（SIL OFL 1.1）
-resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant
+resources/i18n/       翻訳表 ja / en / ko / zh-Hans / zh-Hant / es / pt-BR / id / vi / tr / de / fr
 tools/check_i18n.py   翻訳表と直書きの検査（CI でも実行）
 brand/                アイコン・ロゴ・README の画像（build_brand.py で生成）
 packaging/            インストーラー：windows/VoiceBooth.iss（Inno Setup）・build_installer.ps1、macos/make_dmg.sh（DMG）
@@ -162,16 +164,16 @@ packaging/            インストーラー：windows/VoiceBooth.iss（Inno Setu
 
 ## 多言語対応
 
-画面の文字は必ず `tr("key")` で引き、`resources/i18n/` の全言語（ja / en / ko / zh-Hans / zh-Hant）にキーを足す。
+画面の文字は必ず `tr("key")` で引き、`resources/i18n/` の全言語（ja / en / ko / zh-Hans / zh-Hant / es / pt-BR / id / vi / tr / de / fr）にキーを足す。
 
 ```bash
 python3 tools/check_i18n.py
 ```
 
 言語を足す時は `app/i18n/I18n.cpp` の `available()` に 1 行、JSON を 1 枚、`CMakeLists.txt` の埋め込みに 1 行（DESIGN 10.1）。
-韓国語・中国語は OS の標準フォントで表示する（Linux で確認する場合は `fonts-noto-cjk` を入れる）。
+韓国語・中国語・ベトナム語・トルコ語は OS の標準フォントで表示する（Linux で確認する場合は `fonts-noto-cjk` を入れる。ベトナム語・トルコ語は DejaVu Sans などで表示）。
 
-README は 5 言語（`README.md` が日本語、`README.<lang>.md`）。内容を変えたら全言語をそろえる。
+README は 12 言語（`README.md` が日本語、`README.<lang>.md`）。内容を変えたら全言語をそろえる。
 
 ## ブランド素材
 
@@ -179,5 +181,5 @@ README は 5 言語（`README.md` が日本語、`README.<lang>.md`）。内容�
 
 ## 方針
 
-- 既存の録音ソフト のソースはコピーしない（DESIGN 0。ライセンスの問題ではなく、独自に作る方針）
+- ほかのソフトのソースはコピーしない（DESIGN 0。すべて独自に作る）
 - 秘密情報・録音・依頼者の素材・著作権のある曲はリポジトリに入れない（テスト音声は自作の合成音だけ）

@@ -117,6 +117,21 @@ public:
     // 練習用のテンポ（速さの倍率。1.0 = 原速）とキー（半音）。B11
     virtual void setPractice (double /*speed*/, int /*semitones*/) {}
 
+    // クリック（メトロノーム）とカウントイン（2026-10-02）。耳（出力）だけで、録音・書き出しには入らない。
+    // 拍は曲のサンプルで samplesPerBeat（0 = テンポが分からない：鳴らさない）・1 拍目の位置・1 小節の拍の数。level は直線の倍率
+    virtual void setClickGrid (double /*samplesPerBeat*/, int /*beatsPerBar*/, int64 /*downbeatSample*/) {}
+    virtual void setClick (bool /*on*/, float /*linearGain*/) {}
+    /** 再生を始める。countIn（曲のサンプル）> 0 なら、今の位置の前を曲なしのクリックだけで数えてから曲を鳴らす。
+        countClicksUntil より前の位置ではクリック Off でも拍を鳴らす（-1 = 使わない。範囲の録り直しの助走を数える） */
+    virtual void playWithCountIn (int64 /*countIn*/, int64 /*countClicksUntil*/) { play(); }
+    virtual bool isCountingIn() const { return false; }
+    /** カウントイン中に聞こえている拍の位置（曲のサンプル。曲の頭より前は負）。数えていなければ再生位置 */
+    virtual int64 getCountInPosition() const { return getPlayheadSample(); }
+
+    // モニターの帯のメーター（2026-10-02）：オフボ・お手本・クリックのフェーダー後のピーク（dBFS。UI が 30 Hz で読む）
+    struct MonitorLevels { float backingDb = -100.0f, guideDb = -100.0f, clickDb = -100.0f, harmGuideDb = -100.0f; };
+    virtual MonitorLevels getMonitorLevels() const { return {}; }
+
     // 録ったトラックの再生（B12）。slot 0..3 = Main / Double / Harm1 / Harm2。buffer は曲の SR・曲の長さのモノラル（nullptr で外す）。
     // 出力（モニター）だけに足す。録音には入らない
     virtual void setVocalStem (int /*slot*/, std::shared_ptr<const juce::AudioBuffer<float>> /*buffer*/) {}
@@ -163,6 +178,8 @@ public:
 
     // 自分の声のピッチ（B8）。曲が鳴っている間の入力から 10 ms ごとの点（位置は遅れの補正前）。メッセージスレッドで取り出す
     virtual void popPitch (std::vector<PitchFrame>&) {}
+    /** 曲が止まっていても音程を取る（声域を測る）。その点の位置は PitchTracker::freeRunBase 以上（曲の線に入れない） */
+    virtual void setPitchFreeRun (bool) {}
 
     // 往復の遅れの実測（B6）。出力を測定音に置き換え（曲・自分の声は鳴らさない）、入力を録る。約 3.6 秒。
     // 終わったら latencyProbeFinished() が true。録った入力を取り出して latency::analyse に渡す（重いので裏で）
