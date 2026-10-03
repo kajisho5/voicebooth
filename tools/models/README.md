@@ -3,6 +3,13 @@
 アプリはモデルを自分からは取りに行かない。使う人が「分離モデルを入れる」を押した時だけ、
 署名した一覧（`models/manifest.json` と `.sig`）を読み、署名が合えば中身の SHA-256 で照合しながらダウンロードする。
 
+## いまの配布（2026-10-03）
+
+- 一覧 serial 3：分離 `bs-roformer-anvuew-ft1-int8-1`、リード `bs-roformer-anvuew-karaoke-int8-1`、音程 `rmvpe-int8-1` を R2（voicebooth-dist）の `models/` に配置済み。
+  公開 URL から全 31 ファイルを落として SHA-256 を照合し、アプリ（モデルなしの状態）から「分離モデルを入れる」でダウンロード → 照合 → 使える、まで確認
+- 公開鍵 `25881bbba9aaf8e45aaac8eb610d7c651548453fa9c5b4b54b3cf8465e0711ac` を `app/models/ModelManifest.cpp` の `builtIn` に入れた。秘密鍵は持ち主が保管（リポジトリ・CI には無い）
+- GPL-3.0 の 2 つのフォルダには `LICENSE.txt`（`tools/separation/LICENSE-anvuew-models.txt`）も置いた
+
 ## 1. 鍵を作る（初回だけ）
 
 ```sh

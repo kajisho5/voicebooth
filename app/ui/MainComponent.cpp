@@ -191,6 +191,14 @@ void MainComponent::timerCallback()
 
 void MainComponent::onSessionChanged (juce::uint32 changes)
 {
+    // 本物のアプリで曲を開く前は、見本の画面（デモの曲・ダミーの線）を見せない（起動画面を閉じてモデルの確認を出す時など）
+    {
+        const bool show = ! needsSong();
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &top, &transport, &pitch, &wave, &tracks, &rack })
+            c->setVisible (show);
+        lyrics.setVisible (show && state().showLyrics);
+    }
+
     // 曲が開いたら、--guide= のお手本を重ねる（B9）
     if ((changes & change::song) && pendingGuide != juce::File() && state().backingWave != nullptr)
     {
@@ -320,7 +328,7 @@ void MainComponent::resized()
     tracks.setBounds (r.removeFromBottom (TrackTabs::height));
     wave.setBounds (r.removeFromBottom (WaveLane::preferredHeight (state().mode)));
     // 歌詞レーンは設定で出した時だけ（既定は出さない）
-    lyrics.setVisible (state().showLyrics);
+    lyrics.setVisible (state().showLyrics && ! needsSong());
     if (state().showLyrics)
         lyrics.setBounds (r.removeFromBottom (LyricsLane::height));
     pitch.setBounds (r);
