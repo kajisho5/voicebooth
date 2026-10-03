@@ -258,7 +258,7 @@
   "model.retry": "Tekrar indir",
   "model.role": "vokal / altyapı ayırma",
   "model.space": "Boş alan: {0} (yeterli)",
-  "model.sub": "Tam bir miksi altyapı ve vokale ayırmak için model bir kez indirilir. Sonrasında hemen kullanılabilir.",
+  "model.sub": "Şarkıyı altyapı ve vokale ayırmak, rehberin perdesini ve armonisini göstermek için gerekir. Yalnızca bir kez indirilir.",
   "model.title": "Ayırma modelini indir",
   "model.verified": "Doğrulandı (SHA-256 eşleşiyor)",
   "model.verify": "Kullanılmadan önce kontrol edilir (SHA-256)",

@@ -258,7 +258,7 @@
   "model.retry": "Download again",
   "model.role": "vocals / backing separation",
   "model.space": "Free space: {0} (enough)",
-  "model.sub": "To split a full mix into backing and vocals, the model is downloaded once. After that it is ready right away.",
+  "model.sub": "Needed to split a song into backing and vocals and to show the guide pitch and harmony. Downloaded only once.",
   "model.title": "Download the separation model",
   "model.verified": "Verified (SHA-256 matches)",
   "model.verify": "Checked (SHA-256) before it is used",

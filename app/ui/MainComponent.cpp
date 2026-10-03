@@ -690,6 +690,11 @@ StartScreen* MainComponent::openStart (bool firstRun)
         // 起動画面は開いたまま一覧を確かめる。読めたらダウンロードの確認に替わり、閉じたら起動画面に戻る
         if (safe != nullptr) safe->session.requestSeparationModel();
     };
+    screen->onModeChosen = [safe]
+    {
+        // 初回：モードを選んだら、続けてモデルを勧める（確認は起動画面と入れ替わるので、押したキーの処理を抜けてから）
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->offerModelsIfMissing(); });
+    };
     overlay.show (std::move (screen), false);
     return raw;
 }
@@ -703,6 +708,13 @@ void MainComponent::openStartIfNoSong()
 {
     if (needsSong() && ! overlay.isShowing())
         openStart();
+}
+
+void MainComponent::offerModelsIfMissing()
+{
+    // 一覧を確かめてから出す（起動画面は、確認を閉じると戻る）
+    if (session.modelsMissing())
+        session.requestSeparationModel (true);
 }
 
 void MainComponent::openSong (const juce::File& f)
@@ -1028,7 +1040,9 @@ void MainComponent::openUpdate()
 
 void MainComponent::openLiveModelDownload (int stage)
 {
-    auto dlg = std::make_unique<ModelDownloadDialog> ((ModelDownloadDialog::Stage) stage, session);
+    // 入った後に続ける作業（原曲だけで始める・待っていた分離）が無ければ、完了のキーは「閉じる」
+    const bool resumes = pendingOriginal != juce::File() || state().guideNeedsSeparation;
+    auto dlg = std::make_unique<ModelDownloadDialog> ((ModelDownloadDialog::Stage) stage, session, resumes);
     modelStageShown = state().modelDl.stage;
     juce::Component::SafePointer<MainComponent> safe (this);
     const bool done = stage == (int) ModelDownloadDialog::Stage::done;

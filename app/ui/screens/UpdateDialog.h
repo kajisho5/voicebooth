@@ -42,8 +42,9 @@ public:
     /** animate：ダウンロード中・再開待ちを進める（スクリーンショット用は false で止める）
         from：届いている割合（0..1。再開の時の続き）。負なら状態ごとの見本の値 */
     ModelDownloadDialog (Stage, bool animate, float from = -1.0f);
-    /** 本物（B16）：live の状態（UiSession の modelDl）を表示し、キーで本当に始める・止める */
-    ModelDownloadDialog (Stage, UiSession& live);
+    /** 本物（B16）：live の状態（UiSession の modelDl）を表示し、キーで本当に始める・止める。
+        resumesWork：入った後に続ける作業（分離・解析）がある。無ければ完了のキーは「閉じる」 */
+    ModelDownloadDialog (Stage, UiSession& live, bool resumesWork = true);
     ~ModelDownloadDialog() override;
 
     /** 次の状態へ（開き直してもらう）。progress：届いている割合 */
@@ -71,6 +72,7 @@ private:
     juce::String modelName { "BS-RoFormer ft1 + BS-RoFormer karaoke + RMVPE" }, modelLicense { "GPL-3.0 / MIT" };
     bool verifying = false;     // ダウンロード中の最後：照合（青が走る）
     bool handedOff = false;
+    bool resumesWork = true;
 
     // 進み具合（MB）。got は届いた量、shown は表示（なめらかに追う）
     double gotMB = 0.0, shownMB = 0.0;

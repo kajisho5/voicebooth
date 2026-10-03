@@ -25,6 +25,7 @@ public:
     /** 原曲だけで始めたいが分離モデルが無い（入れられる）：呼び出し側がモデルの確認を出す（B16） */
     std::function<void (const juce::File& original)> onNeedModel;
     std::function<void()> onInstallModels;   // 「分離モデルを入れる」（起動画面は開いたまま。確かめたらダウンロードの確認に替わる）
+    std::function<void()> onModeChosen;      // 初回のモードの質問に答えた
 
     /** その曲の読み込みを始める（解析画面へ） */
     void openFile (const juce::File&);

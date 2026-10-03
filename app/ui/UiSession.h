@@ -251,8 +251,11 @@ public:
     void updateTakeStats (const juce::String& onlyKey = {});
     /** いま選んでいるトラックのいちばん新しいテイクの結果（無ければ nullptr） */
     const dummy::Session::TakeStats* latestTakeStats() const;
-    /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。押した時だけ呼ぶ */
-    void requestSeparationModel();
+    /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。
+        onlyIfMissing：まだ入っていない物が一覧にある時だけ出す（起動した時に勧める） */
+    void requestSeparationModel (bool onlyIfMissing = false);
+    /** 分離・リードボーカル・音程のモデルのどれかがまだ無く、入れられる（本物のアプリ・配布の鍵・分離プロセスがある・受け取り中でない） */
+    bool modelsMissing() const;
     void startModelDownload();
     void cancelModelDownload();
     /** 「声を分離して取り出しますか？」を出す（モデルが入った後など） */
