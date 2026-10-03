@@ -670,4 +670,4 @@ Main を録っている間は Main の音は出ない（出力 0）。
 |---|---|
 | ![](screenshots/skin-templates.png) | ![](screenshots/skin-editor.png) |
 
-1 枚ずつ：`docs/screenshots/skins/<id>.png`（1440x900、日本語、`-DVOICEBOOTH_UI_MOCK=ON` のビルドで `--no-first-run --lang=ja --skin=<id>`）
+1 枚ずつ：`docs/screenshots/skins/<id>.png`（1920x1080 の画面の窓 1760x990、日本語、`-DVOICEBOOTH_UI_MOCK=ON` のビルドで `--no-first-run --lang=ja --skin=<id>`）

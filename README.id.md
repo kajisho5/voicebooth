@@ -143,7 +143,7 @@ Aturan pemakaian logo (ruang kosong, ukuran minimum, versi untuk latar terang) d
 | CPU | 64-bit, 4 core | 6 core atau lebih (Apple M1 atau lebih baru, Intel Core i5 / AMD Ryzen 5 terbaru atau lebih tinggi) |
 | Memori | 8 GB | 16 GB |
 | Ruang disk kosong | 2 GB | 10 GB atau lebih (SSD) |
-| Layar | 1280×800 | 1440×900 atau lebih besar |
+| Layar | 1280×800 | 1920×1080 atau lebih besar |
 | Audio | Input/output bawaan bisa dipakai | Audio interface dan headphone berkabel (ASIO di Windows memberi latensi lebih rendah) |
 | Internet | Hanya untuk unduhan pertama model pemisahan (semua selain pemisahan bisa offline) | — |
 

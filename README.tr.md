@@ -143,7 +143,7 @@ Logo kullanım kuralları (boşluk alanı, en küçük boyut, açık zemin sür�
 | CPU | 64-bit, 4 çekirdek | 6 çekirdek veya fazlası (Apple M1 veya sonrası, yeni bir Intel Core i5 / AMD Ryzen 5 sınıfı veya üstü) |
 | Bellek | 8 GB | 16 GB |
 | Boş disk alanı | 2 GB | 10 GB veya fazlası (SSD) |
-| Ekran | 1280×800 | 1440×900 veya daha büyük |
+| Ekran | 1280×800 | 1920×1080 veya daha büyük |
 | Ses | Dahili giriş/çıkış çalışır | Bir ses arabirimi ve kablolu kulaklık (Windows'ta ASIO daha düşük gecikme sağlar) |
 | İnternet | Yalnızca ayırma modelinin ilk indirilmesi için (ayırma dışındaki her şey çevrimdışı çalışır) | — |
 

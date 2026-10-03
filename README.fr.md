@@ -143,7 +143,7 @@ Les règles d'utilisation du logo (zone de protection, taille minimale, versions
 | Processeur | 64 bits, 4 cœurs | 6 cœurs ou plus (Apple M1 ou ultérieur, un Intel Core i5 / AMD Ryzen 5 récent ou mieux) |
 | Mémoire | 8 Go | 16 Go |
 | Espace disque libre | 2 Go | 10 Go ou plus (SSD) |
-| Écran | 1280×800 | 1440×900 ou plus |
+| Écran | 1280×800 | 1920×1080 ou plus |
 | Audio | L'entrée/sortie intégrée fonctionne | Une interface audio et un casque filaire (ASIO sous Windows réduit la latence) |
 | Internet | Uniquement pour le premier téléchargement du modèle de séparation (tout le reste fonctionne hors ligne) | — |
 
