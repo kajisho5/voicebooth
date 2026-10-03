@@ -138,25 +138,43 @@ public:
             dir.deleteRecursively();
         }
 
-        beginTest ("leftover retro recordings: the used take stays, others move to Audio/Recovered (never deleted)");
+        beginTest ("unused takes on open: used ones stay, others (retro leftovers, a take cut by a crash) move to Audio/Recovered, never deleted");
         {
             auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
                            .getChildFile ("VoiceBoothTests-retro-" + juce::String (juce::Random::getSystemRandom().nextInt64()));
             const auto takes = dir.getChildFile ("Audio/Takes");
             expect (takes.createDirectory().wasOk());
-            const auto used = takes.getChildFile (".retro-1-100.wav");     // 名前を付け直せずに採用したテイク
-            const auto sung = takes.getChildFile (".retro-2-200.wav");     // REC の後に落ちた：歌った声
-            const auto normal = takes.getChildFile ("Main_take1.wav");
-            for (auto& f : { used, sung, normal })
+            const auto usedRetro = takes.getChildFile (".retro-1-100.wav");   // 名前を付け直せずに採用したテイク
+            const auto sung = takes.getChildFile (".retro-2-200.wav");        // REC の後に落ちた：歌った声
+            const auto used = takes.getChildFile ("Main_take1.wav");
+            const auto crashed = takes.getChildFile ("Main_take2.wav");       // 録音中に落ちて .vbooth に入らなかった
+            for (auto& f : { usedRetro, sung, used, crashed })
                 expect (f.replaceWithText ("x"));
 
-            expectEquals (recoverRetroLeftovers (dir, { "Audio/Takes/.retro-1-100.wav" }), 1);
-            expect (used.existsAsFile());
-            expect (normal.existsAsFile());
-            expect (! sung.exists());
+            const juce::StringArray inUse { "Audio/Takes/.retro-1-100.wav", "Audio/Takes/Main_take1.wav" };
+            expectEquals (recoverUnusedTakes (dir, inUse), 2);
+            expect (usedRetro.existsAsFile() && used.existsAsFile());
+            expect (! sung.exists() && ! crashed.exists());
             expect (dir.getChildFile ("Audio/Recovered/retro-2-200.wav").existsAsFile());
+            expect (dir.getChildFile ("Audio/Recovered/Main_take2.wav").existsAsFile());
 
-            expectEquals (recoverRetroLeftovers (dir, { "Audio/Takes/.retro-1-100.wav" }), 0);   // 2 回目は何もしない
+            expectEquals (recoverUnusedTakes (dir, inUse), 0);   // 2 回目は何もしない
+            dir.deleteRecursively();
+        }
+
+        beginTest ("findMedia: the written path first, then the copy inside the project, else the written path");
+        {
+            auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                           .getChildFile ("VoiceBoothTests-media-" + juce::String (juce::Random::getSystemRandom().nextInt64()));
+            const auto copy = dir.getChildFile ("Audio/song.wav");
+            expect (copy.getParentDirectory().createDirectory().wasOk());
+            expect (copy.replaceWithText ("x"));
+            expect (findMedia (dir, "Audio/song.wav", "Audio") == copy);
+            // コピーし終える前に保存された元の場所（今は無い）→ プロジェクトの中のコピー
+            const auto gone = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("VoiceBoothTests-gone/song.wav");
+            expect (findMedia (dir, gone.getFullPathName(), "Audio") == copy);
+            // どちらにも無い：書いてある場所のまま（呼ぶ側が「見つからない」と知らせる）
+            expect (! findMedia (dir, "Audio/none.wav", "Audio").existsAsFile());
             dir.deleteRecursively();
         }
     }

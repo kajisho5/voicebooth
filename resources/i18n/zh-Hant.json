@@ -324,7 +324,7 @@
   "practice.tempo.original": "原速 {0} BPM",
   "practice.tempo.shifted": "僅練習",
   "practice.tempo.unknown": "原速（未設定速度）",
-  "project.copyFailed": "無法將歌曲複製到專案資料夾（請檢查磁碟剩餘空間）。將直接使用原檔案：{0}",
+  "project.copyFailed": "無法將檔案複製到專案資料夾（請檢查磁碟剩餘空間）。將直接使用原檔案：{0}",
   "project.error.newer": "這是用更新版本的 VoiceBooth 建立的專案（{0}）。請先更新再開啟",
   "project.error.notProject": "無法作為 VoiceBooth 專案讀取：{0}",
   "project.error.songMissing": "找不到專案的歌曲檔案（{0}）。請確認 Audio 資料夾是否一起移動了",

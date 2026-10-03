@@ -324,7 +324,7 @@
   "practice.tempo.original": "Origine {0} BPM",
   "practice.tempo.shifted": "Entraînement seul",
   "practice.tempo.unknown": "Origine (tempo non défini)",
-  "project.copyFailed": "Impossible de copier le titre dans le dossier du projet (vérifiez l'espace disque libre). Le fichier d'origine est utilisé : {0}",
+  "project.copyFailed": "Impossible de copier le fichier dans le dossier du projet (vérifiez l'espace disque libre). Le fichier d'origine est utilisé : {0}",
   "project.error.newer": "Ce projet a été créé avec un VoiceBooth plus récent ({0}). Mettez à jour, puis ouvrez-le",
   "project.error.notProject": "Ce n'est pas un projet VoiceBooth : {0}",
   "project.error.songMissing": "Le fichier audio du projet est introuvable ({0}). Vérifiez que le dossier Audio a été déplacé avec",

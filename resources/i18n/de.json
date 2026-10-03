@@ -324,7 +324,7 @@
   "practice.tempo.original": "Original {0} BPM",
   "practice.tempo.shifted": "Nur zum Üben",
   "practice.tempo.unknown": "Original (Tempo nicht gesetzt)",
-  "project.copyFailed": "Der Song konnte nicht in den Projektordner kopiert werden (prüfe den freien Speicherplatz). Die Originaldatei wird verwendet: {0}",
+  "project.copyFailed": "Die Datei konnte nicht in den Projektordner kopiert werden (prüfe den freien Speicherplatz). Die Originaldatei wird verwendet: {0}",
   "project.error.newer": "Dieses Projekt wurde mit einem neueren VoiceBooth erstellt ({0}). Erst aktualisieren, dann öffnen",
   "project.error.notProject": "Das ist kein VoiceBooth-Projekt: {0}",
   "project.error.songMissing": "Die Songdatei des Projekts fehlt ({0}). Prüfe, ob der Ordner Audio mitverschoben wurde",

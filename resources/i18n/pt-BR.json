@@ -324,7 +324,7 @@
   "practice.tempo.original": "Original {0} BPM",
   "practice.tempo.shifted": "Só para treino",
   "practice.tempo.unknown": "Original (tempo não definido)",
-  "project.copyFailed": "Não foi possível copiar a música para a pasta do projeto (verifique o espaço livre em disco). Usando o arquivo original: {0}",
+  "project.copyFailed": "Não foi possível copiar o arquivo para a pasta do projeto (verifique o espaço livre em disco). Usando o arquivo original: {0}",
   "project.error.newer": "Este projeto foi feito com um VoiceBooth mais novo ({0}). Atualize primeiro e depois abra",
   "project.error.notProject": "Isto não é um projeto do VoiceBooth: {0}",
   "project.error.songMissing": "O arquivo de música do projeto não foi encontrado ({0}). Verifique se a pasta Audio foi movida junto",

@@ -419,6 +419,8 @@ private:
     /** 解析し直した直後のお手本に、保存してある手直しを当てる。当てたら true */
     bool applyGuideNudge();
     bool shadowActive = false;
+    int recoveredTakes = 0;                // 開いた時に Audio/Recovered へ移したテイク（続きから開いた知らせの後に知らせる）
+    juce::uint32 lastNoSeekNotice = 0;     // 録音中のシークの知らせ（ドラッグで出続けないように）
     bool discarding = false;     // discardRecording の間だけ：止めたテイクを捨てる
     juce::File shadowFile;
     int shadowSerial = 0;
