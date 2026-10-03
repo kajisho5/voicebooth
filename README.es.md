@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="Apoyar el desarrollo"></a>
 </p>
 
 # VoiceBooth
@@ -50,7 +51,7 @@ La versión actual es **0.2.0 beta 2**. Los cambios y las versiones anteriores e
    - **Mac**: mueve VoiceBooth del DMG a tu carpeta Aplicaciones y ábrelo una vez → si macOS dice que no se puede abrir, ve a Ajustes del Sistema → Privacidad y seguridad → en Seguridad, haz clic en "Abrir igualmente" (el botón aparece durante aproximadamente una hora después de intentar abrir la app) → introduce tu contraseña ([instrucciones de Apple](https://support.apple.com/es-es/guide/mac-help/mh40616/mac))
 3. **Al iniciarse**, elige el idioma y un modo. Cuando aparezca "Descargar el modelo de separación", pulsa Descargar (unos 210 MB, solo la primera vez; se usa para el tono y las armonías de la guía y para empezar solo con el original)
 
-![Pantalla principal de VoiceBooth](docs/screenshots/main-en.png)
+![Pantalla principal de VoiceBooth](docs/screenshots/main-es.png)
 
 > Esta captura es una maqueta de desarrollo dibujada con datos de ejemplo. La visualización con canciones reales aún se está mejorando y puede verse distinta.
 
@@ -176,6 +177,10 @@ Las normas de uso del logo (espacio libre, tamaño mínimo, versiones para fondo
 ## Apoya el desarrollo
 
 VoiceBooth es gratis. Si te gusta, puedes apoyar el desarrollo a través de [GitHub Sponsors](https://github.com/sponsors/kajisho5). Patrocinar no desbloquea ninguna función; todo el mundo recibe la misma app.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-Apoyar%20el%20desarrollo-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="Apoyar el desarrollo"></a>
+</p>
 
 ## Licencia
 

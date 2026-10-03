@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VoiceBooth — 歌ってみた用の練習＆録音アプリ（無料）</title>
+<meta name="description" content="原曲とオフボを読み込むと、お手本の音程が画面に表示され、歌うと自分の音程が線で重なります。Windows / Mac 対応・無料のベータ版。12 言語。">
+<meta name="theme-color" content="#141311">
+<link rel="icon" type="image/png" sizes="32x32" href="brand/out/marketing/favicon-32.png">
+<link rel="apple-touch-icon" href="brand/out/marketing/apple-touch-icon-180.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="VoiceBooth — 歌ってみた用の練習＆録音アプリ（無料）">
+<meta property="og:description" content="お手本の音程を見ながら練習して、録って、MIX 師さんにそのまま渡せる WAV を書き出す。Windows / Mac・無料・12 言語。">
+<meta property="og:url" content="https://kajisho5.github.io/voicebooth/">
+<meta property="og:image" content="https://kajisho5.github.io/voicebooth/brand/out/marketing/social-preview-app.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap">
+<style>
+/* 夜の録音ブース（アプリと同じ見た目）。上から：ダウンロード → 画面 → 3 ステップ → できること → 動作環境 → 支援 */
+:root {
+  color-scheme: dark;
+  --bg: #141311; --deep: #0d0c0b; --panel: #1b1a17; --raised: #262420;
+  --line: #34312b; --line-hi: #4a463e; --text: #f2ede3; --dim: #b4ad9f; --mute: #7d776c;
+  --signal: #c6ee6a; --signal-ink: #141311; --ref: #8cc1ee; --warn: #f4b942; --sponsor: #ea4aaa;
+  --sans: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Apple SD Gothic Neo", "Malgun Gothic", "PingFang SC", "PingFang TC", "Microsoft YaHei", "Microsoft JhengHei", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+a { color: var(--ref); }
+img { max-width: 100%; height: auto; display: block; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 20px; }
+
+header { position: sticky; top: 0; z-index: 10; background: rgba(20,19,17,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 600; font-size: 18px; }
+.brand img { width: 28px; height: 28px; }
+.head-right { display: flex; align-items: center; gap: 10px; }
+.lang { display: flex; align-items: center; gap: 6px; color: var(--mute); font-size: 13px; }
+.lang select { max-width: 11em; background: var(--panel); color: var(--text); border: 1px solid var(--line-hi); border-radius: 6px; padding: 6px 8px; font: 14px var(--sans); }
+.gh { color: var(--dim); text-decoration: none; font-size: 14px; border: 1px solid var(--line-hi); border-radius: 6px; padding: 6px 10px; white-space: nowrap; }
+.gh:hover { color: var(--text); border-color: var(--dim); }
+
+.hero { padding-block: 64px 32px; text-align: center; }
+.pill { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; color: var(--warn); border: 1px solid rgba(244,185,66,.4); border-radius: 999px; padding: 4px 12px; text-transform: uppercase; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+h1 { font-size: clamp(30px, 5.2vw, 52px); line-height: 1.25; margin: 18px auto 14px; max-width: 22em; text-wrap: balance; word-break: auto-phrase; font-weight: 700; letter-spacing: .01em; }
+.lead { color: var(--dim); max-width: 40em; margin: 0 auto; font-size: clamp(16px, 1.9vw, 18px); text-wrap: pretty; }
+.dl { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 32px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 17px; border-radius: 10px; padding: 14px 22px; border: 1px solid var(--line-hi); color: var(--text); background: var(--raised); min-height: 52px; }
+.btn svg { width: 20px; height: 20px; flex: none; fill: currentColor; }
+.btn.primary { background: var(--signal); color: var(--signal-ink); border-color: var(--signal); box-shadow: 0 0 24px rgba(198,238,106,.25); }
+.btn:hover { filter: brightness(1.08); }
+.btn:focus-visible, select:focus-visible, .gh:focus-visible, .sponsor:focus-visible { outline: 3px solid var(--ref); outline-offset: 3px; }
+.dl-note { margin-top: 14px; color: var(--mute); font-size: 14px; }
+.dl-note a { color: var(--dim); }
+.mobile-note { display: none; margin: 14px auto 0; max-width: 32em; color: var(--warn); font-size: 14px; }
+
+.shot { margin-block: 40px 16px; border: 1px solid var(--line-hi); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.55); background: var(--deep); }
+
+section { padding-block: 56px 8px; }
+h2 { font-size: clamp(22px, 3vw, 30px); margin: 0 0 22px; text-wrap: balance; }
+.micro { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--mute); text-transform: uppercase; margin-bottom: 6px; }
+
+.steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; counter-reset: step; }
+.steps li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; counter-increment: step; min-width: 0; }
+.steps li::before { content: counter(step); display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--signal); color: var(--signal-ink); font: 600 15px var(--mono); margin-bottom: 10px; }
+.steps h3 { margin: 0 0 6px; font-size: 18px; }
+.steps p { margin: 0; color: var(--dim); font-size: 15px; }
+
+.feats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.feat { border-top: 2px solid var(--line-hi); padding-top: 14px; min-width: 0; }
+.feat:nth-child(1) { border-top-color: var(--signal); }
+.feat h3 { margin: 0 0 6px; font-size: 18px; }
+.feat p { margin: 0; color: var(--dim); font-size: 15px; }
+
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.mode { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.mode b { display: block; font-size: 17px; margin-bottom: 4px; }
+.mode span { color: var(--dim); font-size: 14px; }
+.langs-note { color: var(--mute); margin-top: 14px; font-size: 14px; }
+
+.reqs { margin: 0; padding-left: 1.2em; color: var(--dim); display: grid; gap: 6px; max-width: 52em; }
+.reqs li:last-child { color: var(--warn); }
+
+.support { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+.support p { margin: 0; color: var(--dim); max-width: 44em; min-width: 0; flex: 1 1 22em; }
+.sponsor { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: #fff; background: var(--sponsor); border-radius: 10px; padding: 12px 20px; font-weight: 600; white-space: nowrap; }
+.sponsor svg { width: 18px; height: 18px; fill: currentColor; }
+
+footer { margin-top: 64px; border-top: 1px solid var(--line); padding-block: 24px calc(32px + env(safe-area-inset-bottom, 0px)); color: var(--mute); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+footer a { color: var(--dim); text-decoration: none; }
+footer a:hover { color: var(--text); }
+
+@media (max-width: 820px) {
+  .steps, .feats, .modes { grid-template-columns: minmax(0, 1fr); }
+  .hero { padding-top: 40px; }
+  .lang span { display: none; }
+}
+@media (max-width: 440px) {
+  .brand-name { display: none; }
+  .gh { padding: 6px 8px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="brand/out/marketing/apple-touch-icon-180.png" alt="" width="28" height="28"><span class="brand-name">VoiceBooth</span></a>
+    <div class="head-right">
+      <label class="lang"><span data-t="language">言語</span>
+        <select id="lang" aria-label="Language"></select>
+      </label>
+      <a class="gh" href="https://github.com/kajisho5/voicebooth" data-t="links.github">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <span class="pill"><i></i><span data-t="beta">ベータ版</span></span>
+    <h1 data-t="tagline">歌ってみた専用の、小さなボーカル DAW。</h1>
+    <p class="lead" data-t="lead"></p>
+    <div class="dl">
+      <a class="btn" id="dl-win" href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5 10.5 4.4v7H3zm8.5-1.2L21 3v8.4h-9.5zM3 12.6h7.5v7L3 18.5zm8.5 0H21V21l-9.5-1.3z"/></svg>
+        <span data-t="dlWin">Windows でダウンロード</span></a>
+      <a class="btn" id="dl-mac" href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.3 1.2 9.7.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.5-1-2.5-3.8zM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4z"/></svg>
+        <span data-t="dlMac">Mac でダウンロード</span></a>
+    </div>
+    <p class="dl-note"><span id="dl-note"></span> · <a href="https://github.com/kajisho5/voicebooth/releases" data-t="dlOther">ほかのファイル・前のバージョン</a></p>
+    <p class="mobile-note" id="mobile-note"></p>
+    <div class="shot"><img id="shot" src="docs/screenshots/main-ja.png" width="1744" height="942" alt=""></div>
+  </div>
+
+  <section class="wrap" id="start">
+    <div class="micro">START</div>
+    <h2 data-t="stepsTitle"></h2>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <section class="wrap" id="features">
+    <div class="micro">FEATURES</div>
+    <h2 data-t="featTitle"></h2>
+    <div class="feats" id="feats"></div>
+  </section>
+
+  <section class="wrap" id="modes">
+    <div class="micro">MODES</div>
+    <h2 data-t="modesTitle"></h2>
+    <div class="modes" id="modes-list"></div>
+    <p class="langs-note" data-t="langsNote"></p>
+  </section>
+
+  <section class="wrap" id="requirements">
+    <div class="micro">REQUIREMENTS</div>
+    <h2 data-t="reqTitle"></h2>
+    <ul class="reqs" id="reqs"></ul>
+  </section>
+
+  <section class="wrap" id="support">
+    <div class="micro">SUPPORT</div>
+    <h2 data-t="supportTitle"></h2>
+    <div class="support">
+      <p data-t="supportText"></p>
+      <a class="sponsor" href="https://github.com/sponsors/kajisho5">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 5 6.4 5c2 0 3.2 1 4.1 2.2h3c.9-1.2 2.1-2.2 4.1-2.2C21 5 23.1 8.4 21.6 11.8 19.5 16.4 12 21 12 21z"/></svg>
+        <span data-t="supportBtn"></span></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>VoiceBooth · AGPL-3.0-or-later</span>
+    <nav>
+      <a href="https://github.com/kajisho5/voicebooth" data-t="links.github"></a>
+      <a href="https://github.com/kajisho5/voicebooth/releases" data-t="links.releases"></a>
+      <a href="https://github.com/kajisho5/voicebooth/issues" data-t="links.issues"></a>
+      <a href="https://github.com/kajisho5/voicebooth/blob/main/LICENSE" data-t="links.license"></a>
+    </nav>
+  </div>
+</footer>
+
+<script src="site/i18n.js"></script>
+<script>
+(function () {
+  "use strict";
+  var T = window.VB_I18N;
+  var ORDER = ["ja", "en", "ko", "zh-Hans", "zh-Hant", "es", "pt-BR", "id", "vi", "tr", "de", "fr"];
+  var SHOTS = { ja: 1, en: 1, ko: 1, "zh-Hans": 1, "zh-Hant": 1, es: 1, "pt-BR": 1, id: 1, vi: 1, tr: 1, de: 1, fr: 1 };
+  var REPO = "kajisho5/voicebooth";
+  var release = { tag: "v0.2.0-beta.2", win: null, mac: null };   // GitHub から読めなかった時はこのバージョン（ボタンの href はそのまま）
+
+  function pick() {
+    var q = new URLSearchParams(location.search).get("lang");
+    if (q && T[q]) return q;
+    try { var s = localStorage.getItem("vb-lang"); if (s && T[s]) return s; } catch (e) {}
+    var prefs = navigator.languages || [navigator.language || "en"];
+    for (var i = 0; i < prefs.length; i++) {
+      var p = String(prefs[i]).toLowerCase();
+      if (p.indexOf("zh") === 0) return /tw|hk|mo|hant/.test(p) ? "zh-Hant" : "zh-Hans";
+      if (p.indexOf("pt") === 0) return "pt-BR";
+      if (p === "in" || p.indexOf("in-") === 0) return "id";
+      for (var j = 0; j < ORDER.length; j++)
+        if (p === ORDER[j].toLowerCase() || p.indexOf(ORDER[j].toLowerCase() + "-") === 0) return ORDER[j];
+    }
+    return "en";
+  }
+
+  function get(L, key) { return key.split(".").reduce(function (o, k) { return o ? o[k] : undefined; }, L); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function versionLabel(L) {
+    var m = /^v?(\d+\.\d+\.\d+)(?:-beta\.(\d+))?$/.exec(release.tag || "");
+    if (!m) return release.tag;
+    return m[2] ? m[1] + " " + (L.betaN || L.beta) + " " + m[2] : m[1];
+  }
+
+  function render(code) {
+    var L = T[code];
+    document.documentElement.lang = code;
+    document.title = L.title;
+    document.querySelectorAll("[data-t]").forEach(function (n) { var v = get(L, n.getAttribute("data-t")); if (typeof v === "string") n.textContent = v; });
+    document.getElementById("dl-note").textContent = L.free + " · " + L.dlNote.replace("{v}", versionLabel(L));
+
+    var steps = document.getElementById("steps"); steps.textContent = "";
+    L.steps.forEach(function (s) { var li = el("li"); li.appendChild(el("h3", null, s[0])); li.appendChild(el("p", null, s[1])); steps.appendChild(li); });
+    var feats = document.getElementById("feats"); feats.textContent = "";
+    L.feats.forEach(function (f) { var d = el("div", "feat"); d.appendChild(el("h3", null, f[0])); d.appendChild(el("p", null, f[1])); feats.appendChild(d); });
+    var modes = document.getElementById("modes-list"); modes.textContent = "";
+    L.modes.forEach(function (m) { var d = el("div", "mode"); d.appendChild(el("b", null, m[0])); d.appendChild(el("span", null, m[1])); modes.appendChild(d); });
+    var reqs = document.getElementById("reqs"); reqs.textContent = "";
+    L.reqs.forEach(function (r) { reqs.appendChild(el("li", null, r)); });
+
+    var shot = document.getElementById("shot");
+    shot.src = "docs/screenshots/main-" + (SHOTS[code] ? code : "en") + ".png";
+    shot.alt = L.shotAlt;
+    document.getElementById("mobile-note").textContent = L.reqs[3];
+    document.getElementById("lang").value = code;
+  }
+
+  // パソコンの種類に合わせて、主のボタンを先に（スマホは両方そのまま＋注意）
+  function osOrder() {
+    var ua = navigator.userAgent || "", plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
+    var mobile = /Android|iPhone|iPad|iPod/i.test(ua) || (/Mac/.test(plat) && navigator.maxTouchPoints > 1);
+    var win = document.getElementById("dl-win"), mac = document.getElementById("dl-mac");
+    if (mobile) { document.getElementById("mobile-note").style.display = "block"; return; }
+    if (/Mac/i.test(plat) || /Mac OS X/.test(ua)) { mac.classList.add("primary"); mac.parentNode.insertBefore(mac, win); }
+    else { win.classList.add("primary"); }
+  }
+
+  // 最新のリリース（ベータを含む）のファイルを GitHub から読む。読めなければ書いてある beta のまま
+  function loadRelease(code) {
+    fetch("https://api.github.com/repos/" + REPO + "/releases?per_page=10", { headers: { Accept: "application/vnd.github+json" } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        for (var i = 0; i < list.length; i++) {
+          var rel = list[i];
+          if (rel.draft) continue;
+          var win = null, mac = null;
+          (rel.assets || []).forEach(function (a) {
+            if (/-win-x64-setup\.exe$/.test(a.name)) win = a.browser_download_url;
+            if (/-mac-universal\.dmg$/.test(a.name)) mac = a.browser_download_url;
+          });
+          if (win || mac) {
+            release = { tag: rel.tag_name, win: win, mac: mac };
+            if (win) document.getElementById("dl-win").href = win;
+            if (mac) document.getElementById("dl-mac").href = mac;
+            render(document.getElementById("lang").value || code);
+            return;
+          }
+        }
+      })
+      .catch(function () {});
+  }
+
+  var sel = document.getElementById("lang");
+  ORDER.forEach(function (c) { var o = el("option", null, T[c].name); o.value = c; sel.appendChild(o); });
+  sel.addEventListener("change", function () {
+    try { localStorage.setItem("vb-lang", sel.value); } catch (e) {}
+    var u = new URL(location.href); u.searchParams.set("lang", sel.value); history.replaceState(null, "", u);
+    render(sel.value);
+  });
+
+  var code = pick();
+  render(code);
+  osOrder();
+  loadRelease(code);
+})();
+</script>
+</body>
+</html>

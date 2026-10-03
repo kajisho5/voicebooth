@@ -43,6 +43,8 @@ struct SongAudio
 
 /** メモリに持つ曲の長さの上限（分） */
 constexpr int maxSongMinutes = 20;
+/** 曲の SR の上限（録音形式の上限 384 kHz の 2 倍。これより大きい値はファイルが壊れている） */
+constexpr double maxSampleRate = 768000.0;
 
 struct LoadResult
 {

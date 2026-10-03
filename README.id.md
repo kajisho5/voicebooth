@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="Dukung pengembangan"></a>
 </p>
 
 # VoiceBooth
@@ -50,7 +51,7 @@ Versi saat ini **0.2.0 beta 2**. Perubahan dan versi lama ada di [halaman rilis]
    - **Mac**: pindahkan VoiceBooth dari DMG ke folder Aplikasi lalu buka sekali → jika macOS bilang tidak bisa dibuka, buka Pengaturan Sistem → Privasi & Keamanan → di bagian Keamanan, klik "Tetap Buka" (tombol muncul sekitar satu jam setelah Anda mencoba membuka aplikasi) → masukkan kata sandi ([petunjuk Apple](https://support.apple.com/id-id/guide/mac-help/mh40616/mac))
 3. **Saat aplikasi terbuka**, pilih bahasa dan mode. Saat muncul "Unduh model pemisahan", tekan Unduh (sekitar 210 MB, hanya pertama kali; dipakai untuk nada dan harmoni panduan serta memulai hanya dari lagu asli)
 
-![Layar utama VoiceBooth](docs/screenshots/main-en.png)
+![Layar utama VoiceBooth](docs/screenshots/main-id.png)
 
 > Tangkapan layar ini adalah mock-up pengembangan yang digambar dari data contoh. Tampilan dengan lagu sungguhan masih terus diperbaiki dan bisa terlihat berbeda.
 
@@ -176,6 +177,10 @@ Aturan pemakaian logo (ruang kosong, ukuran minimum, versi untuk latar terang) d
 ## Dukung pengembangan
 
 VoiceBooth gratis. Jika Anda menyukainya, Anda bisa mendukung pengembangan lewat [GitHub Sponsors](https://github.com/sponsors/kajisho5). Menjadi sponsor tidak membuka fitur apa pun; semua orang mendapat aplikasi yang sama.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-Dukung%20pengembangan-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="Dukung pengembangan"></a>
+</p>
 
 ## Lisensi
 

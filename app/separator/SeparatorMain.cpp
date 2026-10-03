@@ -33,6 +33,7 @@
 #include "analysis/Separation.h"
 #include "analysis/Rmvpe.h"
 #include <atomic>
+#include <limits>
 #include <iostream>
 #include <thread>
 #if JUCE_WINDOWS
@@ -43,6 +44,8 @@
   #define WIN32_LEAN_AND_MEAN
  #endif
  #include <windows.h>
+ #include <shellapi.h>   // CommandLineToArgvW
+ #pragma comment (lib, "shell32.lib")
 #else
  #include <signal.h>
  #include <cerrno>
@@ -175,7 +178,10 @@ int runPitch (const juce::File& modelFile, const juce::File& in, const juce::Fil
         formats.registerBasicFormats();
         std::unique_ptr<juce::AudioFormatReader> r (formats.createReaderFor (in));
         if (r == nullptr) return fail ("can't read " + in.getFullPathName());
-        if (r->lengthInSamples <= 0 || r->lengthInSamples > (juce::int64) (60 * 60 * r->sampleRate)) return fail ("bad length");
+        // サンプル数でも上限を見る（極端な SR を書いたファイルで int を超えると、確保した外へ読み込む）
+        if (r->sampleRate <= 0.0 || r->sampleRate > 768000.0
+            || r->lengthInSamples <= 0 || r->lengthInSamples > (juce::int64) (60 * 60 * r->sampleRate)
+            || r->lengthInSamples > (juce::int64) std::numeric_limits<int>::max()) return fail ("bad length");
         rate = r->sampleRate;
         juce::AudioBuffer<float> b ((int) juce::jmax (1u, r->numChannels), (int) r->lengthInSamples);
         r->read (&b, 0, b.getNumSamples(), 0, true, true);
@@ -266,10 +272,29 @@ bool writeWav (const juce::File& file, const juce::AudioBuffer<float>& b)
 }
 } // namespace
 
-int main (int argc, char* argv[])
+/** 起動の引数。Windows の argv は ANSI（日本語環境なら CP932）で、UTF-8 ではない。曲名・ユーザー名に日本語が入った
+    パスが化けて、分離・音程・リードが全部失敗していた（監査 2026-10-03）。Windows は UTF-16 のコマンドラインから取り直す */
+static juce::StringArray commandLineArgs (int argc, char* argv[])
 {
     juce::StringArray args;
-    for (int i = 1; i < argc; ++i) args.add (juce::CharPointer_UTF8 (argv[i]));
+   #if JUCE_WINDOWS
+    int n = 0;
+    if (auto** wide = CommandLineToArgvW (GetCommandLineW(), &n); wide != nullptr)
+    {
+        for (int i = 1; i < n; ++i)
+            args.add (juce::String (wide[i]));
+        LocalFree (wide);
+        return args;
+    }
+   #endif
+    for (int i = 1; i < argc; ++i)
+        args.add (juce::CharPointer_UTF8 (argv[i]));
+    return args;
+}
+
+int main (int argc, char* argv[])
+{
+    const auto args = commandLineArgs (argc, argv);
 
     const juce::File modelDir (arg (args, "--model")), in (arg (args, "--in")), outVocals (arg (args, "--vocals")), outBacking (arg (args, "--backing"));
     const int overlap = juce::jlimit (1, 4, arg (args, "--overlap", "2").getIntValue());

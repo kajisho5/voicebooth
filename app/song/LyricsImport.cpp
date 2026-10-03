@@ -154,7 +154,10 @@ namespace
             // 韓国語
             "인트로", "벌스", "프리코러스", "코러스", "후렴", "브릿지", "간주", "아웃트로",
             // 中国語
-            "主歌", "副歌", "间奏", "桥段", "橋段", "尾奏", "导歌", "導歌"
+            "主歌", "副歌", "间奏", "桥段", "橋段", "尾奏", "导歌", "導歌",
+            // スペイン語・ポルトガル語（画面の説明が [Estribillo] を例に出している。2026-10-03）
+            "estribillo", "coro", "estrofa", "verso", "precoro", "puente", "interludio",
+            "refrão", "pré-refrão", "ponte"
         };
         static const juce::StringArray words = []
         {
@@ -310,6 +313,12 @@ juce::String sectionKindOfHeading (const juce::String& heading)
         { "落ちサビ", "dropChorus" },
         { "大サビ", "lastChorus" }, { "ラスサビ", "lastChorus" },
         { "アウトロ", "outro" }, { "後奏", "outro" }, { "outro", "outro" }, { "아웃트로", "outro" }, { "尾奏", "outro" },
+        // スペイン語・ポルトガル語
+        { "estribillo", "chorus" }, { "coro", "chorus" }, { "refrão", "chorus" },
+        { "estrofa", "verseA" }, { "verso", "verseA" },
+        { "precoro", "verseB" }, { "pré-refrão", "verseB" },
+        { "puente", "verseC" }, { "ponte", "verseC" },
+        { "interludio", "interlude" },
     };
 
     const auto key = stripNumber (normaliseForMatch (heading));

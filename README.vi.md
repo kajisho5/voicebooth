@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="Ủng hộ phát triển"></a>
 </p>
 
 # VoiceBooth
@@ -50,7 +51,7 @@ Phiên bản hiện tại là **0.2.0 beta 2**. Thay đổi và các bản cũ c
    - **Mac**: chuyển VoiceBooth từ DMG vào thư mục Ứng dụng rồi mở một lần → nếu macOS báo không thể mở, vào Cài đặt hệ thống → Quyền riêng tư & Bảo mật → ở mục Bảo mật, bấm "Vẫn mở" (nút này hiện trong khoảng một giờ sau khi bạn thử mở ứng dụng) → nhập mật khẩu ([hướng dẫn của Apple](https://support.apple.com/vi-vn/guide/mac-help/mh40616/mac))
 3. **Khi ứng dụng mở**, chọn ngôn ngữ và chế độ. Khi hiện "Tải mô hình tách giọng", hãy bấm Tải về (khoảng 210 MB, chỉ lần đầu; dùng cho cao độ và bè của bản mẫu và để bắt đầu chỉ với bản gốc)
 
-![Màn hình chính của VoiceBooth](docs/screenshots/main-en.png)
+![Màn hình chính của VoiceBooth](docs/screenshots/main-vi.png)
 
 > Ảnh chụp màn hình này là bản mô phỏng trong quá trình phát triển, vẽ từ dữ liệu mẫu. Phần hiển thị với bài hát thật vẫn đang được cải thiện và có thể trông khác đi.
 
@@ -176,6 +177,10 @@ Quy tắc sử dụng logo (khoảng trống, kích thước tối thiểu, phi�
 ## Ủng hộ phát triển
 
 VoiceBooth miễn phí. Nếu bạn thích, có thể ủng hộ phát triển qua [GitHub Sponsors](https://github.com/sponsors/kajisho5). Ủng hộ không mở khóa tính năng nào; ai cũng nhận được cùng một ứng dụng.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-%E1%BB%A6ng%20h%E1%BB%99%20ph%C3%A1t%20tri%E1%BB%83n-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="Ủng hộ phát triển"></a>
+</p>
 
 ## Giấy phép
 

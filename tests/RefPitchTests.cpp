@@ -170,6 +170,40 @@ public:
             expectGreaterThan (right, inNote * 97 / 100);
         }
 
+        beginTest ("separated vocals with a slightly different speed: the line follows the tempo ratio, not just the offset");
+        {
+            // 原曲の時間で 50 秒までは A3（220 Hz）、その後は E4（329.6 Hz）。オフボは原曲より 1% 遅い（比 1.01）。
+            // オフボの時間では 50 / 1.01 = 49.50 秒で E4 に変わるはず（前は offset だけで 50 秒の所で変わっていた。監査 2026-10-03）
+            const double ratio = 1.01;
+            const auto refLen = (juce::int64) (56.0 * sr), karLen = (juce::int64) (55.0 * sr);
+            std::vector<float> vocals ((size_t) refLen);
+            double phase = 0.0;
+            for (juce::int64 i = 0; i < refLen; ++i)
+            {
+                const auto f = (double) i / sr < 50.0 ? midiHz (57.0) : midiHz (64.0);
+                phase += twoPi * f / sr;
+                vocals[(size_t) i] = (float) (0.4 * std::sin (phase) + 0.15 * std::sin (2.0 * phase));
+            }
+            AlignResult align;
+            align.quality = AlignResult::Quality::good;
+            align.tempoRatio = ratio;
+            align.covered.push_back ({ 0, karLen, 0, ratio });
+            const auto r = pitchFromVocals (vocals.data(), refLen, karLen, sr, align);
+            expect (r.status == RefPitchResult::Status::ok);
+            int before = 0, beforeRight = 0, after = 0, afterRight = 0;
+            for (auto& p : r.points)
+            {
+                if (p.confidence < 0.5f) continue;
+                const auto t = (double) p.songSample / sr;
+                if (t > 49.0 && t < 49.4)  { ++before; beforeRight += std::abs (p.midi - 57.0f) < 0.3f ? 1 : 0; }
+                if (t > 49.62 && t < 49.95) { ++after;  afterRight  += std::abs (p.midi - 64.0f) < 0.3f ? 1 : 0; }
+            }
+            expectGreaterThan (before, 10);
+            expectGreaterThan (after, 10);
+            expectGreaterThan (beforeRight, before * 9 / 10);
+            expectGreaterThan (afterRight, after * 9 / 10);   // 前のコードでは、ここはまだ A3
+        }
+
         beginTest ("a different mix (re-recorded karaoke), a faster version or another song: no reference line");
         {
             const auto orig = original (b, notes, 2.5, 1.0f);

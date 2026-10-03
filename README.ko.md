@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="베타">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="개발 후원"></a>
 </p>
 
 # VoiceBooth
@@ -176,6 +177,10 @@ MR에 맞춰 노래하면서 음정을 화면으로 보고 고치고, 고치고 
 ## 개발 후원
 
 VoiceBooth는 무료입니다. 마음에 드셨다면 [GitHub Sponsors](https://github.com/sponsors/kajisho5)로 후원해 주시면 개발을 이어갈 수 있습니다. 후원 여부에 따라 쓸 수 있는 기능은 달라지지 않습니다.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-%EA%B0%9C%EB%B0%9C%20%ED%9B%84%EC%9B%90-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="개발 후원"></a>
+</p>
 
 ## 라이선스
 

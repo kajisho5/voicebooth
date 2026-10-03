@@ -133,6 +133,28 @@ public:
             expect (loadSong (empty, formats).error == LoadResult::Error::empty);
         }
 
+        beginTest ("crafted header: huge SR and sample count is refused (no overflow)");
+        {
+            // RF64・8bit モノラル・SR 10 億・data は 0x100001000 バイト（約 43 億サンプル = 約 4.3 秒）と書いた、中身の少ないファイル。
+            // 時間だけ見ると上限内だが、サンプル数は int を超え、int に切り詰めると 4096 になる。前はその 4096 サンプルの
+            // バッファへ 43 億サンプル分を読み込もうとして、確保した外へ書いていた（監査 2026-10-03）
+            juce::MemoryOutputStream m;
+            auto u32 = [&m] (juce::uint32 v) { m.writeInt ((int) v); };
+            auto u16 = [&m] (juce::uint16 v) { m.writeShort ((short) v); };
+            auto u64 = [&m] (juce::uint64 v) { m.writeInt64 ((juce::int64) v); };
+            m.write ("RF64", 4); u32 (0xFFFFFFFFu); m.write ("WAVE", 4);
+            m.write ("ds64", 4); u32 (28); u64 (0x200000000ull); u64 (0x100001000ull); u64 (0x100001000ull); u32 (0);
+            m.write ("fmt ", 4); u32 (16); u16 (1); u16 (1); u32 (1000000000u); u32 (1000000000u); u16 (1); u16 (8);
+            m.write ("data", 4); u32 (0xFFFFFFFFu);
+            for (int i = 0; i < 8192; ++i) m.writeByte ((char) 0x80);
+            const auto crafted = dir.getChildFile ("crafted.wav");
+            crafted.replaceWithData (m.getData(), m.getDataSize());
+
+            const auto r = loadSong (crafted, formats);
+            expect (r.error == LoadResult::Error::tooLong || r.error == LoadResult::Error::unsupported, "crafted header must be refused");
+            expect (r.audio == nullptr);
+        }
+
         beginTest ("cancel while loading");
         {
             const auto f = dir.getChildFile ("long.wav");
