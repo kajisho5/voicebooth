@@ -209,6 +209,9 @@ struct Session
     std::vector<RefNote> refNotes;
     std::vector<PitchPoint> refPitch;
     std::vector<PitchPoint> refPitchHarm;   // ハモリのお手本の音程（オフボの時間。2026-10-02）。空ならハモリのトラックもメインと比べる
+    // お手本の線（refPitch・refPitchHarm）を作り直す・ずらす・時間軸をそろえ直すたびに増やす。音符とキーの提案のキャッシュの鍵。
+    // 点の数・頭・終わりだけの鍵では、同じ曲の線は必ず同じ並び（10 ms ごと）なので、差し替えても古いまま残っていた（#24）
+    int refPitchSerial = 0;
     std::vector<PitchPoint> myPitch;
 
     // お手本（声入りの原曲。B9。DESIGN 7.1.1）。refPitch はオフボの時間

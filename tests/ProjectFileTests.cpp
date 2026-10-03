@@ -180,6 +180,15 @@ public:
             expect (! findMedia (dir, "Audio/none.wav", "Audio").existsAsFile());
             dir.deleteRecursively();
         }
+
+        beginTest ("isInsideProject: takes may only point inside the project folder (#17)");
+        {
+            for (auto ok : { "Audio/Takes/Main_take1.wav", "Audio/Takes/.retro-1-100.wav", "Audio\\Takes\\Main_take2.wav", "Audio/Takes/a..b.wav" })
+                expect (isInsideProject (ok), ok);
+            for (auto bad : { "", "   ", "../outside.wav", "Audio/../../outside.wav", "Audio\\..\\..\\x.wav", "/etc/passwd",
+                              "\\\\server\\share\\x.wav", "C:\\Users\\someone\\x.wav", "C:/x.wav", "~/x.wav", "Audio/Takes/x.wav:stream" })
+                expect (! isInsideProject (bad), bad);
+        }
     }
 };
 

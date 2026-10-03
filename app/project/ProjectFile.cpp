@@ -414,6 +414,17 @@ int recoverUnusedTakes (const juce::File& projectFolder, const juce::StringArray
     return moved;
 }
 
+bool isInsideProject (const juce::String& relativePath)
+{
+    const auto p = relativePath.trim().replaceCharacter ('\\', '/');
+    if (p.isEmpty() || p.startsWithChar ('/') || p.startsWithChar ('~') || p.containsChar (':'))
+        return false;
+    for (auto& part : juce::StringArray::fromTokens (p, "/", {}))
+        if (part.trim() == "..")
+            return false;
+    return true;
+}
+
 juce::File findMedia (const juce::File& projectFolder, const juce::String& path, const juce::String& folder)
 {
     const auto f = projectFolder.getChildFile (path);
