@@ -197,7 +197,7 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
     }
     dest.deleteFile();
 
-    // 前回の続き：別の版（期待する SHA-256 が違う）の .part は捨てる
+    // 前回の続き：別のバージョン（期待する SHA-256 が違う）の .part は捨てる
     PartState st;
     if (stateFile.existsAsFile())
     {

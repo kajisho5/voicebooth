@@ -34,7 +34,7 @@ private:
     juce::Rectangle<float> updateChip;   // paint で決まる（滑り込んだ後の場所）
 
     // 知らせの動き
-    juce::String noticeVersion;          // いま出している版（変わったら滑り込み直す）
+    juce::String noticeVersion;          // いま出しているバージョン（変わったら滑り込み直す）
     motion::Spring chipSlide { 1.0f };   // 0 = 右の外、1 = 所定の位置
     double chipShownAt = -10.0;          // 出した時刻（LED の点滅）
     float chipLift = 0.0f;               // ホバーで浮く（0..1）
