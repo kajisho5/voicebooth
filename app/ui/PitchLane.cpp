@@ -310,6 +310,7 @@ void PitchLane::paint (juce::Graphics& g)
         if (harmonyGuide())
             drawMainGhost (g, m);
         drawReference (g, m);
+        drawUncovered (g, m);
         if (! drawCompareTake (g, m))   // テイク比較の間は、選んだテイクの線をお手本に重ねる（いま歌った線の代わりに）
             drawMine (g, m);
 
@@ -429,6 +430,40 @@ void PitchLane::drawNoteGutter (juce::Graphics& g)
             g.drawText (dummy::noteName ((float) n), area, juce::Justification::centredRight, false);
     }
     paint::vline (g, r.getRight() - 1.0f, r.getY(), r.getBottom());
+}
+
+void PitchLane::drawUncovered (juce::Graphics& g, const TimeMap& m)
+{
+    // カット版：お手本が使えない所（原曲に無い所）を斜線と「お手本なし」で（DESIGN 7.1.1）
+    const auto& s = state();
+    if (s.guideCovered.empty() || s.refPitch.empty())
+        return;
+    const auto plot = plotArea.toFloat();
+    int64 from = 0;
+    auto gap = [&] (int64 a, int64 b)
+    {
+        if (b <= a) return;
+        const auto x0 = juce::jmax (plot.getX(), m.x (a)), x1 = juce::jmin (plot.getRight(), m.x (b));
+        if (x1 - x0 < 2.0f) return;
+        const juce::Rectangle<float> r (x0, plot.getY(), x1 - x0, plot.getHeight());
+        g.setColour (colours::bgDeep.withAlpha (0.45f));
+        g.fillRect (r);
+        lane::drawHatch (g, r, colours::line.withAlpha (0.35f));
+        const auto text = tr ("pitch.noGuideHere");
+        const auto f = sans (11.5f);
+        if (textWidth (f, text) + 12.0f <= r.getWidth())
+        {
+            g.setColour (colours::textMute);
+            g.setFont (f);
+            g.drawText (text, r.withTrimmedTop (8.0f).withHeight (18.0f), juce::Justification::centred, false);
+        }
+    };
+    for (auto& [a, b] : s.guideCovered)
+    {
+        gap (from, a);
+        from = juce::jmax (from, b);
+    }
+    gap (from, s.project.lengthSamples);
 }
 
 void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)

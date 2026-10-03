@@ -235,7 +235,9 @@ struct Session
     // 原曲で聴く（聞き比べ・時間合わせの確認。DESIGN 4.6 Original）：合わせた原曲（オフボの時間・オフボの元の SR・モノラル）と、オフボの代わりに鳴らすか
     std::shared_ptr<const audio::SongAudio> guideOriginal;
     bool listenOriginal = false;
-    bool guideAlignRough = false;          // 時間合わせの確かさが低い（「推定」と出す。DESIGN 7.1.1）
+    bool guideAlignRough = false;
+    // カット版（DESIGN 7.1.1）：お手本が使える所（オフボの時間・曲の SR）。曲のほぼ全部なら空（「お手本なし」を描かない）
+    std::vector<std::pair<int64, int64>> guideCovered;          // 時間合わせの確かさが低い（「推定」と出す。DESIGN 7.1.1）
     double guideNudgeMs = 0.0;            // お手本の位置の手直し（ms。+ で後ろへ。DESIGN 7.1.1。プロジェクトに保存）
     int guideKaraokeKey = 0;              // キー違いのカラオケ：カラオケ = 原曲 + この半音（分離した線をその分ずらす。DESIGN 7.1.1）
 

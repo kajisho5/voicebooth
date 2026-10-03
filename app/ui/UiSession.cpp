@@ -1120,7 +1120,7 @@ namespace
 
     struct GuideOutcome
     {
-        enum class Kind { ok, loadFailed, notAligned, needsSeparation, keyShift };
+        enum class Kind { ok, loadFailed, notAligned, needsSeparation, keyShift, tempoDiffers };
         Kind kind = Kind::notAligned;
         juce::String error;                        // loadFailed の翻訳キー
         std::vector<audio::PitchFrame> points;     // オフボ（曲の SR）の時間
@@ -1132,7 +1132,24 @@ namespace
         std::shared_ptr<const audio::SongAudio> harmVocals;
         std::shared_ptr<const audio::SongAudio> original;   // 時間を合わせた原曲（オフボの時間・モノラル）。聞き比べ用。速さが違えば無し
         bool alignRough = false;                    // 時間合わせの確かさが低い（「推定」）
+        double tempoRatio = 1.0;                    // 原曲の速さ ÷ オフボの速さ（1 でなければ線は出せない）
+        std::vector<std::pair<juce::int64, juce::int64>> covered;   // お手本が使える所（オフボの時間・オフボの元の SR）
     };
+
+    /** 合わせの結果からお手本の使える所（曲のほぼ全部なら空） */
+    std::vector<std::pair<juce::int64, juce::int64>> coveredSpans (const analysis::AlignResult& align, juce::int64 length, double rate)
+    {
+        std::vector<std::pair<juce::int64, juce::int64>> spans;
+        juce::int64 total = 0;
+        for (auto& c : align.covered)
+        {
+            const auto a = juce::jmax ((juce::int64) 0, c.karaokeStart), b = juce::jmin (length, c.karaokeEnd);
+            if (b > a) { spans.push_back ({ a, b }); total += b - a; }
+        }
+        if (length - total < (juce::int64) (1.0 * rate))   // 抜けが 1 秒未満なら全部ある扱い
+            spans.clear();
+        return spans;
+    }
 
     /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
         伴奏の残りに強く、オクターブの誤りがほぼ無い（Rmvpe.h）。モデルが無い・失敗したら false（YIN の線のまま） */
@@ -1276,6 +1293,15 @@ namespace
             return out;   // notAligned
         out.offsetSeconds = (double) align.offsetSamples / rate;
         out.alignRough = align.quality == analysis::AlignResult::Quality::rough;
+        out.tempoRatio = align.tempoRatio;
+        out.covered = coveredSpans (align, (juce::int64) kar.size(), rate);
+
+        // 速さの違う版：時間はずれていき、音程も変わる。嘘の線を出さない（DESIGN 7.1.1）
+        if (std::abs (align.tempoRatio - 1.0) > 0.002)
+        {
+            out.kind = GuideOutcome::Kind::tempoDiffers;
+            return out;
+        }
 
         // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 + offset。速さが違う版は作らない）
         if (std::abs (align.tempoRatio - 1.0) < 0.001)
@@ -1334,6 +1360,7 @@ void UiSession::loadGuide (const juce::File& file)
     s.guideName = file.getFileName();
     s.guideKaraokeKey = 0;
     s.guideAlignRough = false;
+    s.guideCovered.clear();
     if (s.guidePath.isNotEmpty() && ! s.projectFolder.getChildFile (s.guidePath).getFileName().equalsIgnoreCase (file.getFileName()))
         s.guideNudgeMs = 0.0;   // 別のお手本：前の手直しは引き継がない
 
@@ -1364,6 +1391,7 @@ void UiSession::loadGuide (const juce::File& file)
             // 聞き比べ用の原曲（合わせられた時）。保存してある手直しもここで当てる
             s.guideOriginal = out->original;
             s.guideAlignRough = out->alignRough;
+            setGuideCovered (out->covered, songRate);
             s.guideOriginal = shiftedAudio (s.guideOriginal, (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate()), s.sampleRate());
             if (s.guideOriginal == nullptr)
                 s.listenOriginal = false;
@@ -1391,6 +1419,7 @@ void UiSession::loadGuide (const juce::File& file)
                     break;
                 }
                 case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
+                case Kind::tempoDiffers:    postNotice (tr ("guide.problem.tempo", juce::String (out->tempoRatio * 100.0, 1))); break;
                 case Kind::notAligned:      postNotice (tr ("guide.problem.notAligned")); break;
                 case Kind::needsSeparation:
                 case Kind::keyShift:
@@ -2033,6 +2062,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
             {
                 out->offsetSeconds = (double) align.offsetSamples / rate;
                 out->alignRough = align.quality == analysis::AlignResult::Quality::rough;
+                out->covered = coveredSpans (align, (juce::int64) kar.size(), rate);
                 // リードボーカル（karaoke のモデル、2026-10-02）があれば、お手本はリード、ハモリ = 声 − リード
                 std::vector<float> leadMono;
                 if (auto l = readAudio (vocalsFile.getSiblingFile ("lead.wav")))
@@ -2099,6 +2129,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 s.refPitch = toRef (out->points);
                 s.refPitchHarm = toRef (out->harmPoints);
                 s.guideAlignRough = out->alignRough;
+                setGuideCovered (out->covered, songRate);
                 if (key != 0)
                 {
                     // キー違いのカラオケ：線もカラオケのキーへ（聴く声は裏でずらしてある）
@@ -3206,6 +3237,15 @@ void UiSession::nudgeGuide (double deltaMs)
     markDirty();
     notify (change::takes | change::monitor | change::view);
     postNotice (tr ("guide.nudged", (newMs > 0 ? "+" : "") + juce::String (newMs, 0)));
+}
+
+void UiSession::setGuideCovered (const std::vector<std::pair<int64, int64>>& spans, double songRate)
+{
+    // オフボの元の SR → いまの時間軸の SR
+    const auto ratio = songRate > 0.0 ? s.sampleRate() / songRate : 1.0;
+    s.guideCovered.clear();
+    for (auto& [a, b] : spans)
+        s.guideCovered.push_back ({ (int64) std::llround ((double) a * ratio), (int64) std::llround ((double) b * ratio) });
 }
 
 void UiSession::setListenOriginal (bool on)

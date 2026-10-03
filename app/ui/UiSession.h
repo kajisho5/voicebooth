@@ -406,6 +406,7 @@ private:
     // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
     /** お手本の線と声を d サンプル（時間軸）ずらす（手直しの分。データだけ。判定・エンジンは呼ぶ側） */
     void shiftGuideData (int64 d, bool withOriginal = true);
+    void setGuideCovered (const std::vector<std::pair<int64, int64>>&, double songRate);
     /** 解析し直した直後のお手本に、保存してある手直しを当てる。当てたら true */
     bool applyGuideNudge();
     bool shadowActive = false;
