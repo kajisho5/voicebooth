@@ -316,7 +316,7 @@ public:
     {
         if (session != nullptr)
         {
-            session->flushSave();   // 終わる前に保存（B14）
+            session->closeForQuit();   // 録音中なら、そこまでをテイクとして入れてから保存（B14。監査 2026-10-03）
             session->removeListener (this);
         }
         window = nullptr;

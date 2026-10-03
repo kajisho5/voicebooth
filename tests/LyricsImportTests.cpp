@@ -81,6 +81,14 @@ public:
 
             expectEquals (sectionHeadingOf (u8 ("【サビ】")), u8 ("サビ"));
             expectEquals (sectionHeadingOf (u8 ("Verse 1:")), u8 ("Verse 1"));
+
+            // スペイン語・ポルトガル語の見出し（画面の説明が [Estribillo] を例に出している）
+            for (auto* h : { "[Estribillo]", "[Coro 2]", "[Estrofa 1]", "Puente:", "[Refrão]", "[Pré-refrão]", "[Ponte]" })
+                expect (sectionHeadingOf (u8 (h)).isNotEmpty(), u8 (h));
+            expectEquals (sectionKindOfHeading (u8 ("Estribillo")), juce::String ("chorus"));
+            expectEquals (sectionKindOfHeading (u8 ("Refrão")), juce::String ("chorus"));
+            expectEquals (sectionKindOfHeading (u8 ("Estrofa 2")), juce::String ("verseA"));
+            expectEquals (sectionKindOfHeading (u8 ("Puente")), juce::String ("verseC"));
         }
 
         beginTest ("plain text: lines, blocks, sections, chorus candidates");
