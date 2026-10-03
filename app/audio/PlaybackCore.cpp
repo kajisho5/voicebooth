@@ -453,7 +453,15 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
     }
     else
     {
-        if (! juce::exactlyEqual (timeRatio, appliedTime))   { st.setTimeRatio (timeRatio);   appliedTime = timeRatio; }
+        if (! juce::exactlyEqual (timeRatio, appliedTime))
+        {
+            // 再生中にテンポを変えた：Rubber Band の中には前の速さで作った分（遅延の長さ）が残っているのに、heard は
+            // すぐ新しい速さで進む。その分を先に引いておく（前は 50%→100% で拍・お手本・自分の線が 27 ms ずれたままだった。
+            // 実測で残りは 4 ms 以下。監査 2026-10-03）
+            heard -= (double) st.getStartDelay() * (step - 1.0 / appliedTime);
+            st.setTimeRatio (timeRatio);
+            appliedTime = timeRatio;
+        }
         if (! juce::exactlyEqual (pitchScale, appliedPitch)) { st.setPitchScale (pitchScale); appliedPitch = pitchScale; }
     }
     smoothedGain.setTargetValue (muted ? 0.0f : gain.load());

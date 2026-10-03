@@ -89,7 +89,7 @@
   "confirm.deliveryTempo.reset": "Réinitialiser et enregistrer",
   "confirm.deliveryTempo.title": "Les prises finales se font au tempo et à la tonalité d'origine",
   "confirm.discard.message": "Arrête l'enregistrement et jette la prise en cours. Les prises retenues ne sont pas touchées.",
-  "confirm.discard.no": "Continuer",
+  "confirm.discard.no": "Continuer l'enregistrement",
   "confirm.discard.title": "Jeter cette prise ?",
   "confirm.discard.yes": "Jeter",
   "confirm.switchPractice.message": "Le tempo et la tonalité sont verrouillés pendant une prise finale. Les changer passe en répétition (les prises de répétition ne sont jamais livrées).",
