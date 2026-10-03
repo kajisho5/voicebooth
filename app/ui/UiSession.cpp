@@ -3037,6 +3037,8 @@ void UiSession::tick (double seconds)
     // モデルのダウンロードは再生・録音の間は止める（音切れを起こさない。11.7）
     if (modelDownloader != nullptr && modelDownloader->isBusy())
         modelDownloader->setPaused (s.isPlaying || s.isRecording);
+    if (updateDownloader != nullptr && updateDownloader->isBusy())
+        updateDownloader->setPaused (s.isPlaying || s.isRecording);
 
     // 自動保存（B14）：変更から 1.5 秒たったら。録音中・SR をそろえている間は待つ
     if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500)

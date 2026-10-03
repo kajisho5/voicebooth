@@ -277,6 +277,31 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         }
     }
 
+    // アプリ内の更新：取り終えたら入れ替える（画面で待っていたら、そのまま）。失敗したらブラウザで取れるようにする
+    if ((changes & change::notice) && state().updateDl.stage != updateStageSeen)
+    {
+        using DS = models::DownloadStatus::Stage;
+        updateStageSeen = state().updateDl.stage;
+        auto* dlg = dynamic_cast<UpdateDialog*> (overlay.getContent());
+        const bool waiting = dlg != nullptr && dlg->showingDownload();
+        juce::Component::SafePointer<MainComponent> safe (this);
+        if (updateStageSeen == (int) DS::done)
+        {
+            if (waiting)
+                juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->installUpdateNow(); });
+            else
+                showToast (tr ("update.readyToast"), tr ("update.restartNow"), [safe] { if (safe != nullptr) safe->installUpdateNow(); });
+        }
+        else if (updateStageSeen == (int) DS::failed)
+        {
+            if (waiting)
+                overlay.close();
+            const auto url = state().updateRelease.assetUrl;
+            showToast (tr ("update.downloadFailed", state().updateDl.error), tr ("update.download"),
+                       [url] { juce::URL (url).launchInDefaultBrowser(); });
+        }
+    }
+
     // 引き算では声が取れない：分離するか尋ねる（B16）
     if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen)
     {
@@ -1023,9 +1048,9 @@ void MainComponent::openUpdate()
     const auto r = state().updateRelease;
     if (! r.found)
         return;
-    auto dlg = std::make_unique<UpdateDialog> (r);
-    dlg->onCloseRequest = [this] { overlay.close(); };   // あとで：知らせは残す
-    // 署名していないので自分では入れ替えない：ブラウザで開くだけ（インストーラーを入れ直すと更新。知らせは入れ替わるまで残す）
+    auto dlg = std::make_unique<UpdateDialog> (r, &session);
+    dlg->onCloseRequest = [this] { overlay.close(); };   // あとで：知らせは残す（取っている途中なら裏で続く）
+    // 入れ替えられない時：ブラウザで開く（インストーラーを入れ直すと更新。知らせは入れ替わるまで残す）
     auto open = [this] (const juce::String& url)
     {
         overlay.close();
@@ -1035,7 +1060,40 @@ void MainComponent::openUpdate()
     dlg->onOpen = [r, open] { open (r.assetUrl.isNotEmpty() ? r.assetUrl : r.pageUrl); };
     dlg->onOpenPage = [r, open] { open (r.pageUrl); };
     dlg->onSkip = [this] { overlay.close(); session.skipUpdate(); };
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onUpdateNow = [this, safe]
+    {
+        if (state().isRecording || state().exporting)
+        {
+            showToast (tr ("update.busy"));
+            return;
+        }
+        session.startUpdateDownload();
+        // 同じ画面を、ダウンロードの進み具合で開き直す（押したキーの処理を抜けてから）
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openUpdate(); });
+    };
+    dlg->onCancelDownload = [this] { session.cancelUpdateDownload(); overlay.close(); };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::installUpdateNow()
+{
+    if (state().isRecording || state().exporting)
+    {
+        showToast (tr ("update.busy"));
+        return;
+    }
+    if (! session.beginUpdateInstall())
+    {
+        // 理由は知らせに出ている。進み具合の画面は閉じる（知らせから開き直せば、取った物を使ってもう一度入れられる）
+        if (dynamic_cast<UpdateDialog*> (overlay.getContent()) != nullptr)
+            overlay.close();
+        return;
+    }
+    // 入れ替えは別のプロセスが続ける（Windows はインストーラー、Mac はスクリプト）。このアプリはすぐ終える
+    overlay.close();
+    showToast (tr ("update.installing"));
+    juce::Timer::callAfterDelay (400, [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); });
 }
 
 void MainComponent::openLiveModelDownload (int stage)

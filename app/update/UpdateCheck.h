@@ -6,8 +6,8 @@
 
 /*  新しいバージョンの確認（DESIGN 11.7）。GitHub のリリース（kajisho5/voicebooth）を 1 回読むだけ。
     - 送るのはリリース一覧の GET だけ（版・OS・利用状況は送らない。User-Agent は GitHub が必須なので "VoiceBooth" だけ）
-    - ビルドは署名していないので、自分では入れ替えない：見つけたら、この OS のインストーラー（無ければリリースのページ）を
-      ブラウザで開くだけ
+    - 見つけたら知らせる。入れ替えは使う人が［今すぐ更新］を押した時だけ（UiSession が取って照合し、Installer で入れ替える）。
+      インストーラーの SHA-256 が分からない時や入れ替えられない時は、ブラウザでインストーラー（無ければリリースのページ）を開く
     - 選び方・比べ方は純粋な関数（テストする）。通信は Checker だけ */
 
 namespace vb::update
@@ -42,6 +42,7 @@ struct Release
     juce::String pageUrl;           // リリースのページ（html_url）
     juce::String assetUrl, assetName;   // この OS のインストーラー（*-win-x64-setup.exe / *-mac-universal.dmg）。無ければ空
     juce::int64 assetSize = 0;
+    juce::String assetSha256;       // インストーラーの SHA-256（GitHub が付ける digest "sha256:…" の 64 桁。無ければ空 = アプリ内では入れ替えない）
     juce::String published;         // "2026-10-15"（published_at の日付）
     juce::String notes;             // 本文（Markdown のまま。見せる時は plainNotes）
     bool prerelease = false;
@@ -108,6 +109,12 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE (Checker)
 };
+
+/** GitHub の asset の digest（"sha256:<64 桁>"）から 64 桁の小文字を取り出す。形が違えば空 */
+juce::String sha256FromDigest (const juce::String& digest);
+
+/** インストーラーの名前として使ってよいか（区切り文字・".." を含まない、この OS の形） */
+bool safeAssetName (const juce::String& name, Platform);
 
 /** 取りに行く URL（10 件。下書きは返ってこない） */
 inline constexpr const char* releasesUrl = "https://api.github.com/repos/kajisho5/voicebooth/releases?per_page=10";

@@ -174,6 +174,28 @@ public:
             expectEquals (h->requests, before);   // もう入っている：取りに行かない
         }
 
+        beginTest ("one file as a single block (the app's own installer): downloads and verifies");
+        {
+            fresh();
+            auto http = std::make_unique<FakeHttp>();
+            http->content = data;
+            ModelDownloader d (std::move (http));
+            const auto whole = entryFor (data, (juce::int64) data.getSize());
+            expectEquals (whole.files[0].blocks.size(), 1);
+            const auto s = runToEnd (d, whole, dir);
+            expect (s.stage == Stage::done, s.error);
+            expect (installedOk());
+
+            // 壊れていれば使わない（取り直して合えば done、合わなければ失敗のまま入れない）
+            fresh();
+            auto bad = std::make_unique<FakeHttp>();
+            bad->content = data;
+            bad->corruptBlock[0] = 1;
+            ModelDownloader d2 (std::move (bad));
+            expect (runToEnd (d2, whole, dir).stage == Stage::done);
+            expect (installedOk());
+        }
+
         beginTest ("connection drops: resumes from where it stopped with Range (nothing re-downloaded)");
         {
             fresh();

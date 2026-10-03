@@ -1,9 +1,11 @@
 #include "UiSession.h"
 #include "system/AppCache.h"
+#include "update/Installer.h"
 
 /*  更新の確認（DESIGN 11.7）とアプリ共通のキャッシュの場所（DESIGN 8）。どちらもアプリの設定（Main.cpp が保存する）。
-    更新は GitHub のリリースを読むだけ（送るのはその GET だけ）。ビルドは署名していないので自分では入れ替えない：
-    知らせを出し、押されたらブラウザでインストーラー（無ければリリースのページ）を開く（MainComponent::openUpdate）。
+    更新は GitHub のリリースを読むだけ（送るのはその GET だけ）。見つけたら知らせを出す。
+    ［今すぐ更新］を押した時だけ、インストーラーを取って SHA-256 を照合し、入れ替える（update::Installer）。
+    入れ替えられない時（SHA-256 が分からない・置き場所に書けない等）は、ブラウザでインストーラーかリリースのページを開く。
     音声の処理には触れない */
 
 namespace vb
@@ -115,6 +117,93 @@ void UiSession::skipUpdate()
     if (! s.updateRelease.sample)   // 見本（--screen=update）の版は覚えない
         s.updateSkipped = s.updateVersion;
     setUpdateAvailable ({});
+}
+
+bool UiSession::canUpdateInPlace() const
+{
+    const auto& r = s.updateRelease;
+    return r.found && ! r.sample && r.assetUrl.isNotEmpty() && r.assetSha256.isNotEmpty() && r.assetSize > 0
+        && update::safeAssetName (r.assetName, update::currentPlatform()) && update::canInstallInPlace();
+}
+
+void UiSession::startUpdateDownload()
+{
+    using DS = models::DownloadStatus::Stage;
+    if (! canUpdateInPlace() || s.isRecording || s.exporting)
+        return;
+    if (updateDownloader == nullptr)
+        updateDownloader = std::make_unique<models::ModelDownloader> (models::makeHttpSource());
+    if (updateDownloader->isBusy())
+        return;
+
+    // インストーラー 1 つを、SHA-256 を 1 ブロックとして取る（途中から再開でき、照合に合わなければ使わない）
+    const auto& r = s.updateRelease;
+    models::ModelFile file;
+    file.name = r.assetName;
+    file.url = r.assetUrl;
+    file.size = r.assetSize;
+    file.sha256 = r.assetSha256;
+    file.blockSize = r.assetSize;
+    file.blocks.add (r.assetSha256);
+    models::ModelEntry entry;
+    entry.id = "voicebooth-" + r.version;
+    entry.title = "VoiceBooth " + r.version;
+    entry.files.push_back (file);
+
+    const auto folder = cacheFolder().getChildFile ("updates").getChildFile (r.version);
+    folder.createDirectory();
+    s.updateDl = {};
+    s.updateDl.stage = (int) DS::downloading;
+    s.updateDl.size = r.assetSize;
+    std::weak_ptr<bool> weak = alive;
+    updateDownloader->start (entry, folder, [this, weak, folder, name = r.assetName] (const models::DownloadStatus& st)
+    {
+        if (weak.expired()) return;
+        const auto before = s.updateDl.stage;
+        s.updateDl.stage = (int) st.stage;
+        s.updateDl.received = st.received;
+        s.updateDl.size = juce::jmax (s.updateDl.size, st.total);
+        s.updateDl.paused = st.paused;
+        s.updateDl.error = st.error;
+        if (st.stage == DS::done)
+            s.updateDl.installer = folder.getChildFile (name);
+        notify (before != s.updateDl.stage ? (juce::uint32) (change::view | change::notice) : (juce::uint32) change::view);
+    });
+    notify (change::view | change::notice);
+}
+
+void UiSession::cancelUpdateDownload()
+{
+    if (updateDownloader != nullptr)
+        updateDownloader->cancel();   // 届いた分は残す（次は続きから）
+    s.updateDl = {};
+    notify (change::view | change::notice);
+}
+
+bool UiSession::beginUpdateInstall()
+{
+    using DS = models::DownloadStatus::Stage;
+    if (s.updateDl.stage != (int) DS::done || s.isRecording || s.exporting)
+        return false;
+    // 渡す前にもう一度確かめる（取った後に書き換えられていないか）
+    const auto installer = s.updateDl.installer;
+    if (models::sha256Hex (installer) != s.updateRelease.assetSha256)
+    {
+        installer.deleteFile();
+        s.updateDl = {};
+        postNotice (tr ("update.installFailed", "checksum mismatch"));
+        return false;
+    }
+    if (s.isPlaying)
+        setPlaying (false);
+    flushSave();   // 入れ替える前に保存（B14）
+    juce::String error;
+    if (! update::launchInstaller (installer, error))
+    {
+        postNotice (tr ("update.installFailed", error));
+        return false;
+    }
+    return true;
 }
 
 //==============================================================================
