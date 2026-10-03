@@ -674,6 +674,9 @@ void PitchLane::drawFooter (juce::Graphics& g)
         r.removeFromLeft (6.0f);
         label (harmonyGuide() ? tr ("pitch.legend.refHarmony", (int) s.pitchToleranceCents)
                                      : tr ("pitch.legend.ref", (int) s.pitchToleranceCents), colours::textDim);
+        // 時間合わせの確かさが低い：「推定」（右クリックで直せる）
+        if (s.guideAlignRough && ! s.refPitch.empty())
+            label (tr ("pitch.legend.alignRough"), colours::warn);
     }
 
     // 自分：3 状態

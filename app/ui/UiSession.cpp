@@ -1131,6 +1131,7 @@ namespace
         std::vector<audio::PitchFrame> harmPoints;
         std::shared_ptr<const audio::SongAudio> harmVocals;
         std::shared_ptr<const audio::SongAudio> original;   // 時間を合わせた原曲（オフボの時間・モノラル）。聞き比べ用。速さが違えば無し
+        bool alignRough = false;                    // 時間合わせの確かさが低い（「推定」）
     };
 
     /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
@@ -1274,6 +1275,7 @@ namespace
         if (! align.found())
             return out;   // notAligned
         out.offsetSeconds = (double) align.offsetSamples / rate;
+        out.alignRough = align.quality == analysis::AlignResult::Quality::rough;
 
         // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 + offset。速さが違う版は作らない）
         if (std::abs (align.tempoRatio - 1.0) < 0.001)
@@ -1331,6 +1333,7 @@ void UiSession::loadGuide (const juce::File& file)
     s.guideBusy = true;
     s.guideName = file.getFileName();
     s.guideKaraokeKey = 0;
+    s.guideAlignRough = false;
     if (s.guidePath.isNotEmpty() && ! s.projectFolder.getChildFile (s.guidePath).getFileName().equalsIgnoreCase (file.getFileName()))
         s.guideNudgeMs = 0.0;   // 別のお手本：前の手直しは引き継がない
 
@@ -1360,6 +1363,7 @@ void UiSession::loadGuide (const juce::File& file)
             using Kind = GuideOutcome::Kind;
             // 聞き比べ用の原曲（合わせられた時）。保存してある手直しもここで当てる
             s.guideOriginal = out->original;
+            s.guideAlignRough = out->alignRough;
             s.guideOriginal = shiftedAudio (s.guideOriginal, (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate()), s.sampleRate());
             if (s.guideOriginal == nullptr)
                 s.listenOriginal = false;
@@ -1382,7 +1386,7 @@ void UiSession::loadGuide (const juce::File& file)
                     if (applyGuideNudge()) { rejudgeAll(); updateTakeStats(); }
                     syncGuideToEngine();
                     notify (change::takes | change::monitor);
-                    postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
+                    postNotice (tr (s.guideAlignRough ? "guide.doneRough" : "guide.done", juce::String (out->offsetSeconds, 2)));
                     extractLead();
                     break;
                 }
@@ -2028,6 +2032,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
             if (align.found())
             {
                 out->offsetSeconds = (double) align.offsetSamples / rate;
+                out->alignRough = align.quality == analysis::AlignResult::Quality::rough;
                 // リードボーカル（karaoke のモデル、2026-10-02）があれば、お手本はリード、ハモリ = 声 − リード
                 std::vector<float> leadMono;
                 if (auto l = readAudio (vocalsFile.getSiblingFile ("lead.wav")))
@@ -2093,6 +2098,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 };
                 s.refPitch = toRef (out->points);
                 s.refPitchHarm = toRef (out->harmPoints);
+                s.guideAlignRough = out->alignRough;
                 if (key != 0)
                 {
                     // キー違いのカラオケ：線もカラオケのキーへ（聴く声は裏でずらしてある）
