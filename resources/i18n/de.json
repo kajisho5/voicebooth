@@ -180,6 +180,7 @@
   "load.error.readFailed": "Fehler beim Lesen (Datei evtl. beschädigt): {0}",
   "load.error.tooLong": "Der Song ist zu lang (bis {1} Minuten): {0}",
   "load.error.unsupported": "Diese Datei kann auf diesem System nicht gelesen werden oder ist beschädigt: {0} (in WAV / FLAC / AIFF umwandeln)",
+  "load.memoryTight": "Dieser Song ist groß und braucht voraussichtlich etwa {0} GB Arbeitsspeicher (dieser Computer hat {1} GB). Wenn es langsam wird oder die Analyse stoppt, wandle ihn in 48 kHz um und öffne ihn erneut",
   "lyrics.applied.sections": "Abschnitte hinzugefügt: {0}",
   "lyrics.applied.timed": "Songtext geladen (Zeilen: {0}, mit Zeiten: {1})",
   "lyrics.applied.untimed": "Songtext geladen (Zeilen: {0}). Mit „Per Tippen syncen“ legst du fest, wo jede Zeile beginnt.",

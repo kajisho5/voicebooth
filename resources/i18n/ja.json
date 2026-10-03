@@ -180,6 +180,7 @@
   "load.error.readFailed": "読み込み中にエラーが起きました（ファイルが壊れている可能性があります）：{0}",
   "load.error.tooLong": "曲が長すぎます（{1} 分まで）：{0}",
   "load.error.unsupported": "この環境では読めない形式か、壊れたファイルです：{0}（WAV / FLAC / AIFF に変換すると開けます）",
+  "load.memoryTight": "この曲は大きいため、約 {0} GB のメモリを使う見込みです（このパソコンは {1} GB）。動作が重くなったり解析が止まったりする場合は、48 kHz に変換してから開いてください",
   "lyrics.applied.sections": "区間を {0} 個作りました",
   "lyrics.applied.timed": "歌詞を読み込みました（{0} 行、時刻あり {1} 行）",
   "lyrics.applied.untimed": "歌詞を読み込みました（{0} 行）。「タップで合わせる」で歌い出しを合わせられます",

@@ -180,6 +180,7 @@
   "load.error.readFailed": "Lỗi khi đọc (file có thể bị hỏng): {0}",
   "load.error.tooLong": "Bài quá dài (tối đa {1} phút): {0}",
   "load.error.unsupported": "Không đọc được file này trên hệ thống này, hoặc file bị hỏng: {0} (hãy chuyển sang WAV / FLAC / AIFF)",
+  "load.memoryTight": "Bài hát này lớn và dự kiến dùng khoảng {0} GB bộ nhớ (máy này có {1} GB). Nếu chạy chậm hoặc phân tích bị dừng, hãy chuyển sang 48 kHz rồi mở lại",
   "lyrics.applied.sections": "Đã thêm {0} đoạn",
   "lyrics.applied.timed": "Đã tải lời ({0} dòng, {1} dòng có thời gian)",
   "lyrics.applied.untimed": "Đã tải lời ({0} dòng). Dùng “Gõ để khớp” để đặt điểm bắt đầu mỗi dòng.",

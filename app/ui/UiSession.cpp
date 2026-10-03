@@ -59,6 +59,16 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     s.songRate = sampleRate;
     lastBackupMs = 0;
 
+    // 大きい曲（高い SR・長い曲）：メモリが足りなくなるおそれを先に知らせる（断りはしない。#21）
+    if (audio != nullptr)
+    {
+        const auto need = audio::estimatedMemoryBytes (lengthSamples, audio->buffer.getNumChannels());
+        const auto ramMB = juce::SystemStats::getMemorySizeInMegabytes();
+        if (audio::memoryTight (need, ramMB))
+            postNotice (tr ("load.memoryTight", juce::String ((double) need / (1024.0 * 1024.0 * 1024.0), 1),
+                            juce::String ((double) ramMB / 1024.0, 0)));
+    }
+
     // プロジェクトフォルダ（B14）：.vbooth から開いたらそのフォルダ。曲ファイルから開いたら Projects/{曲名}/。
     // 同じ名前のプロジェクトがあり、同じ曲（ファイル名と長さ）なら続きから開く。違う曲なら「{曲名} (2)」…の別のフォルダ
     if (pendingProject != nullptr)

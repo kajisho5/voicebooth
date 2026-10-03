@@ -365,6 +365,22 @@ public:
             expect (songWildcard().contains ("*.flac"));
         }
 
+        beginTest ("memory estimate: 5 float copies of the song; tight above 60 % of the RAM (#21)");
+        {
+            constexpr juce::int64 gib = 1024LL * 1024 * 1024;
+            // 4 分・48 kHz・ステレオ：約 0.4 GB（8 GB のパソコンで余裕）
+            const auto small = estimatedMemoryBytes ((juce::int64) 48000 * 240, 2);
+            expectEquals (small, (juce::int64) 48000 * 240 * 2 * 4 * 5);
+            expect (! memoryTight (small, 8192));
+            // 20 分・384 kHz・ステレオ：約 17.2 GiB（16 GB では知らせる。32 GB の 6 割は 19.7 GiB なので知らせない）
+            const auto huge = estimatedMemoryBytes ((juce::int64) 384000 * 1200, 2);
+            expect (huge > 17 * gib && huge < 18 * gib);
+            expect (memoryTight (huge, 16384));
+            expect (! memoryTight (huge, 32768));
+            expect (! memoryTight (huge, 0));   // 分からないときは知らせない
+            expectEquals (estimatedMemoryBytes (-5, 2), (juce::int64) 0);
+        }
+
         beginTest ("SongLoader delivers the result on the message thread");
         {
             const auto f = dir.getChildFile ("long.wav");

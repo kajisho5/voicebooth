@@ -180,6 +180,7 @@
   "load.error.readFailed": "Erreur de lecture (le fichier est peut-être endommagé) : {0}",
   "load.error.tooLong": "Le titre est trop long ({1} minutes max.) : {0}",
   "load.error.unsupported": "Impossible de lire ce fichier sur ce système, ou il est endommagé : {0} (convertissez-le en WAV / FLAC / AIFF)",
+  "load.memoryTight": "Ce titre est volumineux et devrait utiliser environ {0} Go de mémoire (cet ordinateur en a {1} Go). Si tout ralentit ou si l'analyse s'arrête, convertissez-le en 48 kHz puis rouvrez-le",
   "lyrics.applied.sections": "Sections ajoutées : {0}",
   "lyrics.applied.timed": "Paroles chargées (lignes : {0}, avec horaires : {1})",
   "lyrics.applied.untimed": "Paroles chargées (lignes : {0}). Utilisez « Caler au tap » pour indiquer où commence chaque ligne.",
