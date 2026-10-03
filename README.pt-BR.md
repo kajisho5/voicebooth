@@ -28,6 +28,28 @@
 **Uma pequena DAW vocal feita só para gravar covers.**
 Cante sobre um instrumental, veja sua afinação na tela, regrave só as partes que quiser corrigir e exporte um WAV que quem for mixar possa jogar direto na DAW. É só isso que ela faz. Não é uma DAW de uso geral.
 
+## Download (grátis)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Baixar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Baixar para Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Baixar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Baixar para Mac"></a>
+</p>
+
+| Computador | Arquivo (clique para salvar) | Tamanho |
+|---|---|---|
+| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | cerca de 13 MB |
+| Mac (macOS 11 ou posterior, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | cerca de 40 MB |
+
+A versão atual é **0.2.0 beta 2**. As mudanças e versões anteriores estão na [página de versões](https://github.com/kajisho5/voicebooth/releases). Não há versão para celular ou tablet.
+
+### Primeira vez? Três passos
+
+1. **Clique num botão acima para salvar o arquivo** e dê dois cliques no arquivo salvo para instalar
+2. **Se aparecer um aviso** (a beta ainda não tem assinatura de código, então ele só aparece na primeira vez que você abre)
+   - **Windows**: se aparecer "O Windows protegeu o computador", clique em "Mais informações" → "Executar assim mesmo"
+   - **Mac**: mova o VoiceBooth do DMG para a pasta Aplicativos e abra uma vez → se o macOS disser que não pode abrir, vá em Ajustes do Sistema → Privacidade e Segurança → em Segurança, clique em "Abrir Mesmo Assim" (o botão aparece por cerca de uma hora depois que você tenta abrir o app) → digite sua senha ([instruções da Apple](https://support.apple.com/pt-br/guide/mac-help/mh40616/mac))
+3. **Quando abrir**, escolha o idioma e um modo. Quando aparecer "Baixar o modelo de separação", clique em Baixar (cerca de 210 MB, só na primeira vez; usado para a afinação e as harmonias do guia e para começar só com o original)
+
 ![Tela principal do VoiceBooth](docs/screenshots/main-en.png)
 
 > Esta captura é um protótipo de desenvolvimento desenhado com dados de exemplo. A exibição com músicas reais ainda está sendo melhorada e pode ficar diferente.
@@ -74,7 +96,6 @@ Cante sobre um instrumental, veja sua afinação na tela, regrave só as partes 
 Isto ainda não está na beta (e não aparece no app).
 
 - Separar outras coisas além da voz (violão, bateria etc.)
-
 
 ### O que quem mixa recebe
 
@@ -151,15 +172,6 @@ As regras de uso do logo (área de proteção, tamanho mínimo, versões para fu
 - Fones e headsets Bluetooth têm latência demais para gravar
 - O Windows on Arm não foi testado
 - Estes números são estimativas de trabalho durante o desenvolvimento. O raciocínio está na seção 11.6.1 de [`docs/DESIGN.md`](docs/DESIGN.md) (em japonês)
-
-## Download
-
-Baixe `VoiceBooth-<version>-win-x64-setup.exe` para Windows ou `VoiceBooth-<version>-mac-universal.dmg` para Mac em [Releases](https://github.com/kajisho5/voicebooth/releases).
-
-A beta **ainda não tem assinatura de código**, então o sistema mostra um aviso na primeira vez que você a abre.
-
-- **Windows**: se aparecer "O Windows protegeu o computador", clique em "Mais informações" → "Executar assim mesmo"
-- **Mac**: mova o VoiceBooth do DMG para a pasta Aplicativos e abra uma vez → se o macOS disser que não pode abrir, vá em Ajustes do Sistema → Privacidade e Segurança → em Segurança, clique em "Abrir Mesmo Assim" (o botão aparece por cerca de uma hora depois que você tenta abrir o app) → digite sua senha ([instruções da Apple](https://support.apple.com/pt-br/guide/mac-help/mh40616/mac))
 
 ## Apoie o desenvolvimento
 

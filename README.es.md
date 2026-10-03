@@ -28,6 +28,28 @@
 **Un pequeño DAW vocal hecho solo para grabar covers.**
 Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a grabar solo las partes que quieras corregir y exporta un WAV que quien haga la mezcla pueda soltar directamente en su DAW. Eso es todo lo que hace. No es un DAW de uso general.
 
+## Descarga (gratis)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Descargar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Descargar para Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Descargar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Descargar para Mac"></a>
+</p>
+
+| Ordenador | Archivo (haz clic para guardar) | Tamaño |
+|---|---|---|
+| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | unos 13 MB |
+| Mac (macOS 11 o posterior, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | unos 40 MB |
+
+La versión actual es **0.2.0 beta 2**. Los cambios y las versiones anteriores están en la [página de versiones](https://github.com/kajisho5/voicebooth/releases). No hay versión para móvil ni tableta.
+
+### ¿Primera vez? Tres pasos
+
+1. **Pulsa un botón de arriba para guardar el archivo** y haz doble clic en el archivo guardado para instalarlo
+2. **Si aparece una advertencia** (la beta aún no tiene firma de código, así que solo aparece la primera vez que la abres)
+   - **Windows**: si ves "Windows protegió su PC", haz clic en "Más información" → "Ejecutar de todas formas"
+   - **Mac**: mueve VoiceBooth del DMG a tu carpeta Aplicaciones y ábrelo una vez → si macOS dice que no se puede abrir, ve a Ajustes del Sistema → Privacidad y seguridad → en Seguridad, haz clic en "Abrir igualmente" (el botón aparece durante aproximadamente una hora después de intentar abrir la app) → introduce tu contraseña ([instrucciones de Apple](https://support.apple.com/es-es/guide/mac-help/mh40616/mac))
+3. **Al iniciarse**, elige el idioma y un modo. Cuando aparezca "Descargar el modelo de separación", pulsa Descargar (unos 210 MB, solo la primera vez; se usa para el tono y las armonías de la guía y para empezar solo con el original)
+
 ![Pantalla principal de VoiceBooth](docs/screenshots/main-en.png)
 
 > Esta captura es una maqueta de desarrollo dibujada con datos de ejemplo. La visualización con canciones reales aún se está mejorando y puede verse distinta.
@@ -74,7 +96,6 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 Esto todavía no está en la beta (y no aparece en la app).
 
 - Separar algo que no sea la voz (guitarra, batería, etc.)
-
 
 ### Lo que recibe quien hace la mezcla
 
@@ -151,15 +172,6 @@ Las normas de uso del logo (espacio libre, tamaño mínimo, versiones para fondo
 - Los auriculares y cascos Bluetooth tienen demasiada latencia para grabar
 - Windows on Arm no se ha probado
 - Estas cifras son estimaciones de trabajo durante el desarrollo. El razonamiento está en la sección 11.6.1 de [`docs/DESIGN.md`](docs/DESIGN.md) (en japonés)
-
-## Descarga
-
-Descarga `VoiceBooth-<version>-win-x64-setup.exe` para Windows o `VoiceBooth-<version>-mac-universal.dmg` para Mac desde [Releases](https://github.com/kajisho5/voicebooth/releases).
-
-La beta **todavía no está firmada**, así que tu sistema muestra un aviso la primera vez que la abres.
-
-- **Windows**: si ves "Windows protegió su PC", haz clic en "Más información" → "Ejecutar de todas formas"
-- **Mac**: mueve VoiceBooth del DMG a tu carpeta Aplicaciones y ábrelo una vez → si macOS dice que no se puede abrir, ve a Ajustes del Sistema → Privacidad y seguridad → en Seguridad, haz clic en "Abrir igualmente" (el botón aparece durante aproximadamente una hora después de intentar abrir la app) → introduce tu contraseña ([instrucciones de Apple](https://support.apple.com/es-es/guide/mac-help/mh40616/mac))
 
 ## Apoya el desarrollo
 

@@ -28,6 +28,28 @@
 **Một DAW thu giọng nhỏ gọn, chỉ dành cho việc thu cover.**
 Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại những đoạn muốn sửa, rồi xuất file WAV mà người mix có thể thả thẳng vào DAW của họ. Nó chỉ làm đúng chừng đó. Đây không phải DAW đa năng.
 
+## Tải về (miễn phí)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-T%E1%BA%A3i%20v%E1%BB%81-C6EE6A?style=for-the-badge&labelColor=141311" alt="Tải về cho Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-T%E1%BA%A3i%20v%E1%BB%81-C6EE6A?style=for-the-badge&labelColor=141311" alt="Tải về cho Mac"></a>
+</p>
+
+| Máy tính | Tệp (bấm để lưu) | Dung lượng |
+|---|---|---|
+| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | khoảng 13 MB |
+| Mac (macOS 11 trở lên, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | khoảng 40 MB |
+
+Phiên bản hiện tại là **0.2.0 beta 2**. Thay đổi và các bản cũ có ở [trang phát hành](https://github.com/kajisho5/voicebooth/releases). Không có bản cho điện thoại hay máy tính bảng.
+
+### Lần đầu dùng? Ba bước
+
+1. **Bấm nút ở trên để lưu tệp**, rồi bấm đúp vào tệp đã lưu để cài
+2. **Nếu thấy cảnh báo** (bản beta chưa được ký mã nên chỉ hiện ở lần mở đầu tiên)
+   - **Windows**: nếu thấy "Windows đã bảo vệ PC của bạn", bấm "Thông tin thêm" → "Vẫn chạy"
+   - **Mac**: chuyển VoiceBooth từ DMG vào thư mục Ứng dụng rồi mở một lần → nếu macOS báo không thể mở, vào Cài đặt hệ thống → Quyền riêng tư & Bảo mật → ở mục Bảo mật, bấm "Vẫn mở" (nút này hiện trong khoảng một giờ sau khi bạn thử mở ứng dụng) → nhập mật khẩu ([hướng dẫn của Apple](https://support.apple.com/vi-vn/guide/mac-help/mh40616/mac))
+3. **Khi ứng dụng mở**, chọn ngôn ngữ và chế độ. Khi hiện "Tải mô hình tách giọng", hãy bấm Tải về (khoảng 210 MB, chỉ lần đầu; dùng cho cao độ và bè của bản mẫu và để bắt đầu chỉ với bản gốc)
+
 ![Màn hình chính của VoiceBooth](docs/screenshots/main-en.png)
 
 > Ảnh chụp màn hình này là bản mô phỏng trong quá trình phát triển, vẽ từ dữ liệu mẫu. Phần hiển thị với bài hát thật vẫn đang được cải thiện và có thể trông khác đi.
@@ -74,7 +96,6 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 Những tính năng sau chưa có trong bản beta (và không hiển thị trong ứng dụng).
 
 - Tách những thứ khác ngoài giọng hát (guitar, trống, v.v.)
-
 
 ### Người mix sẽ nhận được gì
 
@@ -151,15 +172,6 @@ Quy tắc sử dụng logo (khoảng trống, kích thước tối thiểu, phi�
 - Tai nghe Bluetooth có độ trễ quá lớn để thu âm
 - Chưa thử trên Windows on Arm
 - Những con số này là ước tính trong quá trình phát triển. Lý do nằm ở mục 11.6.1 của [`docs/DESIGN.md`](docs/DESIGN.md) (tiếng Nhật)
-
-## Tải về
-
-Tải `VoiceBooth-<version>-win-x64-setup.exe` cho Windows hoặc `VoiceBooth-<version>-mac-universal.dmg` cho Mac từ [Releases](https://github.com/kajisho5/voicebooth/releases).
-
-Bản beta **chưa được ký mã (code signing)**, nên hệ điều hành sẽ hiện cảnh báo trong lần mở đầu tiên.
-
-- **Windows**: nếu thấy "Windows đã bảo vệ PC của bạn", bấm "Thông tin thêm" → "Vẫn chạy"
-- **Mac**: chuyển VoiceBooth từ DMG vào thư mục Ứng dụng rồi mở một lần → nếu macOS báo không thể mở, vào Cài đặt hệ thống → Quyền riêng tư & Bảo mật → ở mục Bảo mật, bấm "Vẫn mở" (nút này hiện trong khoảng một giờ sau khi bạn thử mở ứng dụng) → nhập mật khẩu ([hướng dẫn của Apple](https://support.apple.com/vi-vn/guide/mac-help/mh40616/mac))
 
 ## Ủng hộ phát triển
 

@@ -28,6 +28,28 @@
 **專為翻唱錄音打造的小型人聲 DAW。**
 跟著伴奏唱，在螢幕上看著音高修正，只重錄想改的部分，再匯出混音師可以直接使用的 WAV。只做這些事，不是萬能 DAW。
 
+## 下載（免費）
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Windows 版"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Mac 版"></a>
+</p>
+
+| 電腦 | 檔案（點擊儲存） | 大小 |
+|---|---|---|
+| Windows 10 / 11（64 位元） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
+| Mac（macOS 11 以上，Apple 晶片 / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
+
+目前版本為 **0.2.0 beta 2**。更新內容與舊版本請見[發布頁面](https://github.com/kajisho5/voicebooth/releases)。沒有手機、平板版本。
+
+### 第一次使用（3 步驟）
+
+1. **點擊上方按鈕儲存檔案**，再雙擊儲存的檔案進行安裝
+2. **如果出現警告**（測試版尚未進行程式碼簽署，只在第一次開啟時出現）
+   - **Windows**：出現「Windows 已保護您的電腦」時，點選「其他資訊」→「仍要執行」
+   - **Mac**：把 DMG 裡的 VoiceBooth 拖進「應用程式」檔案夾並開啟一次 → 如果提示無法打開，前往系統設定 →「隱私權與安全性」→ 在「安全性」部分點選「強制打開」（嘗試開啟後約 1 小時內才會出現）→ 輸入密碼（[Apple 的說明](https://support.apple.com/zh-tw/guide/mac-help/mh40616/mac)）
+3. **啟動後**選擇語言與模式。接著出現「下載分離模型」時，請按［下載］（約 210 MB，僅第一次。用於示範音高、和聲與只用原曲開始）
+
 ![VoiceBooth 主畫面](docs/screenshots/main-zh-Hant.png)
 
 > 此截圖是用範例資料繪製的開發中樣稿。實際歌曲的顯示仍在改進中，看起來可能有所不同。
@@ -74,7 +96,6 @@
 目前的測試版還沒有以下功能（畫面上也不會顯示）。
 
 - 分離人聲以外的聲部（吉他、鼓等）
-
 
 ### 交付檔案的約定
 
@@ -151,15 +172,6 @@
 - 藍牙耳機延遲較大，不適合錄音
 - 尚未在 Arm 版 Windows 上測試
 - 數值為開發階段的參考。依據見 [`docs/DESIGN.md`](docs/DESIGN.md) 11.6.1（日文）
-
-## 下載
-
-請從 [Releases](https://github.com/kajisho5/voicebooth/releases) 下載：Windows 用 `VoiceBooth-<版本>-win-x64-setup.exe`，Mac 用 `VoiceBooth-<版本>-mac-universal.dmg`。
-
-測試版還**沒有進行程式碼簽章**，因此第一次開啟時系統會顯示警告。
-
-- **Windows**：出現「Windows 已保護您的電腦」時，點選「其他資訊」→「仍要執行」
-- **Mac**：把 DMG 裡的 VoiceBooth 拖進「應用程式」檔案夾並開啟一次 → 如果提示無法打開，前往系統設定 →「隱私權與安全性」→ 在「安全性」部分點選「強制打開」（嘗試開啟後約 1 小時內才會出現）→ 輸入密碼（[Apple 的說明](https://support.apple.com/zh-tw/guide/mac-help/mh40616/mac)）
 
 ## 支持開發
 

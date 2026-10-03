@@ -28,6 +28,28 @@
 **커버곡 녹음만을 위한 작은 보컬 DAW입니다.**
 MR에 맞춰 노래하면서 음정을 화면으로 보고 고치고, 고치고 싶은 부분만 다시 녹음해서, 믹스 엔지니어에게 그대로 넘길 수 있는 WAV를 내보냅니다. 그 일에 필요한 기능만 넣었습니다. 만능 DAW가 아닙니다.
 
+## 다운로드 (무료)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows용 다운로드"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac용 다운로드"></a>
+</p>
+
+| 컴퓨터 | 파일 (누르면 저장) | 크기 |
+|---|---|---|
+| Windows 10 / 11 (64bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | 약 13 MB |
+| Mac (macOS 11 이상, Apple 실리콘 / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | 약 40 MB |
+
+현재 버전은 **0.2.0 베타 2**입니다. 변경 사항과 이전 버전은 [릴리스 페이지](https://github.com/kajisho5/voicebooth/releases)에 있습니다. 스마트폰·태블릿 버전은 없습니다.
+
+### 처음이신 분께 (3단계)
+
+1. **위 버튼을 눌러 파일을 저장**하고, 저장한 파일을 더블클릭해 설치합니다
+2. **경고가 나오면** (베타 버전은 아직 코드 서명을 하지 않아서 처음 열 때만 나옵니다)
+   - **Windows**: 'Windows의 PC 보호'가 나오면 '추가 정보' → '실행'
+   - **Mac**: DMG 안의 VoiceBooth를 응용 프로그램 폴더로 옮기고 한 번 열기 → '열 수 없음'이라고 나오면 시스템 설정 → '개인정보 보호 및 보안' → 보안 항목의 '그래도 열기'(열려고 한 뒤 약 1시간 동안만 나타납니다) → 암호 입력([Apple 설명](https://support.apple.com/ko-kr/guide/mac-help/mh40616/mac))
+3. **실행되면** 언어와 모드를 고릅니다. 이어서 '분리 모델 다운로드'가 나오면 [다운로드]를 눌러 주세요 (약 210 MB·처음 한 번만. 가이드 음정·화음·원곡만으로 시작하기에 씁니다)
+
 ![VoiceBooth 메인 화면](docs/screenshots/main-ko.png)
 
 > 이 화면은 샘플 데이터로 그린 개발 중인 목업입니다. 실제 곡에서의 표시는 개선 중이며 다르게 보일 수 있습니다.
@@ -74,7 +96,6 @@ MR에 맞춰 노래하면서 음정을 화면으로 보고 고치고, 고치고 
 지금의 베타에는 다음 기능이 들어 있지 않습니다(화면에도 표시하지 않습니다).
 
 - 기타·드럼 등 보컬 외의 분리
-
 
 ### 넘기는 파일의 약속
 
@@ -151,15 +172,6 @@ MR에 맞춰 노래하면서 음정을 화면으로 보고 고치고, 고치고 
 - 블루투스 이어폰·헤드폰은 지연이 커서 녹음에는 맞지 않습니다
 - Arm용 Windows는 확인하지 않았습니다
 - 수치는 개발 중의 기준입니다. 근거는 [`docs/DESIGN.md`](docs/DESIGN.md) 11.6.1(일본어)
-
-## 다운로드
-
-[Releases](https://github.com/kajisho5/voicebooth/releases)에서 Windows는 `VoiceBooth-<버전>-win-x64-setup.exe`, Mac은 `VoiceBooth-<버전>-mac-universal.dmg`를 받아 주세요.
-
-베타 버전은 아직 **코드 서명을 하지 않았습니다**. 처음 열 때만 OS의 경고가 나옵니다.
-
-- **Windows**: 'Windows의 PC 보호'가 나오면 '추가 정보' → '실행'
-- **Mac**: DMG 안의 VoiceBooth를 응용 프로그램 폴더로 옮기고 한 번 열기 → '열 수 없음'이라고 나오면 시스템 설정 → '개인정보 보호 및 보안' → 보안 항목의 '그래도 열기'(열려고 한 뒤 약 1시간 동안만 나타납니다) → 암호 입력([Apple 설명](https://support.apple.com/ko-kr/guide/mac-help/mh40616/mac))
 
 ## 개발 후원
 
