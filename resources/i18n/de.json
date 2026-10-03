@@ -329,7 +329,7 @@
   "project.error.newer": "Dieses Projekt wurde mit einem neueren VoiceBooth erstellt ({0}). Erst aktualisieren, dann öffnen",
   "project.error.notProject": "Das ist kein VoiceBooth-Projekt: {0}",
   "project.error.songMissing": "Die Songdatei des Projekts fehlt ({0}). Prüfe, ob der Ordner Audio mitverschoben wurde",
-  "project.outsideTakes": "{0} Take(s), die außerhalb des Projektordners liegen, wurden nicht geladen",
+  "project.outsideTakes": "Takes außerhalb des Projektordners wurden nicht geladen: {0}",
   "project.rateChanged": "Takes wurden mit {0} kHz aufgenommen, die Timeline ist jetzt {1} kHz. Takes mit anderer Rate lassen sich nicht exportieren; stelle das Aufnahmeformat zurück oder prüfe das Gerät",
   "project.recovered": "{0} Aufnahme(n) vom letzten Mal wurden in den Ordner Audio/Recovered verschoben",
   "project.resumed": "Da weitergemacht, wo du aufgehört hast (Takes: {0})",

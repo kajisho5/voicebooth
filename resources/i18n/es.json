@@ -329,7 +329,7 @@
   "project.error.newer": "Este proyecto se hizo con un VoiceBooth más nuevo ({0}). Actualiza primero y luego ábrelo",
   "project.error.notProject": "No es un proyecto de VoiceBooth: {0}",
   "project.error.songMissing": "Falta el archivo de la canción del proyecto ({0}). Comprueba que la carpeta Audio se movió con él",
-  "project.outsideTakes": "No se cargaron {0} tomas que apuntan fuera de la carpeta del proyecto",
+  "project.outsideTakes": "Tomas que apuntan fuera de la carpeta del proyecto, no cargadas: {0}",
   "project.rateChanged": "Las tomas se grabaron a {0} kHz, pero la línea de tiempo ahora está a {1} kHz. Las tomas a otra frecuencia no se pueden exportar; vuelve al formato de grabación anterior o revisa el dispositivo",
   "project.recovered": "Se movieron {0} grabaciones que quedaron de la última vez a la carpeta Audio/Recovered",
   "project.resumed": "Retomado donde lo dejaste (tomas: {0})",
