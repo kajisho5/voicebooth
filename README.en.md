@@ -28,6 +28,28 @@
 **A small vocal DAW made only for recording song covers.**
 Sing along to an instrumental, see your pitch on screen, re-record just the parts you want to fix, and export a WAV your mix engineer can drop straight into their DAW. That is all it does. It is not a general-purpose DAW.
 
+## Download (free)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Download-C6EE6A?style=for-the-badge&labelColor=141311" alt="Download for Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Download-C6EE6A?style=for-the-badge&labelColor=141311" alt="Download for Mac"></a>
+</p>
+
+| Computer | File (click to save) | Size |
+|---|---|---|
+| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | about 13 MB |
+| Mac (macOS 11 or later, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | about 40 MB |
+
+The current version is **0.2.0 beta 2**. Changes and older versions are on the [releases page](https://github.com/kajisho5/voicebooth/releases). There is no phone or tablet version.
+
+### First time? Three steps
+
+1. **Click a button above to save the file**, then double-click the saved file to install
+2. **If you see a warning** (the beta is not code-signed yet, so it only appears the first time you open it)
+   - **Windows**: if you see "Windows protected your PC", click "More info" → "Run anyway"
+   - **Mac**: move VoiceBooth from the DMG into your Applications folder and open it once → if macOS says it cannot be opened, go to System Settings → Privacy & Security → under Security, click "Open Anyway" (the button appears for about an hour after you try to open the app) → enter your password ([Apple's instructions](https://support.apple.com/guide/mac-help/mh40616/mac))
+3. **When it starts**, pick your language and a mode. When "Download the separation model" appears, press Download (about 210 MB, first time only; used for the guide pitch, harmonies and starting from the original only)
+
 ![VoiceBooth main screen](docs/screenshots/main-en.png)
 
 > This screenshot is a development mock-up drawn from sample data. The display with real songs is still being improved and may look different.
@@ -75,7 +97,6 @@ These are not in the beta yet (and are not shown in the app).
 
 - Separating anything other than vocals (guitar, drums and so on)
 
-
 ### What your mix engineer gets
 
 Files are written so they line up with the instrumental the moment they are placed in a DAW (target ±1 ms).
@@ -99,7 +120,7 @@ The engine is the same; only what you see changes. A project made in one mode op
 
 ## How to use it
 
-1. **Install** the installer from [Releases](https://github.com/kajisho5/voicebooth/releases) (see Download below). On first launch, pick your language and a mode (easy / standard / pro); you can change both later in Settings.
+1. **Install** the installer from [Releases](https://github.com/kajisho5/voicebooth/releases) (see Download at the top of this page). On first launch, pick your language and a mode (easy / standard / pro); you can change both later in Settings.
 2. **Open a song**: drop the **off-vocal (karaoke)** track on the upper box of the start screen and, optionally, the **original with vocals** on the lower box. With the original, the timing is aligned automatically and the **guide pitch** appears on the piano roll. With only the original, use "Start from the original only" to separate it (the first time, you are asked before the models are downloaded). Reopening the same song continues where you left off. If the separation models (about 210 MB) are missing, the app offers them at startup (the first time, after you choose a mode). If you choose Later, you can install them any time from "Get the separation model…" on the start screen or the "Separation models" row in Settings.
 3. **Set up input**: the first time, input setup opens — device → level → latency measurement. **Use headphones.**
 4. **Practise**: **Space** plays / stops. Guide notes are blue bars; your voice is a line (lime when in tune, amber → red when off). Change **tempo / key** in PRACTICE (delivery takes go back to the original tempo and key). Drag on a lane (or `[` `]`) for IN / OUT, **L** to loop, drag the edges to adjust. **Ctrl / ⌘ + wheel** zooms.
@@ -162,15 +183,6 @@ Logo usage rules (clear space, minimum size, light-background versions) and ever
 - Bluetooth earphones and headphones have too much latency for recording
 - Windows on Arm has not been tested
 - These figures are working estimates during development. The reasoning is in [`docs/DESIGN.md`](docs/DESIGN.md) section 11.6.1 (Japanese)
-
-## Download
-
-Get `VoiceBooth-<version>-win-x64-setup.exe` for Windows or `VoiceBooth-<version>-mac-universal.dmg` for Mac from [Releases](https://github.com/kajisho5/voicebooth/releases).
-
-The beta is **not code-signed** yet, so your OS shows a warning the first time you open it.
-
-- **Windows**: if you see "Windows protected your PC", click "More info" → "Run anyway"
-- **Mac**: move VoiceBooth from the DMG into your Applications folder and open it once → if macOS says it cannot be opened, go to System Settings → Privacy & Security → under Security, click "Open Anyway" (the button appears for about an hour after you try to open the app) → enter your password ([Apple's instructions](https://support.apple.com/guide/mac-help/mh40616/mac))
 
 ## Support development
 

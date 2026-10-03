@@ -28,6 +28,28 @@
 **Un petit DAW vocal conçu uniquement pour enregistrer des reprises.**
 Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez seulement les passages à corriger et exportez un WAV que la personne qui mixe peut glisser directement dans son DAW. C'est tout ce qu'il fait. Ce n'est pas un DAW généraliste.
 
+## Téléchargement (gratuit)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-T%C3%A9l%C3%A9charger-C6EE6A?style=for-the-badge&labelColor=141311" alt="Télécharger pour Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-T%C3%A9l%C3%A9charger-C6EE6A?style=for-the-badge&labelColor=141311" alt="Télécharger pour Mac"></a>
+</p>
+
+| Ordinateur | Fichier (cliquez pour enregistrer) | Taille |
+|---|---|---|
+| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | environ 13 Mo |
+| Mac (macOS 11 ou ultérieur, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | environ 40 Mo |
+
+La version actuelle est **0.2.0 bêta 2**. Les nouveautés et les anciennes versions sont sur la [page des versions](https://github.com/kajisho5/voicebooth/releases). Il n'y a pas de version pour téléphone ou tablette.
+
+### Première fois ? Trois étapes
+
+1. **Cliquez sur un bouton ci-dessus pour enregistrer le fichier**, puis double-cliquez sur le fichier enregistré pour l'installer
+2. **Si un avertissement apparaît** (la bêta n'est pas encore signée, il n'apparaît qu'à la première ouverture)
+   - **Windows** : si « Windows a protégé votre ordinateur » s'affiche, cliquez sur « Informations complémentaires » → « Exécuter quand même »
+   - **Mac** : glissez VoiceBooth du DMG vers votre dossier Applications et ouvrez-le une fois → si macOS indique qu'il ne peut pas être ouvert, allez dans Réglages Système → Confidentialité et sécurité → dans la section Sécurité, cliquez sur « Ouvrir quand même » (le bouton apparaît pendant environ une heure après votre tentative d'ouverture) → saisissez votre mot de passe ([instructions d'Apple](https://support.apple.com/fr-fr/guide/mac-help/mh40616/mac))
+3. **Au démarrage**, choisissez la langue et un mode. Quand « Télécharger le modèle de séparation » apparaît, appuyez sur Télécharger (environ 210 Mo, la première fois seulement ; sert à la hauteur et à l'harmonie du guide et à démarrer avec l'original seul)
+
 ![Écran principal de VoiceBooth](docs/screenshots/main-en.png)
 
 > Cette capture est une maquette de développement dessinée à partir de données d'exemple. L'affichage avec de vrais titres est encore en cours d'amélioration et peut être différent.
@@ -74,7 +96,6 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 Ces éléments ne sont pas encore dans la bêta (et ne sont pas affichés dans l'app).
 
 - Séparation d'autre chose que la voix (guitare, batterie, etc.)
-
 
 ### Ce que reçoit la personne qui mixe
 
@@ -151,15 +172,6 @@ Les règles d'utilisation du logo (zone de protection, taille minimale, versions
 - Les écouteurs et casques Bluetooth ont trop de latence pour enregistrer
 - Windows on Arm n'a pas été testé
 - Ces chiffres sont des estimations de travail pendant le développement. Le raisonnement est dans la section 11.6.1 de [`docs/DESIGN.md`](docs/DESIGN.md) (en japonais)
-
-## Téléchargement
-
-Récupérez `VoiceBooth-<version>-win-x64-setup.exe` pour Windows ou `VoiceBooth-<version>-mac-universal.dmg` pour Mac dans les [Releases](https://github.com/kajisho5/voicebooth/releases).
-
-La bêta **n'est pas encore signée**, votre système affiche donc un avertissement à la première ouverture.
-
-- **Windows** : si « Windows a protégé votre ordinateur » s'affiche, cliquez sur « Informations complémentaires » → « Exécuter quand même »
-- **Mac** : glissez VoiceBooth du DMG vers votre dossier Applications et ouvrez-le une fois → si macOS indique qu'il ne peut pas être ouvert, allez dans Réglages Système → Confidentialité et sécurité → dans la section Sécurité, cliquez sur « Ouvrir quand même » (le bouton apparaît pendant environ une heure après votre tentative d'ouverture) → saisissez votre mot de passe ([instructions d'Apple](https://support.apple.com/fr-fr/guide/mac-help/mh40616/mac))
 
 ## Soutenir le développement
 

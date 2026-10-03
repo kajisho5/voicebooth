@@ -28,6 +28,28 @@
 **歌ってみた専用の、小さなボーカル DAW です。**
 オフボーカルに合わせて歌いながら、音程を画面で見て直し、直したい所だけ録り直して、ミックス担当にそのまま渡せる WAV を書き出す。そのための機能だけを入れています。万能 DAW ではありません。
 
+## ダウンロード（無料）
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows 版をダウンロード"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac 版をダウンロード"></a>
+</p>
+
+| パソコン | ファイル（押すと保存） | 大きさ |
+|---|---|---|
+| Windows 10 / 11（64bit） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
+| Mac（macOS 11 以降。Apple シリコン / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
+
+いまの版は **0.2.0 ベータ 2**。変更点・前の版は [リリースのページ](https://github.com/kajisho5/voicebooth/releases) にあります。スマホ・タブレット版はありません。
+
+### はじめての人へ（3 ステップ）
+
+1. **上のボタンを押してファイルを保存**し、保存したファイルをダブルクリックして入れます
+2. **警告が出たら**（ベータ版はまだコード署名をしていないため、初めて開く時だけ出ます）
+   - **Windows**：「Windows によって PC が保護されました」と出たら「詳細情報」→「実行」
+   - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く → 「開けません」と出たら、システム設定 →「プライバシーとセキュリティ」→ セキュリティの「このまま開く」（開こうとしてから約 1 時間だけ出ます）→ パスワード（[Apple の説明](https://support.apple.com/ja-jp/guide/mac-help/mh40616/mac)）
+3. **起動したら**言語とモードを選びます。続けて「分離モデルのダウンロード」が出たら［ダウンロード］を押してください（約 210 MB・初回だけ。お手本の音程・ハモリ・原曲だけで始めるのに使います）
+
 ![VoiceBooth のメイン画面](docs/screenshots/main-ja.png)
 
 > 画面は開発中の見本（UI モック。見本のデータを描いたもの）です。実際の曲での表示は改良中で、見え方が違う場合があります。
@@ -75,7 +97,6 @@
 
 - ギター・ドラムなど声以外の分離
 
-
 ### 渡すファイルの約束
 
 ミックス担当が DAW に置いた瞬間、オフボと頭がそろうように書き出します（目標 ±1 ms）。
@@ -101,7 +122,7 @@
 
 ### 1. 入れる
 
-[Releases](https://github.com/kajisho5/voicebooth/releases) からインストーラーを取って入れます（下の「ダウンロード」。初回だけ OS の警告が出ます）。
+[Releases](https://github.com/kajisho5/voicebooth/releases) からインストーラーを取って入れます（このページの上の「ダウンロード」。初回だけ OS の警告が出ます）。
 初めて起動すると、表示言語と「まず歌う / 録って渡す / 細かくやる」（簡単 / 標準 / プロのモード）を聞かれます。あとで設定から変えられます。
 
 ### 2. 曲を開く
@@ -199,15 +220,6 @@
 - Bluetooth のイヤホン・ヘッドホンは遅延が大きく、録音には向きません
 - Arm 版 Windows は未確認です
 - 数値は開発中の目安です。根拠は [`docs/DESIGN.md`](docs/DESIGN.md) 11.6.1
-
-## ダウンロード
-
-[Releases](https://github.com/kajisho5/voicebooth/releases) から、Windows は `VoiceBooth-<バージョン>-win-x64-setup.exe`、Mac は `VoiceBooth-<バージョン>-mac-universal.dmg` を取ってください。
-
-ベータ版はまだ**コード署名をしていません**。初めて開く時だけ、OS の警告が出ます。
-
-- **Windows**：「Windows によって PC が保護されました」と出たら「詳細情報」→「実行」
-- **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く → 「開けません」と出たら、システム設定 →「プライバシーとセキュリティ」→ セキュリティの「このまま開く」（開こうとしてから約 1 時間だけ出ます）→ パスワード（[Apple の説明](https://support.apple.com/ja-jp/guide/mac-help/mh40616/mac)）
 
 ## 開発の支援
 
