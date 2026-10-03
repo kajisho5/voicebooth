@@ -4,6 +4,8 @@
 - 単独の「版」（「の版」「新しい版」「<版>」など）は使わない。「バージョン」と書く（持ち主の決まり）
   漢字・カタカナ・英字の後に付く言い方（ベータ版・スマホ版・欧文版・Windows 版 など）はよい
 - 日本語を書くファイルだけを見る（中国語の README・翻訳表は「版本」が正しいので見ない）
+- 使う人が読む日本語（アプリの文言・README・リリースノート）は、一般的なアプリの言葉づかいと
+  「公用文作成の考え方」（文化審議会、2022。こと・とき・ところ・ものはひらがな）にそろえる（下の UI_RULES）
 
 使い方：python3 tools/check_terms.py        （見つかれば一覧を出して 1 で終わる）
         python3 tools/check_terms.py --fix  （単独の「版」を「バージョン」に置き換える）
@@ -13,6 +15,19 @@ import subprocess
 import sys
 
 WORD = "版"
+
+# 使う人が読む日本語だけに当てる決まり（見つけた言い方, 直し方）
+USER_FACING = re.compile(r"^(?:resources/i18n/ja\.json|README\.md|packaging/release-notes\.md)$")
+HIRA = "ぁ-ゖ"
+UI_RULES = [
+    (re.compile(rf"(?<=[{HIRA}])時(?![間刻代点計速差])"), "「〜時」は「〜とき」（例：開くとき・ないとき）"),
+    (re.compile(rf"(?<=[{HIRA}])(?<!か)所(?!有|属|要|在)"), "「〜所」は「ところ」「部分」「箇所」（数える「か所」はよい）"),
+    (re.compile(r"確かめ"), "「確かめる」は「確認する」"),
+    (re.compile(r"裏で"), "「裏で」は「バックグラウンドで」"),
+    (re.compile(r"無い|無け|無し"), "「無い」は「ない」"),
+    (re.compile(r"受け取り中"), "「受け取り中」は「ダウンロード中」"),
+    (re.compile(r"申告"), "「申告値」は「機器の報告値」"),
+]
 
 SKIP = re.compile(r"^(?:third_party/|CLAUDE\.md$|tools/check_terms\.py$|\.claude/reminder\.md$|"
                   r"README\.(?!md$)[^/]+\.md$|resources/i18n/(?!ja\.json$)[^/]+\.json$)")
@@ -50,6 +65,11 @@ def main():
             continue
         changed = False
         for n, line in enumerate(lines):
+            if USER_FACING.search(path):
+                for rule, hint in UI_RULES:
+                    if rule.search(line):
+                        found += 1
+                        print(f"{path}:{n + 1}: {hint}: {line.strip()[:120]}")
             spans = bad_spans(line)
             if not spans:
                 continue
