@@ -2765,6 +2765,49 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
     });
 }
 
+juce::StringArray UiSession::unrecordedSummary (const std::vector<project::TrackType>& types) const
+{
+    juce::StringArray lines;
+    const auto rate = s.sampleRate();
+    // お手本の声の区間：声のある点（信頼度 0.5 以上）を、0.3 秒未満の切れ目はつないでまとめる
+    auto voicedSpans = [rate] (const std::vector<dummy::PitchPoint>& ref)
+    {
+        std::vector<project::Span> spans;
+        const auto join = (int64) (0.3 * rate), hop = (int64) (0.02 * rate);
+        for (auto& p : ref)
+        {
+            if (p.confidence < 0.5f)
+                continue;
+            if (! spans.empty() && p.sample - spans.back().end <= join)
+                spans.back().end = p.sample + hop;
+            else
+                spans.push_back ({ p.sample, p.sample + hop });
+        }
+        return spans;
+    };
+    const auto mainSpans = voicedSpans (s.refPitch), harmSpans = voicedSpans (s.refPitchHarm);
+
+    for (auto type : types)
+    {
+        const bool harm = type == project::TrackType::harm1 || type == project::TrackType::harm2;
+        const auto& spans = harm ? harmSpans : mainSpans;   // ダブルはメインと同じ所を歌う
+        const auto* track = s.project.findTrack (type);
+        if (spans.empty() || track == nullptr)
+            continue;
+        const auto gaps = project::uncoveredSpans (*track, spans, (int64) rate);   // 1 秒未満の抜けは言わない
+        if (gaps.empty())
+            continue;
+        juce::StringArray ranges;
+        for (size_t i = 0; i < gaps.size() && i < 3; ++i)
+            ranges.add (formatTime (gaps[i].start, rate, false) + utf8 ("\xe2\x80\x93") + formatTime (gaps[i].end, rate, false));
+        auto line = tr ("export.unrecorded.line", trackName (type), ranges.joinIntoString (", "));
+        if (gaps.size() > 3)
+            line << " " << tr ("export.unrecorded.more", (int) gaps.size() - 3);
+        lines.add (line);
+    }
+    return lines;
+}
+
 void UiSession::exportPack (const std::vector<project::TrackType>& types, int bitDepth, bool refmix)
 {
     if (s.exporting || s.project.lengthSamples <= 0 || s.projectFolder == juce::File() || types.empty())

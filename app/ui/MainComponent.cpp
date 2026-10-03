@@ -767,10 +767,32 @@ void MainComponent::openExport()
         const bool pack = d->packSelected();
         const bool refmix = d->refmixSelected();
         const bool real = state().backingWave != nullptr;
-        overlay.close();   // d はここで消える
-        if (real && pack) session.exportPack (chosen, bits, refmix);
-        else if (real)    session.exportTracks (chosen, bits);
-        else      showToast (tr ("export.mockToast"));
+        auto* self = this;   // 下の close でこのラムダ（d の中）も消えるので、使う物は先に手元へ
+        overlay.close();     // d はここで消える
+        if (! real)
+        {
+            self->showToast (tr ("export.mockToast"));
+            return;
+        }
+        auto run = [self, chosen, bits, pack, refmix]
+        {
+            if (pack) self->session.exportPack (chosen, bits, refmix);
+            else      self->session.exportTracks (chosen, bits);
+        };
+        // お手本の声がある所で録っていない所があれば、書き出す前に確かめる（DESIGN 12。無音で書き出す）
+        const auto missing = self->session.unrecordedSummary (chosen);
+        if (missing.isEmpty())
+        {
+            run();
+            return;
+        }
+        juce::Component::SafePointer<MainComponent> safe (self);
+        self->showConfirm (tr ("export.unrecorded.title"), tr ("export.unrecorded.message", missing.joinIntoString ("\n")),
+                     {
+                         { tr ("export.unrecorded.yes"), DialogPanel::KeyRole::primary, run },
+                         { tr ("export.unrecorded.back"), DialogPanel::KeyRole::normal,
+                           [safe] { juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openExport(); }); } },
+                     });
     };
     overlay.show (std::move (dlg), true);
 }

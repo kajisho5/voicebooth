@@ -264,6 +264,9 @@ public:
     void exportTracks (const std::vector<project::TrackType>&, int bitDepth = 0);   // bitDepth：16 / 24 / 32（0 = 録音形式）
     /** 納品パック（B15。DESIGN 9）：export_YYYYMMDD/ に各トラックの Dry・確認用ミックス・notes.txt（プロは take_map.txt）と zip */
     void exportPack (const std::vector<project::TrackType>&, int bitDepth = 0, bool refmix = true);
+    /** 書き出す前の確認（DESIGN 12「未録音警告」）：お手本の声がある所で、選んだトラックが録っていない所。
+        トラックごとに 1 行（「Main：0:48–1:02、1:30–1:41 ほか 2 か所」）。無ければ空。お手本が無ければ確かめようがないので空 */
+    juce::StringArray unrecordedSummary (const std::vector<project::TrackType>&) const;
 
     /** 曲ごとの作業フォルダ（テイク・書き出し）。.vbooth の保存（B14）までの仮の置き場：
         書類フォルダ/VoiceBooth/Projects/{曲名}/ */
