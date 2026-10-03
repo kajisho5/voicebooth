@@ -486,10 +486,10 @@ const std::vector<analysis::NoteSpan>& PitchLane::refNotes() const
 {
     const auto& s = state();
     const auto& ref = s.activeRef();
-    // メインとハモリは同じ時間の並び（数・頭・終わりが同じ）なので、どちらかも鍵に入れる
+    // 鍵：線を変えるたびに増える番号（同じ曲の線は数・頭・終わりが必ず同じなので、それでは差し替えに気づけない。#24）。
+    // メインとハモリは同じ時間の並びなので、どちらかも鍵に入れる
     const auto key = ref.empty() ? 0
-                   : (juce::int64) ref.size() * 1000003 + ref.front().sample * 31 + ref.back().sample
-                     + (juce::int64) s.sampleRate() + (&ref == &s.refPitchHarm ? 7919 : 0);
+                   : ((juce::int64) s.refPitchSerial * 1000003 + (juce::int64) ref.size()) * 2 + (&ref == &s.refPitchHarm ? 1 : 0);
     if (key != notesKey)
     {
         std::vector<audio::PitchFrame> frames;

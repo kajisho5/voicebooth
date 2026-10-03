@@ -174,10 +174,23 @@ void UiSession::restoreProject()
     const auto& lp = loaded->project;
     restoring = true;
 
-    // テイク・採用区間（ファイルはプロジェクトフォルダ相対）
-    int takes = 0;
-    for (auto& t : lp.tracks)
+    // テイク・採用区間（ファイルはプロジェクトフォルダ相対）。フォルダの外を指すテイク（../・絶対パス）は使わない（#17）
+    int takes = 0, outside = 0;
+    for (auto t : lp.tracks)
     {
+        juce::StringArray dropped;
+        for (auto it = t.takes.begin(); it != t.takes.end();)
+            if (project::isInsideProject (it->path))
+                ++it;
+            else
+            {
+                dropped.add (it->id);
+                it = t.takes.erase (it);
+            }
+        t.comp.erase (std::remove_if (t.comp.begin(), t.comp.end(), [&] (const project::CompSegment& c) { return dropped.contains (c.takeId); }),
+                      t.comp.end());
+        outside += dropped.size();
+
         auto* mine = const_cast<project::Track*> (s.project.findTrack (t.type));
         if (mine == nullptr)
         {
@@ -193,6 +206,8 @@ void UiSession::restoreProject()
                 loadTakeWave (t.type, k);
         }
     }
+    if (outside > 0)
+        postNotice (tr ("project.outsideTakes", outside));
 
     // 曲の情報（推定のままの値も戻す。あとから届く自動推定は確定した値を上書きしない）
     if (lp.tempo.known()) s.project.tempo = lp.tempo;
@@ -512,6 +527,7 @@ void UiSession::conformSong()
             for (auto& p : s.refPitch) p.sample = scale (p.sample);
             // ハモリのお手本の線と「お手本が使える区間」も同じ時間軸にそろえる（前はそのままで、44.1→48 kHz なら 8.8% ずれていた。監査 2026-10-03）
             for (auto& p : s.refPitchHarm) p.sample = scale (p.sample);
+            ++s.refPitchSerial;
             for (auto& c : s.guideCovered) c = { scale (c.first), scale (c.second) };
             for (auto& l : s.project.lyrics.lines) { l.startSample = scaleTimed (l.startSample); l.endSample = scaleTimed (l.endSample); }
             s.project.sampleRate = target;
@@ -1474,6 +1490,7 @@ void UiSession::loadGuide (const juce::File& file)
                     updateTakeStats();
                     s.guideVocals = out->vocals;
                     s.refPitchHarm.clear();          // 引き算の声は 1 本。リードのモデルがあれば、続けてリードとハモリに分ける
+                    ++s.refPitchSerial;
                     s.guideHarmVocals = nullptr;
                     if (applyGuideNudge()) { rejudgeAll(); updateTakeStats(); }
                     syncGuideToEngine();
@@ -2101,6 +2118,7 @@ void UiSession::analyseLead (const juce::File& leadFile)
             };
             s.refPitch = toRef (out->points);
             s.refPitchHarm = toRef (out->harmPoints);
+            ++s.refPitchSerial;
             rejudgeAll();
             updateTakeStats();
             s.guideVocals = out->vocals;
@@ -2219,6 +2237,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                         for (auto& p : *ref)
                             p.midi += (float) key;
                 }
+                ++s.refPitchSerial;
                 rejudgeAll();
                 updateTakeStats();
                 s.guideVocals = out->vocals;
@@ -3040,7 +3059,8 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
             if (weak.expired())
                 return;
             s.exporting = false;
-            if (r.ok) postNotice (tr ("export.pack.done", r.files.size(), r.zipFile.getFullPathName()));
+            if (r.ok && r.zipTooLarge) postNotice (tr ("export.pack.doneNoZip", r.files.size(), r.folder.getFullPathName()));
+            else if (r.ok) postNotice (tr ("export.pack.done", r.files.size(), r.zipFile.getFullPathName()));
             else      postNotice (tr ("export.failed", r.message));
             notify (change::takes);
         });
@@ -3303,6 +3323,7 @@ void UiSession::shiftGuideData (int64 d, bool withOriginal)
     for (auto* ref : { &s.refPitch, &s.refPitchHarm })
         for (auto& p : *ref)
             p.sample += d;
+    ++s.refPitchSerial;
 
     const auto rate = s.sampleRate();
     s.guideVocals = shiftedAudio (s.guideVocals, d, rate);
@@ -3730,7 +3751,7 @@ analysis::KeySuggestion UiSession::keySuggestion() const
 analysis::SongRange UiSession::guideRange() const
 {
     // お手本の広がりは点が変わった時だけ数え直す
-    const auto key = (juce::int64) s.refPitch.size() * 1000003 + (s.refPitch.empty() ? 0 : s.refPitch.front().sample);
+    const auto key = (juce::int64) s.refPitchSerial * 1000003 + (juce::int64) s.refPitch.size();   // 線を変えたら必ず変わる（#24）
     if (key != songRangeKey)
     {
         std::vector<float> midi;   // 10 ms ごとの並び（時間の飛び・自信の無い点は無声として切る）

@@ -92,6 +92,16 @@ public:
             expect (DeliveryPack::packFileName (TrackType::backing).isEmpty());
         }
 
+        beginTest ("zip only while it fits in 32-bit sizes (no Zip64): bigger packs stay a folder (#22)");
+        {
+            expect (DeliveryPack::fitsInZip (0, 0));
+            expect (DeliveryPack::fitsInZip ((int64) 3 * 1024 * 1024 * 1024, 6));            // 3 GiB
+            expect (! DeliveryPack::fitsInZip (0xFFFFFFFFLL, 1));                            // ちょうど 4 GiB
+            expect (! DeliveryPack::fitsInZip (0xFFFFFFFFLL - 1000, 6));                      // 中身は収まっても見出しで超える
+            expect (! DeliveryPack::fitsInZip ((int64) 5500 * 1000 * 1000, 6));              // 192 kHz・32bit float・20 分
+            expect (! DeliveryPack::fitsInZip (-1, 1));
+        }
+
         beginTest ("pack: vocals, refmix, notes, take map and zip; a second pack never overwrites the first");
         {
             const auto folder = tempFolder();
