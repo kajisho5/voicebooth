@@ -116,6 +116,16 @@ public:
                           juce::String ("0.1.0"));
         }
 
+        beginTest ("CI test builds (0.2.0-0.ci) are older than every beta, so the released one is offered");
+        {
+            expect (parseVersion ("0.2.0-0.ci").valid);
+            expect (cmp ("0.2.0-0.ci", "0.2.0-beta.2") < 0);
+            expect (cmp ("0.2.0-0.ci", "0.1.0") > 0);
+            const auto r = pickRelease (list ({ release ("v0.2.0-beta.2", true), release ("v0.2.0-beta.1", true) }),
+                                        "0.2.0-0.ci", includePrereleases ("0.2.0-0.ci", false), Platform::windows);
+            expectEquals (r.version, juce::String ("0.2.0-beta.2"));
+        }
+
         beginTest ("fixture: a GitHub /releases response (draft, beta, out of order, extra assets)");
         {
             const auto json = juce::File (VOICEBOOTH_TEST_DATA_DIR).getChildFile ("github-releases.json").loadFileAsString();
