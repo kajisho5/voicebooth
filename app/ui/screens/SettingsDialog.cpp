@@ -1,5 +1,7 @@
 #include "SettingsDialog.h"
 #include "../../system/AppCache.h"
+#include "separation/SeparatorClient.h"
+#include "models/ModelDownloader.h"
 
 namespace vb
 {
@@ -10,7 +12,7 @@ namespace
     // 1920x1080 の窓で等倍。窓が小さい時は全体を縮める（scale）
     constexpr float sansEm = 1.5f, monoEm = 1.3f;
     constexpr float titlePx = 18.0f, labelPx = 16.0f, notePx = 14.0f, keyPx = 14.0f;
-    constexpr int baseW = 1240, baseRowH = 62, baseCtrlH = 44, baseFooterKeyH = 44;
+    constexpr int baseW = 1240, baseRowH = 58, baseCtrlH = 42, baseFooterKeyH = 44;
     constexpr float minScale = 0.6f;
 
     juce::StringArray languageNames()
@@ -88,6 +90,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
       showLyrics (tr ("common.off")),
       openSetup (tr ("settings.device.open")),
       cacheKey (tr ("settings.cache.change")),
+      modelKey (tr ("model.getButton")),
       supportKey (tr ("settings.support.open")),
       cacheOpen (tr ("settings.cache.open")),
       cacheClear (tr ("settings.cache.clear")),
@@ -113,6 +116,9 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     showLyrics.onClick = [this] { session.setShowLyrics (! state().showLyrics); };
     openSetup.withIcon (Icon::mic);
     openSetup.onClick = [this] { if (onOpenSetup) onOpenSetup(); };
+    // 分離モデル：どこからでも入れられるように（ダウンロードは押した時だけ。11.7）
+    modelKey.withIcon (Icon::download).withLed().withToggle (false);
+    modelKey.onClick = [this] { if (onInstallModels) onInstallModels(); };
     // キャッシュの場所：変更（フォルダを選ぶ）・開く（Finder / エクスプローラー）・空にする（確かめてから）
     cacheKey.withIcon (Icon::folder);
     cacheKey.setTooltip (tr ("settings.cache.change.tooltip"));
@@ -169,6 +175,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.countIn"),    tr ("settings.countIn.note"),    &countIn,     290 },
         { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   360 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
+        { tr ("settings.models"),     tr ("settings.models.note"),     &modelKey,    0 },
         { tr ("settings.cache"),      {},                              &cacheKey,    0, {}, {}, { &cacheOpen, &cacheClear } },
         { tr ("settings.update"),     {},                              &updateAuto,  0, {}, {}, { &updateBetas, &updateNow } },
         { tr ("settings.system"),     systemSummary (systemInfo),      nullptr,      540, systemValue, systemLed },
@@ -208,7 +215,7 @@ void SettingsDialog::applyScale (float k)
     for (auto* d : { &language, &skinPicker })
         d->setFont (sans (sansH (keyPx), Weight::medium));
     for (auto* key : { &octaveAlign, &showLyrics, &openSetup, &cacheKey, &supportKey, &cacheOpen, &cacheClear,
-                       &updateAuto, &updateBetas, &updateNow, &editSkin, &newSkin, closeFooter, aboutFooter })
+                       &updateAuto, &updateBetas, &updateNow, &editSkin, &newSkin, &modelKey, closeFooter, aboutFooter })
         key->withFont (sans (sansH (keyPx), Weight::medium));
 
     const auto px = [k] (int base) { return juce::roundToInt ((float) base * k); };
@@ -274,6 +281,24 @@ void SettingsDialog::onSessionChanged (juce::uint32 changes)
     {
         c->setEnabled (! s.isRecording);
         c->setAlpha (s.isRecording ? 0.45f : 1.0f);
+    }
+
+    // 分離モデル：3 つ（分離・リードボーカル・音程）が入っていれば「入っています」。受け取り中は進み具合
+    {
+        using SC = separation::SeparatorClient;
+        using DS = models::DownloadStatus::Stage;
+        const bool installed = SC::modelInstalled() && SC::karaokeInstalled() && SC::pitchModelFile().existsAsFile();
+        const bool busy = s.modelDl.stage == (int) DS::downloading || s.modelDl.stage == (int) DS::verifying;
+        if (busy)
+            modelKey.setButtonText (tr ("settings.models.downloading",
+                                        juce::String (s.modelDl.size > 0 ? (int) (s.modelDl.received * 100 / s.modelDl.size) : 0)));
+        else
+            modelKey.setButtonText (installed ? tr ("settings.models.installed") : tr ("model.getButton"));
+        modelKey.setToggleState (installed, juce::dontSendNotification);
+        const bool canPress = ! installed && ! busy && s.engineAttached && ! s.isRecording;
+        modelKey.setEnabled (canPress);
+        modelKey.setAlpha (canPress || installed ? 1.0f : 0.45f);
+        if (getWidth() > 0) resized();   // 文言で幅が変わる
     }
 
     // 新しいバージョンの確認
