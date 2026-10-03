@@ -77,8 +77,8 @@ The current version is **0.2.0 beta 2**. Changes and older versions are on the [
 | | Details |
 |---|---|
 | Open a song | The formats above, also by drag and drop. The start of the song lines up the same on Windows and Mac |
-| Original + karaoke | Use the original song (with vocals) as the reference and sing over the karaoke / instrumental. Differences such as intro length are aligned automatically. The karaoke is subtracted from the original to extract the vocal, which becomes the reference pitch line |
-| Original only | Separate the original to make an instrumental, and show the reference line too (needs the separation model) |
+| Original + karaoke | Use the original song (with vocals) as the guide and sing over the karaoke / instrumental. Differences such as intro length are aligned automatically. The karaoke is subtracted from the original to extract the vocal, which becomes the reference pitch line |
+| Original only | Separate the original to make an instrumental, and show the guide line too (needs the separation model) |
 | Pitch in color | Your pitch is drawn as a line on top: lime when you are on pitch, amber then red as you drift. Singing an octave off can still be lined up on the display |
 | Practice | Tempo 50–150 %, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key |
 | Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). When the guide is separated, the lead and harmonies can be heard on their own |
@@ -87,7 +87,7 @@ The current version is **0.2.0 beta 2**. Changes and older versions are on the [
 | Click and count-in | A click on the song's beat (higher on beat 1; follows the practice tempo). Counts 1–2 bars before REC; re-recording a range counts in before the range. Headphones only, never recorded or exported |
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
 | Take comparison | List your takes newest first, hear each one in place in the song for a range (or one comp segment), and use the one you pick (Standard and up; Ctrl / ⌘+Z undoes it) |
-| Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
+| Entry timing | Compared with the guide, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
 | Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
 | Lyrics (off by default) | Load .txt / .lrc, sync by tapping |
 | Skins | Recolour the whole app (10 built-in). Share them as `.vbskin` files |
@@ -149,7 +149,7 @@ If the guide line looks off, right-click the pitch lane for "10 ms earlier / lat
 | Color | Used for |
 |---|---|
 | Signal (lime) | Your pitch when it is on, the playhead, lit LEDs |
-| Reference (ice blue) | The reference tolerance band |
+| Reference (ice blue) | The guide tolerance band |
 | Amber / Coral | Slightly off / far off, warnings |
 | Tally (red) | Recording only |
 

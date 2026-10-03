@@ -138,7 +138,7 @@ El motor es el mismo; solo cambia lo que ves. Un proyecto hecho en un modo se ab
 | Color | Se usa para |
 |---|---|
 | Signal (verde lima) | Tu tono cuando está afinado, el cursor de reproducción, LED encendidos |
-| Reference (azul hielo) | La banda de tolerancia de la referencia |
+| Reference (azul hielo) | La banda de tolerancia de la guía |
 | Amber / Coral | Algo desafinado / muy desafinado, avisos |
 | Tally (rojo) | Solo la grabación |
 
