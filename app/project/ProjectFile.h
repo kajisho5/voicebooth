@@ -55,6 +55,12 @@ bool writeAtomically (const juce::File&, const juce::String& text);
     使っているもの（usedPaths：プロジェクトフォルダ相対）はそのまま。移した数を返す */
 int recoverUnusedTakes (const juce::File& projectFolder, const juce::StringArray& usedPaths);
 
+/** テイクの場所として使ってよいか：プロジェクトのフォルダの中を指す相対パスだけ（#17）。
+    絶対パス（/…・C:…・\\server…）・ホーム（~）・".." の段・":" を含む物は使わない。
+    人に渡された .vbooth に書かれた場所で、外のファイルを読み込んだり「本番に入れる」でプロジェクトへ移したりしないため。
+    曲とお手本は、コピーし終える前に保存された元の場所（絶対パス）も読む（読むだけで、移したり削除したりしない） */
+bool isInsideProject (const juce::String& relativePath);
+
 /** プロジェクトの曲・お手本のファイル。path（相対か、コピーし終える前に保存された元の場所）に無ければ、
     プロジェクトの中の folder/ にある同じ名前のファイル（コピーし終えた物）。どちらにも無ければ path のまま */
 juce::File findMedia (const juce::File& projectFolder, const juce::String& path, const juce::String& folder);
