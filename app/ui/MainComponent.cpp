@@ -146,7 +146,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
     if (o.screen == "compare")      openTakeCompare (0, 0);   // テイク比較（B18c。見本は Main の IN / OUT）
 
-    // DESIGN 11.7 の見本（通信しない。版・本文は見本、キーは本物のリリースのページを開く）
+    // DESIGN 11.7 の見本（通信しない。バージョン・本文は見本、キーは本物のリリースのページを開く）
     if (o.screen.startsWith ("update"))
     {
         update::Release sample;

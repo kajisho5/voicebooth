@@ -126,7 +126,7 @@ class BSCore(nn.Module):
 
     def __init__(self, m, per_head=True):
         super().__init__()
-        assert not m.skip_connection and all(len(b) == 2 for b in m.layers), 'linear / skip の版は未対応'
+        assert not m.skip_connection and all(len(b) == 2 for b in m.layers), 'linear / skip のバージョンは未対応'
         assert m.num_stems == 1 and m.stereo, 'num_stems 1・ステレオのモデルだけ'
         self.m, self.per_head = m, per_head
 

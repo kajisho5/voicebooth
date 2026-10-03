@@ -30,7 +30,7 @@ RefPitchResult referencePitch (const float* reference, int64 referenceLength,
     if (! align.found() || align.covered.empty() || sampleRate <= 0.0)
         return result;   // notAligned
 
-    // 速さの違う版は同じミックスではない（引けない）
+    // 速さの違うバージョンは同じミックスではない（引けない）
     if (std::abs (align.tempoRatio - 1.0) > 1.0e-5)
     {
         result.status = RefPitchResult::Status::needsSeparation;

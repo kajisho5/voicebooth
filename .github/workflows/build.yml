@@ -3,11 +3,20 @@ name: build
 # Win / Mac でビルドとテストが通ること、翻訳表がそろっていること、
 # 音声デバイスを開かない UI_MOCK ビルドも通ること（Linux）を確認する。
 # テストが通ったら、試す人向けに未署名のインストーラー（Win: setup.exe / Mac: DMG）も作る（DESIGN 11.6）
+# リリース：main に入った時、packaging/release-tag.txt のバージョン（v0.2.0-beta.2 など）のタグがまだ無ければ、
+# テストが通った後に CI がそのタグとリリースを作ってインストーラーを付ける（マージすれば出る。バージョンを上げなければ出ない）
 on:
   pull_request:
+  # 手で動かす時（GitHub の画面の Run workflow や API）。release_tag にバージョンのタグを渡すと、同じようにリリースを出す
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to create after the tests pass (e.g. v0.2.0-beta.2). Empty = build only'
+        required: false
+        default: ''
   push:
-    tags: ['v*']   # 版のタグ（v0.1.0、v0.1.0-beta.1 など）を push したら、作ったインストーラーで GitHub のリリースを作る
+    branches: [main]
+    tags: ['v*']   # バージョンのタグ（v0.1.0、v0.1.0-beta.1 など）を push したら、作ったインストーラーで GitHub のリリースを作る
 
 # 同じブランチに新しく push したら、前の実行は止める（Mac のユニバーサル版は 30 分以上かかるため）
 concurrency:
@@ -15,15 +24,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 出すリリースのタグを決める（無ければ空 = ビルドとテストだけ）
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+        run: |
+          tag=""
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            want=$(tr -d ' \r\n' < packaging/release-tag.txt)
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$want" > /dev/null 2>&1; then
+              echo "$want is already released"
+            else
+              tag="$want"
+            fi
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$RELEASE_TAG"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "release tag: ${tag:-none}"
+
   i18n:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Check translations
         run: python3 tools/check_i18n.py
+      # 言葉の決まり（CLAUDE.md。「バージョン」の書き方など）
+      - name: Check wording
+        run: python3 tools/check_terms.py
 
   build:
-    needs: i18n
+    needs: [i18n, plan]
     strategy:
       fail-fast: false
       matrix:
@@ -32,13 +72,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # プレリリースのタグ（v0.1.0-beta.1）なら、アプリの版に印（beta.1）を付ける。更新の確認（DESIGN 11.7）が
-      # いまの版をベータと分かり、次のベータ・同じ版の正式版を正しく比べられるように。タグ以外・正式版のタグは空
+      # プレリリースのタグ（v0.1.0-beta.1）なら、アプリのバージョンに印（beta.1）を付ける。更新の確認（DESIGN 11.7）が
+      # いまのバージョンをベータと分かり、次のベータ・同じバージョンの正式版を正しく比べられるように。タグ以外・正式版のタグは空
       - name: Pre-release label
         id: label
         shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v*-* ]]; then echo "suffix=${GITHUB_REF_NAME#*-}" >> "$GITHUB_OUTPUT"; fi
+          if [[ "$RELEASE_TAG" == v*-* ]]; then echo "suffix=${RELEASE_TAG#*-}" >> "$GITHUB_OUTPUT"; fi
 
       # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように
       - name: Configure
@@ -155,11 +197,13 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure -V
 
-  # ---- リリース（タグの時だけ）。Win の setup.exe と Mac の DMG を GitHub のリリースに付ける ----
-  # タグと CMake の版がそろっていること。「-」の入るタグ（v0.1.0-beta.1 など）はプレリリース。本文は packaging/release-notes.md
+  # ---- リリース（plan がタグを決めた時）。Win の setup.exe と Mac の DMG を GitHub のリリースに付ける ----
+  # タグと CMake のバージョンがそろっていること。「-」の入るタグ（v0.1.0-beta.1 など）はプレリリース。本文は packaging/release-notes.md
+  # タグの push 以外（main へのマージ・手で動かした時）は、テストした commit（GITHUB_SHA）にタグを作る。
+  # main 以外からは出さない。同じタグが別の commit にあれば止める
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, ui-mock-linux]
+    if: needs.plan.outputs.tag != ''
+    needs: [plan, build, ui-mock-linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -168,8 +212,20 @@ jobs:
 
       - name: Check the tag against the version
         id: tag
+        env:
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF_NAME}"
+          tag="$RELEASE_TAG"
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then echo "::error::releases are made from main only (got $GITHUB_REF)"; exit 1; fi
+            if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then echo "::error::bad tag $tag"; exit 1; fi
+            # タグが無ければ gh は 404 の本文を出して失敗する。成功した時の値だけを使う
+            existing=""
+            if sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null); then existing="$sha"; fi
+            if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then echo "::error::tag $tag already points to $existing"; exit 1; fi
+          fi
+          echo "name=$tag" >> "$GITHUB_OUTPUT"
           ver=$(sed -n 's/^project(VoiceBooth VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
           base="${tag#v}"; base="${base%%-*}"
           if [ "$base" != "$ver" ]; then echo "::error::tag $tag does not match CMake version $ver"; exit 1; fi
@@ -177,21 +233,26 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          pattern: VoiceBooth-[0-9]*   # 版つきのインストーラーだけ（VoiceBooth-Windows / -macOS の中身は付けない）
+          pattern: VoiceBooth-[0-9]*   # バージョンつきのインストーラーだけ（VoiceBooth-Windows / -macOS の中身は付けない）
           path: dist
           merge-multiple: true
 
       # GitHub の画面で先にリリースを作った時（タグもそこで作る）は、そのリリースにファイルを付けて題・本文をそろえる
+      # main へのマージ・手で動かした時はタグがまだ無いので、テストした commit（--target）に作る
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.name }}
         run: |
           ls -la dist
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "VoiceBooth $GITHUB_REF_NAME" \
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --title "VoiceBooth $TAG" \
+               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
+          elif [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            gh release create "$TAG" dist/* --title "VoiceBooth $TAG" --target "$GITHUB_SHA" \
                --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
           else
-            gh release create "$GITHUB_REF_NAME" dist/* --title "VoiceBooth $GITHUB_REF_NAME" \
+            gh release create "$TAG" dist/* --title "VoiceBooth $TAG" \
                --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag
           fi

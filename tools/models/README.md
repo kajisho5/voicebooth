@@ -60,7 +60,7 @@ python3 tools/models/make_manifest.py --model-dir pitch --files rmvpe.onnx \
 
 ## 3. R2（voicebooth-dist）に置く
 
-版ごとのファイルは上書きしない（別の場所に置く）。キャッシュの決まり（DESIGN 11.7）に合わせる。
+バージョンごとのファイルは上書きしない（別の場所に置く）。キャッシュの決まり（DESIGN 11.7）に合わせる。
 
 ```sh
 put () { npx wrangler r2 object put "$1" --file "$2" --content-type "$3" --cache-control "$4" --remote; }

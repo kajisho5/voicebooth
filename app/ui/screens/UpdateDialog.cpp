@@ -100,7 +100,7 @@ void UpdateDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
 {
     auto r = area.toFloat();
 
-    // いまの版 → 新しい版（右に公開日・インストーラーの大きさ）
+    // いまのバージョン → 新しいバージョン（右に公開日・インストーラーの大きさ）
     {
         auto v = r.removeFromTop (64.0f);
         paint::inset (g, v, 6.0f);

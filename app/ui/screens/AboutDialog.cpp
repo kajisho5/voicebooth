@@ -33,7 +33,7 @@ void AboutDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
 {
     auto r = area.toFloat();
 
-    // 名前と版
+    // 名前とバージョン
     {
         auto top = r.removeFromTop (40.0f);
         const auto nf = sans (22.0f, Weight::semibold);
