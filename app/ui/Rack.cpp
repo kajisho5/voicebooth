@@ -508,20 +508,30 @@ void RecordModule::paint (juce::Graphics& g)
 Rack::Rack (UiSession& u, Actions& a)
     : SessionView (u), input (u, a), practice (u, a), monitor (u), record (u)
 {
-    addAndMakeVisible (input);
-    addAndMakeVisible (practice);
-    addAndMakeVisible (monitor);
-    addAndMakeVisible (record);
+    for (auto* m : std::initializer_list<juce::Component*> { &input, &practice, &monitor, &record })
+        content.addAndMakeVisible (m);
+    content.separated = { &practice, &monitor, &record };
+    viewport.setViewedComponent (&content, false);
+    viewport.setScrollBarsShown (true, false);   // 縦だけ。足りるときはスクロールバーを出さない
+    viewport.setScrollBarThickness (8);
+    addAndMakeVisible (viewport);
 }
 
 void Rack::resized()
 {
-    // 既定の高さ（合計 756）と最小の高さ。足りない分は (既定 - 最小) の比で各段から削る
+    // 既定の高さ（合計 756）と最小の高さ。足りない分は (既定 - 最小) の比で各段から削る。
+    // 最小の合計（646）にも足りないときは、最小の高さで並べて縦にスクロールする（#18）
     constexpr int desired[] = { 156, 214, 218, 168 };   // 練習：声域とおすすめのキーの段（2026-10-02）
     constexpr int minimum[] = { 140, 190, 170, 146 };
     constexpr int desiredSum = 156 + 214 + 218 + 168, slackSum = 16 + 24 + 48 + 22;
+    constexpr int minimumSum = desiredSum - slackSum;
 
-    auto r = getLocalBounds().withTrimmedLeft (1);
+    const auto area = getLocalBounds().withTrimmedLeft (1);
+    viewport.setBounds (area);
+    const bool scrolls = area.getHeight() < minimumSum;
+    content.setSize (area.getWidth() - (scrolls ? viewport.getScrollBarThickness() : 0), juce::jmax (area.getHeight(), minimumSum));
+
+    auto r = content.getLocalBounds();
     const auto deficit = juce::jlimit (0, slackSum, desiredSum - r.getHeight());
     int h[4];
     for (int i = 0; i < 4; ++i)
@@ -537,8 +547,12 @@ void Rack::paint (juce::Graphics& g)
 {
     g.fillAll (colours::panel);
     paint::vline (g, 0.0f, 0.0f, (float) getHeight(), state().isRecording ? colours::rec : colours::line);
+}
 
-    for (auto* m : std::initializer_list<juce::Component*> { &practice, &monitor, &record })
-        paint::hline (g, (float) m->getY(), 1.0f, (float) getWidth());
+void Rack::Content::paint (juce::Graphics& g)
+{
+    g.fillAll (colours::panel);
+    for (auto* m : separated)
+        paint::hline (g, (float) m->getY(), 0.0f, (float) getWidth());
 }
 } // namespace vb

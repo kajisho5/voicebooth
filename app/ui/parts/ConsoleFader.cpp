@@ -216,14 +216,31 @@ void ChannelStrip::paint (juce::Graphics& g)
     auto names = nameArea;
     if (note.isNotEmpty())
     {
+        // 1 行に入らなければ 2 行に折り返す（「Oreilles seules」「Chỉ để nghe」が 1 行で切れていた。#19）。
+        // 2 行にする高さが無ければ（低い画面）、1 行のまま字の幅を詰める
+        const auto f = sans (9.5f);
+        const auto lineH = 12 + juce::roundToInt (3.0f * textBoostAmount());
+        const auto lines = textWidth (f, note) > (float) names.getWidth() && names.getHeight() >= lineH * 2 + 14 ? 2 : 1;
         g.setColour (colours::textMute);
-        g.setFont (sans (9.5f));
-        g.drawText (note, names.removeFromBottom (12 + juce::roundToInt (3.0f * textBoostAmount())), juce::Justification::centred, false);
+        g.setFont (f);
+        g.drawFittedText (note, names.removeFromBottom (lineH * lines), juce::Justification::centred, lines, 0.8f);
     }
 
+    // 1 行に入らない名前は空白で 2 行に分ける（韓国語の「내 목소리」が「내 목소 / 리」と音節の途中で分かれていた。#19）
+    const auto nf = sans (11.5f, Weight::medium);
+    auto shown = name;
+    if (! shown.containsChar ('\n') && shown.containsChar (' ') && textWidth (nf, shown) > (float) names.getWidth())
+    {
+        // 真ん中に近い空白で分ける
+        int best = -1;
+        for (int i = shown.indexOfChar (' '); i >= 0; i = shown.indexOfChar (i + 1, ' '))
+            if (best < 0 || std::abs (i - shown.length() / 2) < std::abs (best - shown.length() / 2))
+                best = i;
+        shown = shown.substring (0, best) + "\n" + shown.substring (best + 1);
+    }
     g.setColour (colours::text.withAlpha (0.9f));
-    g.setFont (sans (11.5f, Weight::medium));
-    g.drawFittedText (name, names, juce::Justification::centredBottom, 2, 0.85f);
+    g.setFont (nf);
+    g.drawFittedText (shown, names, juce::Justification::centredBottom, 2, 0.85f);
 
     g.setColour (colours::textDim);
     g.setFont (mono (12.0f, Weight::medium));
