@@ -787,7 +787,8 @@ void UiSession::setRecording (bool r)
 
     // 区間の録り直し（パンチイン。B10）：範囲があれば、採用は範囲の中だけ。範囲の前を鳴らしている時はそのまま、
     // そうでなければ範囲の少し前（プリロール）から鳴らして録る
-    const bool punch = s.hasRange();
+    // 簡単モードは通し録りだけ（DESIGN 2「区間録り直し＝通しのみ」）：IN/OUT は練習のループにだけ使い、録音は今の位置から通しで
+    const bool punch = s.hasRange() && s.mode != project::Mode::easy;
     const auto now = juce::jlimit ((int64) 0, s.project.lengthSamples, engine->getPlayheadSample());
     if (punch && ! (s.isPlaying && shadowActive && now < s.rangeIn))
     {
