@@ -1118,6 +1118,27 @@ namespace
         return true;
     }
 
+    /** ハモリの点のうち、同じ時刻（±10 ms）のリードと同じ音（±60 セント）の物を無声にする。ハモリの線に出るリードの消し残り */
+    void dropUnison (std::vector<audio::PitchFrame>& harm, const std::vector<audio::PitchFrame>& lead, double rate)
+    {
+        const auto tolerance = (juce::int64) std::llround (audio::pitch::hopSeconds * rate);
+        size_t j = 0;
+        for (auto& p : harm)
+        {
+            if (p.confidence < 0.5f)
+                continue;
+            while (j < lead.size() && lead[j].songSample < p.songSample - tolerance)
+                ++j;
+            for (auto k = j; k < lead.size() && lead[k].songSample <= p.songSample + tolerance; ++k)
+                if (lead[k].confidence >= 0.5f && std::abs (lead[k].midi - p.midi) <= 0.6f)
+                {
+                    p.midi = 0.0f;
+                    p.confidence = 0.0f;
+                    break;
+                }
+        }
+    }
+
     std::shared_ptr<const audio::SongAudio> vocalsAudio (const std::vector<float>& v, double rate)
     {
         if (v.empty()) return nullptr;
@@ -1126,6 +1147,29 @@ namespace
         a->buffer.setSize (1, (int) v.size());
         a->buffer.copyFrom (0, 0, v.data(), (int) v.size());
         return a;
+    }
+
+    /** リードとハモリに分ける（どちらもオフボの時間・モノラル。2026-10-03）。ハモリ = 声 − リード。
+        お手本の線と声はリードだけに、ハモリの線は RMVPE で取る（モデルが無ければハモリの線は出さない・音は聴ける）。
+        実曲：本物のハモリは声全体の大きい所より約 10 dB 下、リードの消し残りは約 25 dB 下 → 20 dB の門。リードと同じ音は消し残りとして外す */
+    void splitHarmony (const std::vector<float>& vocals, const std::vector<float>& lead, double rate, GuideOutcome& out)
+    {
+        std::vector<float> harm (vocals.size());
+        for (size_t i = 0; i < vocals.size(); ++i)
+            harm[i] = vocals[i] - (i < lead.size() ? lead[i] : 0.0f);
+        std::vector<audio::PitchFrame> points;
+        if (pitchWithModel (harm, rate, points, &vocals))
+        {
+            analysis::rmvpe::gateQuiet (points, harm.data(), (juce::int64) harm.size(), rate, 20.0f, vocals.data());
+            dropUnison (points, out.points, rate);
+            int harmVoiced = 0, mainVoiced = 0;
+            for (auto& p : points)     harmVoiced += p.confidence >= 0.5f ? 1 : 0;
+            for (auto& p : out.points) mainVoiced += p.confidence >= 0.5f ? 1 : 0;
+            // ハモリがほとんど無い曲（メインの 3% 未満）は、ハモリの線を出さない（音は聴ける）
+            if (harmVoiced * 100 >= mainVoiced * 3)
+                out.harmPoints = std::move (points);
+        }
+        out.harmVocals = vocalsAudio (harm, rate);
     }
 
     std::vector<float> mono (const audio::SongAudio& a)
@@ -1249,11 +1293,12 @@ void UiSession::loadGuide (const juce::File& file)
                     rejudgeAll();
                     updateTakeStats();
                     s.guideVocals = out->vocals;
-                    s.refPitchHarm.clear();          // 引き算ではリードとハモリを分けない（声 1 本）
+                    s.refPitchHarm.clear();          // 引き算の声は 1 本。リードのモデルがあれば、続けてリードとハモリに分ける
                     s.guideHarmVocals = nullptr;
                     syncGuideToEngine();
                     notify (change::takes | change::monitor);
                     postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
+                    extractLead();
                     break;
                 }
                 case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
@@ -1715,6 +1760,155 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
     });
 }
 
+//==============================================================================
+// ハモリのお手本（2026-10-03）：原曲 − カラオケ（引き算）で取ったお手本も、リードボーカルのモデルがあればリードとハモリに分ける。
+// 原曲にリードのモデルだけを回し（分離プロセスの --model にリードのモデル）、リード（原曲の時間）をオフボの時間へ写して、ハモリ = 取り出した声 − リード
+juce::File UiSession::leadCacheFolder() const
+{
+    const auto guide = s.projectFolder.getChildFile (s.guidePath);
+    const auto key = juce::String::toHexString ((juce::int64) (s.guidePath + "|" + juce::String (guide.getSize()) + "|"
+                                                               + juce::String (guide.getLastModificationTime().toMilliseconds()) + "|"
+                                                               + separation::SeparatorClient::karaokeModelId()).hashCode64());
+    return s.projectFolder.getChildFile ("Cache/lead/" + key);
+}
+
+void UiSession::extractLead()
+{
+    using SC = separation::SeparatorClient;
+    if (engine == nullptr || ! SC::executable().existsAsFile() || ! SC::karaokeInstalled() || s.guidePath.isEmpty()
+        || s.guideVocals == nullptr || s.songOriginal == nullptr || s.separating)
+        return;
+    const auto guide = s.projectFolder.getChildFile (s.guidePath);
+    if (! guide.existsAsFile())
+        return;
+    const auto dir = leadCacheFolder();
+    const auto lead = dir.getChildFile ("lead.wav"), rest = dir.getChildFile ("rest.wav"), mix = dir.getChildFile ("mix.wav");
+    if (lead.existsAsFile())
+    {
+        analyseLead (lead);
+        return;
+    }
+
+    s.separating = true;
+    s.separationProgress = 0.0f;
+    s.separationEta = -1.0;
+    postNotice (tr ("separation.leadStarted"));
+    notify (change::view);
+
+    std::weak_ptr<bool> weak = alive;
+    const auto serial = s.songSerial;
+    juce::Thread::launch ([this, weak, guide, mix, lead, rest, serial]
+    {
+        bool ok = false;
+        if (auto a = readAudio (guide))
+        {
+            std::shared_ptr<const audio::SongAudio> at44 = a;
+            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
+                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
+            mix.getParentDirectory().createDirectory();
+            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
+        }
+        juce::MessageManager::callAsync ([this, weak, ok, mix, lead, rest, serial]
+        {
+            if (weak.expired())
+                return;
+            auto fail = [this] (const juce::String& why)
+            {
+                s.separating = false;
+                if (why.isNotEmpty())
+                    postNotice (why);
+                notify (change::view);
+            };
+            if (serial != s.songSerial) { fail ({}); return; }
+            if (! ok) { fail (tr ("separation.failed", "can't prepare the input")); return; }
+            if (separator == nullptr)
+                separator = std::make_unique<separation::SeparatorClient>();
+            separation::SeparatorClient::Callbacks cb;
+            cb.progress = [this, weak] (float p, double eta)
+            {
+                if (weak.expired()) return;
+                s.separationProgress = p;
+                s.separationEta = eta;
+                notify (change::view);
+            };
+            cb.done = [this, weak, mix, lead, rest, serial, fail] (bool done, const juce::String& error)
+            {
+                if (weak.expired()) return;
+                mix.deleteFile();
+                rest.deleteFile();   // リード以外（声の残り＋伴奏）は使わない
+                s.separating = false;
+                if (serial != s.songSerial) return;
+                if (! done)
+                {
+                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", error));
+                    return;
+                }
+                analyseLead (lead);
+            };
+            if (! separator->start (mix, lead, rest, std::move (cb), {}, separation::SeparatorClient::karaokeModelFolder()))
+                fail (tr ("separation.failed", "busy"));
+        });
+    });
+}
+
+void UiSession::analyseLead (const juce::File& leadFile)
+{
+    const auto karaoke = s.songOriginal;
+    const auto vocals = s.guideVocals;   // 取り出した声（オフボの時間・オフボの元の SR）
+    const auto guide = s.projectFolder.getChildFile (s.guidePath);
+    if (karaoke == nullptr || vocals == nullptr)
+        return;
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, leadFile, guide, karaoke, vocals, serial]
+    {
+        auto out = std::make_shared<GuideOutcome>();
+        const auto rate = karaoke->sampleRate;
+        std::shared_ptr<const audio::SongAudio> l = readAudio (leadFile), g = readAudio (guide);
+        if (l != nullptr && std::abs (l->sampleRate - rate) > 0.5) l = audio::resampleSong (*l, rate);
+        if (g != nullptr && std::abs (g->sampleRate - rate) > 0.5) g = audio::resampleSong (*g, rate);
+        if (l != nullptr && g != nullptr)
+        {
+            const auto ref = mono (*g), kar = mono (*karaoke), leadMono = mono (*l);
+            const auto align = analysis::alignReference (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
+            std::vector<float> leadOnBacking;
+            auto r = analysis::pitchFromVocals (leadMono.data(), (juce::int64) leadMono.size(), (juce::int64) kar.size(), rate, align, {}, &leadOnBacking);
+            if (align.found() && r.status == analysis::RefPitchResult::Status::ok)
+            {
+                out->kind = GuideOutcome::Kind::ok;
+                out->points = std::move (r.points);
+                pitchWithModel (leadOnBacking, rate, out->points);
+                out->vocals = vocalsAudio (leadOnBacking, rate);
+                const auto all = mono (*vocals);
+                splitHarmony (all, leadOnBacking, rate, *out);
+            }
+        }
+        juce::MessageManager::callAsync ([this, weak, out, serial, songRate = karaoke->sampleRate]
+        {
+            if (weak.expired() || serial != s.songSerial || out->kind != GuideOutcome::Kind::ok)
+                return;   // 取れなければ今の（分けていない）お手本のまま
+            const auto ratio = (double) s.sampleRate() / songRate;
+            auto toRef = [ratio] (const std::vector<audio::PitchFrame>& points)
+            {
+                std::vector<dummy::PitchPoint> ref;
+                ref.reserve (points.size());
+                for (auto& f : points)
+                    ref.push_back ({ (int64) std::llround ((double) f.songSample * ratio), f.midi, f.confidence, 0.0f, true });
+                return ref;
+            };
+            s.refPitch = toRef (out->points);
+            s.refPitchHarm = toRef (out->harmPoints);
+            rejudgeAll();
+            updateTakeStats();
+            s.guideVocals = out->vocals;
+            s.guideHarmVocals = out->harmVocals;
+            syncGuideToEngine();
+            notify (change::takes | change::monitor | change::view);
+            postNotice (tr ("guide.harmonyDone"));
+        });
+    });
+}
+
 void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File& backingFile)
 {
     // 分離した声（原曲の時間）→ オフボの SR にそろえる → 分離した伴奏とオフボで時間を合わせる → 声の音程をオフボの時間へ
@@ -1768,23 +1962,9 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 }
                 if (split && out->kind == GuideOutcome::Kind::ok)
                 {
-                    std::vector<float> harm (vm.size()), allOnBacking, harmOnBacking;
-                    for (size_t i = 0; i < vm.size(); ++i)
-                        harm[i] = vm[i] - leadMono[i];
+                    std::vector<float> allOnBacking;   // 声全体（オフボの時間）
                     analysis::pitchFromVocals (vm.data(), (juce::int64) vm.size(), (juce::int64) kar.size(), rate, align, {}, &allOnBacking);
-                    auto h = analysis::pitchFromVocals (harm.data(), (juce::int64) harm.size(), (juce::int64) kar.size(), rate, align, {}, &harmOnBacking);
-                    if (h.status == analysis::RefPitchResult::Status::ok)
-                    {
-                        // 声全体の大きさで門をかける（リードを引いた残りのかすかな音に線を出さない）
-                        pitchWithModel (harmOnBacking, rate, h.points, &allOnBacking);
-                        int harmVoiced = 0, mainVoiced = 0;
-                        for (auto& p : h.points)   harmVoiced += p.confidence >= 0.5f ? 1 : 0;
-                        for (auto& p : out->points) mainVoiced += p.confidence >= 0.5f ? 1 : 0;
-                        // ハモリがほとんど無い曲（メインの 3% 未満）は、ハモリの線を出さない（音は聴ける）
-                        if (harmVoiced * 100 >= mainVoiced * 3)
-                            out->harmPoints = std::move (h.points);
-                        out->harmVocals = vocalsAudio (harmOnBacking, rate);
-                    }
+                    splitHarmony (allOnBacking, onBacking, rate, *out);
                 }
             }
         }

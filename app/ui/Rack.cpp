@@ -415,8 +415,8 @@ void MonitorModule::paint (juce::Graphics& g)
 
 void MonitorModule::resized()
 {
-    // 簡単モードはハモリのお手本を出さない（DESIGN 2）。本物のアプリではお手本の帯そのものを出さない（まだ鳴らせない）
-    harmStrip->setVisible (state().mode != project::Mode::easy && ! state().engineAttached);
+    // 簡単モードはハモリのお手本を出さない（DESIGN 2）。標準・プロは出す（ハモリのお手本が無い間は薄くして触れない。2026-10-03）
+    harmStrip->setVisible (state().mode != project::Mode::easy);
 
     int visible = 0;
     for (auto* st : strips) visible += st->isVisible() ? 1 : 0;

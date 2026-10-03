@@ -147,7 +147,7 @@ bool SeparatorClient::runPitch (const juce::File& wav, std::vector<std::pair<flo
 }
 
 bool SeparatorClient::start (const juce::File& in, const juce::File& outVocals, const juce::File& outBacking, Callbacks cb,
-                             const juce::File& outLead)
+                             const juce::File& outLead, const juce::File& modelOverride)
 {
     if (isThreadRunning())
         return false;
@@ -155,6 +155,7 @@ bool SeparatorClient::start (const juce::File& in, const juce::File& outVocals, 
     vocals = outVocals;
     backing = outBacking;
     lead = outLead != juce::File() && karaokeInstalled() ? outLead : juce::File();
+    model = modelOverride != juce::File() ? modelOverride : modelFolder();
     callbacks = std::move (cb);
     startThread (juce::Thread::Priority::low);
     return true;
@@ -183,7 +184,7 @@ void SeparatorClient::run()
     // 分離はコアを使い切らない（録音・再生・画面を止めない）：論理コアの半分、2〜6
     const auto threads = juce::jlimit (2, 6, juce::SystemStats::getNumCpus() / 2);
     juce::StringArray args { executable().getFullPathName(),
-                             "--model", modelFolder().getFullPathName(),
+                             "--model", model.getFullPathName(),
                              "--in", input.getFullPathName(),
                              "--vocals", vocals.getFullPathName(),
                              "--backing", backing.getFullPathName(),

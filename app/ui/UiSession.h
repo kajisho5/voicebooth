@@ -376,6 +376,9 @@ private:
     void startQueuedModelWhenFree (size_t index, juce::int64 offset, juce::int64 total);
     juce::File separationCacheFolder() const;
     bool separationCached() const;
+    juce::File leadCacheFolder() const;
+    void extractLead();
+    void analyseLead (const juce::File& leadFile);
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか

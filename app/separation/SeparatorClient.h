@@ -50,7 +50,7 @@ public:
 
     /** 始める（動いていれば false）。lead を渡し、リードのモデルが入っていれば、続けてリードボーカルも書く */
     bool start (const juce::File& input, const juce::File& vocals, const juce::File& backing, Callbacks,
-                const juce::File& lead = {});
+                const juce::File& lead = {}, const juce::File& modelOverride = {});
     void stop();
     bool isBusy() const { return isThreadRunning(); }
 
@@ -58,7 +58,7 @@ private:
     void run() override;
     void finish (bool ok, const juce::String& error);
 
-    juce::File input, vocals, backing, lead;
+    juce::File input, vocals, backing, lead, model;   // model：空なら分離のモデル（リードだけを取る時はリードのモデル）
     Callbacks callbacks;
     std::unique_ptr<juce::ChildProcess> child;
     juce::CriticalSection childLock;
