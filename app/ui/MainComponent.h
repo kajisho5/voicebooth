@@ -107,7 +107,9 @@ public:
 
     static constexpr int defaultWidth = 1440, defaultHeight = 900;
     static constexpr int preferredWidth = 1760, preferredHeight = 990;   // 1920x1080 の画面で開く大きさ（作業領域に収まらなければ縮める）
-    static constexpr int minWidth = 1280, minHeight = 800;
+    // 1366x768・1280x720 の画面（1920x1080 を 150 % 表示にしたノートも同じ）でも窓が画面に収まるように（#18）。
+    // 右のラックは高さが足りなければ縦にスクロールし、ダイアログは見えている範囲に合わせて縮める
+    static constexpr int minWidth = 1180, minHeight = 640;
 
 private:
     void timerCallback() override;

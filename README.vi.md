@@ -63,10 +63,10 @@ Phiên bản hiện tại là **0.2.0 beta 2**. Thay đổi và các bản cũ c
 | | |
 |---|---|
 | Hệ điều hành | **Cả Windows và Mac** (Mac: Apple silicon và Intel). **Không có bản cho điện thoại hay máy tính bảng** |
-| Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: một bài 30 giây mất khoảng 2 phút trên CPU 4 nhân (ứng dụng hiển thị thời gian ước tính) |
+| Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: mất khoảng 4 lần độ dài bài hát (đo trên CPU 4 nhân: khoảng 2 phút cho bài 30 giây, khoảng 15 phút cho bài 4 phút; CPU chậm hơn sẽ lâu hơn; ứng dụng hiển thị thời gian ước tính) |
 | Âm thanh có thể mở | **Chỉ file âm thanh trên máy của bạn** (wav / flac / aiff / ogg / mp3 / m4a). Không thể mở trực tiếp bài hát từ Spotify, Apple Music, YouTube Music hay dịch vụ streaming khác |
-| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Nếu chưa có mô hình tách giọng và cao độ (khoảng 210 MB), ứng dụng sẽ hỏi khi khởi động và chỉ tải về **khi bạn bấm Tải về** (cũng có thể chọn Để sau). Ngoài việc kiểm tra danh sách mô hình, không có gì được tải ngầm |
-| Xử lý nặng | Tách giọng chỉ chạy **khi bạn bấm nút**. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |
+| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Nếu chưa có mô hình tách giọng và cao độ (khoảng 210 MB), ứng dụng sẽ hỏi khi khởi động và chỉ tải về **khi bạn bấm Tải về** (cũng có thể chọn Để sau). Ngoài ra ứng dụng chỉ kết nối mạng để kiểm tra danh sách mô hình và phiên bản mới (tối đa mỗi ngày một lần; có thể tắt trong Cài đặt) |
+| Xử lý nặng | Tách giọng chạy khi bạn thêm giọng mẫu hoặc chọn "Bắt đầu chỉ với bản gốc" (chạy nền; bạn vẫn phát và thu được). Khi giọng mẫu được lấy bằng phép trừ, tách giọng cũng chạy tiếp để chia giọng chính và bè. Chỉ mở ứng dụng thì không bao giờ bắt đầu. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |
 | Bè | Bạn có thể thu các track bè. Khi tách giọng mẫu, giọng chính và bè được chia riêng và **giọng mẫu bè (đường và giọng)** cũng được hiển thị (track bè được so với nó). Giọng mẫu lấy bằng bản gốc − karaoke cũng được chia, bằng cách tách giọng chính từ bản gốc sau đó (mất một chút thời gian) |
 | Âm thanh đã tách | Giọng hát và nhạc đệm đã tách là **để bạn tự luyện tập**. VoiceBooth không thay đổi quyền đối với bài hát gốc. Chỉ phân phối hoặc đăng tải (kể cả chia sẻ làm beat để cover) trong phạm vi chủ sở hữu quyền gốc cho phép |
 | Giá | **Miễn phí.** Không thuê bao, không mua trong ứng dụng. Bạn có thể ủng hộ phát triển qua [GitHub Sponsors](https://github.com/sponsors/kajisho5) (tùy chọn; không thay đổi tính năng nào) |

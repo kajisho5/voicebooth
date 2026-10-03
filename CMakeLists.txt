@@ -159,7 +159,7 @@ juce_add_gui_app(VoiceBooth
     VERSION      ${PROJECT_VERSION}
     DOCUMENT_EXTENSIONS vbooth                      # プロジェクトファイル（B14）。Mac の Info.plist に入る
     MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "VoiceBooth はボーカル録音のためにマイクを使用します。")
+    MICROPHONE_PERMISSION_TEXT "VoiceBooth uses the microphone to record your vocals.")   # 言語ごとの文は下の InfoPlist.strings（#23）
 
 # 音声ファイルの読み込み（UI に依存しない。テストからも使う）
 set(VOICEBOOTH_AUDIO_SOURCES
@@ -206,7 +206,8 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/Rmvpe.cpp
     app/separation/SeparatorClient.cpp
     app/models/ModelManifest.cpp
-    app/models/ModelDownloader.cpp)
+    app/models/ModelDownloader.cpp
+    app/i18n/Reasons.cpp)
 
 # スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SKIN_SOURCES
@@ -319,6 +320,33 @@ endif()
 # Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
 if(WIN32)
     target_link_libraries(VoiceBooth PRIVATE mfplat mfreadwrite mfuuid ole32)
+endif()
+
+# ---------------------------------------------------------------------------
+# Mac のマイク許可の文を 12 言語に（#23）。翻訳表（resources/i18n/*.json）の system.microphonePermission から
+# <言語>.lproj/InfoPlist.strings を作り、VoiceBooth.app/Contents/Resources に置く。macOS は使う人の言語の物を表示する
+# （無い言語は Info.plist の英語）。書いた後に plutil で形を確かめる
+# ---------------------------------------------------------------------------
+if(APPLE)
+    set(vb_lproj_root "${CMAKE_BINARY_DIR}/lproj")
+    file(REMOVE_RECURSE "${vb_lproj_root}")
+    file(GLOB vb_i18n_tables "${CMAKE_SOURCE_DIR}/resources/i18n/*.json")
+    foreach(table ${vb_i18n_tables})
+        get_filename_component(lang "${table}" NAME_WE)
+        file(READ "${table}" vb_json)
+        string(JSON vb_mic GET "${vb_json}" "system.microphonePermission")
+        string(REPLACE "\\" "\\\\" vb_mic "${vb_mic}")
+        string(REPLACE "\"" "\\\"" vb_mic "${vb_mic}")
+        file(WRITE "${vb_lproj_root}/${lang}.lproj/InfoPlist.strings" "\"NSMicrophoneUsageDescription\" = \"${vb_mic}\";\n")
+    endforeach()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${vb_i18n_tables})
+    add_custom_command(TARGET VoiceBooth POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_directory "${vb_lproj_root}" "$<TARGET_FILE_DIR:VoiceBooth>/../Resources")
+    foreach(table ${vb_i18n_tables})
+        get_filename_component(lang "${table}" NAME_WE)
+        add_custom_command(TARGET VoiceBooth POST_BUILD
+                           COMMAND plutil -lint "$<TARGET_FILE_DIR:VoiceBooth>/../Resources/${lang}.lproj/InfoPlist.strings")
+    endforeach()
 endif()
 
 # ---------------------------------------------------------------------------
@@ -450,6 +478,54 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
 endif()
 
 # ---------------------------------------------------------------------------
+# 同梱するもののライセンス全文（#15）。GPL / AGPL は条文を、MIT / BSD / OFL は著作権表示を、配る物と一緒に渡す。
+# 取ってきたソース（JUCE・Rubber Band・ONNX Runtime・Monocypher・ASIO SDK）の中のファイルをそのまま写す（中身を変えない）。
+# 本体の隣の licenses/（Mac は VoiceBooth.app/Contents/Resources/licenses）に置き、インストーラー・DMG にもそのまま入る。
+# 「このアプリについて」の［ライセンス全文］はこのフォルダを開く
+# ---------------------------------------------------------------------------
+if(VOICEBOOTH_JUCE_DIR)
+    set(VB_JUCE_SOURCE "${VOICEBOOTH_JUCE_DIR}")
+else()
+    set(VB_JUCE_SOURCE "${juce_SOURCE_DIR}")
+endif()
+set(VB_LICENSES_DIR "${CMAKE_BINARY_DIR}/licenses")
+file(REMOVE_RECURSE "${VB_LICENSES_DIR}")
+# 「元のファイル|置く名前」
+set(vb_license_files
+    "${CMAKE_SOURCE_DIR}/LICENSE|VoiceBooth-AGPL-3.0.txt"
+    "${VB_JUCE_SOURCE}/LICENSE.md|JUCE-LICENSE.md"
+    "${VB_RUBBERBAND_SOURCE}/COPYING|RubberBand-GPL-2.0.txt"
+    "${monocypher_SOURCE_DIR}/LICENCE.md|Monocypher-LICENCE.md"
+    "${CMAKE_SOURCE_DIR}/third_party/minimp3/LICENSE|minimp3-CC0.txt"
+    "${CMAKE_SOURCE_DIR}/resources/fonts/OFL-IBMPlexSansJP.txt|IBMPlexSansJP-OFL-1.1.txt"
+    "${CMAKE_SOURCE_DIR}/resources/fonts/OFL-IBMPlexMono.txt|IBMPlexMono-OFL-1.1.txt"
+    "${CMAKE_SOURCE_DIR}/third_party/licenses/GPL-3.0.txt|GPL-3.0.txt")
+if(VB_ORT)
+    list(APPEND vb_license_files "${VB_ORT}/LICENSE|ONNXRuntime-MIT.txt"
+                                 "${VB_ORT}/ThirdPartyNotices.txt|ONNXRuntime-ThirdPartyNotices.txt")
+endif()
+if(VB_ASIO_SDK)
+    list(APPEND vb_license_files "${VB_ASIO_SDK}/LICENSE.txt|ASIO-SDK-LICENSE.txt")
+endif()
+foreach(entry ${vb_license_files})
+    string(REPLACE "|" ";" pair "${entry}")
+    list(GET pair 0 vb_src)
+    list(GET pair 1 vb_dst)
+    if(NOT EXISTS "${vb_src}")
+        message(FATAL_ERROR "License file not found: ${vb_src}")
+    endif()
+    configure_file("${vb_src}" "${VB_LICENSES_DIR}/${vb_dst}" COPYONLY)
+endforeach()
+configure_file("${CMAKE_SOURCE_DIR}/third_party/licenses/README.txt" "${VB_LICENSES_DIR}/README.txt" COPYONLY)
+if(APPLE)
+    set(vb_licenses_dest "$<TARGET_FILE_DIR:VoiceBooth>/../Resources/licenses")
+else()
+    set(vb_licenses_dest "$<TARGET_FILE_DIR:VoiceBooth>/licenses")
+endif()
+add_custom_command(TARGET VoiceBooth POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory "${VB_LICENSES_DIR}" "${vb_licenses_dest}")
+
+# ---------------------------------------------------------------------------
 # テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
 # ---------------------------------------------------------------------------
 if(VOICEBOOTH_TESTS)
@@ -457,6 +533,7 @@ if(VOICEBOOTH_TESTS)
     juce_add_console_app(VoiceBoothTests PRODUCT_NAME "VoiceBoothTests" NEEDS_CURL ${VB_NEEDS_CURL})
     target_sources(VoiceBoothTests PRIVATE
         tests/TestMain.cpp
+        tests/ReasonsTests.cpp
         tests/WaveformOverviewTests.cpp
         tests/SongLoaderTests.cpp
         tests/PlaybackCoreTests.cpp

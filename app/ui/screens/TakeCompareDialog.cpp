@@ -102,6 +102,16 @@ void TakeCompareDialog::rebuild()
             entries.push_back (std::move (e));
         }
 
+    // ONSET の列の幅：いちばん長い値と見出しが入る幅（最低 100、最大 200）
+    {
+        const auto vf = mono (11.5f, Weight::semibold);
+        auto widest = 100.0f;
+        for (auto& e : entries)
+            if (e.stats.has_value() && e.stats->matched > 0)
+                widest = juce::jmax (widest, textWidth (vf, onsetText (*e.stats).first) + 14.0f);
+        onsetW = juce::jmin (200, juce::roundToInt (widest));
+    }
+
     statsSignature = juce::String ((int) s.takePitch.size()) + "/" + juce::String ((int) s.refPitch.size()) + "/"
                    + juce::String (s.pitchToleranceCents) + "/" + juce::String ((int) s.takeStats.size());
 
@@ -274,7 +284,7 @@ void TakeCompareDialog::List::paintRow (juce::Graphics& g, juce::Rectangle<float
     const bool pro = owner.pro();
     auto vib = pro ? r.removeFromRight ((float) vibW) : juce::Rectangle<float>();
     auto pitch = r.removeFromRight ((float) pitchW);
-    auto onset = r.removeFromRight ((float) onsetW);
+    auto onset = r.removeFromRight ((float) owner.onsetW);
     const auto vf = mono (11.5f, Weight::semibold);
     auto value = [&] (juce::Rectangle<float> area, const juce::String& text, juce::Colour col)
     {

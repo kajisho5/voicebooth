@@ -210,7 +210,8 @@ void SeparatorClient::run()
         juce::MessageManager::callAsync ([weak, progressCb, p, eta] { if (! weak.expired() && progressCb) progressCb (p, eta); });
     };
 
-    juce::String pending, error;
+    std::string pending;   // 行がそろうまでバイトのまま持つ（1 バイトずつ UTF-8 として読むと、日本語のエラーが化けていた。#23）
+    juce::String error;
     bool doneSeen = false;
     int chunks = 0;
     double firstChunk = -1.0;
@@ -228,11 +229,11 @@ void SeparatorClient::run()
             wait (50);
             continue;
         }
-        pending += juce::String::fromUTF8 (buffer, n);
-        for (int nl; (nl = pending.indexOfChar ('\n')) >= 0;)
+        pending.append (buffer, (size_t) n);
+        for (size_t nl; (nl = pending.find ('\n')) != std::string::npos;)
         {
-            const auto line = pending.substring (0, nl).trim();
-            pending = pending.substring (nl + 1);
+            const auto line = juce::String::fromUTF8 (pending.data(), (int) nl).trim();
+            pending.erase (0, nl + 1);
             if (line.startsWith ("ready "))       chunks = line.substring (6).getIntValue();
             else if (line.startsWith ("chunk "))  { firstChunk = line.substring (6).getDoubleValue(); report (0.0f, firstChunk * juce::jmax (0, chunks - 1)); }
             else if (line.startsWith ("progress "))
