@@ -19,7 +19,9 @@ void drawRange (juce::Graphics&, const dummy::Session&, const TimeMap&, juce::Re
 void drawPlayhead (juce::Graphics&, const dummy::Session&, const TimeMap&, juce::Rectangle<float> area);
 
 /** ルーラー：小節番号（テンポ未設定なら秒）と区間の札（DESIGN 7.5.2） */
-void drawRuler (juce::Graphics&, const dummy::Session&, const TimeMap&, juce::Rectangle<float> area);
+void drawRuler (juce::Graphics&, const dummy::Session&, const TimeMap&, juce::Rectangle<float> area, bool withPlayhead = true);
+/** ルーラーの上の再生ヘッドの頭（ルーラーを画像にためるとき、頭だけ毎フレーム描く。#26） */
+void drawRulerPlayhead (juce::Graphics&, const dummy::Session&, const TimeMap&, juce::Rectangle<float> area);
 
 /** ルーラーの区間の札（描画と当たり判定で同じものを使う） */
 struct SectionTag
@@ -33,6 +35,11 @@ std::vector<SectionTag> sectionTags (const dummy::Session&, const TimeMap&, juce
 void drawHatch (juce::Graphics&, juce::Rectangle<float> area, juce::Colour);
 
 juce::Colour playheadColour (const dummy::Session&);
+
+/** 再生ヘッドだけが動いたとき（表示範囲はそのまま）に描き直す範囲：前と今の位置の間に、線の光・REC 中の赤い尾（左 70 px）・
+    いまの音の丸とセント値（右 104 px）の分を足した縦の帯。前の位置が分からなければ空（全体を描き直す）。
+    再生中にレーン全体を毎フレーム描き直していた（1920x1080 でメッセージスレッドが CPU 1 コアの約 6 割。#26） */
+juce::Rectangle<int> playheadDirty (float oldX, float newX, int height);
 
 /** ホイール：Ctrl / Cmd ＋ホイール＝マウスの位置を中心に横の拡大・縮小、ホイールだけ（縦・横）＝横に送る。
     ピッチと波形で同じ動き（DESIGN 4.3「ズームはピッチと波形で共有」・PZ） */
