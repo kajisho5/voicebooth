@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="测试版">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="支持开发"></a>
 </p>
 
 # VoiceBooth
@@ -176,6 +177,10 @@
 ## 支持开发
 
 VoiceBooth 是免费的。如果你喜欢，可以通过 [GitHub Sponsors](https://github.com/sponsors/kajisho5) 支持开发。是否赞助不会影响可用的功能。
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-%E6%94%AF%E6%8C%81%E5%BC%80%E5%8F%91-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="支持开发"></a>
+</p>
 
 ## 许可证
 
