@@ -11,7 +11,7 @@
 
     manifest の形（format "voicebooth.models"、format_version 1）：
       { "format": "voicebooth.models", "format_version": 1, "serial": 3,
-        "models": [ { "id": "mel-band-roformer-kj-int8-1", "role": "separation", "title": "...", "license": "MIT", "license_url": "...",
+        "models": [ { "id": "bs-roformer-anvuew-ft1-int8-1", "role": "separation", "title": "...", "license": "GPL-3.0", "license_url": "...",
                       "files": [ { "name": "front.onnx", "url": "https://.../front.onnx", "size": 4210288, "sha256": "<64 桁>",
                                    "block_size": 8388608, "blocks": [ "<64 桁>", ... ] } ] } ] }
     blocks は block_size ごとの SHA-256（最後は半端）。壊れた所だけ取り直すために使う */

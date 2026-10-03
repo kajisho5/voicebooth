@@ -57,8 +57,11 @@ public:
 private:
     void onSessionChanged (juce::uint32) override;
 
+    void updateKeyHelp();
+
     Actions& actions;
     EncoderBlock tempo, key;
+    KeyButton rangeKey, suggestKey;   // 声域（測る）と、声域に合うキー（2026-10-02）
     bool syncing = false;
 };
 
@@ -78,7 +81,7 @@ public:
 
 private:
     void onSessionChanged (juce::uint32 c) override;
-    void updateSelfMeter();
+    void updateMeters();
 
     juce::OwnedArray<ChannelStrip> strips;
     ChannelStrip* backingStrip = nullptr;   // B2：オフボ
@@ -86,6 +89,7 @@ private:
     ChannelStrip* harmStrip = nullptr;
     ChannelStrip* selfStrip = nullptr;      // B4：自分の声
     ChannelStrip* reverbStrip = nullptr;    // B4：モニターリバーブ（耳だけ）
+    ChannelStrip* clickStrip = nullptr;     // クリック・カウントインの音量（耳だけ。2026-10-02）
     juce::Rectangle<int> noticeArea;
     bool hadNotice = false;
 };

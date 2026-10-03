@@ -30,4 +30,14 @@ bool compIsValid (const Track&);
 
 /** その位置で採用されているテイク（無ければ nullptr） */
 const Take* takeAt (const Track&, int64 sample);
+
+/** 区間 [start, end) */
+struct Span
+{
+    int64 start = 0, end = 0;
+};
+
+/** 声のある所（お手本の声の区間）のうち、採用区間で覆われていない所（書き出し前の「未録音」の確認。DESIGN 12）。
+    minLength より短い抜けは数えない（息継ぎ・継ぎ目の端）。voiced は start の順でなくてもよい */
+std::vector<Span> uncoveredSpans (const Track&, std::vector<Span> voiced, int64 minLength);
 } // namespace vb::project

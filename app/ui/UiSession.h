@@ -2,10 +2,11 @@
 
 #include "DummySession.h"
 #include "project/ProjectFile.h"
+#include "project/TakeCompare.h"
 #include "separation/SeparatorClient.h"
-#include "lyrics/LyricsClient.h"
 #include "models/ModelDownloader.h"
 #include "audio/SongLoader.h"
+#include "analysis/KeySuggest.h"
 
 /*  画面の状態（Phase A）
     UI 部品はここから読み、ここを変更し、変更通知で描き直す。
@@ -34,6 +35,7 @@ namespace change
         recordFormat = 1 << 22,  // 録音形式（SR・ビット数）が変わった
         latency   = 1 << 23,  // 往復の遅れ（実測・手入力・測定中）が変わった（B6）
         project   = 1 << 24,  // プロジェクトを保存した・最近の一覧が変わった（B14）
+        prefs     = 1 << 25,  // アプリ設定：更新の確認・キャッシュの場所（DESIGN 11.7 / 8）
         all       = 0xffffffff
     };
 }
@@ -88,6 +90,8 @@ public:
     // --- 輸送 ---------------------------------------------------------------
     void setPlaying (bool);
     void setRecording (bool);
+    /** 録音を止めて、いま録っているテイクを捨てる（Esc →「破棄する」。ファイルも消し、採用もしない） */
+    void discardRecording();
     void stop();
     void goToStart();
     void seek (int64 sample);
@@ -99,15 +103,56 @@ public:
     void clearRange();
     void setRangeInAtPlayhead();
     void setRangeOutAtPlayhead();
+    /** 録音の前に数える小節（0 = Off、1、2）。範囲の録り直しでは助走の小節。テンポが分からない間は数えない（2026-10-02） */
     void setCountIn (int bars);
+    /** クリック（メトロノーム）。テンポが分からない時は入れずに、理由を知らせる（2026-10-02） */
     void setClick (bool);
+    /** クリック・カウントインの音量（フェーダーと同じ 0..1、0.75 = 0 dB）。耳だけ */
+    void setClickLevel (float fader);
+    /** 起動時に設定から戻す（テンポを見ない。鳴るのはテンポの分かる曲を開いてから） */
+    void restoreClickOn (bool on) { s.clickOn = on; notify (change::transport); }
 
     // --- 表示 ---------------------------------------------------------------
+    /** お手本の位置の手直し（±1 / ±10 ms。DESIGN 7.1.1）。線・判定・お手本の声をずらす。0 で元へ */
+    void nudgeGuide (double deltaMs);
+    /** 原曲で聴く（オフボの代わりに、時間を合わせた原曲を同じ音量で鳴らす。聞き比べ。合わせた原曲がある時だけ） */
+    void setListenOriginal (bool);
+    /** 「ここが同じ所」（DESIGN 7.1.1）：sample の前後 1.5 秒で原曲とカラオケの波形を比べ、ずれ（±250 ms まで）をお手本の位置の手直しに足す。裏で計算 */
+    void alignGuideAt (int64 sample);
+    void resetGuideNudge();
     void setView (int64 start, int64 end);
+    /** 横の拡大・縮小（ピッチと波形で共有）。anchor の位置は画面の同じ所に残す。factor < 1 で寄る。幅は 2 秒〜曲の長さ */
+    void zoomView (int64 anchor, double factor);
+    /** 横に送る（表示の幅に対する割合。+ で右へ） */
+    void scrollView (double fraction);
     void setOctaveAlign (bool);
     /** 歌詞レーンを出すか（設定。既定は出さない） */
     void setShowLyrics (bool);
     void setCrossfade (double ms);   // 0 / 5 / 8 / 20 ms
+
+    // お手本の声を聴く（モニターの「お手本」）。オフボ・お手本の S は、それだけを鳴らす
+    void setGuideLevel (float fader);
+    void setGuideMuted (bool);
+    void setGuideSolo (bool);
+    // ハモリのお手本（2026-10-02）：分離でリードとハモリを分けられた時だけ鳴る
+    void setHarmGuideLevel (float fader);
+    void setHarmGuideMuted (bool);
+    void setHarmGuideSolo (bool);
+    bool hasHarmGuideVocals() const { return s.guideHarmVocals != nullptr; }
+    void setBackingSolo (bool);
+    /** 自分の S：自分の声だけを聴く（オフボ・お手本・録ったトラックを止める）。モニターの S は同時に 1 つ */
+    void setSelfSolo (bool);
+    bool hasGuideVocals() const { return s.guideVocals != nullptr; }
+
+    // 声域（MIDI）とおすすめのキー
+    void setVoiceRange (int low, int high);
+    analysis::KeySuggestion keySuggestion() const;
+    analysis::SongRange guideRange() const;   // お手本の最低音・最高音（MIDI）
+    void applySuggestedKey();
+    // 声域を測る：測っている間は曲を止め、マイクの音程を集める（曲の線には入れない）
+    void startRangeMeasure();
+    void stopRangeMeasure();
+    const std::vector<float>& rangeSamples() const { return rangeNotes; }
     void setOctaveUp (bool);
     void setFullRange (bool);
 
@@ -119,8 +164,24 @@ public:
     /** トラックのモニター量（フェーダーと同じ 0..1、0.75 = 0 dB）。再生に効く（B12） */
     void setTrackGain (int index, float fader);
 
-    /** 新しいバージョンの知らせ（ステータスバー）。空で消す */
-    void setUpdateAvailable (const juce::String& version) { s.updateVersion = version; notify (change::device); }
+    // --- 更新の確認（DESIGN 11.7。GitHub のリリース）とアプリ共通のキャッシュ。実装は UiSessionUpdate.cpp ----
+    /** アプリ設定から戻す（起動時）。found：前に見つけて覚えておいた版（Release::toJson。まだ新しければ知らせを出し直す） */
+    void restoreAppPrefs (bool autoCheck, bool betas, const juce::String& skipped, juce::int64 lastCheckMs,
+                          const juce::String& found, const juce::File& cacheFolder);
+    /** 起動時：自動の確認が入っていて、前回から 24 時間たっていれば裏で確かめる（失敗しても何も言わない） */
+    void checkForUpdatesIfDue();
+    /** 「今すぐ確かめる」：結果（最新・新しい版・つながらない）を知らせで出す */
+    void checkForUpdatesNow();
+    void setUpdateAutoCheck (bool);
+    void setUpdateBetas (bool);
+    /** 新しいバージョンの知らせ（ステータスバー）。found でなければ消す（見本の画面にも使う） */
+    void setUpdateAvailable (const update::Release&);
+    /** 「このバージョンを飛ばす」：覚えておき、次の版が出るまで知らせない */
+    void skipUpdate();
+    /** アプリ共通のキャッシュの場所（設定で選んだ所、無ければ既定）。曲ごとの <プロジェクト>/Cache/ とは別 */
+    juce::File cacheFolder() const;
+    /** 場所を変える（空で既定に戻す）。前の場所にある分は動かさない（次から新しい場所に作る） */
+    void setCacheFolder (const juce::File&);
 
     // --- モニター（B2：オフボ、B4：自分の声とモニターリバーブ） --------------
     void setBackingLevel (float fader);   // 0..1（0.75 = 0 dB）
@@ -160,6 +221,21 @@ public:
     /** リハーサルのテイク（原速・原キーで録った物）を本番のテイクにして採用する（録り間違いの救済）。できなければ false */
     bool promoteRehearsalTake (project::TrackType, const juce::String& takeId);
 
+    // --- テイク比較（B18c。DESIGN 2 / 3） ------------------------------------------------
+    /** いまのトラックのテイクを範囲 [from, to) で比べ始める（IN / OUT・採用区間の 1 区間・曲全体）。
+        loopRange：範囲をループで聴く（範囲と IN / OUT を一時的にそろえ、終わったら元に戻す）。比べられるテイクが無ければ false */
+    bool beginTakeCompare (int64 from, int64 to, dummy::Session::TakeCompare::Scope);
+    /** そのテイクを範囲に入れて聴く（空 = いまの採用）。採用区間を差し替え、トラックの再生（B12）が作り直す */
+    void previewCompareTake (const juce::String& takeId);
+    /** 試聴の再生 / 停止。止まっていれば、ループなら範囲の頭、曲全体なら試聴中のテイクの頭から（そこが聞こえる所） */
+    void toggleCompareAudition();
+    /** 終える。commit なら試聴中のテイクを採用（Ctrl / ⌘+Z で戻せる）、そうでなければ元の採用区間へそっくり戻す */
+    void endTakeCompare (bool commit);
+    /** いまのトラックに比べられるテイクがあるか（簡単モード・録音中・曲が無い時は false） */
+    bool canCompareTakes() const;
+    /** 範囲の中だけでお手本と比べた結果（お手本・テイクの音程がまだ無ければ nullopt。見本は見本の値） */
+    std::optional<dummy::Session::TakeStats> takeStatsIn (project::TrackType, const juce::String& takeId, int64 from, int64 to) const;
+
     // --- お手本（声入りの原曲。B9。DESIGN 7.1.1） ---------------------------------
     /** 原曲を読み、オフボと時間を合わせて声を取り出し（原曲 − カラオケ）、お手本の音程を重ねる（裏で）。
         結果は知らせで出す。引けない組（別のミックス・キー違い・別の曲）では線を出さない */
@@ -175,18 +251,8 @@ public:
     void updateTakeStats (const juce::String& onlyKey = {});
     /** いま選んでいるトラックのいちばん新しいテイクの結果（無ければ nullptr） */
     const dummy::Session::TakeStats* latestTakeStats() const;
-    /** お手本から取り出した声（オフボの時間、16 kHz モノラル）。歌詞の自動合わせ（B17）に使う。お手本を合わせ終えると作られる */
-    juce::File guideVocalsFile() const { return s.projectFolder == juce::File() ? juce::File() : s.projectFolder.getChildFile ("Cache/lyrics/guide-vocals-16k.wav"); }
     /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。押した時だけ呼ぶ */
-    void requestSeparationModel() { requestModel (0); }
-    /** モデル（0 = 分離 B16、1 = 歌詞の認識 B17）：署名した一覧を見て、ダウンロードの確認を出す。押した時だけ呼ぶ */
-    void requestModel (int kind);
-    // --- 歌詞の自動合わせ（B17。DESIGN 7.5.3 / 11.3） ---------------------------------
-    /** お手本から取り出した声を認識して、歌詞の行の時刻を推定する（確定した時刻は変えない）。モデルが無ければ確認を出す */
-    void alignLyricsAuto();
-    void stopLyricsAlign();
-    /** 自動で合わせられない理由の翻訳キー（空なら合わせられる。モデルが無いのは理由にしない＝押すと確認を出す） */
-    juce::String lyricsAutoProblem() const;
+    void requestSeparationModel();
     void startModelDownload();
     void cancelModelDownload();
     /** 「声を分離して取り出しますか？」を出す（モデルが入った後など） */
@@ -205,6 +271,9 @@ public:
     void exportTracks (const std::vector<project::TrackType>&, int bitDepth = 0);   // bitDepth：16 / 24 / 32（0 = 録音形式）
     /** 納品パック（B15。DESIGN 9）：export_YYYYMMDD/ に各トラックの Dry・確認用ミックス・notes.txt（プロは take_map.txt）と zip */
     void exportPack (const std::vector<project::TrackType>&, int bitDepth = 0, bool refmix = true);
+    /** 書き出す前の確認（DESIGN 12「未録音警告」）：お手本の声がある所で、選んだトラックが録っていない所。
+        トラックごとに 1 行（「Main：0:48–1:02、1:30–1:41 ほか 2 か所」）。無ければ空。お手本が無ければ確かめようがないので空 */
+    juce::StringArray unrecordedSummary (const std::vector<project::TrackType>&) const;
 
     /** 曲ごとの作業フォルダ（テイク・書き出し）。.vbooth の保存（B14）までの仮の置き場：
         書類フォルダ/VoiceBooth/Projects/{曲名}/ */
@@ -275,6 +344,8 @@ private:
     void estimateSongInfo();
     bool hasTakes() const;
     void loadTakeWave (project::TrackType, const project::Take&);
+    /** リハーサルのテイクを本番のテイクの所へ移す（ファイル・番号・採用区間の参照）。新しい番号、移せなければ空（B18c） */
+    juce::String moveRehearsalToTakes (project::Track&, const juce::String& takeId);
     void postNotice (const juce::String& text);
     void refreshInputStatus();
     void deviceChanged (bool lost);
@@ -291,6 +362,13 @@ private:
     void markDirty();
     void copyIntoProject (const juce::File& source, const juce::String& relativePath);
     int64 prerollSamples() const;
+    void startWithCountIn (bool punch);   // 止まった所から録る時の再生の頭（カウントイン。2026-10-02）
+    void syncClickToEngine();
+    void pollMonitorLevels();
+    double sentClickSpb = -1.0;            // エンジンに渡したクリックの拍の並び（変わった時だけ渡し直す）
+    int sentClickPerBar = 0;
+    int64 sentClickDownbeat = 0;
+    int countInWarnedSong = -1;            // 「テンポが分からないので数えません」を出した曲（songSerial。曲ごとに 1 度）
     void judge (dummy::PitchPoint&) const;
     void rejudgeAll();
     int64 retroStart (int64 pressSample) const;
@@ -305,9 +383,18 @@ private:
     juce::uint32 stemGeneration = 0, stemSlotGeneration[4] {};
     juce::String stemSignature[4];
     std::unique_ptr<models::ModelDownloader> modelDownloader;   // B16
-    std::unique_ptr<models::ModelEntry> modelEntries[2];        // 署名を確かめた一覧の中のモデル（0 = 分離、1 = 歌詞の認識）
-    std::unique_ptr<lyrics::LyricsClient> lyricsRunner;          // B17
-    bool lyricsAfterModel = false;                               // モデルが入ったら歌詞を合わせる
+    std::unique_ptr<models::ModelEntry> modelEntry;              // 署名を確かめた一覧の中の分離モデル
+    std::unique_ptr<models::ModelEntry> karaokeEntry;            // 同じ一覧のリードボーカルのモデル（ハモリのお手本。2026-10-02）
+    std::unique_ptr<models::ModelEntry> pitchEntry;              // 同じ一覧の音程モデル（RMVPE。分離と続けて入れる。2026-10-02）
+    std::vector<std::pair<models::ModelEntry, juce::File>> downloadQueue;   // まとめて入れる物（分離 → リード → 音程）
+    std::vector<std::pair<models::ModelEntry, juce::File>> modelsToDownload() const;
+    void startQueuedModel (size_t index, juce::int64 offset, juce::int64 total);
+    void startQueuedModelWhenFree (size_t index, juce::int64 offset, juce::int64 total);
+    juce::File separationCacheFolder() const;
+    bool separationCached() const;
+    juce::File leadCacheFolder() const;
+    void extractLead();
+    void analyseLead (const juce::File& leadFile);
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
@@ -317,10 +404,28 @@ private:
     bool analysingLatency = false;    // 録り終えた測定音を裏で解析している
 
     // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
+    /** お手本の線と声を d サンプル（時間軸）ずらす（手直しの分。データだけ。判定・エンジンは呼ぶ側） */
+    void shiftGuideData (int64 d, bool withOriginal = true);
+    void setGuideCovered (const std::vector<std::pair<int64, int64>>&, double songRate);
+    /** 解析し直した直後のお手本に、保存してある手直しを当てる。当てたら true */
+    bool applyGuideNudge();
     bool shadowActive = false;
+    bool discarding = false;     // discardRecording の間だけ：止めたテイクを捨てる
     juce::File shadowFile;
     int shadowSerial = 0;
     std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）
+    // お手本の声・声域（2026-10-02）
+    void syncBackingLevel();
+    void syncGuideGain();
+    bool anyMonitorSolo() const { return s.guideSolo || s.guideHarmSolo || s.backingSolo || s.selfSolo; }
+    void finishUpdateCheck (const update::CheckResult&, bool userAsked);
+    update::Checker updateChecker;   // 新しいバージョンの確認（裏のスレッド。消える時に通信を切る）
+    void syncGuideToEngine();
+    juce::uint32 guideGeneration = 0;
+    bool rangeMeasuring = false;
+    std::vector<float> rangeNotes;
+    mutable juce::int64 songRangeKey = -1;
+    mutable analysis::SongRange cachedSongRange;
 
     // 保存（B14）
     bool dirty = false, restoring = false;
@@ -330,7 +435,13 @@ private:
 
     // 直前のテイクを採用する前の採用区間（Ctrl / ⌘+Z で戻す。B10）
     std::vector<project::CompSegment> compBeforeTake;
-    project::TrackType undoTrack = project::TrackType::main;   // 曲の終わりの後、遅れて届く歌を録り足している間（0 = 待っていない）
+    project::TrackType undoTrack = project::TrackType::main;   // どのトラックの採用区間を戻すか
+    bool undoIsCompare = false;     // 戻すのがテイク比較の選び直し（知らせの言葉を変える。B18c）
+
+    // テイク比較（B18c）：試聴中の採用区間の差し替えと、比べる間だけ変えた範囲・ループ（終わったら戻す）
+    project::TakeAudition audition;
+    int64 compareRangeIn = 0, compareRangeOut = 0;
+    bool compareLoopOn = false, compareChangedRange = false, compareStartedPlay = false;
     juce::ListenerList<Listener> listeners;
 };
 

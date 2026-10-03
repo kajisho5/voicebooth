@@ -38,7 +38,7 @@ struct AppHooks
 struct LaunchOptions
 {
     juce::String screen;          // start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
-                                  // skin-editor-borrow / confirm-rec /
+                                  // skin-editor-borrow / confirm-rec / compare /
                                   // update / update-notice / model-download / model-downloading / model-interrupted / model-done / model-failed
     juce::File open;              // この曲を開く（--open=）
     bool recording = false;
@@ -75,19 +75,29 @@ public:
 
     void openWelcome();
     StartScreen* openStart (bool firstRun = false);
+    /** 本物のアプリで曲を開いていなければ起動画面を出す（見本の曲・ダミーの線を見せない。ほかの画面が出ていれば何もしない） */
+    void openStartIfNoSong();
+    /** 本物のアプリで、まだ曲を開いていない（起動画面を閉じるとダミーが見えてしまう） */
+    bool needsSong() const;
     void openSong (const juce::File&);
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
+    void openAbout();
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
+    /** 設定の「空にする」：大きさを見せて確かめてから、アプリのキャッシュを空にする（終わったら設定に戻る） */
+    void confirmClearCache();
     void openModelDownload (int stage, bool animate, float from = -1.0f);   // ModelDownloadDialog::Stage、from：届いた割合
 
     // 曲の情報（B4b。DESIGN 7.5）
     void openSongInfo();
     void openLyrics (const juce::File& file = {});
     void openSectionName (int index);
+
+    /** テイク比較（B18c）。from >= to なら IN / OUT（無ければ曲全体）、そうでなければその区間 */
+    void openTakeCompare (int64 from, int64 to);
 
     void showToast (const juce::String&);
     /** 押せるキー付きの知らせ（長めに出す。録り間違いの救済など） */

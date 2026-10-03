@@ -84,8 +84,12 @@ public:
 
             ProjectExtras ex;
             ex.guidePath = "Audio/guide.wav";
+            ex.guideNudgeMs = -12.0;
             ex.recordRate = 96000.0;
             ex.recordFloat = true;
+            ex.trackMix = { { TrackType::main, 0.5f, true, false }, { TrackType::harm1, 0.75f, false, true } };
+            ex.practiceTempo = 85;
+            ex.practiceKey = -3;
 
             const auto json = toJson (p, ex);
             const auto back = fromJson (json);
@@ -100,6 +104,13 @@ public:
             expectEquals (back.project.tracks[0].takes[0].useTo, (juce::int64) 399000);
             expect (! json.contains ("\"tempo_percent\": 100"));
             expectEquals (back.extras.guidePath, ex.guidePath);
+            expectEquals (back.extras.guideNudgeMs, -12.0);
+            expectEquals ((int) back.extras.trackMix.size(), 2);
+            expect (back.extras.trackMix[0].mute && ! back.extras.trackMix[0].solo);
+            expect (back.extras.trackMix[1].type == TrackType::harm1 && back.extras.trackMix[1].solo);
+            expectWithinAbsoluteError (back.extras.trackMix[0].gain, 0.5f, 1e-6f);
+            expectEquals (back.extras.practiceTempo, 85);
+            expectEquals (back.extras.practiceKey, -3);
             expectEquals (back.project.tempo.signature.numerator, 6);
         }
 
@@ -111,6 +122,8 @@ public:
             const auto minimal = fromJson ("{\"format\":\"voicebooth.project\"}");
             expect (minimal.ok);
             expect (minimal.project.tracks.empty());
+            expect (minimal.extras.trackMix.empty());
+            expectEquals (minimal.extras.practiceTempo, 100);
         }
 
         beginTest ("writing replaces the file in one step");

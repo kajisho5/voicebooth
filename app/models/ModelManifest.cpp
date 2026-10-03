@@ -113,11 +113,13 @@ std::vector<PublicKey> trustedKeys()
     // 持ち主が鍵を作ったら、公開鍵（64 桁の 16 進）をここに足す（tools/models/README.md）。秘密鍵は入れない。
     // 開発用：環境変数 VB_MODEL_PUBKEY（64 桁の 16 進）
     std::vector<PublicKey> keys;
-    static const char* const builtIn[] = { nullptr };
+    static const char* const builtIn[] = {
+        "25881bbba9aaf8e45aaac8eb610d7c651548453fa9c5b4b54b3cf8465e0711ac",   // models-ed25519（2026-10-03 作成。秘密鍵は持ち主が保管）
+    };
     for (auto* hex : builtIn)
     {
         PublicKey k;
-        if (hex != nullptr && parseHexKey (hex, k)) keys.push_back (k);
+        if (parseHexKey (hex, k)) keys.push_back (k);
     }
     PublicKey dev;
     if (parseHexKey (juce::SystemStats::getEnvironmentVariable ("VB_MODEL_PUBKEY", {}), dev))

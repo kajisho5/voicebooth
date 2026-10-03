@@ -1,6 +1,6 @@
 #include "UpdateDialog.h"
 
-/*  見た目だけのモック。版番号・サイズ・変更点・速度などはダミー（通信しない） */
+/*  UpdateDialog は本物（GitHub のリリース）。ModelDownloadDialog の見本の状態（--screen=model-*）は速度などがダミー */
 
 namespace vb
 {
@@ -28,56 +28,131 @@ namespace
 }
 
 //==============================================================================
-UpdateDialog::UpdateDialog() : DialogPanel (tr ("update.title"), tr ("update.micro"))
+UpdateDialog::UpdateDialog (const update::Release& r)
+    : DialogPanel (tr ("update.title"), tr ("update.micro")), release (r),
+      notes (update::plainNotes (update::notesForLanguage (r.notes, i18n::current() == i18n::Language::ja)))
 {
-    addFooterKey (tr ("update.install"), KeyRole::primary, [this] { if (onInstall) onInstall(); });
+    const bool asset = release.assetUrl.isNotEmpty();
+    addFooterKey (tr (asset ? "update.download" : "update.openPage"), KeyRole::primary, [this] { if (onOpen) onOpen(); });
+    if (asset)
+        addFooterKey (tr ("update.page"), KeyRole::normal, [this] { if (onOpenPage) onOpenPage(); });
     addFooterKey (tr ("update.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
     addFooterKey (tr ("update.skip"), KeyRole::normal, [this] { if (onSkip) onSkip(); });
-    setSize (640, 480);
+    setSize (680, 600);
 }
 
 void UpdateDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
 {
     auto r = area.toFloat();
 
-    // いまの版 → 新しい版
+    // いまの版 → 新しい版（右に公開日・インストーラーの大きさ）
     {
         auto v = r.removeFromTop (64.0f);
         paint::inset (g, v, 6.0f);
         v.reduce (18.0f, 0.0f);
 
-        const auto cur = juce::String (JUCE_APPLICATION_VERSION_STRING);
+        const auto cur = update::currentVersion();
         const auto vf = mono (24.0f, Weight::semibold);
         g.setFont (vf);
         g.setColour (colours::textMute);
         g.drawText (cur, v.removeFromLeft (textWidth (vf, cur) + 4.0f), juce::Justification::centredLeft, false);
         drawIcon (g, Icon::chevronRight, v.removeFromLeft (34.0f).withSizeKeepingCentre (16.0f, 16.0f), colours::textMute);
         g.setColour (colours::signal);
-        g.drawText ("0.2.0", v.removeFromLeft (textWidth (vf, "0.2.0") + 4.0f), juce::Justification::centredLeft, false);
+        g.drawText (release.version, v.removeFromLeft (textWidth (vf, release.version) + 4.0f), juce::Justification::centredLeft, false);
 
+        juce::StringArray meta;
+        if (release.published.isNotEmpty()) meta.add (release.published);
+        if (release.assetSize > 0)          meta.add (juce::String ((double) release.assetSize / (1024.0 * 1024.0), 1) + " MB");
         g.setColour (colours::textDim);
         g.setFont (mono (11.0f));
-        g.drawText ("2026-10-15   8.1 MB", v, juce::Justification::centredRight, false);
+        g.drawText (meta.joinIntoString ("   "), v, juce::Justification::centredRight, false);
+        if (release.prerelease)
+            paint::microLabel (g, v.withTrimmedLeft (12.0f), tr ("update.beta"), colours::warn);
     }
     r.removeFromTop (18.0f);
 
-    // 主な変更（appcast のリリースノートから。ここはダミー）
-    heading (g, r, tr ("update.notes"));
-    for (auto key : { "update.sample.note1", "update.sample.note2", "update.sample.note3" })
-    {
-        auto row = r.removeFromTop (24.0f);
-        paint::led (g, { row.getX() + 5.0f, row.getCentreY() }, 2.2f, colours::signal, true);
-        g.setColour (colours::text);
-        g.setFont (sans (12.5f));
-        g.drawText (tr (key), row.withTrimmedLeft (18.0f), juce::Justification::centredLeft, true);
-    }
-    r.removeFromTop (16.0f);
+    // 下から：更新について（3 行）。残りを本文に使う
+    auto safety = r.removeFromBottom (24.0f + 4.0f + 26.0f * 3.0f);
+    r.removeFromBottom (14.0f);
 
-    // 安心材料（DESIGN 11.7 の必須事項をユーザーの言葉で）
-    heading (g, r, tr ("update.safety"));
-    infoLine (g, r, Icon::shield, colours::signal, tr ("update.signed"), colours::text);
-    infoLine (g, r, Icon::rec, colours::textMute, tr ("update.notDuringRec"));
-    infoLine (g, r, Icon::warning, colours::warn, tr ("update.restart"));
+    // 本文（リリースの説明。入りきらない分は下をぼかして「続きはリリースのページで」）
+    heading (g, r, tr ("update.notes"));
+    if (notes.isEmpty())
+    {
+        g.setColour (colours::textMute);
+        g.setFont (sans (12.5f));
+        g.drawText (tr ("update.noNotes"), r.removeFromTop (24.0f), juce::Justification::centredLeft, true);
+    }
+    else
+    {
+        // 箇条書きは LED の粒（前からの見た目）、ほかは段落。どちらも折り返す。
+        // 入りきらない段落は途中で切って下をぼかし、「続きはリリースのページで」
+        const auto bullet = juce::String::fromUTF8 ("\xe2\x80\xa2 ");
+        const auto bottom = r.getBottom() - 22.0f;   // 「続きは…」の行の分を残す
+        float y = r.getY();
+        bool cut = false;
+        for (auto line : juce::StringArray::fromLines (notes))
+        {
+            if (line.isEmpty())
+            {
+                y += 8.0f;   // 段落の間
+                continue;
+            }
+            const auto top = y + 4.0f;   // 1 行の時に 24 px の行の真ん中に来る
+            if (top >= bottom - 6.0f)
+            {
+                cut = true;   // もう入らない
+                break;
+            }
+            const bool isBullet = line.startsWith (bullet);
+            const auto indent = isBullet ? 18.0f : 0.0f;
+            juce::AttributedString as;
+            as.setJustification (juce::Justification::topLeft);
+            as.setLineSpacing (2.0f);
+            as.setWordWrap (juce::AttributedString::byWord);
+            as.append (isBullet ? line.substring (bullet.length()) : line, sans (12.5f), colours::text);
+            juce::TextLayout layout;
+            layout.createLayout (as, r.getWidth() - indent);
+
+            const auto h = layout.getHeight();
+            if (layout.getNumLines() > 0 && isBullet)
+            {
+                const auto& first = layout.getLine (0);
+                const auto ledY = juce::jmin (top + (first.ascent + first.descent) * 0.5f, bottom);
+                if (ledY < bottom)
+                    paint::led (g, { r.getX() + 5.0f, ledY }, 2.2f, colours::signal, true);
+            }
+            {
+                juce::Graphics::ScopedSaveState saved (g);
+                g.reduceClipRegion (juce::Rectangle<float> (r.getX(), r.getY(), r.getWidth(), bottom - r.getY()).toNearestInt());
+                layout.draw (g, { r.getX() + indent, top, r.getWidth() - indent, h });
+            }
+            if (top + h > bottom)
+            {
+                cut = true;   // この段落の途中まで
+                break;
+            }
+            y = top + h + 4.0f;
+        }
+
+        if (cut)
+        {
+            const auto fade = juce::Rectangle<float> (r.getX(), bottom - 30.0f, r.getWidth(), 30.0f);
+            g.setGradientFill (juce::ColourGradient (colours::panel.withAlpha (0.0f), 0.0f, fade.getY(),
+                                                     colours::panel, 0.0f, fade.getBottom(), false));
+            g.fillRect (fade);
+            g.setColour (colours::textMute);
+            g.setFont (sans (11.5f));
+            g.drawText (tr ("update.more"), r.withTop (bottom), juce::Justification::bottomLeft, true);
+        }
+    }
+
+    // 更新について（自分では入れ替えない・未署名・入れる前に終了）
+    heading (g, safety, tr ("update.safety"));
+    infoLine (g, safety, Icon::globe, colours::signal,
+              tr (release.assetUrl.isNotEmpty() ? "update.howto.asset" : "update.howto.page"), colours::text);
+    infoLine (g, safety, Icon::warning, colours::warn, tr ("update.unsigned"));
+    infoLine (g, safety, Icon::check, colours::textMute, tr ("update.keep"));
 }
 
 //==============================================================================
@@ -111,8 +186,7 @@ ModelDownloadDialog::ModelDownloadDialog (Stage s, bool anim, float from)
 }
 
 ModelDownloadDialog::ModelDownloadDialog (Stage s, UiSession& session)
-    : DialogPanel (tr (session->modelDl.kind == 1 ? "model.lyrics.title" : "model.title"), tr ("model.micro")),
-      stage (s), animate (false), live (&session), lyricsModel (session->modelDl.kind == 1)
+    : DialogPanel (tr ("model.title"), tr ("model.micro")), stage (s), animate (false), live (&session)
 {
     const auto& m = session->modelDl;
     modelMB = juce::jmax (1.0, (double) m.size / (1024.0 * 1024.0));
@@ -142,7 +216,7 @@ void ModelDownloadDialog::build (float from)
         case Stage::confirm:
             addFooterKey (tr ("model.download", juce::roundToInt (modelMB)), KeyRole::primary,
                           [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
-            addFooterKey (tr (lyricsModel ? "model.lyrics.later" : "model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr ("model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
             break;
 
         case Stage::downloading:
@@ -168,14 +242,14 @@ void ModelDownloadDialog::build (float from)
             break;
 
         case Stage::done:
-            addFooterKey (tr (lyricsModel ? "model.lyrics.continue" : "model.continue"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr ("model.continue"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
             gotMB = modelMB;
             flash = 1.0f;     // 開いた時に全体が一度光る
             break;
 
         case Stage::failed:
             addFooterKey (tr ("model.retry"), KeyRole::primary, [this] { if (live != nullptr) live->startModelDownload(); else handOff (Stage::downloading); });
-            addFooterKey (tr (lyricsModel ? "model.lyrics.later" : "model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (tr ("model.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
             gotMB = modelMB;
             shakeT = 0.0;     // 開いた時に小さく揺れる
             break;
@@ -359,7 +433,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
 
     g.setColour (colours::textDim);
     g.setFont (sans (12.5f));
-    g.drawFittedText (tr (lyricsModel ? "model.lyrics.sub" : "model.sub"), r.removeFromTop (40.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
+    g.drawFittedText (tr ("model.sub"), r.removeFromTop (40.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
     r.removeFromTop (8.0f);
 
     // モデル（名前・用途・サイズ・ライセンス・配布元）
@@ -378,7 +452,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
         g.drawText (name, top.removeFromLeft (textWidth (mono (14.0f, Weight::semibold), name) + 14.0f), juce::Justification::centredLeft, false);
         g.setColour (colours::textDim);
         g.setFont (sans (12.0f));
-        g.drawText (tr (lyricsModel ? "model.lyrics.role" : "model.role"), top, juce::Justification::centredLeft, true);
+        g.drawText (tr ("model.role"), top, juce::Justification::centredLeft, true);
 
         g.setColour (colours::textMute);
         g.setFont (sans (11.0f));
@@ -489,7 +563,7 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
             g.setFont (sans (12.5f));
             g.drawFittedText (tr ("model.failed.sub"), r.removeFromTop (40.0f).toNearestInt(), juce::Justification::topLeft, 2, 1.0f);
             r.removeFromTop (6.0f);
-            infoLine (g, r, Icon::check, colours::textMute, tr (lyricsModel ? "model.lyrics.failed.safe" : "model.failed.safe"));
+            infoLine (g, r, Icon::check, colours::textMute, tr ("model.failed.safe"));
             break;
         }
     }

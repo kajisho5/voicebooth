@@ -6,7 +6,16 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 
-project(VoiceBooth VERSION 0.1.0 LANGUAGES C CXX)
+project(VoiceBooth VERSION 0.2.0 LANGUAGES C CXX)
+
+# プレリリースの印（beta.1 → アプリの版は 0.1.0-beta.1）。CI がタグ（v0.1.0-beta.1）から付ける。手元のビルドは空（= 0.1.0）。
+# 更新の確認（DESIGN 11.7）が、いまの版がベータかどうか・どの版より新しいかを正しく比べるために使う
+set(VOICEBOOTH_VERSION_SUFFIX "" CACHE STRING "Pre-release label appended to the version (e.g. beta.1)")
+if(VOICEBOOTH_VERSION_SUFFIX)
+    set(VB_FULL_VERSION "${PROJECT_VERSION}-${VOICEBOOTH_VERSION_SUFFIX}")
+else()
+    set(VB_FULL_VERSION "${PROJECT_VERSION}")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -115,7 +124,14 @@ juce_add_binary_data(VoiceBoothI18n
         resources/i18n/en.json
         resources/i18n/ko.json
         resources/i18n/zh-Hans.json
-        resources/i18n/zh-Hant.json)
+        resources/i18n/zh-Hant.json
+        resources/i18n/es.json
+        resources/i18n/pt-BR.json
+        resources/i18n/id.json
+        resources/i18n/vi.json
+        resources/i18n/tr.json
+        resources/i18n/de.json
+        resources/i18n/fr.json)
 
 # ---------------------------------------------------------------------------
 # App
@@ -153,6 +169,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/Mp3Format.cpp
     app/audio/Mp4Gapless.cpp
     app/audio/PlaybackCore.cpp
+    app/audio/Metronome.cpp
     app/audio/InputMeter.cpp
     app/audio/MonitorMixer.cpp
     app/audio/TakeRecorder.cpp
@@ -160,11 +177,13 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/Retro.cpp
     app/audio/PitchTracker.cpp
     app/audio/Resample.cpp
+    app/audio/PitchShift.cpp
     app/audio/DeviceRules.cpp)
 
 # テイクと採用区間・書き出し（DESIGN 6 / 8 / 9：Phase B5〜）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_RECORD_SOURCES
     app/project/Comp.cpp
+    app/project/TakeCompare.cpp
     app/project/ProjectFile.cpp
     app/export/ExportService.cpp
     app/export/DeliveryPack.cpp)
@@ -172,17 +191,20 @@ set(VOICEBOOTH_RECORD_SOURCES
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
     app/song/LyricsImport.cpp
-    app/song/LyricsAlign.cpp
     app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
+    app/system/AppCache.cpp
+    app/update/UpdateCheck.cpp
     app/analysis/Align.cpp
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
     app/analysis/Separation.cpp
     app/analysis/OffVocal.cpp
     app/analysis/TakeStats.cpp
+    app/analysis/KeySuggest.cpp
+    app/analysis/GuideClean.cpp
+    app/analysis/Rmvpe.cpp
     app/separation/SeparatorClient.cpp
-    app/lyrics/LyricsClient.cpp
     app/models/ModelManifest.cpp
     app/models/ModelDownloader.cpp)
 
@@ -215,6 +237,7 @@ target_sources(VoiceBooth PRIVATE
     app/ui/DummySession.cpp
     app/ui/UiSession.cpp
     app/ui/UiSessionSong.cpp
+    app/ui/UiSessionUpdate.cpp
     # 画面
     app/ui/LaneCommon.cpp
     app/ui/SongMarks.cpp
@@ -235,10 +258,13 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/SettingsDialog.cpp
     app/ui/screens/WelcomeScreen.cpp
     app/ui/screens/UpdateDialog.cpp
+    app/ui/screens/AboutDialog.cpp
     app/ui/screens/SkinEditor.cpp
     app/ui/screens/SkinTemplates.cpp
     app/ui/screens/SongInfoDialog.cpp
-    app/ui/screens/LyricsDialog.cpp)
+    app/ui/screens/LyricsDialog.cpp
+    app/ui/screens/RangeDialog.cpp
+    app/ui/screens/TakeCompareDialog.cpp)
 
 target_include_directories(VoiceBooth PRIVATE app)
 
@@ -246,7 +272,8 @@ target_compile_definitions(VoiceBooth PRIVATE
     VOICEBOOTH_UI_MOCK=$<BOOL:${VOICEBOOTH_UI_MOCK}>
     JUCE_WEB_BROWSER=0
     JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_PRODUCT_NAME>"
-    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_VERSION>")
+    JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:VoiceBooth,JUCE_VERSION>"
+    VOICEBOOTH_VERSION_STRING="${VB_FULL_VERSION}")
 
 # 日本語リテラルを UTF-8 として扱う
 if(MSVC)
@@ -280,76 +307,6 @@ if(NOT VOICEBOOTH_UI_MOCK)
     else()
         target_sources(VoiceBooth PRIVATE app/audio/MicPermission.cpp)
     endif()
-endif()
-
-# ---------------------------------------------------------------------------
-# 歌の認識の別プロセス VoiceBoothLyrics（DESIGN 11.3 / B17）
-#   whisper.cpp v1.9.4（MIT）。app/lyricsproc は独立した CMake のプロジェクトで、ここから ExternalProject で作る
-#   （ggml は 1 回の configure で arm64 と x86_64 を同時に作れないので、Mac は別々に作って lipo でつなぐ）。
-#   x86_64 は AVX2 / FMA / F16C 前提。手元の whisper.cpp を使う時は -DVOICEBOOTH_WHISPER_DIR=...、作らない時は -DVOICEBOOTH_LYRICS=OFF
-# ---------------------------------------------------------------------------
-option(VOICEBOOTH_LYRICS "Build VoiceBoothLyrics (lyrics recognition with whisper.cpp)" ON)
-if(VOICEBOOTH_LYRICS AND NOT VOICEBOOTH_UI_MOCK)
-    include(ExternalProject)
-    set(VOICEBOOTH_WHISPER_DIR "" CACHE PATH "Local whisper.cpp checkout (empty = fetch v1.9.4)")
-    set(vb_lyrics_name "VoiceBoothLyrics${CMAKE_EXECUTABLE_SUFFIX}")
-    set(vb_lyrics_common_args
-        -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DVB_WHISPER_DIR=${VOICEBOOTH_WHISPER_DIR})
-    if(APPLE)
-        list(APPEND vb_lyrics_common_args -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET})
-        set(vb_lyrics_archs ${CMAKE_OSX_ARCHITECTURES})
-    else()
-        set(vb_lyrics_archs native)
-    endif()
-    set(vb_lyrics_parts "")
-    set(vb_lyrics_targets "")
-    foreach(arch ${vb_lyrics_archs})
-        set(dir "${CMAKE_BINARY_DIR}/lyrics-${arch}")
-        set(args ${vb_lyrics_common_args})
-        if(APPLE)
-            list(APPEND args -DCMAKE_OSX_ARCHITECTURES=${arch})
-        endif()
-        ExternalProject_Add(vb_lyrics_${arch}
-            SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/app/lyricsproc"
-            BINARY_DIR "${dir}"
-            CMAKE_ARGS ${args}
-            BUILD_COMMAND ${CMAKE_COMMAND} --build "${dir}" --config Release --target VoiceBoothLyrics
-            INSTALL_COMMAND ""
-            BUILD_ALWAYS FALSE
-            BUILD_BYPRODUCTS "${dir}/${vb_lyrics_name}" "${dir}/Release/${vb_lyrics_name}")
-        # Visual Studio（複数の構成）は Release/ の下にできる
-        if(CMAKE_CONFIGURATION_TYPES)
-            list(APPEND vb_lyrics_parts "${dir}/Release/${vb_lyrics_name}")
-        else()
-            list(APPEND vb_lyrics_parts "${dir}/${vb_lyrics_name}")
-        endif()
-        list(APPEND vb_lyrics_targets vb_lyrics_${arch})
-    endforeach()
-
-    set(vb_lyrics_exe "${CMAKE_BINARY_DIR}/lyrics/${vb_lyrics_name}")
-    list(LENGTH vb_lyrics_parts vb_lyrics_count)
-    if(APPLE AND vb_lyrics_count GREATER 1)
-        add_custom_command(OUTPUT "${vb_lyrics_exe}"
-                           COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lyrics"
-                           COMMAND lipo -create ${vb_lyrics_parts} -output "${vb_lyrics_exe}"
-                           DEPENDS ${vb_lyrics_targets} ${vb_lyrics_parts}
-                           COMMENT "VoiceBoothLyrics: universal binary")
-    else()
-        add_custom_command(OUTPUT "${vb_lyrics_exe}"
-                           COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lyrics"
-                           COMMAND ${CMAKE_COMMAND} -E copy_if_different ${vb_lyrics_parts} "${vb_lyrics_exe}"
-                           DEPENDS ${vb_lyrics_targets} ${vb_lyrics_parts})
-    endif()
-    add_custom_target(VoiceBoothLyrics ALL DEPENDS "${vb_lyrics_exe}")
-
-    # 本体の隣（Mac は VoiceBooth.app/Contents/MacOS）に置く
-    add_dependencies(VoiceBooth VoiceBoothLyrics)
-    add_custom_command(TARGET VoiceBooth POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different "${vb_lyrics_exe}" "$<TARGET_FILE_DIR:VoiceBooth>")
-    target_compile_definitions(VoiceBooth PRIVATE VOICEBOOTH_HAS_LYRICS=1)
 endif()
 
 # OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
@@ -457,7 +414,7 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
     endif()
 
     juce_add_console_app(VoiceBoothSeparator PRODUCT_NAME "VoiceBoothSeparator")
-    target_sources(VoiceBoothSeparator PRIVATE app/separator/SeparatorMain.cpp app/analysis/Separation.cpp)
+    target_sources(VoiceBoothSeparator PRIVATE app/separator/SeparatorMain.cpp app/analysis/Separation.cpp app/analysis/Rmvpe.cpp)
     target_include_directories(VoiceBoothSeparator PRIVATE app)
     target_compile_definitions(VoiceBoothSeparator PRIVATE JUCE_WEB_BROWSER=0 JUCE_STANDALONE_APPLICATION=1)
     if(MSVC)
@@ -524,8 +481,14 @@ if(VOICEBOOTH_TESTS)
         tests/DeliveryPackTests.cpp
         tests/SeparationTests.cpp
         tests/ModelDownloadTests.cpp
-        tests/LyricsAlignTests.cpp
         tests/TakeStatsTests.cpp
+        tests/KeySuggestTests.cpp
+        tests/GuideCleanTests.cpp
+        tests/RmvpeTests.cpp
+        tests/ClickTests.cpp
+        tests/UpdateCheckTests.cpp
+        tests/TakeCompareTests.cpp
+        tests/PitchShiftTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
@@ -535,7 +498,8 @@ if(VOICEBOOTH_TESTS)
         JUCE_WEB_BROWSER=0
         JUCE_STANDALONE_APPLICATION=1
         JUCE_MODAL_LOOPS_PERMITTED=1    # 非同期の通知をテストで回すため
-        VOICEBOOTH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
+        VOICEBOOTH_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
+        VOICEBOOTH_VERSION_STRING="${VB_FULL_VERSION}")
     if(MSVC)
         target_compile_options(VoiceBoothTests PRIVATE /utf-8)
     endif()

@@ -166,14 +166,15 @@ void TrackCard::paint (juce::Graphics& g)
 }
 
 //==============================================================================
-TrackTabs::TrackTabs (UiSession& u)
-    : SessionView (u), compare (tr ("track.compare"))
+TrackTabs::TrackTabs (UiSession& u, Actions& a)
+    : SessionView (u), actions (a), compare (tr ("track.compare"))
 {
     for (int i = 0; i < (int) u->trackUi.size(); ++i)
         addChildComponent (cards.add (new TrackCard (u, i)));
 
-    compare.withIcon (Icon::compare).withToggle (false);
-    compare.setTooltip (tr ("track.compare.tooltip"));
+    // LED は比べている間だけ点く（パネルは右に出るので、キーは見えたまま）
+    compare.withIcon (Icon::compare).withLed (colours::signal).withToggle (false);
+    compare.onClick = [this] { if (actions.openTakeCompare) actions.openTakeCompare (0, 0); };   // IN / OUT があればその範囲、無ければ曲全体
     addAndMakeVisible (compare);
 
     onSessionChanged (change::all);
@@ -181,13 +182,20 @@ TrackTabs::TrackTabs (UiSession& u)
 
 void TrackTabs::onSessionChanged (juce::uint32 changes)
 {
-    if ((changes & (change::mode | change::tracks)) == 0)
+    if ((changes & (change::mode | change::tracks | change::takes | change::transport | change::song)) == 0)
         return;
 
     for (auto* c : cards)
         c->setVisible (session.isTrackVisible (state().trackUi[(size_t) c->trackIndex()].type));
 
-    compare.setVisible (state().mode != project::Mode::easy && ! state().engineAttached);   // テイク比較は標準以上（DESIGN 2）。本物のアプリはまだ無い（B18c）
+    // テイク比較は標準以上（DESIGN 2）。比べるテイクが無い・録音中は押せない（理由はツールチップ）
+    const bool can = session.canCompareTakes();
+    compare.setVisible (state().mode != project::Mode::easy);
+    compare.setEnabled (can || state().compare.active);
+    compare.setToggleState (state().compare.active, juce::dontSendNotification);
+    compare.setTooltip (can || state().compare.active ? tr ("track.compare.tooltip")
+                        : state().isRecording        ? tr ("compare.disabled.recording")
+                                                     : tr ("compare.disabled.noTakes"));
     resized();
 }
 

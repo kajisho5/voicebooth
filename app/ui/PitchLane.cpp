@@ -44,9 +44,10 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
     : SessionView (u), actions (a),
       octaveAlign (tr ("pitch.octaveAlign")),
       octaveUp (tr ("pitch.octaveUp")),
-      fullRange (tr ("pitch.fullRange"))
+      fullRange (tr ("pitch.fullRange")),
+      listenOriginal (tr ("pitch.listenOriginal"))
 {
-    for (auto* b : { &octaveAlign, &octaveUp, &fullRange })
+    for (auto* b : { &octaveAlign, &octaveUp, &fullRange, &listenOriginal })
     {
         b->withLed().withToggle (false).withFont (sans (11.5f, Weight::medium));
         addAndMakeVisible (b);
@@ -58,6 +59,9 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
     octaveAlign.onClick = [this] { session.setOctaveAlign (! state().octaveAlign); };
     octaveUp.onClick    = [this] { session.setOctaveUp (! state().octaveUp); };
     fullRange.onClick   = [this] { session.setFullRange (! state().fullRange); };
+    // 原曲で聴く（聞き比べ・時間合わせの確認。お手本を入れて合わせられた時だけ押せる）
+    listenOriginal.setTooltip (tr ("pitch.listenOriginal.tooltip"));
+    listenOriginal.onClick = [this] { session.setListenOriginal (! state().listenOriginal); };
 
     onSessionChanged (change::all);
 }
@@ -68,6 +72,13 @@ void PitchLane::onSessionChanged (juce::uint32 changes)
     octaveAlign.setToggleState (s.octaveAlign, juce::dontSendNotification);
     octaveUp.setToggleState (s.octaveUp, juce::dontSendNotification);
     fullRange.setToggleState (s.fullRange, juce::dontSendNotification);
+    listenOriginal.setToggleState (s.listenOriginal, juce::dontSendNotification);
+    listenOriginal.setEnabled (s.guideOriginal != nullptr);
+    if (listenOriginal.isVisible() != s.engineAttached)
+    {
+        listenOriginal.setVisible (s.engineAttached);   // 見本（UI_MOCK）には原曲が無い
+        resized();
+    }
 
     if (changes & change::mode)
         resized();
@@ -84,8 +95,10 @@ void PitchLane::resized()
     plotArea = r;
 
     auto f = footerArea.reduced (metrics::pad, 0);
-    for (auto* b : { &fullRange, &octaveUp, &octaveAlign })
+    for (auto* b : { &fullRange, &octaveUp, &octaveAlign, &listenOriginal })
     {
+        if (! b->isVisible())
+            continue;
         b->setSize (10, 26);
         const auto w = b->idealWidth();
         b->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 26));
@@ -125,9 +138,15 @@ juce::Colour PitchLane::colourFor (const dummy::PitchPoint& p) const
 
 // 練習でキーを変えている時（B11）は、お手本の線もその分ずらす（伴奏と同じキーで歌う）
 // ハモリのお手本はまだ作れない。本物のアプリでハモリのトラックを選んでも、メインのお手本をそのまま出す（ずらした嘘の線を出さない）
-bool PitchLane::harmonyGuide() const { return state().isHarmonySelected() && ! state().engineAttached; }
-float PitchLane::refOffset() const  { return (harmonyGuide() ? harmonyOffset : 0.0f) + (float) state().keyShift; }
-float PitchLane::mineOffset() const { return (harmonyGuide() ? harmonyOffset : 0.0f) + (state().octaveUp ? 12.0f : 0.0f); }
+// ハモリのトラックを選んでいて、ハモリのお手本がある（本物：分離でリードと分けられた時。見本：メインを長 3 度上げた物）
+bool PitchLane::harmonyGuide() const
+{
+    const auto& s = state();
+    return s.isHarmonySelected() && (! s.engineAttached || ! s.refPitchHarm.empty());
+}
+float PitchLane::mockHarmonyOffset() const { return harmonyGuide() && ! state().engineAttached ? harmonyOffset : 0.0f; }
+float PitchLane::refOffset() const  { return mockHarmonyOffset() + (float) state().keyShift; }
+float PitchLane::mineOffset() const { return mockHarmonyOffset() + (state().octaveUp ? 12.0f : 0.0f); }
 
 //==============================================================================
 int PitchLane::tagAt (juce::Point<float> p) const
@@ -140,8 +159,17 @@ int PitchLane::tagAt (juce::Point<float> p) const
 
 void PitchLane::mouseMove (const juce::MouseEvent& e)
 {
-    setMouseCursor (tagAt (e.position) >= 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
+    // 区間の札は指、範囲の端（つまんで動かせる）は左右の矢印
+    if (tagAt (e.position) >= 0)
+        setMouseCursor (juce::MouseCursor::DraggingHandCursor);
+    else if (plotArea.contains (e.getPosition()) && lane::rangeEdgeAt (state(), map(), e.position.x) >= 0)
+        setMouseCursor (juce::MouseCursor::LeftRightResizeCursor);
+    else
+        setMouseCursor (juce::MouseCursor::NormalCursor);
 }
+
+void PitchLane::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) { lane::wheel (session, map(), e, w); }
+void PitchLane::mouseMagnify (const juce::MouseEvent& e, float scale)                       { lane::magnify (session, map(), e, scale); }
 
 void PitchLane::mouseDown (const juce::MouseEvent& e)
 {
@@ -175,7 +203,45 @@ void PitchLane::mouseDown (const juce::MouseEvent& e)
         session.seek (map().sampleAt ((float) juce::jmax (plotArea.getX(), e.x)));
     }
     else if (plotArea.contains (e.getPosition()))
+    {
+        // 右クリック：お手本の位置の手直し（お手本がある時。DESIGN 7.1.1）
+        menuGesture = e.mods.isPopupMenu();
+        if (menuGesture)
+        {
+            showGuideMenu (map().sampleAt (e.position.x));
+            return;
+        }
         gesture.down (session, map(), e.position.x);
+    }
+}
+
+void PitchLane::showGuideMenu (int64 at)
+{
+    const auto& s = state();
+    juce::PopupMenu menu;
+    const bool hasGuide = s.engineAttached && ! s.refPitch.empty() && ! s.isRecording;
+    const auto now = (s.guideNudgeMs > 0 ? "+" : "") + juce::String (s.guideNudgeMs, 0);
+    menu.addSectionHeader (tr ("pitch.menu.nudge", now));
+    const double steps[] = { -10.0, -1.0, 1.0, 10.0 };
+    const char* keys[] = { "pitch.menu.earlier10", "pitch.menu.earlier1", "pitch.menu.later1", "pitch.menu.later10" };
+    for (int i = 0; i < 4; ++i)
+        menu.addItem (i + 1, tr (keys[i]), hasGuide);
+    menu.addItem (5, tr ("pitch.menu.nudgeReset"), hasGuide && s.guideNudgeMs != 0.0);
+    // 「ここが同じ所」：押した所の前後で原曲とカラオケを比べて合わせ直す（合わせた原曲がある時）
+    menu.addSeparator();
+    menu.addItem (6, tr ("pitch.menu.alignHere"), hasGuide && s.guideOriginal != nullptr && ! s.guideBusy);
+    if (! hasGuide)
+        menu.addItem (-1, tr ("pitch.menu.noGuide"), false);
+
+    juce::Component::SafePointer<PitchLane> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition().withStandardItemHeight (28),
+                        [safe, steps, at] (int chosen)
+                        {
+                            if (safe == nullptr) return;
+                            if (chosen >= 1 && chosen <= 4) safe->session.nudgeGuide (steps[chosen - 1]);
+                            if (chosen == 5)                safe->session.resetGuideNudge();
+                            if (chosen == 6)                safe->session.alignGuideAt (at);
+                        });
 }
 
 void PitchLane::mouseDrag (const juce::MouseEvent& e)
@@ -190,10 +256,12 @@ void PitchLane::mouseDrag (const juce::MouseEvent& e)
         return;
     }
 
+    if (menuGesture)
+        return;
     if (draggingRuler)
         session.seek (map().sampleAt ((float) juce::jlimit (plotArea.getX(), plotArea.getRight(), e.x)));
     else if (plotArea.contains (e.getMouseDownPosition()))
-        gesture.drag (session, map(), e.position.x);
+        gesture.drag (session, map(), e.position.x, ! e.mods.isAltDown());
 }
 
 void PitchLane::mouseUp (const juce::MouseEvent& e)
@@ -206,6 +274,8 @@ void PitchLane::mouseUp (const juce::MouseEvent& e)
         return;
     }
 
+    if (std::exchange (menuGesture, false))
+        return;
     if (! draggingRuler && plotArea.contains (e.getMouseDownPosition()))
         gesture.up (session, map(), e.position.x);
     draggingRuler = false;
@@ -240,7 +310,9 @@ void PitchLane::paint (juce::Graphics& g)
         if (harmonyGuide())
             drawMainGhost (g, m);
         drawReference (g, m);
-        drawMine (g, m);
+        drawUncovered (g, m);
+        if (! drawCompareTake (g, m))   // テイク比較の間は、選んだテイクの線をお手本に重ねる（いま歌った線の代わりに）
+            drawMine (g, m);
 
         // お手本ピッチがまだない：解析中か、声入りの原曲をここにドロップする案内（B9）
         if (s.refPitch.empty())
@@ -262,6 +334,7 @@ void PitchLane::paint (juce::Graphics& g)
 
 void PitchLane::drawBackground (juce::Graphics& g, const TimeMap& m)
 {
+    // ピアノロール（2026-10-03）：半音ごとの行。黒鍵の行は暗く、白鍵の行は少し明るく、行の境に細い線、オクターブ（B と C の間）は濃い線
     const auto& s = state();
     const auto plot = plotArea.toFloat();
     g.setColour (colours::bgDeep);
@@ -270,13 +343,14 @@ void PitchLane::drawBackground (juce::Graphics& g, const TimeMap& m)
     for (int n = s.lowMidi; n <= s.highMidi; ++n)
     {
         const auto y0 = yForMidi ((float) n + 0.5f), y1 = yForMidi ((float) n - 0.5f);
-        if (! isBlackKey (n))
-        {
-            g.setColour (colours::highlight (0.012f));
-            g.fillRect (juce::Rectangle<float> (plot.getX(), y0, plot.getWidth(), y1 - y0));
-        }
-        if (n % 12 == 0)
-            paint::hline (g, std::round (y1), plot.getX(), plot.getRight(), colours::line.withAlpha (0.8f));
+        const juce::Rectangle<float> row (plot.getX(), y0, plot.getWidth(), y1 - y0);
+        g.setColour (isBlackKey (n) ? colours::bgDeep.darker (0.35f) : colours::highlight (0.035f));
+        g.fillRect (row);
+        const auto pc = ((n % 12) + 12) % 12;
+        if (pc == 0)
+            paint::hline (g, std::round (y1), plot.getX(), plot.getRight(), colours::lineHi.withAlpha (0.9f));   // オクターブの境
+        else
+            paint::hline (g, std::round (y1), plot.getX(), plot.getRight(), colours::line.withAlpha (pc == 5 ? 0.7f : 0.35f));   // E と F の間は少し濃く
     }
 
     lane::drawTimeGrid (g, s, m, plot);
@@ -284,41 +358,112 @@ void PitchLane::drawBackground (juce::Graphics& g, const TimeMap& m)
 
 void PitchLane::drawNoteGutter (juce::Graphics& g)
 {
+    // 鍵盤：白鍵は隣の黒鍵の真ん中まで（C・F は下の境から、E・B は上の境まで）、黒鍵は行の高さで左から 6 割。
+    // いま歌っている音の鍵はライム、いまのお手本の音の鍵はアイスブルーに光る。C には音名
     const auto& s = state();
     const auto r = gutterArea.toFloat();
     g.setColour (colours::panel);
     g.fillRect (r);
-    paint::vline (g, r.getRight() - 1.0f, r.getY(), r.getBottom());
 
     int current = -1;
     if (auto* p = dummy::myPitchAt (s, s.playhead))
         current = (int) std::lround (p->midi + mineOffset());
+    int guideNow = -1;
+    {
+        const auto& notes = refNotes();
+        auto it = std::upper_bound (notes.begin(), notes.end(), s.playhead, [] (int64 v, const analysis::NoteSpan& n) { return v < n.start; });
+        if (it != notes.begin() && s.playhead <= std::prev (it)->end)
+            guideNow = (int) std::lround (std::prev (it)->midi + refOffset());
+    }
 
+    // 鍵盤の色は実物に寄せる（白と黒）。暗いスキンでは白鍵を少し落としてまぶしくしない
+    const bool darkSkin = colours::bgDeep.getPerceivedBrightness() < 0.5f;
+    const auto whiteKey = juce::Colour (0xffeeeae2).interpolatedWith (colours::panel, darkSkin ? 0.22f : 0.0f);
+    const auto blackKey = juce::Colour (0xff1d1c1a);
+    const auto keyEdge  = juce::Colour (0xff8f8a80);
+    const auto keys = r.withTrimmedRight (1.0f);
+    auto lit = [&] (int n, juce::Colour base)
+    {
+        if (n == current)  return base.interpolatedWith (colours::signal, 0.85f);
+        if (n == guideNow) return base.interpolatedWith (colours::ref, 0.75f);
+        return base;
+    };
+
+    juce::Graphics::ScopedSaveState save (g);
+    g.reduceClipRegion (gutterArea);
+    for (int n = s.lowMidi - 1; n <= s.highMidi + 1; ++n)
+    {
+        if (isBlackKey (n))
+            continue;
+        const auto top = yForMidi ((float) n + (isBlackKey (n + 1) ? 1.0f : 0.5f));
+        const auto bottom = yForMidi ((float) n - (isBlackKey (n - 1) ? 1.0f : 0.5f));
+        const juce::Rectangle<float> key (keys.getX(), top, keys.getWidth(), bottom - top);
+        g.setColour (lit (n, whiteKey));
+        g.fillRect (key);
+        g.setColour (keyEdge);
+        g.fillRect (key.withHeight (1.0f).withY (std::round (bottom) - 1.0f));
+    }
+    for (int n = s.lowMidi - 1; n <= s.highMidi + 1; ++n)
+    {
+        if (! isBlackKey (n))
+            continue;
+        const auto top = yForMidi ((float) n + 0.5f), bottom = yForMidi ((float) n - 0.5f);
+        const juce::Rectangle<float> key (keys.getX(), top, keys.getWidth() * 0.6f, bottom - top);
+        g.setColour (lit (n, blackKey));
+        g.fillRoundedRectangle (key.withTrimmedLeft (-3.0f), 2.0f);
+    }
+
+    // 音名：C（オクターブの印）と、光っている鍵
+    const auto rowH = std::abs (yForMidi (61.0f) - yForMidi (60.0f));
+    g.setFont (mono (juce::jlimit (8.5f, 10.5f, rowH * 0.8f), Weight::semibold));
     for (int n = s.lowMidi; n <= s.highMidi; ++n)
     {
+        const bool lighted = n == current || n == guideNow;
+        if (n % 12 != 0 && ! lighted)
+            continue;
         const auto yc = yForMidi ((float) n);
-
-        g.setColour (isBlackKey (n) ? colours::line : colours::lineHi);
-        const auto len = n % 12 == 0 ? 10.0f : (isBlackKey (n) ? 3.0f : 6.0f);
-        g.fillRect (juce::Rectangle<float> (r.getRight() - 1.0f - len, std::round (yc), len, 1.0f));
-
-        if (n == current)
-        {
-            const auto pill = juce::Rectangle<float> (r.getX() + 8.0f, yc - 8.5f, r.getWidth() - 22.0f, 17.0f);
-            g.setColour (colours::signal);
-            g.fillRoundedRectangle (pill, 3.0f);
-            g.setColour (colours::onFill (colours::signal));
-            g.setFont (mono (11.0f, Weight::semibold));
-            g.drawText (dummy::noteName ((float) n), pill, juce::Justification::centred, false);
-        }
-        else if (n % 12 == 0)
-        {
-            g.setColour (colours::textDim);
-            g.setFont (mono (10.5f, Weight::medium));
-            g.drawText (dummy::noteName ((float) n), juce::Rectangle<float> (r.getX() + 8.0f, yc - 7.0f, r.getWidth() - 22.0f, 14.0f),
-                        juce::Justification::centredLeft, false);
-        }
+        const auto area = juce::Rectangle<float> (keys.getX(), yc - rowH * 0.5f, keys.getWidth() - 4.0f, rowH);
+        g.setColour (isBlackKey (n) && ! lighted ? juce::Colour (0xffeeeae2) : juce::Colour (0xff1d1c1a));
+        if (isBlackKey (n))
+            g.drawText (dummy::noteName ((float) n), area.withWidth (keys.getWidth() * 0.6f), juce::Justification::centred, false);
+        else
+            g.drawText (dummy::noteName ((float) n), area, juce::Justification::centredRight, false);
     }
+    paint::vline (g, r.getRight() - 1.0f, r.getY(), r.getBottom());
+}
+
+void PitchLane::drawUncovered (juce::Graphics& g, const TimeMap& m)
+{
+    // カット版：お手本が使えない所（原曲に無い所）を斜線と「お手本なし」で（DESIGN 7.1.1）
+    const auto& s = state();
+    if (s.guideCovered.empty() || s.refPitch.empty())
+        return;
+    const auto plot = plotArea.toFloat();
+    int64 from = 0;
+    auto gap = [&] (int64 a, int64 b)
+    {
+        if (b <= a) return;
+        const auto x0 = juce::jmax (plot.getX(), m.x (a)), x1 = juce::jmin (plot.getRight(), m.x (b));
+        if (x1 - x0 < 2.0f) return;
+        const juce::Rectangle<float> r (x0, plot.getY(), x1 - x0, plot.getHeight());
+        g.setColour (colours::bgDeep.withAlpha (0.45f));
+        g.fillRect (r);
+        lane::drawHatch (g, r, colours::line.withAlpha (0.35f));
+        const auto text = tr ("pitch.noGuideHere");
+        const auto f = sans (11.5f);
+        if (textWidth (f, text) + 12.0f <= r.getWidth())
+        {
+            g.setColour (colours::textMute);
+            g.setFont (f);
+            g.drawText (text, r.withTrimmedTop (8.0f).withHeight (18.0f), juce::Justification::centred, false);
+        }
+    };
+    for (auto& [a, b] : s.guideCovered)
+    {
+        gap (from, a);
+        from = juce::jmax (from, b);
+    }
+    gap (from, s.project.lengthSamples);
 }
 
 void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
@@ -337,36 +482,86 @@ void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
     });
 }
 
+const std::vector<analysis::NoteSpan>& PitchLane::refNotes() const
+{
+    const auto& s = state();
+    const auto& ref = s.activeRef();
+    // メインとハモリは同じ時間の並び（数・頭・終わりが同じ）なので、どちらかも鍵に入れる
+    const auto key = ref.empty() ? 0
+                   : (juce::int64) ref.size() * 1000003 + ref.front().sample * 31 + ref.back().sample
+                     + (juce::int64) s.sampleRate() + (&ref == &s.refPitchHarm ? 7919 : 0);
+    if (key != notesKey)
+    {
+        std::vector<audio::PitchFrame> frames;
+        frames.reserve (s.activeRef().size());
+        for (auto& p : s.activeRef())
+            frames.push_back ({ p.sample, p.midi, p.confidence, 0.0f });
+        notesCache = analysis::segmentNotes (frames, s.sampleRate());
+        // ピアノロールとして読みやすく（2026-10-03）：音符の間が 0.3 秒より短ければ、次の音符の頭まで伸ばす
+        // （音の移り・しゃくりで切れて細切れに見えない。判定は線そのもので行うので、ここは見た目だけ）
+        const auto legato = (int64) (0.3 * s.sampleRate());
+        for (size_t i = 0; i + 1 < notesCache.size(); ++i)
+            if (notesCache[i + 1].start - notesCache[i].end < legato)
+                notesCache[i].end = notesCache[i + 1].start;
+        notesKey = key;
+    }
+    return notesCache;
+}
+
 void PitchLane::drawReference (juce::Graphics& g, const TimeMap& m)
 {
     const auto& s = state();
-    const auto halfBand = s.pitchToleranceCents / 100.0f;
     const auto off = refOffset();
+    const auto& notes = refNotes();
+    const auto rowH = std::abs (yForMidi (60.0f) - yForMidi (61.0f));
 
-    forEachRun (s.refPitch, s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
+    // 音符の棒：伸ばしている音を、いちばん近い半音の行に（「この音を歌う」がひと目で分かる）。入る時は音名も
+    const auto nameFont = mono (9.5f, Weight::semibold);
+    for (auto& n : notes)
     {
-        // 許容帯：上辺を左→右、下辺を右→左でつないだ多角形
-        juce::Path band, centre;
-        for (size_t i = 0; i < run.size(); ++i)
-        {
-            const auto x = m.x (run[i]->sample);
-            const auto y = yForMidi (run[i]->midi + off + halfBand);
-            if (i == 0) band.startNewSubPath (x, y); else band.lineTo (x, y);
-        }
-        for (size_t i = run.size(); i-- > 0;)
-            band.lineTo (m.x (run[i]->sample), yForMidi (run[i]->midi + off - halfBand));
-        band.closeSubPath();
+        if (n.end < s.viewStart || n.start > s.viewEnd)
+            continue;
+        const auto semi = std::round (n.midi + off);
+        const auto x0 = m.x (n.start), x1 = m.x (n.end);
+        // ピアノロールの行にぴったり（上下 1 px あける）。歌う音がひと目で分かるよう、塗りを濃く
+        const juce::Rectangle<float> bar (x0, yForMidi (semi + 0.5f) + 1.0f, juce::jmax (2.0f, x1 - x0), juce::jmax (2.0f, rowH - 2.0f));
+        const auto corner = juce::jmin (3.0f, bar.getHeight() * 0.5f);
+        g.setColour (colours::ref.withAlpha (0.42f));
+        g.fillRoundedRectangle (bar, corner);
+        g.setColour (colours::ref.withAlpha (0.95f));
+        g.drawRoundedRectangle (bar.reduced (0.5f), corner, 1.0f);
 
+        const auto name = dummy::noteName (semi);
+        if (rowH >= 9.0f && bar.getWidth() >= textWidth (nameFont, name) + 10.0f)
+        {
+            g.setColour (colours::text);
+            g.setFont (nameFont);
+            g.drawText (name, bar.withTrimmedLeft (5.0f), juce::Justification::centredLeft, false);
+        }
+    }
+
+    // 細かい音程の線：音符の中は濃く、音符の外（しゃくり・フォール・つなぎ・取り切れない外れ）は薄く
+    forEachRun (s.activeRef(), s.viewStart - 4800, s.viewEnd + 4800, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
+    {
+        juce::Path all, inNotes;
+        bool drawingIn = false;
         for (size_t i = 0; i < run.size(); ++i)
         {
             const juce::Point<float> pt { m.x (run[i]->sample), yForMidi (run[i]->midi + off) };
-            if (i == 0) centre.startNewSubPath (pt); else centre.lineTo (pt);
-        }
+            if (i == 0) all.startNewSubPath (pt); else all.lineTo (pt);
 
-        g.setColour (colours::ref.withAlpha (0.24f));
-        g.fillPath (band);
-        g.setColour (colours::ref.withAlpha (0.9f));
-        g.strokePath (centre, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            const auto sample = run[i]->sample;
+            auto it = std::upper_bound (notes.begin(), notes.end(), sample, [] (int64 v, const analysis::NoteSpan& n) { return v < n.start; });
+            const bool in = it != notes.begin() && sample <= std::prev (it)->end;
+            if (in && ! drawingIn) inNotes.startNewSubPath (pt);
+            else if (in)           inNotes.lineTo (pt);
+            drawingIn = in;
+        }
+        const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
+        g.setColour (colours::ref.withAlpha (0.28f));
+        g.strokePath (all, stroke (1.0f));
+        g.setColour (colours::ref.brighter (0.3f).withAlpha (0.8f));
+        g.strokePath (inNotes, stroke (1.2f));
     });
 }
 
@@ -403,6 +598,52 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
         }
         flush();
     });
+}
+
+bool PitchLane::drawCompareTake (juce::Graphics& g, const TimeMap& m)
+{
+    // テイク比較（B18c）：試聴中のテイクの音程（録った時に裏で取った線。原速・原キーのテイクだけ）を、比べている範囲だけ重ねる。
+    // 色は暖かい白（お手本のアイスブルーと見分ける）。いま歌っている線とは別物なので、比べている間は自分の線を描かない
+    const auto& s = state();
+    const auto& c = s.compare;
+    if (! c.active || c.previewing.isEmpty() || c.track != s.currentTrack().type)
+        return false;
+    const auto it = s.takePitch.find (dummy::takeWaveKey (c.track, c.previewing));
+    if (it == s.takePitch.end() || it->second == nullptr)
+        return false;
+
+    // お手本と同じだけずらす（練習のキー・ハモリ）。テイクは原キーで録っているので、ずらしたお手本と同じ所に並ぶ
+    const auto off = mineOffset() + (float) s.keyShift;
+    const auto from = juce::jmax (c.from, s.viewStart - 4800), to = juce::jmin (c.to, s.viewEnd + 4800);
+    const auto maxGap = (int64) (0.05 * s.sampleRate());
+    juce::Path path;
+    bool open = false;
+    int64 last = 0;
+    float lastMidi = 0.0f;
+    for (auto& f : *it->second)
+    {
+        if (f.songSample < from || f.songSample > to)
+            continue;
+        if (f.midi <= 0.0f || f.confidence < 0.5f)
+        {
+            open = false;   // 声の無い所・信頼の低い所はつながない（嘘でつながない）
+            continue;
+        }
+        const juce::Point<float> pt { m.x (f.songSample), yForMidi (f.midi + off) };
+        if (! open || f.songSample - last > maxGap || std::abs (f.midi - lastMidi) > 4.0f)
+            path.startNewSubPath (pt);
+        else
+            path.lineTo (pt);
+        open = true;
+        last = f.songSample;
+        lastMidi = f.midi;
+    }
+    const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
+    g.setColour (colours::text.withAlpha (0.14f));
+    g.strokePath (path, stroke (6.0f));
+    g.setColour (colours::text.withAlpha (0.9f));
+    g.strokePath (path, stroke (2.2f));
+    return true;
 }
 
 void PitchLane::drawCurrent (juce::Graphics& g, const TimeMap& m)
@@ -456,16 +697,21 @@ void PitchLane::drawFooter (juce::Graphics& g)
         r.removeFromLeft (16.0f);
     };
 
-    // お手本：帯
+    // お手本：音符の棒と線
     {
         auto sw = r.removeFromLeft (26.0f).withSizeKeepingCentre (26.0f, 8.0f);
-        g.setColour (colours::ref.withAlpha (0.22f));
-        g.fillRect (sw);
-        g.setColour (colours::ref.withAlpha (0.85f));
-        g.fillRect (sw.withSizeKeepingCentre (sw.getWidth(), 1.4f));
+        g.setColour (colours::ref.withAlpha (0.18f));
+        g.fillRoundedRectangle (sw, 3.0f);
+        g.setColour (colours::ref.withAlpha (0.5f));
+        g.drawRoundedRectangle (sw.reduced (0.5f), 3.0f, 1.0f);
+        g.setColour (colours::ref.withAlpha (0.95f));
+        g.fillRect (sw.withSizeKeepingCentre (sw.getWidth() - 6.0f, 1.4f));
         r.removeFromLeft (6.0f);
         label (harmonyGuide() ? tr ("pitch.legend.refHarmony", (int) s.pitchToleranceCents)
                                      : tr ("pitch.legend.ref", (int) s.pitchToleranceCents), colours::textDim);
+        // 時間合わせの確かさが低い：「推定」（右クリックで直せる）
+        if (s.guideAlignRough && ! s.refPitch.empty())
+            label (tr ("pitch.legend.alignRough"), colours::warn);
     }
 
     // 自分：3 状態
@@ -487,6 +733,17 @@ void PitchLane::drawFooter (juce::Graphics& g)
         g.fillRoundedRectangle (r.removeFromLeft (18.0f).withSizeKeepingCentre (18.0f, 2.0f), 1.0f);
         r.removeFromLeft (6.0f);
         label (tr ("pitch.legend.mainGhost"), colours::textDim);
+    }
+
+    // 横の拡大の案内（入り切る時だけ。切れた文字は出さない）
+    {
+       #if JUCE_MAC
+        const auto zoom = tr ("pitch.legend.zoom", juce::String (juce::CharPointer_UTF8 ("\xe2\x8c\x98")));
+       #else
+        const auto zoom = tr ("pitch.legend.zoom", "Ctrl");
+       #endif
+        if (textWidth (lf, zoom) + 2.0f <= r.getWidth())
+            label (zoom, colours::textMute);
     }
 
     // 入りタイミング（標準以上）/ 解析（プロ）。本物のアプリはいまのトラックのいちばん新しいテイクをお手本と比べた値（B18）。
