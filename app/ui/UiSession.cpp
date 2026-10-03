@@ -1296,14 +1296,14 @@ namespace
         out.tempoRatio = align.tempoRatio;
         out.covered = coveredSpans (align, (juce::int64) kar.size(), rate);
 
-        // 速さの違う版：時間はずれていき、音程も変わる。嘘の線を出さない（DESIGN 7.1.1）
+        // 速さの違うバージョン：時間はずれていき、音程も変わる。嘘の線を出さない（DESIGN 7.1.1）
         if (std::abs (align.tempoRatio - 1.0) > 0.002)
         {
             out.kind = GuideOutcome::Kind::tempoDiffers;
             return out;
         }
 
-        // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 + offset。速さが違う版は作らない）
+        // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 + offset。速さが違うバージョンは作らない）
         if (std::abs (align.tempoRatio - 1.0) < 0.001)
         {
             auto o = std::make_shared<audio::SongAudio>();

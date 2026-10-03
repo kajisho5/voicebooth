@@ -5,14 +5,14 @@
 #include <functional>
 
 /*  新しいバージョンの確認（DESIGN 11.7）。GitHub のリリース（kajisho5/voicebooth）を 1 回読むだけ。
-    - 送るのはリリース一覧の GET だけ（版・OS・利用状況は送らない。User-Agent は GitHub が必須なので "VoiceBooth" だけ）
+    - 送るのはリリース一覧の GET だけ（バージョン・OS・利用状況は送らない。User-Agent は GitHub が必須なので "VoiceBooth" だけ）
     - 見つけたら知らせる。入れ替えは使う人が［今すぐ更新］を押した時だけ（UiSession が取って照合し、Installer で入れ替える）。
       インストーラーの SHA-256 が分からない時や入れ替えられない時は、ブラウザでインストーラー（無ければリリースのページ）を開く
     - 選び方・比べ方は純粋な関数（テストする）。通信は Checker だけ */
 
 namespace vb::update
 {
-/** 版（SemVer 2.0）。タグは "v0.1.0-beta.1" の形（頭の v は無くてもよい。"+..." のビルド情報は比べない） */
+/** バージョン（SemVer 2.0）。タグは "v0.1.0-beta.1" の形（頭の v は無くてもよい。"+..." のビルド情報は比べない） */
 struct Version
 {
     int major = 0, minor = 0, patch = 0;
@@ -28,7 +28,7 @@ Version parseVersion (const juce::String&);
 /** SemVer の順（a < b なら負、同じなら 0、a > b なら正）。正式版はそのプレリリースより新しい（0.1.0-beta.2 < 0.1.0） */
 int compareVersions (const Version& a, const Version& b);
 
-/** このアプリの版（CMake の project VERSION ＋ CI がタグから付けるプレリリースの印。例 "0.1.0-beta.1"） */
+/** このアプリのバージョン（CMake の project VERSION ＋ CI がタグから付けるプレリリースの印。例 "0.1.0-beta.1"） */
 juce::String currentVersion();
 
 enum class Platform { windows, mac, other };
@@ -53,13 +53,13 @@ struct Release
     static Release fromJson (const juce::String&);
 };
 
-/** ベータ（プレリリース）も知らせるか：いまの版がベータなら常に、正式版なら使う人が選んだ時だけ */
+/** ベータ（プレリリース）も知らせるか：いまのバージョンがベータなら常に、正式版なら使う人が選んだ時だけ */
 bool includePrereleases (const juce::String& currentVersion, bool optIn);
 
-/** GitHub の /releases の JSON から、知らせる版を選ぶ。
-    下書きは見ない、プレリリースは includePre の時だけ。並び順は信じず版で比べて、いちばん新しい物を選ぶ。
-    それがいまの版より新しく、飛ばした版（skipped）でもない時だけ found。
-    （飛ばした版より古い物は、もっと新しい版を飛ばしたのだから出さない） */
+/** GitHub の /releases の JSON から、知らせるバージョンを選ぶ。
+    下書きは見ない、プレリリースは includePre の時だけ。並び順は信じずバージョンで比べて、いちばん新しい物を選ぶ。
+    それがいまのバージョンより新しく、飛ばしたバージョン（skipped）でもない時だけ found。
+    （飛ばしたバージョンより古い物は、もっと新しいバージョンを飛ばしたのだから出さない） */
 Release pickRelease (const juce::String& json, const juce::String& currentVersion, bool includePre,
                      Platform, const juce::String& skipped = {});
 
@@ -79,7 +79,7 @@ struct CheckResult
 {
     enum class Status { ok, offline, rateLimited, failed };
     Status status = Status::failed;
-    Release release;                // ok で新しい版がある時だけ found
+    Release release;                // ok で新しいバージョンがある時だけ found
 };
 
 /** 返ってきた HTTP の結果を読む（テストする）。status 0 = つながらない */

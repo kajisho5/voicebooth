@@ -5,7 +5,7 @@
 
 namespace vb::update
 {
-/*  更新の確認（DESIGN 11.7）：版の比べ方・リリースの選び方・本文の平文化と、キャッシュの大きさの表示。
+/*  更新の確認（DESIGN 11.7）：バージョンの比べ方・リリースの選び方・本文の平文化と、キャッシュの大きさの表示。
     通信はしない（GitHub の /releases の形をまねた JSON で確かめる） */
 class UpdateCheckTests : public juce::UnitTest
 {
@@ -75,7 +75,7 @@ public:
 
         beginTest ("pick the newest non-draft release newer than ours");
         {
-            // 並び順は信じない（古い順でも、いちばん新しい版を選ぶ）。下書き・壊れたタグは見ない
+            // 並び順は信じない（古い順でも、いちばん新しいバージョンを選ぶ）。下書き・壊れたタグは見ない
             const auto json = list ({ release ("v0.1.1", false), release ("v0.3.0", false, true), release ("v0.2.0", false),
                                       release ("nightly", false), release ("v0.2.1-beta.1", true) });
             auto r = pickRelease (json, "0.1.0", false, Platform::windows);
@@ -103,15 +103,15 @@ public:
             const auto json = list ({ release ("v0.2.0", false), release ("v0.1.0", false) });
             expect (! pickRelease (json, "0.2.0", false, Platform::windows).found);
             expect (! pickRelease (json, "0.3.0-beta.1", true, Platform::windows).found);
-            expect (! pickRelease (json, "0.1.0", false, Platform::windows, "0.2.0").found);   // 飛ばした版
-            expect (pickRelease (json, "0.1.0", false, Platform::windows, "0.1.5").found);     // 別の版を飛ばしていても新しい物は出す
+            expect (! pickRelease (json, "0.1.0", false, Platform::windows, "0.2.0").found);   // 飛ばしたバージョン
+            expect (pickRelease (json, "0.1.0", false, Platform::windows, "0.1.5").found);     // 別のバージョンを飛ばしていても新しい物は出す
             expect (! pickRelease ("[]", "0.1.0", false, Platform::windows).found);
             expect (! pickRelease ("{\"message\":\"Not Found\"}", "0.1.0", false, Platform::windows).found);
             expect (! pickRelease ("<html>", "0.1.0", false, Platform::windows).found);
 
             // 正式版の人には、印（prerelease）の付け忘れた「-beta」タグも出さない
             expect (! pickRelease (list ({ release ("v0.2.0-beta.1", false) }), "0.1.0", false, Platform::windows).found);
-            // ベータの人には、同じ版の正式版が出たら知らせる
+            // ベータの人には、同じバージョンの正式版が出たら知らせる
             expectEquals (pickRelease (list ({ release ("v0.1.0", false) }), "0.1.0-beta.3", true, Platform::windows).version,
                           juce::String ("0.1.0"));
         }
@@ -138,7 +138,7 @@ public:
             expect (plainNotes (notesForLanguage (r.notes, false)).contains ("Faster export"));
             expect (! notesForLanguage (r.notes, false).contains ("English follows"));
 
-            // 最新を使っている・新しい版を飛ばした
+            // 最新を使っている・新しいバージョンを飛ばした
             expect (! pickRelease (json, "0.2.0", false, Platform::windows).found);
             expect (! pickRelease (json, "0.1.0", false, Platform::windows, "v0.2.0").found);
             const auto ok = interpret (200, json, "0.2.0", true, Platform::windows, {});
@@ -172,7 +172,7 @@ public:
             expect (sha256FromDigest ("sha256:" + hex.replace ("a", "z")).isEmpty());
             expect (sha256FromDigest ({}).isEmpty());
 
-            // GitHub の asset の digest を読む。無い版（古いリリース）は空 = アプリ内では入れ替えない
+            // GitHub の asset の digest を読む。無いバージョン（古いリリース）は空 = アプリ内では入れ替えない
             const auto withDigest = release ("v0.2.0", false).replace (R"("size": 8493465,)", R"("size": 8493465, "digest": "sha256:)" + hex + "\",");
             auto r = pickRelease (list ({ withDigest }), "0.1.0", false, Platform::windows);
             expectEquals (r.assetSha256, hex);

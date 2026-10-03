@@ -8,8 +8,8 @@ set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 
 project(VoiceBooth VERSION 0.2.0 LANGUAGES C CXX)
 
-# プレリリースの印（beta.1 → アプリの版は 0.1.0-beta.1）。CI がタグ（v0.1.0-beta.1）から付ける。手元のビルドは空（= 0.1.0）。
-# 更新の確認（DESIGN 11.7）が、いまの版がベータかどうか・どの版より新しいかを正しく比べるために使う
+# プレリリースの印（beta.1 → アプリのバージョンは 0.1.0-beta.1）。CI がタグ（v0.1.0-beta.1）から付ける。手元のビルドは空（= 0.1.0）。
+# 更新の確認（DESIGN 11.7）が、いまのバージョンがベータかどうか・どのバージョンより新しいかを正しく比べるために使う
 set(VOICEBOOTH_VERSION_SUFFIX "" CACHE STRING "Pre-release label appended to the version (e.g. beta.1)")
 if(VOICEBOOTH_VERSION_SUFFIX)
     set(VB_FULL_VERSION "${PROJECT_VERSION}-${VOICEBOOTH_VERSION_SUFFIX}")
@@ -370,8 +370,8 @@ endif()
 # ---------------------------------------------------------------------------
 # ボーカル分離の別プロセス VoiceBoothSeparator（DESIGN 11.3 / B16）
 #   ONNX Runtime 1.22.0（MIT）の公式ビルド済みを configure 時に取る（SHA-256 で確かめる）。1.22.0 は Intel Mac も入った
-#   universal2 がある最後の版（1.23 以降は Apple シリコンだけ）。本体には ORT をリンクしない（分離プロセスだけ）
-#   手元の ORT を使う時は -DVOICEBOOTH_ORT_DIR=/path/to/onnxruntime-<os>-<版>、作らない時は -DVOICEBOOTH_SEPARATOR=OFF
+#   universal2 がある最後のバージョン（1.23 以降は Apple シリコンだけ）。本体には ORT をリンクしない（分離プロセスだけ）
+#   手元の ORT を使う時は -DVOICEBOOTH_ORT_DIR=/path/to/onnxruntime-<os>-<バージョン>、作らない時は -DVOICEBOOTH_SEPARATOR=OFF
 # ---------------------------------------------------------------------------
 option(VOICEBOOTH_SEPARATOR "Build VoiceBoothSeparator (vocal separation with ONNX Runtime)" ON)
 if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
