@@ -391,4 +391,23 @@ bool writeAtomically (const juce::File& file, const juce::String& text)
         return false;
     return temp.overwriteTargetFileWithTemporary();
 }
+
+int recoverRetroLeftovers (const juce::File& projectFolder, const juce::StringArray& usedPaths)
+{
+    const auto takes = projectFolder.getChildFile ("Audio/Takes");
+    int moved = 0;
+    for (auto& f : takes.findChildFiles (juce::File::findFiles, false, ".retro-*.wav"))
+    {
+        const auto rel = f.getRelativePathFrom (projectFolder).replaceCharacter ('\\', '/');
+        if (usedPaths.contains (rel))
+            continue;   // 採用しているテイク（名前を付け直せなかった遡及録音）。消さない
+        const auto dir = projectFolder.getChildFile ("Audio/Recovered");
+        if (! dir.createDirectory().wasOk())
+            continue;   // 移せなければ、そのまま置いておく（消さない）
+        const auto dest = dir.getChildFile (f.getFileName().substring (1));   // 先頭の . を取る（隠しファイルにしない）
+        if (f.moveFileTo (dest.exists() ? dest.getNonexistentSibling (false) : dest))
+            ++moved;
+    }
+    return moved;
+}
 } // namespace vb::project

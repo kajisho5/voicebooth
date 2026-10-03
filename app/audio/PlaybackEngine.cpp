@@ -522,7 +522,10 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
     const auto played = core.render (outputs, numOutputs, numSamples);
     const float* sung = input != nullptr ? input + played.lead : nullptr;
     const auto sungSamples = numSamples - played.lead;
-    recorder.process (sung, sungSamples, played.start, played.played, played.wrapped);
+    // 曲の差し替えでこのブロックを鳴らせなかった時は、録音もこのブロックを飛ばす（曲の終わりと取り違えない。
+    // 曲の位置は進んでいないので、飛ばせばテイクと曲の位置はずれない）
+    if (! played.busy)
+        recorder.process (sung, sungSamples, played.start, played.played, played.wrapped);
     // 自分の声のピッチ（B8）。検出は別のスレッド。数えている分も入力は途切れさせずに渡す（位置なし＝曲の線には入らない）
     if (played.lead > 0)
         pitch.push (input, played.lead, played.start, 0, played.step);
