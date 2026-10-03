@@ -32,16 +32,16 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 ## İndirme (ücretsiz)
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%C4%B0ndir-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows için indir"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%C4%B0ndir-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac için indir"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%C4%B0ndir-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows için indir"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%C4%B0ndir-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac için indir"></a>
 </p>
 
 | Bilgisayar | Dosya (kaydetmek için tıklayın) | Boyut |
 |---|---|---|
-| Windows 10 / 11 (64 bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | yaklaşık 13 MB |
-| Mac (macOS 11 ve sonrası, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | yaklaşık 40 MB |
+| Windows 10 / 11 (64 bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | yaklaşık 13 MB |
+| Mac (macOS 11 ve sonrası, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | yaklaşık 40 MB |
 
-Güncel sürüm **0.2.0 beta 2**. Değişiklikler ve eski sürümler [sürümler sayfasında](https://github.com/kajisho5/voicebooth/releases). Telefon veya tablet sürümü yoktur.
+Güncel sürüm **0.2.0 beta 3**. Değişiklikler ve eski sürümler [sürümler sayfasında](https://github.com/kajisho5/voicebooth/releases). Telefon veya tablet sürümü yoktur.
 
 ### İlk kez mi? Üç adım
 

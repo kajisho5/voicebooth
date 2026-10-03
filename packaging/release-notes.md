@@ -17,6 +17,19 @@ English follows Japanese.
 - **Windows**：「Windows によって PC が保護されました」→「詳細情報」→「実行」
 - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く →「開けません」と表示されたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」（開こうとしてから約 1 時間だけ表示されます）→ パスワード
 
+## beta.3 で直したもの
+
+- **分離モデルをダウンロードできなかった（Windows・Mac）**：beta.2 では「分離モデルの一覧を読めませんでした」と表示されて先に進めませんでした。一覧が最後まで届いたかどうかの判定を直しました
+- **小さい画面でも収まる**：ウィンドウの最小を 1180x640 にしました（1366x768・1280x720 の画面でも収まります）。右のラックは高さが足りないと縦にスクロールし、書き出しなどの画面は収まるように縮めて表示します
+- **文字の切れ**：ベトナム語・トルコ語の字が大きすぎて切れていたのを直しました。フェーダーの注記と名前、テイク比較の列、設定のキーの幅も直しました
+- **お手本を差し替えたとき**、ピアノロールの音符とキーの提案が古いままだったのを直しました
+- **4 GB を超える納品パック**は zip を作らず、フォルダのまま渡してお知らせします（壊れた zip ができていました）
+- **プロジェクトのフォルダの外を指すテイク**は読み込まず、お知らせします
+- **大きい曲を開いたとき**、メモリが足りなくなりそうならお知らせします
+- **再生中を軽く**：ピッチと波形のレーンは再生位置の前後だけを描き直します。分離はほかの処理より優先度を下げて動かします（録音・再生と CPU を取り合いません）
+- **翻訳**：お知らせに混ざっていた英語を 12 言語に訳しました。Mac のマイクの許可の文も 12 言語にしました。分離のエラーの文字化けを直し、訳語の揺れと複数形の書き方もそろえました
+- **ライセンス**：同梱しているライブラリのライセンス全文をアプリに含め、「このアプリについて」から開けるようにしました
+
 ## 0.2.0 で増えたもの
 
 - **分離モデルの配布を開始**：分離（BS-RoFormer ft1）・リードボーカル（BS-RoFormer karaoke）・音程（RMVPE）のモデルを、署名を確認してからダウンロード（約 210 MB）。「原曲だけで始める」と、引き算で声を取り出せない組み合わせの分離が使えます
@@ -70,6 +83,19 @@ English follows Japanese.
 
 - **Windows**: "Windows protected your PC" → "More info" → "Run anyway"
 - **Mac**: move VoiceBooth from the DMG to Applications and open it once → if it says it can't be opened, go to System Settings → Privacy & Security → "Open Anyway" (shown for about an hour after the attempt) → enter your password
+
+## Fixed in beta 3
+
+- **Separation models could not be downloaded (Windows, Mac)**: beta 2 stopped with "Couldn't read the model list". The check for whether the list arrived in full is fixed
+- **Fits on small screens**: the minimum window size is now 1180x640 (fits 1366x768 and 1280x720 screens). The right rack scrolls when it is too short, and screens such as Export shrink to fit
+- **Cut-off text**: Vietnamese and Turkish text was drawn too large and got cut off. Fader notes and names, the take comparison columns and the key widths in Settings are fixed too
+- **Replacing the guide**: the piano-roll notes and the key suggestion now follow the new guide
+- **Delivery packs over 4 GB** stay as a folder without a zip, with a notice (a broken zip used to be created)
+- **Takes pointing outside the project folder** are not loaded, with a notice
+- **Large songs**: a notice appears when opening one may run short of memory
+- **Lighter playback**: the pitch and waveform lanes only redraw around the playhead, and separation runs at a lower priority so it doesn't compete with recording and playback
+- **Translations**: English fragments in notices are translated into all 12 languages, the Mac microphone permission text is in 12 languages, garbled separation errors are fixed, and terms and plurals are consistent
+- **Licenses**: the full license texts of the bundled libraries are included and can be opened from About
 
 ## New in 0.2.0
 
