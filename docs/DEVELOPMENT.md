@@ -114,22 +114,22 @@ pwsh packaging/windows/build_installer.ps1      # → build/installer/VoiceBooth
 packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth-<バージョン>-mac-universal.dmg
 ```
 
-- 版は `build/CMakeCache.txt` の `CMAKE_PROJECT_VERSION`（`CMakeLists.txt` の `project(... VERSION ...)`）。`-Version` / `--version` で上書きできる
+- バージョンは `build/CMakeCache.txt` の `CMAKE_PROJECT_VERSION`（`CMakeLists.txt` の `project(... VERSION ...)`）。`-Version` / `--version` で上書きできる
 - DMG の並び（背景・アイコン位置）は Finder が書く。初回はターミナルに「Finder を操作する許可」を求められる。
   断った・操作できない時は素の DMG を作って警告を出す（`VB_DMG_REQUIRE_LAYOUT=1` で失敗扱い）
 - どちらも未署名。開き方は DESIGN 11.6
 
 ## リリースの出し方
 
-**main にマージすると出る**：main に入るたびに CI（`.github/workflows/build.yml`）が `packaging/release-tag.txt` の版（例 `v0.2.0-beta.2`）を読み、そのタグがまだ無ければ、Win / Mac を作ってテストが通った後にタグ（テストした commit）とリリースを作り、`VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を付ける。タグがもうあれば出さない（README だけの直しなどで、同じ版を出し直さない）。`-` の入るタグはプレリリース。
+**main にマージすると出る**：main に入るたびに CI（`.github/workflows/build.yml`）が `packaging/release-tag.txt` のバージョン（例 `v0.2.0-beta.2`）を読み、そのタグがまだ無ければ、Win / Mac を作ってテストが通った後にタグ（テストした commit）とリリースを作り、`VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を付ける。タグがもうあれば出さない（README だけの直しなどで、同じバージョンを出し直さない）。`-` の入るタグはプレリリース。
 
-次の版を出す PR では：
+次のバージョンを出す PR では：
 
-1. `packaging/release-tag.txt` を新しい版のタグにする（ベータは `v0.2.0-beta.3` のように）
-2. 版の数字（`-` より前）が変わる時は、`CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` も同じにする（インストーラーの名前もこのバージョンになる。違えば release ジョブが止める）
-3. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す。README（12 言語）冒頭の「ダウンロード」の欄のリンク（タグ `v…` とファイル名）と「いまの版」を新しい版にする（ボタンはその版のファイルを直接指す。プレリリースは `releases/latest` に出ないため）
+1. `packaging/release-tag.txt` を新しいバージョンのタグにする（ベータは `v0.2.0-beta.3` のように）
+2. バージョンの数字（`-` より前）が変わる時は、`CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` も同じにする（インストーラーの名前もこのバージョンになる。違えば release ジョブが止める）
+3. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す。README（12 言語）冒頭の「ダウンロード」の欄のリンク（タグ `v…` とファイル名）と「いまのバージョン」を新しいバージョンにする（ボタンはそのバージョンのファイルを直接指す。プレリリースは `releases/latest` に出ないため）
 
-ほかの出し方（今まで通り使える）：`build` のワークフローを手で動かして `release_tag` に版のタグを入れる（main から）、タグを push する（`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`）、GitHub の画面で先にリリースを作る（CI がファイルを付ける）。
+ほかの出し方（今まで通り使える）：`build` のワークフローを手で動かして `release_tag` にバージョンのタグを入れる（main から）、タグを push する（`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`）、GitHub の画面で先にリリースを作る（CI がファイルを付ける）。
 
 まだコード署名をしていない（Windows の SmartScreen・Mac の Gatekeeper の開き方は README）。分離のモデルは本体とは別に、持ち主が署名した一覧を公開してから（`tools/models/README.md`）。
 

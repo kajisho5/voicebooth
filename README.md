@@ -40,7 +40,7 @@
 | Windows 10 / 11（64bit） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
 | Mac（macOS 11 以降。Apple シリコン / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
 
-いまの版は **0.2.0 ベータ 2**。変更点・前の版は [リリースのページ](https://github.com/kajisho5/voicebooth/releases) にあります。スマホ・タブレット版はありません。
+いまのバージョンは **0.2.0 ベータ 2**。変更点・前のバージョンは [リリースのページ](https://github.com/kajisho5/voicebooth/releases) にあります。スマホ・タブレット版はありません。
 
 ### はじめての人へ（3 ステップ）
 
