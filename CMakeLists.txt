@@ -257,6 +257,7 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/SettingsDialog.cpp
     app/ui/screens/WelcomeScreen.cpp
     app/ui/screens/UpdateDialog.cpp
+    app/ui/screens/AboutDialog.cpp
     app/ui/screens/SkinEditor.cpp
     app/ui/screens/SkinTemplates.cpp
     app/ui/screens/SongInfoDialog.cpp

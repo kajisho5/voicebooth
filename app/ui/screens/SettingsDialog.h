@@ -19,6 +19,7 @@ public:
     std::function<void (const juce::String& skinId)> onSkin;   // DESIGN 4.11
     std::function<void()> onEditSkin;
     std::function<void()> onNewSkin;   // テンプレートから作る
+    std::function<void()> onAbout;        // このアプリについて・ライセンス
     std::function<void()> onClearCache;   // キャッシュを空にする（確認は MainComponent が出す）
 
 protected:

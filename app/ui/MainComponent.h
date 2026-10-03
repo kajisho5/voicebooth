@@ -83,6 +83,7 @@ public:
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
+    void openAbout();
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();

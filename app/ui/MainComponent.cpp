@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "screens/StartScreen.h"
+#include "screens/AboutDialog.h"
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
@@ -126,6 +127,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "setup3")       openSetup (2);
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
+    if (o.screen == "about")        openAbout();
     if (o.screen == "range" && actions.openVoiceRange) actions.openVoiceRange();
     if (o.screen == "skin-templates") openSkinTemplates();
     if (o.screen == "skin-editor" || o.screen == "skin-editor-borrow")
@@ -801,6 +803,24 @@ void MainComponent::openSettings()
     {
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->confirmClearCache(); });
+    };
+    dlg->onAbout = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openAbout(); });
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openAbout()
+{
+    // 閉じたら設定に戻る（設定から開くので）
+    auto dlg = std::make_unique<AboutDialog>();
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onCloseRequest = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
     };
     overlay.show (std::move (dlg), true);
 }

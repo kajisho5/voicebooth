@@ -192,6 +192,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     }
 
     addFooterKey (tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
+    addFooterKey (tr ("about.open"), KeyRole::normal, [this] { if (onAbout) onAbout(); });
 
     setSize (820, headerH + 14 + rowH * (int) rows.size() + footerH + 12);
     onSessionChanged (change::all);
