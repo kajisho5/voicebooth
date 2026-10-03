@@ -142,6 +142,15 @@ void drawRange (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
     }
 }
 
+juce::Rectangle<int> playheadDirty (float oldX, float newX, int height)
+{
+    if (oldX < -1.0e6f)
+        return {};
+    constexpr float left = 80.0f, right = 112.0f;
+    const auto x0 = std::floor (juce::jmin (oldX, newX) - left), x1 = std::ceil (juce::jmax (oldX, newX) + right);
+    return { (int) x0, 0, (int) (x1 - x0), height };
+}
+
 void drawPlayhead (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> area)
 {
     // 位置は丸めない（小数の座標でなめらかに進む。DESIGN 4.10.1 PH）
@@ -162,7 +171,7 @@ void drawPlayhead (juce::Graphics& g, const dummy::Session& s, const TimeMap& ma
     g.fillRect (juce::Rectangle<float> (x - 0.75f, area.getY(), 1.5f, area.getHeight()));
 }
 
-void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> r)
+void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> r, bool withPlayhead)
 {
     g.setColour (colours::panel);
     g.fillRect (r);
@@ -215,6 +224,12 @@ void drawRuler (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, 
                     juce::Justification::centredLeft, true);
     }
 
+    if (withPlayhead)
+        drawRulerPlayhead (g, s, map, r);
+}
+
+void drawRulerPlayhead (juce::Graphics& g, const dummy::Session& s, const TimeMap& map, juce::Rectangle<float> r)
+{
     // 再生ヘッドの頭
     const auto px = map.x (s.playhead);
     juce::Path head;

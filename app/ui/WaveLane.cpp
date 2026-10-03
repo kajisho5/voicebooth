@@ -74,6 +74,24 @@ juce::String WaveLane::getTooltip()
     return overCompBar (p) && session.canCompareTakes() ? tr ("wave.compBar.tooltip") : juce::String();
 }
 
+void WaveLane::onSessionChanged (juce::uint32 c)
+{
+    constexpr juce::uint32 watched = change::playhead | change::range | change::view | change::tracks | change::mode
+                                   | change::transport | change::takes | change::songInfo;
+    const auto relevant = c & watched;
+    if (relevant == 0)
+        return;
+    if ((relevant & ~juce::uint32 (change::playhead)) != 0)
+        staticDirty = true;
+    const auto x = map().x (state().playhead);
+    const auto dirty = relevant == change::playhead ? lane::playheadDirty (headX, x, getHeight()) : juce::Rectangle<int>();
+    headX = x;
+    if (dirty.isEmpty())
+        repaint();
+    else
+        repaint (dirty);   // 再生ヘッドだけ動いた：前と今の位置の間だけ（録音中に伸びる波形もこの間）
+}
+
 TimeMap WaveLane::map() const
 {
     return lane::makeMap (state(), plot());
@@ -192,6 +210,36 @@ void WaveLane::mouseUp (const juce::MouseEvent& e)
 //==============================================================================
 void WaveLane::paint (juce::Graphics& g)
 {
+    if (getWidth() <= 0 || getHeight() <= 0)
+        return;
+
+    // 動かない部分は画像から（実際の画素の細かさで作る。125 % 表示などでぼやけないように）
+    const auto scale = juce::jmax (1.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+    const StaticKey key { getWidth(), getHeight(), skinSerial(), scale, textBoostAmount() };
+    if (staticDirty || ! staticLayer.isValid() || key.w != staticKey.w || key.h != staticKey.h || key.skin != staticKey.skin
+        || ! juce::exactlyEqual (key.scale, staticKey.scale) || ! juce::exactlyEqual (key.boost, staticKey.boost))
+    {
+        staticLayer = juce::Image (juce::Image::ARGB, juce::roundToInt ((float) getWidth() * scale), juce::roundToInt ((float) getHeight() * scale), true);
+        juce::Graphics ig (staticLayer);
+        ig.addTransform (juce::AffineTransform::scale (scale));
+        paintStatic (ig);
+        staticDirty = false;
+        staticKey = key;
+    }
+    g.drawImageTransformed (staticLayer, juce::AffineTransform::scale (1.0f / scale));
+
+    // 毎フレーム変わる物：録音中の帯と再生ヘッド
+    const auto& s = state();
+    const auto pl = plot();
+    const auto m = map();
+    juce::Graphics::ScopedSaveState save (g);
+    g.reduceClipRegion (pl.getSmallestIntegerContainer());
+    drawRecording (g, m, layoutRows().front());
+    lane::drawPlayhead (g, s, m, pl);
+}
+
+void WaveLane::paintStatic (juce::Graphics& g)
+{
     const auto& s = state();
     const auto bounds = getLocalBounds().toFloat();
     const auto pl = plot();
@@ -212,9 +260,6 @@ void WaveLane::paint (juce::Graphics& g)
 
         for (auto& row : rows)
             drawWave (g, m, row);
-
-        drawRecording (g, m, rows.front());
-        lane::drawPlayhead (g, s, m, pl);
     }
 
     // ガター（トラック名）

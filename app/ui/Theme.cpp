@@ -305,12 +305,20 @@ juce::Colour onRec()
 }
 }
 
+namespace
+{
+    int skinCounter = 0;
+}
+
 void applySkin (const skin::Skin& s)
 {
     for (int i = 0; i < skin::numTokens; ++i)
         *colours::tokens[i] = juce::Colour (s.colours[(size_t) i]);
     colours::light = colours::bg0.getPerceivedBrightness() > 0.5f;
+    ++skinCounter;
 }
+
+int skinSerial() { return skinCounter; }
 
 skin::Colours currentSkinColours()
 {
