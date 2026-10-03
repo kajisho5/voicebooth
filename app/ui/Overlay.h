@@ -78,10 +78,12 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void childBoundsChanged (juce::Component*) override;   // パネルが大きさを変えたら（書き出しのモードなど）置き直す
     void mouseDown (const juce::MouseEvent&) override;
 
 private:
     std::unique_ptr<juce::Component> content;
+    bool placing = false;
     bool dismissible = true;
     Placement placement = Placement::centre;
 };

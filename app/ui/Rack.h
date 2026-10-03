@@ -119,9 +119,19 @@ public:
 private:
     void onSessionChanged (juce::uint32 c) override { if (c & change::transport) repaint(); }
 
+    /** 段を並べる中身。窓が低くて段の最小の高さの合計に足りないときは、縦にスクロールする
+        （1366x768・1280x720 の画面で、モニターのフェーダーが消えたり録音の段が切れたりしていた。#18） */
+    struct Content : juce::Component
+    {
+        void paint (juce::Graphics&) override;
+        std::vector<juce::Component*> separated;   // 上に区切り線を引く段
+    };
+
     InputModule input;
     PracticeModule practice;
     MonitorModule monitor;
     RecordModule record;
+    Content content;
+    juce::Viewport viewport;
 };
 } // namespace vb

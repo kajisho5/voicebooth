@@ -161,6 +161,30 @@ namespace
 
         return cache[key] = face;
     }
+
+    /** OS のフォントで描くラテン文字の言語（ベトナム語・トルコ語）は、同じ高さだと同梱の Plex Sans JP より字が大きく出る
+        （JUCE の高さは ascent + descent で、和文フォントは上下が広い。Linux の DejaVu Sans で約 29 %。#19）。
+        同じ英数字の文の幅が同梱フォントとそろうよう、高さに掛ける比を求める（言語ごとに一度）。
+        韓国語・中国語は和文と同じ作りのフォントなのでそのまま */
+    float systemScale (i18n::Language lang)
+    {
+        if (lang != i18n::Language::vi && lang != i18n::Language::tr)
+            return 1.0f;
+        static std::map<int, float> cache;
+        if (auto it = cache.find ((int) lang); it != cache.end())
+            return it->second;
+
+        auto k = 1.0f;
+        if (auto face = systemTypeface (lang, Weight::regular))
+        {
+            const juce::String probe ("The quick brown fox jumps over the lazy dog 0123456789");
+            const auto sys = textWidth (juce::Font (juce::FontOptions (face).withHeight (100.0f)), probe);
+            const auto emb = textWidth (embeddedSans (100.0f, Weight::regular), probe);
+            if (sys > 0.0f && emb > 0.0f)
+                k = juce::jlimit (0.7f, 1.0f, emb / sys);
+        }
+        return cache[(int) lang] = k;
+    }
 }
 
 juce::Typeface::Ptr sansTypeface (Weight w)
@@ -208,7 +232,7 @@ namespace
     {
         if (! i18n::info (lang).embeddedFont)
             if (auto face = systemTypeface (lang, w))
-                return juce::Font (juce::FontOptions (face).withHeight (height));
+                return juce::Font (juce::FontOptions (face).withHeight (height * systemScale (lang)));
         return embeddedSans (height, w);
     }
 }
@@ -230,7 +254,7 @@ juce::Font sansIn (i18n::Language lang, float height, Weight w)
     height = sansHeight (height);
     if (! i18n::info (lang).embeddedFont)
         if (auto face = systemTypeface (lang, w))
-            return juce::Font (juce::FontOptions (face).withHeight (height));
+            return juce::Font (juce::FontOptions (face).withHeight (height * systemScale (lang)));
     return embeddedSans (height, w);
 }
 
