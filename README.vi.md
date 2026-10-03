@@ -42,7 +42,7 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 | Hệ điều hành | **Cả Windows và Mac** (Mac: Apple silicon và Intel). **Không có bản cho điện thoại hay máy tính bảng** |
 | Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: một bài 30 giây mất khoảng 2 phút trên CPU 4 nhân (ứng dụng hiển thị thời gian ước tính) |
 | Âm thanh có thể mở | **Chỉ file âm thanh trên máy của bạn** (wav / flac / aiff / ogg / mp3 / m4a). Không thể mở trực tiếp bài hát từ Spotify, Apple Music, YouTube Music hay dịch vụ streaming khác |
-| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Mô hình tách giọng và cao độ (khoảng 110 MB + 99 MB) chỉ được tải về **khi bạn bấm nút để dùng nó**. Không có gì được tải ngầm |
+| Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Mô hình tách giọng và cao độ (khoảng 210 MB) chỉ được tải về **khi bạn bấm nút để dùng nó**. Không có gì được tải ngầm |
 | Xử lý nặng | Tách giọng chỉ chạy **khi bạn bấm nút**. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |
 | Bè | Bạn có thể thu các track bè. Khi tách giọng mẫu, giọng chính và bè được chia riêng và **giọng mẫu bè (đường và giọng)** cũng được hiển thị (track bè được so với nó). Giọng mẫu lấy bằng bản gốc − karaoke cũng được chia, bằng cách tách giọng chính từ bản gốc sau đó (mất một chút thời gian) |
 | Âm thanh đã tách | Giọng hát và nhạc đệm đã tách là **để bạn tự luyện tập**. VoiceBooth không thay đổi quyền đối với bài hát gốc. Chỉ phân phối hoặc đăng tải (kể cả chia sẻ làm beat để cover) trong phạm vi chủ sở hữu quyền gốc cho phép |
@@ -75,8 +75,6 @@ Những tính năng sau chưa có trong bản beta (và không hiển thị tron
 
 - Tách những thứ khác ngoài giọng hát (guitar, trống, v.v.)
 
-> [!IMPORTANT]
-> Mô hình tách giọng **vẫn đang được chuẩn bị để phân phối** (đang chờ công bố danh sách mô hình có chữ ký). Trong lúc đó, bạn vẫn có thể dùng cặp bản gốc + karaoke để hiển thị đường mẫu, thu âm và xuất file.
 
 ### Người mix sẽ nhận được gì
 

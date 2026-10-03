@@ -75,8 +75,6 @@ Ces éléments ne sont pas encore dans la bêta (et ne sont pas affichés dans l
 
 - Séparation d'autre chose que la voix (guitare, batterie, etc.)
 
-> [!IMPORTANT]
-> Le modèle de séparation **est encore en préparation pour la distribution** (en attente de la publication de la liste de modèles signée). D'ici là, vous pouvez utiliser une paire original + karaoké pour afficher la ligne de référence, enregistrer et exporter.
 
 ### Ce que reçoit la personne qui mixe
 

@@ -42,7 +42,7 @@ Sing along to an instrumental, see your pitch on screen, re-record just the part
 | OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
 | Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
 | Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
-| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. The separation and pitch models (about 110 MB + 99 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
+| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. The separation and pitch models (about 210 MB) are downloaded **only when you press the button to use them**. Nothing is fetched behind your back |
 | Heavy processing | Separation runs **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
 | Harmonies | You can record harmony tracks. When the guide is separated, the lead vocal and harmonies are split and **a harmony guide (line and voice)** is shown too (a harmony track is compared against it). A guide taken as original − karaoke is split too, by extracting the lead from the original afterwards (takes a little while) |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
@@ -75,8 +75,6 @@ These are not in the beta yet (and are not shown in the app).
 
 - Separating anything other than vocals (guitar, drums and so on)
 
-> [!IMPORTANT]
-> The separation model is **still being prepared for distribution** (waiting for the signed model list to be published). Until then, you can still use an original + karaoke pair to show the reference line, record and export.
 
 ### What your mix engineer gets
 
@@ -98,6 +96,17 @@ The engine is the same; only what you see changes. A project made in one mode op
 | Easy mode | Pro mode (harmony) |
 |---|---|
 | ![Easy mode](docs/screenshots/mode-easy.png) | ![Pro mode harmony](docs/screenshots/mode-pro-harmony.png) |
+
+## How to use it
+
+1. **Install** the installer from [Releases](https://github.com/kajisho5/voicebooth/releases) (see Download below). On first launch, pick your language and a mode (easy / standard / pro); you can change both later in Settings.
+2. **Open a song**: drop the **off-vocal (karaoke)** track on the upper box of the start screen and, optionally, the **original with vocals** on the lower box. With the original, the timing is aligned automatically and the **guide pitch** appears on the piano roll. With only the original, use "Start from the original only" to separate it (the first time, you are asked before the models are downloaded). Reopening the same song continues where you left off.
+3. **Set up input**: the first time, input setup opens — device → level → latency measurement. **Use headphones.**
+4. **Practise**: **Space** plays / stops. Guide notes are blue bars; your voice is a line (lime when in tune, amber → red when off). Change **tempo / key** in PRACTICE (delivery takes go back to the original tempo and key). Drag on a lane (or `[` `]`) for IN / OUT, **L** to loop, drag the edges to adjust. **Ctrl / ⌘ + wheel** zooms.
+5. **Record**: arm a track card (Main / Double / Harm), press **R** to record and **R** or Space to stop. With a range, only that range is re-recorded (punch-in). **Ctrl / ⌘ + Z** undoes a take; **Esc** → "Discard" during recording throws it away. Use "Compare takes" to pick the best one.
+6. **Export**: "Export" at the top right → choose tracks → full-length WAV from the start of the song (24-bit mono, original sample rate). Standard and above can make a **delivery pack** (WAVs, check mix, notes, zip).
+
+If the guide line looks off, right-click the pitch lane for "10 ms earlier / later" or "Align here", and use "Hear original" to check by ear.
 
 ## Logo and design
 

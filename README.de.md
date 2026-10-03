@@ -42,7 +42,7 @@ Sing zu einem Instrumental, sieh deine Tonhöhe auf dem Bildschirm, nimm nur die
 | Betriebssystem | **Windows und Mac** (Mac: Apple Silicon und Intel). **Es gibt keine Version für Smartphone oder Tablet** |
 | Grafikkarte | **Nicht nötig.** Läuft nur mit der CPU. Schwer ist nur die Gesangstrennung: Ein 30-Sekunden-Song brauchte auf einer 4-Kern-CPU etwa 2 Minuten (die App zeigt eine geschätzte Dauer) |
 | Ladbares Audio | **Nur Audiodateien auf deinem Computer** (wav / flac / aiff / ogg / mp3 / m4a). Songs aus Spotify, Apple Music, YouTube Music oder anderen Streamingdiensten lassen sich nicht direkt laden |
-| Größe | Der Installer hat unter Windows etwa 13 MB und auf dem Mac etwa 40 MB. Das Trennungs- und das Tonhöhenmodell (etwa 110 MB + 99 MB) werden **nur geladen, wenn du den Button drückst, um sie zu nutzen**. Nichts wird heimlich heruntergeladen |
+| Größe | Der Installer hat unter Windows etwa 13 MB und auf dem Mac etwa 40 MB. Das Trennungs- und das Tonhöhenmodell (etwa 210 MB) werden **nur geladen, wenn du den Button drückst, um sie zu nutzen**. Nichts wird heimlich heruntergeladen |
 | Rechenintensives | Die Trennung läuft **nur, wenn du den Button drückst**. Die Songtext-Anzeige ist **standardmäßig aus** (in den Einstellungen einschalten) |
 | Harmonien | Du kannst Harmoniespuren aufnehmen. Wird die Referenz getrennt, werden Lead und Harmonien aufgeteilt und **eine Harmonie-Referenz (Linie und Stimme)** wird ebenfalls angezeigt (Harmoniespuren werden mit ihr verglichen). Auch eine per Original − Karaoke gewonnene Referenz wird aufgeteilt, indem danach der Lead aus dem Original geholt wird (dauert etwas) |
 | Getrenntes Audio | Getrennter Gesang und getrennte Begleitung sind **für dein persönliches Üben**. VoiceBooth ändert nichts an den Rechten am Originalsong. Verbreite oder veröffentliche sie (auch als Instrumental für Cover) nur, soweit die ursprünglichen Rechteinhaber es erlauben |
@@ -75,8 +75,6 @@ Das ist noch nicht in der Beta (und wird in der App nicht angezeigt).
 
 - Anderes als Gesang trennen (Gitarre, Schlagzeug usw.)
 
-> [!IMPORTANT]
-> Das Trennungsmodell wird **noch für die Verteilung vorbereitet** (wir warten auf die Veröffentlichung der signierten Modellliste). Bis dahin kannst du mit einem Paar aus Original + Karaoke trotzdem die Referenzlinie anzeigen, aufnehmen und exportieren.
 
 ### Was die Person bekommt, die mischt
 

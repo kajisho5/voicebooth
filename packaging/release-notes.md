@@ -17,6 +17,16 @@ English follows Japanese.
 - **Windows**：「Windows によって PC が保護されました」→「詳細情報」→「実行」
 - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く →「開けません」と出たら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」（開こうとしてから約 1 時間だけ出ます）→ パスワード
 
+## 0.2.0 で増えたもの
+
+- **分離のモデルを配布開始**：「分離モデルを入れる」を押すと、分離（BS-RoFormer ft1）・リードボーカル（BS-RoFormer karaoke）・音程（RMVPE）を署名を確かめてダウンロード（約 210 MB。押した時だけ）。原曲だけで始める・引けない組の分離が使えます
+- **ハモリのお手本**：分離した声をリードとハモリに分け、ハモリのトラックではハモリの線と比べる。お手本のハモリの声も聴ける
+- **ピアノロール**：左に鍵盤、半音ごとの段、お手本の音を段に揃えた音符の棒と音名。Ctrl / ⌘＋ホイールで横に拡大
+- **キー違いのカラオケ**：分離した声の線と声をカラオケのキーにずらして重ねる
+- **時間合わせの手直し**：ピッチレーンを右クリックで ±1 / ±10 ms、「ここで合わせる」。「原曲で聴く」でカラオケと聞き比べ。カット版は原曲に無い所に「お手本なし」
+- 範囲の端をつまんで動かす（拍・区間の頭に吸い付く）、書き出し前の「録っていない所」の確認、トラックの音量・M / S と練習のテンポ・キーをプロジェクトに保存、「このアプリについて」（ライセンス）
+- 直したもの：録音中 Esc →「破棄する」でテイクが残っていた、曲を開かずに起動すると見本の画面が出ていた、ほか
+
 ## 入っているもの
 
 - 手元の音声ファイル（wav / flac / aiff / ogg / mp3 / m4a）を開く。サブスクの曲は直接入れられません
@@ -33,11 +43,10 @@ English follows Japanese.
 
 ## まだのもの・注意
 
-- **分離のモデルは配布の準備中です。** それまでは「原曲だけで始める」は使えません（原曲＋カラオケの組は使えます）
-- ハモリのお手本は、リードボーカルのモデルを入れた時に出ます（お手本を入れた後、リードとハモリを分けるのに少し時間がかかります）
-- 歌詞の自動合わせ（音声認識）は入れていません（遅いため。.txt / .lrc の読み込みとタップで合わせるは使えます）
+- 作者の手元の実機（Windows / Mac）での確認はこれからです。おかしな所は [Issues](https://github.com/kajisho5/voicebooth/issues) へどうぞ
+- 歌詞の自動合わせ（音声認識）は入れていません（.txt / .lrc の読み込みとタップで合わせるは使えます）
+- 速さの違う版の原曲は、お手本の線を出しません（同じ速さの版を使ってください）
 - 分離した声・伴奏は個人の練習用です。配布・公開（歌ってみたのオフボとして配るのを含む）は、元の曲の権利者が許している範囲だけにしてください
-- 作者の手元の実機での確認はこれからです。おかしな所は [Issues](https://github.com/kajisho5/voicebooth/issues) へどうぞ
 
 ---
 
@@ -58,6 +67,16 @@ English follows Japanese.
 - **Windows**: "Windows protected your PC" → "More info" → "Run anyway"
 - **Mac**: move VoiceBooth from the DMG to Applications and open it once → if it says it can't be opened, go to System Settings → Privacy & Security → "Open Anyway" (shown for about an hour after the attempt) → enter your password
 
+## New in 0.2.0
+
+- **Separation models are now available**: "Install separation model" downloads separation (BS-RoFormer ft1), lead vocal (BS-RoFormer karaoke) and pitch (RMVPE) after checking their signature (about 210 MB, only when you press it). "Start from the original only" and separation for pairs that can't be subtracted now work
+- **Harmony guide**: the separated vocal is split into lead and harmony; harmony tracks are compared with the harmony line, and you can hear the harmony guide
+- **Piano roll**: a keyboard on the left, semitone rows, guide notes as bars on the rows with note names. Ctrl / ⌘ + wheel zooms horizontally
+- **Karaoke in a different key**: the separated guide line and vocal are shifted to the karaoke key
+- **Fixing the alignment**: right-click the pitch lane for ±1 / ±10 ms and "Align here"; "Hear original" to A/B against the karaoke; cut versions show "No guide" where the original has no match
+- Drag range edges (snaps to beats and section starts), a check for unrecorded parts before export, track volume / M / S and practice tempo / key saved in the project, an About / license screen
+- Fixes: Esc → "Discard" during recording kept the take; launching without a song showed the demo screen; and more
+
 ## What's in it
 
 - Opens audio files on your computer (wav / flac / aiff / ogg / mp3 / m4a). Songs from streaming services can't be added directly
@@ -74,8 +93,7 @@ English follows Japanese.
 
 ## Not yet / please note
 
-- **The separation model is still being prepared for download.** Until then, "start from the original only" is unavailable (the original + karaoke pair works).
-- The harmony guide appears when the lead-vocal model is installed (after a guide is added, splitting lead and harmonies takes a little while).
-- There is no automatic lyrics alignment (speech recognition was too slow). Loading .txt / .lrc and tap-to-sync work.
-- Separated vocals and backing are for personal practice. Only share or publish them (including as an off-vocal for a cover) where the rights holder of the original song allows it.
-- Real-hardware testing is still under way. Please report problems in [Issues](https://github.com/kajisho5/voicebooth/issues).
+- Not yet tested on the author's own Windows / Mac machines. Please report problems in [Issues](https://github.com/kajisho5/voicebooth/issues)
+- Automatic lyric alignment (speech recognition) is not included (loading .txt / .lrc and tap-to-sync work)
+- An original at a different speed gets no guide line (please use versions at the same speed)
+- Separated vocals and backing tracks are for personal practice. Distribute or publish them (including as an off-vocal track for covers) only as far as the rights holders of the original song allow

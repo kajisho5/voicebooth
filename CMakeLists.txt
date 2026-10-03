@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS version")
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "macOS architectures")
 
-project(VoiceBooth VERSION 0.1.0 LANGUAGES C CXX)
+project(VoiceBooth VERSION 0.2.0 LANGUAGES C CXX)
 
 # プレリリースの印（beta.1 → アプリの版は 0.1.0-beta.1）。CI がタグ（v0.1.0-beta.1）から付ける。手元のビルドは空（= 0.1.0）。
 # 更新の確認（DESIGN 11.7）が、いまの版がベータかどうか・どの版より新しいかを正しく比べるために使う
