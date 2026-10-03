@@ -322,6 +322,7 @@
   "range.title": "Stimmumfang messen",
   "record.countIn.noTempo": "Das Tempo ist unbekannt, daher startete die Aufnahme ohne Einzähler. Gib das BPM ein, um einzuzählen",
   "record.delivery": "Final",
+  "record.discarded": "Aufnahme verworfen (die Datei wurde gelöscht)",
   "record.done": "{1} auf {0} aufgenommen ({2})",
   "record.doneClip": "{1} auf {0} aufgenommen ({2}). Es hat geclippt",
   "record.donePractice": "Probe-Take {1} aufgenommen ({0}, {2}). Wird nicht abgegeben",

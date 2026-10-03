@@ -729,6 +729,13 @@ void UiSession::setPlaying (bool p)
     notify (change::transport);
 }
 
+void UiSession::discardRecording()
+{
+    if (! s.isRecording) return;
+    const juce::ScopedValueSetter<bool> discard (discarding, true);
+    setRecording (false);
+}
+
 void UiSession::setRecording (bool r)
 {
     if (s.isRecording == r) return;
@@ -903,6 +910,14 @@ void UiSession::finishRecording()
     const auto res = engine->stopRecording();
     syncLoopToEngine();   // ループを元に戻す
     juce::ignoreUnused (loopBeforeRecording);
+
+    if (discarding)
+    {
+        res.file.deleteFile();   // 破棄を選んだ：採用もテイクの一覧にも入れない
+        s.recordEnd = -1;
+        postNotice (tr ("record.discarded"));
+        return;
+    }
 
     const auto type = s.recordingTrack;
     const auto id = s.recordingTake;

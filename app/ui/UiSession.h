@@ -90,6 +90,8 @@ public:
     // --- 輸送 ---------------------------------------------------------------
     void setPlaying (bool);
     void setRecording (bool);
+    /** 録音を止めて、いま録っているテイクを捨てる（Esc →「破棄する」。ファイルも消し、採用もしない） */
+    void discardRecording();
     void stop();
     void goToStart();
     void seek (int64 sample);
@@ -393,6 +395,7 @@ private:
 
     // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
     bool shadowActive = false;
+    bool discarding = false;     // discardRecording の間だけ：止めたテイクを捨てる
     juce::File shadowFile;
     int shadowSerial = 0;
     std::vector<audio::PitchFrame> pitchFrames;   // 取り出し用（毎回確保しない）

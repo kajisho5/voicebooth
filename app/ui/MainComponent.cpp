@@ -628,7 +628,7 @@ void MainComponent::confirmDiscardRecording()
 {
     showConfirm (tr ("confirm.discard.title"), tr ("confirm.discard.message"),
                  {
-                     { tr ("confirm.discard.yes"), DialogPanel::KeyRole::danger, [this] { session.setRecording (false); } },
+                     { tr ("confirm.discard.yes"), DialogPanel::KeyRole::danger, [this] { session.discardRecording(); } },
                      { tr ("confirm.discard.no"), DialogPanel::KeyRole::normal, {} },
                  });
 }

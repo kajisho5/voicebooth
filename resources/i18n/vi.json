@@ -322,6 +322,7 @@
   "range.title": "Đo âm vực",
   "record.countIn.noTempo": "Chưa biết tempo nên đã thu mà không đếm vào. Nhập BPM để đếm vào",
   "record.delivery": "Chính thức",
+  "record.discarded": "Đã hủy bản thu (tệp cũng đã bị xóa)",
   "record.done": "Đã thu {1} vào {0} ({2})",
   "record.doneClip": "Đã thu {1} vào {0} ({2}). Bị clip",
   "record.donePractice": "Đã thu bản tập dượt {1} ({0}, {2}). Sẽ không bàn giao",

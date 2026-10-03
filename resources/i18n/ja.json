@@ -322,6 +322,7 @@
   "range.title": "声域を測る",
   "record.countIn.noTempo": "テンポが分からないので、カウントインなしで録り始めました。BPM を入れると数えられます",
   "record.delivery": "本番",
+  "record.discarded": "録音を破棄しました（ファイルも消しました）",
   "record.done": "{0} の {1} を録りました（{2}）",
   "record.doneClip": "{0} の {1} を録りました（{2}）。割れ（クリップ）があります",
   "record.donePractice": "リハーサルのテイク {1}（{0}、{2}）を録りました。納品には入りません",

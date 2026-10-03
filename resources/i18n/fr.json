@@ -322,6 +322,7 @@
   "range.title": "Mesurer votre tessiture",
   "record.countIn.noTempo": "Le tempo est inconnu : l’enregistrement a démarré sans décompte. Saisissez le BPM pour décompter",
   "record.delivery": "Finale",
+  "record.discarded": "Enregistrement abandonné (le fichier a été supprimé)",
   "record.done": "{1} enregistrée sur {0} ({2})",
   "record.doneClip": "{1} enregistrée sur {0} ({2}). Il y a eu écrêtage",
   "record.donePractice": "Prise de répétition {1} enregistrée ({0}, {2}). Elle ne sera pas livrée",

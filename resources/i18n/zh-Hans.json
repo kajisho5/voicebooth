@@ -322,6 +322,7 @@
   "range.title": "测量音域",
   "record.countIn.noTempo": "还不知道速度，已在没有预备拍的情况下开始录音。输入 BPM 后即可数拍",
   "record.delivery": "正式",
+  "record.discarded": "已丢弃录音（文件也已删除）",
   "record.done": "已录制 {0} 的 {1}（{2}）",
   "record.doneClip": "已录制 {0} 的 {1}（{2}）。有削波（爆音）",
   "record.donePractice": "已录制彩排录音 {1}（{0}，{2}），不会放进交付",

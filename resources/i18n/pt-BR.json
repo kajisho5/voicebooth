@@ -322,6 +322,7 @@
   "range.title": "Medir sua extensão",
   "record.countIn.noTempo": "O andamento não é conhecido, então a gravação começou sem contagem. Informe o BPM para contar",
   "record.delivery": "Final",
+  "record.discarded": "Gravação descartada (o arquivo foi excluído)",
   "record.done": "{1} gravado em {0} ({2})",
   "record.doneClip": "{1} gravado em {0} ({2}). Houve clipping",
   "record.donePractice": "Take de ensaio {1} gravado ({0}, {2}). Não será entregue",

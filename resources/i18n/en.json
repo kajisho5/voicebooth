@@ -322,6 +322,7 @@
   "range.title": "Measure your range",
   "record.countIn.noTempo": "The tempo isn't known, so recording started without a count-in. Enter the BPM to count in",
   "record.delivery": "Final",
+  "record.discarded": "Recording discarded (the file was deleted)",
   "record.done": "Recorded {1} on {0} ({2})",
   "record.doneClip": "Recorded {1} on {0} ({2}). It clipped",
   "record.donePractice": "Recorded rehearsal take {1} ({0}, {2}). It won’t be delivered",

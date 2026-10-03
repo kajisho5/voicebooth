@@ -322,6 +322,7 @@
   "range.title": "Ukur rentang Anda",
   "record.countIn.noTempo": "Tempo belum diketahui, jadi perekaman dimulai tanpa hitungan awal. Masukkan BPM untuk memakai hitungan",
   "record.delivery": "Final",
+  "record.discarded": "Rekaman dibuang (file sudah dihapus)",
   "record.done": "{1} direkam di {0} ({2})",
   "record.doneClip": "{1} direkam di {0} ({2}). Terjadi clipping",
   "record.donePractice": "Take latihan {1} direkam ({0}, {2}). Tidak akan diserahkan",

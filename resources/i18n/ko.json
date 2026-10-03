@@ -322,6 +322,7 @@
   "range.title": "음역 측정",
   "record.countIn.noTempo": "템포를 알 수 없어 카운트인 없이 녹음을 시작했습니다. BPM을 입력하면 셀 수 있습니다",
   "record.delivery": "본녹음",
+  "record.discarded": "녹음을 버렸습니다 (파일도 삭제했습니다)",
   "record.done": "{0}의 {1}을(를) 녹음했습니다 ({2})",
   "record.doneClip": "{0}의 {1}을(를) 녹음했습니다 ({2}). 클리핑이 있습니다",
   "record.donePractice": "리허설 테이크 {1}({0}, {2})를 녹음했습니다. 납품에는 들어가지 않습니다",

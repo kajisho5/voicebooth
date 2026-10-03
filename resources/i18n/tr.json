@@ -322,6 +322,7 @@
   "range.title": "Ses aralığınızı ölçün",
   "record.countIn.noTempo": "Tempo bilinmiyor, bu yüzden kayıt saymadan başladı. Saymak için BPM girin",
   "record.delivery": "Final",
+  "record.discarded": "Kayıt atıldı (dosya silindi)",
   "record.done": "{0} kanalına {1} kaydedildi ({2})",
   "record.doneClip": "{0} kanalına {1} kaydedildi ({2}). Clip oldu",
   "record.donePractice": "Prova take'i {1} kaydedildi ({0}, {2}). Teslim edilmeyecek",

@@ -322,6 +322,7 @@
   "range.title": "Medir tu tesitura",
   "record.countIn.noTempo": "No se conoce el tempo, así que la grabación empezó sin cuenta previa. Escribe el BPM para contar",
   "record.delivery": "Final",
+  "record.discarded": "Grabación descartada (se eliminó el archivo)",
   "record.done": "Grabada {1} en {0} ({2})",
   "record.doneClip": "Grabada {1} en {0} ({2}). Saturó",
   "record.donePractice": "Grabada la toma de ensayo {1} ({0}, {2}). No se entregará",
