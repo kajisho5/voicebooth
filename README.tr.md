@@ -28,6 +28,28 @@
 **Yalnızca cover kaydı için yapılmış küçük bir vokal DAW'ı.**
 Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca düzeltmek istediğiniz yerleri yeniden kaydedin ve miks yapan kişinin doğrudan kendi DAW'ına bırakabileceği bir WAV dışa aktarın. Yaptığı bu kadar. Genel amaçlı bir DAW değildir.
 
+## İndirme (ücretsiz)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%C4%B0ndir-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows için indir"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%C4%B0ndir-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac için indir"></a>
+</p>
+
+| Bilgisayar | Dosya (kaydetmek için tıklayın) | Boyut |
+|---|---|---|
+| Windows 10 / 11 (64 bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | yaklaşık 13 MB |
+| Mac (macOS 11 ve sonrası, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | yaklaşık 40 MB |
+
+Güncel sürüm **0.2.0 beta 2**. Değişiklikler ve eski sürümler [sürümler sayfasında](https://github.com/kajisho5/voicebooth/releases). Telefon veya tablet sürümü yoktur.
+
+### İlk kez mi? Üç adım
+
+1. **Dosyayı kaydetmek için yukarıdaki düğmeye tıklayın**, sonra kaydedilen dosyaya çift tıklayıp kurun
+2. **Bir uyarı çıkarsa** (beta henüz kod imzalı değil, bu yüzden yalnızca ilk açılışta çıkar)
+   - **Windows**: "Windows bilgisayarınızı korudu" görürseniz "Ek bilgi" → "Yine de çalıştır"a tıklayın
+   - **Mac**: VoiceBooth'u DMG'den Uygulamalar klasörüne taşıyın ve bir kez açın → macOS açılamayacağını söylerse Sistem Ayarları → Gizlilik ve Güvenlik → Güvenlik bölümünde "Yine de Aç"a tıklayın (düğme, uygulamayı açmayı denedikten sonra yaklaşık bir saat görünür) → parolanızı girin ([Apple'ın açıklaması](https://support.apple.com/tr-tr/guide/mac-help/mh40616/mac))
+3. **Uygulama açılınca** dili ve bir modu seçin. "Ayırma modelini indir" çıkınca İndir'e basın (yaklaşık 210 MB, yalnızca ilk sefer; rehberin perdesi ve armonisi ile yalnızca orijinalden başlamak için kullanılır)
+
 ![VoiceBooth ana ekranı](docs/screenshots/main-en.png)
 
 > Bu ekran görüntüsü, örnek verilerden çizilmiş bir geliştirme maketidir. Gerçek şarkılarla görünüm hâlâ iyileştiriliyor ve farklı görünebilir.
@@ -42,7 +64,7 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 | İşletim sistemi | **Hem Windows hem Mac** (Mac: Apple silicon ve Intel). **Telefon veya tablet sürümü yoktur** |
 | Ekran kartı | **Gerekmez.** Yalnızca CPU ile çalışır. Tek ağır iş vokal ayırmadır: 30 saniyelik bir şarkı 4 çekirdekli bir CPU'da yaklaşık 2 dakika sürdü (uygulama tahmini süreyi gösterir) |
 | Yüklenebilen ses | **Yalnızca bilgisayarınızdaki ses dosyaları** (wav / flac / aiff / ogg / mp3 / m4a). Spotify, Apple Music, YouTube Music veya diğer akış hizmetlerindeki şarkılar doğrudan yüklenemez |
-| Boyut | Kurulum dosyası Windows'ta yaklaşık 13 MB, Mac'te yaklaşık 40 MB. Ayırma ve perde modelleri (yaklaşık 210 MB) **yalnızca kullanmak için düğmeye bastığınızda** indirilir. Arka planda gizlice hiçbir şey indirilmez |
+| Boyut | Kurulum dosyası Windows'ta yaklaşık 13 MB, Mac'te yaklaşık 40 MB. Ayırma ve perde modelleri (yaklaşık 210 MB) yoksa uygulama açılışta sorar ve onları **yalnızca İndir'e bastığınızda** indirir (Sonra'yı da seçebilirsiniz). Model listesini kontrol etmek dışında arka planda gizlice hiçbir şey indirilmez |
 | Ağır işlemler | Ayırma **yalnızca düğmeye bastığınızda** çalışır. Şarkı sözü gösterimi **varsayılan olarak kapalıdır** (Ayarlar'dan açın) |
 | Armoniler | Armoni kanalları kaydedebilirsiniz. Referans ayrıldığında ana vokal ve armoniler ayrılır ve **bir armoni referansı (çizgi ve ses)** da gösterilir (armoni kanalları onunla karşılaştırılır). Orijinal − karaoke ile alınan referans da, ardından orijinalden ana vokal çıkarılarak ayrılır (biraz sürer) |
 | Ayrılan ses | Ayrılan vokal ve eşlik **kişisel pratiğiniz içindir**. VoiceBooth orijinal şarkının haklarını değiştirmez. Yalnızca orijinal hak sahiplerinin izin verdiği ölçüde dağıtın veya yayınlayın (cover için altyapı olarak paylaşmak dahil) |
@@ -74,7 +96,6 @@ Bir altyapı eşliğinde şarkı söyleyin, perdenizi ekranda görün, yalnızca
 Bunlar henüz betada yok (ve uygulamada gösterilmez).
 
 - Vokal dışındakileri ayırma (gitar, davul vb.)
-
 
 ### Miks yapan kişiye ne gider
 
@@ -151,15 +172,6 @@ Logo kullanım kuralları (boşluk alanı, en küçük boyut, açık zemin sür�
 - Bluetooth kulaklıkların gecikmesi kayıt için fazla yüksektir
 - Windows on Arm test edilmedi
 - Bu rakamlar geliştirme sırasındaki çalışma tahminleridir. Gerekçesi [`docs/DESIGN.md`](docs/DESIGN.md) bölüm 11.6.1'dedir (Japonca)
-
-## İndirme
-
-Windows için `VoiceBooth-<version>-win-x64-setup.exe` veya Mac için `VoiceBooth-<version>-mac-universal.dmg` dosyasını [Releases](https://github.com/kajisho5/voicebooth/releases) sayfasından alın.
-
-Beta henüz **kod imzalı değil**, bu yüzden ilk açılışta işletim sisteminiz bir uyarı gösterir.
-
-- **Windows**: "Windows bilgisayarınızı korudu" görürseniz "Ek bilgi" → "Yine de çalıştır"a tıklayın
-- **Mac**: VoiceBooth'u DMG'den Uygulamalar klasörüne taşıyın ve bir kez açın → macOS açılamayacağını söylerse Sistem Ayarları → Gizlilik ve Güvenlik → Güvenlik bölümünde "Yine de Aç"a tıklayın (düğme, uygulamayı açmayı denedikten sonra yaklaşık bir saat görünür) → parolanızı girin ([Apple'ın açıklaması](https://support.apple.com/tr-tr/guide/mac-help/mh40616/mac))
 
 ## Geliştirmeyi destekleyin
 

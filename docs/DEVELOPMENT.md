@@ -122,7 +122,7 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 ## リリースの出し方
 
 1. `CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` を出すバージョンにする（インストーラーの名前もこのバージョンになる）
-2. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す
+2. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す。README（12 言語）冒頭の「ダウンロード」の欄のリンク（タグ `v…` とファイル名）と「いまの版」を新しい版にする（ボタンはその版のファイルを直接指す。プレリリースは `releases/latest` に出ないため）
 3. バージョンのタグを push する：`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`
 4. CI（`.github/workflows/build.yml`）が Win / Mac を作ってテストし、`release` ジョブが GitHub のリリースを作って `VoiceBooth-<バージョン>-win-x64-setup.exe` と `VoiceBooth-<バージョン>-mac-universal.dmg` を付ける。タグの `v` の後ろ（`-` より前）が CMake のバージョンと違えば止まる。`-` の入るタグはプレリリース
 

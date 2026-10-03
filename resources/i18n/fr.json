@@ -258,7 +258,7 @@
   "model.retry": "Retélécharger",
   "model.role": "séparation voix / instrumental",
   "model.space": "Espace libre : {0} (suffisant)",
-  "model.sub": "Pour séparer un mix complet en instrumental et voix, le modèle est téléchargé une seule fois. Ensuite, il est prêt immédiatement.",
+  "model.sub": "Nécessaire pour séparer un morceau en instrumental et voix et afficher la hauteur et l’harmonie du guide. Téléchargé une seule fois.",
   "model.title": "Télécharger le modèle de séparation",
   "model.verified": "Vérifié (SHA-256 identique)",
   "model.verify": "Vérifié (SHA-256) avant utilisation",

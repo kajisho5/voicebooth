@@ -258,7 +258,7 @@
   "model.retry": "Erneut laden",
   "model.role": "Trennung von Gesang / Instrumental",
   "model.space": "Freier Speicher: {0} (genug)",
-  "model.sub": "Um einen fertigen Mix in Instrumental und Gesang zu trennen, wird das Modell einmal heruntergeladen. Danach ist es sofort bereit.",
+  "model.sub": "Nötig, um einen Song in Instrumental und Gesang zu trennen und Tonhöhe und Harmonie der Vorlage zu zeigen. Wird nur einmal geladen.",
   "model.title": "Trennungsmodell herunterladen",
   "model.verified": "Geprüft (SHA-256 stimmt)",
   "model.verify": "Wird vor der Nutzung geprüft (SHA-256)",

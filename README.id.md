@@ -28,6 +28,28 @@
 **DAW vokal kecil yang dibuat khusus untuk merekam lagu cover.**
 Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hanya bagian yang ingin diperbaiki, lalu ekspor WAV yang bisa langsung dimasukkan mixing engineer ke DAW-nya. Hanya itu yang dilakukannya. Ini bukan DAW serbaguna.
 
+## Unduh (gratis)
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Unduh-C6EE6A?style=for-the-badge&labelColor=141311" alt="Unduh untuk Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Unduh-C6EE6A?style=for-the-badge&labelColor=141311" alt="Unduh untuk Mac"></a>
+</p>
+
+| Komputer | File (klik untuk menyimpan) | Ukuran |
+|---|---|---|
+| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | sekitar 13 MB |
+| Mac (macOS 11 atau lebih baru, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | sekitar 40 MB |
+
+Versi saat ini **0.2.0 beta 2**. Perubahan dan versi lama ada di [halaman rilis](https://github.com/kajisho5/voicebooth/releases). Tidak ada versi ponsel atau tablet.
+
+### Pertama kali? Tiga langkah
+
+1. **Klik tombol di atas untuk menyimpan file**, lalu klik dua kali file yang disimpan untuk memasang
+2. **Jika muncul peringatan** (versi beta belum ditandatangani kode, jadi hanya muncul saat pertama kali dibuka)
+   - **Windows**: jika muncul "Windows melindungi PC Anda", klik "Info selengkapnya" → "Jalankan saja"
+   - **Mac**: pindahkan VoiceBooth dari DMG ke folder Aplikasi lalu buka sekali → jika macOS bilang tidak bisa dibuka, buka Pengaturan Sistem → Privasi & Keamanan → di bagian Keamanan, klik "Tetap Buka" (tombol muncul sekitar satu jam setelah Anda mencoba membuka aplikasi) → masukkan kata sandi ([petunjuk Apple](https://support.apple.com/id-id/guide/mac-help/mh40616/mac))
+3. **Saat aplikasi terbuka**, pilih bahasa dan mode. Saat muncul "Unduh model pemisahan", tekan Unduh (sekitar 210 MB, hanya pertama kali; dipakai untuk nada dan harmoni panduan serta memulai hanya dari lagu asli)
+
 ![Layar utama VoiceBooth](docs/screenshots/main-en.png)
 
 > Tangkapan layar ini adalah mock-up pengembangan yang digambar dari data contoh. Tampilan dengan lagu sungguhan masih terus diperbaiki dan bisa terlihat berbeda.
@@ -42,7 +64,7 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 | OS | **Windows dan Mac** (Mac: Apple silicon dan Intel). **Tidak ada versi ponsel atau tablet** |
 | Kartu grafis | **Tidak perlu.** Berjalan hanya dengan CPU. Yang berat hanya pemisahan vokal: lagu 30 detik butuh sekitar 2 menit di CPU 4 core (aplikasi menampilkan perkiraan waktunya) |
 | Audio yang bisa dimuat | **Hanya file audio di komputer Anda** (wav / flac / aiff / ogg / mp3 / m4a). Lagu dari Spotify, Apple Music, YouTube Music, atau layanan streaming lain tidak bisa dimuat langsung |
-| Ukuran | Installer sekitar 13 MB di Windows dan sekitar 40 MB di Mac. Model pemisahan dan nada (sekitar 210 MB) diunduh **hanya saat Anda menekan tombol untuk memakainya**. Tidak ada yang diunduh diam-diam |
+| Ukuran | Installer sekitar 13 MB di Windows dan sekitar 40 MB di Mac. Jika model pemisahan dan nada (sekitar 210 MB) belum ada, aplikasi menawarkannya saat dibuka dan mengunduhnya **hanya saat Anda menekan Unduh** (bisa juga pilih Nanti). Selain memeriksa daftar model, tidak ada yang diunduh diam-diam |
 | Proses berat | Pemisahan berjalan **hanya saat Anda menekan tombolnya**. Tampilan lirik **mati secara default** (nyalakan di Pengaturan) |
 | Harmoni | Anda bisa merekam trek harmoni. Saat panduan dipisahkan, vokal utama dan harmoni dipisah dan **panduan harmoni (garis dan suara)** juga ditampilkan (trek harmoni dibandingkan dengannya). Panduan yang diambil dari lagu asli − karaoke juga dipisah, dengan mengambil vokal utama dari lagu asli setelahnya (butuh sedikit waktu) |
 | Audio hasil pemisahan | Vokal dan iringan hasil pemisahan **untuk latihan pribadi Anda**. VoiceBooth tidak mengubah hak atas lagu aslinya. Sebarkan atau publikasikan (termasuk membagikannya sebagai instrumental untuk cover) hanya sejauh diizinkan pemegang hak aslinya |
@@ -74,7 +96,6 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 Fitur berikut belum ada di beta (dan tidak ditampilkan di aplikasi).
 
 - Memisahkan selain vokal (gitar, drum, dan sebagainya)
-
 
 ### Yang diterima mixing engineer Anda
 
@@ -151,15 +172,6 @@ Aturan pemakaian logo (ruang kosong, ukuran minimum, versi untuk latar terang) d
 - Earphone dan headphone Bluetooth latensinya terlalu tinggi untuk merekam
 - Windows on Arm belum diuji
 - Angka-angka ini perkiraan kerja selama pengembangan. Alasannya ada di bagian 11.6.1 [`docs/DESIGN.md`](docs/DESIGN.md) (bahasa Jepang)
-
-## Unduh
-
-Ambil `VoiceBooth-<version>-win-x64-setup.exe` untuk Windows atau `VoiceBooth-<version>-mac-universal.dmg` untuk Mac dari [Releases](https://github.com/kajisho5/voicebooth/releases).
-
-Versi beta **belum ditandatangani (code signing)**, jadi OS Anda menampilkan peringatan saat pertama kali dibuka.
-
-- **Windows**: jika muncul "Windows melindungi PC Anda", klik "Info selengkapnya" → "Jalankan saja"
-- **Mac**: pindahkan VoiceBooth dari DMG ke folder Aplikasi lalu buka sekali → jika macOS bilang tidak bisa dibuka, buka Pengaturan Sistem → Privasi & Keamanan → di bagian Keamanan, klik "Tetap Buka" (tombol muncul sekitar satu jam setelah Anda mencoba membuka aplikasi) → masukkan kata sandi ([petunjuk Apple](https://support.apple.com/id-id/guide/mac-help/mh40616/mac))
 
 ## Dukung pengembangan
 

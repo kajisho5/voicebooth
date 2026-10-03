@@ -64,8 +64,10 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
                 firstRun = false;
                 resized();
                 repaint();
+                if (onModeChosen) onModeChosen();
                 return;
             }
+            if (onModeChosen) onModeChosen();
             if (onDone) onDone();
         };
         addChildComponent (k);
@@ -103,11 +105,8 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
 
 bool StartScreen::canInstallModels() const
 {
-    using DS = models::DownloadStatus::Stage;
-    const auto stage = state().modelDl.stage;
-    return state().engineAttached && ! session.separationAvailable()
-        && separation::SeparatorClient::executable().existsAsFile() && ! models::trustedKeys().empty()
-        && stage != (int) DS::downloading && stage != (int) DS::verifying;
+    // 分離・リードボーカル・音程のどれかがまだ無い（受け取り中は出さない）
+    return session.modelsMissing();
 }
 
 StartScreen::~StartScreen()

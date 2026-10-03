@@ -258,7 +258,7 @@
   "model.retry": "Volver a descargar",
   "model.role": "separación de voz / instrumental",
   "model.space": "Espacio libre: {0} (suficiente)",
-  "model.sub": "Para dividir una mezcla completa en instrumental y voz, el modelo se descarga una sola vez. Después está listo al instante.",
+  "model.sub": "Necesario para separar una canción en instrumental y voz y mostrar la afinación y la armonía de la guía. Se descarga una sola vez.",
   "model.title": "Descargar el modelo de separación",
   "model.verified": "Verificado (SHA-256 coincide)",
   "model.verify": "Se comprueba (SHA-256) antes de usarlo",
