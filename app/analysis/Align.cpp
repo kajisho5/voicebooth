@@ -271,7 +271,7 @@ AlignResult alignReference (const float* ref, juce::int64 refLen, const float* k
 
         if (corr > 0.3)
         {
-            segs.push_back ({ karStart, karEnd, r.offsetSamples });
+            segs.push_back ({ karStart, karEnd, r.offsetSamples, r.tempoRatio });   // 全体の速さの比も持つ（2026-10-03）
             continue;
         }
 
@@ -343,7 +343,8 @@ AlignResult alignReference (const float* ref, juce::int64 refLen, const float* k
     for (auto& s : segs)
     {
         if (! r.covered.empty() && r.covered.back().karaokeEnd == s.karaokeStart
-            && std::llabs (r.covered.back().offsetSamples - s.offsetSamples) <= 2)
+            && std::llabs (r.covered.back().offsetSamples - s.offsetSamples) <= 2
+            && std::abs (r.covered.back().tempoRatio - s.tempoRatio) < 1.0e-9)
             r.covered.back().karaokeEnd = s.karaokeEnd;
         else
             r.covered.push_back (s);

@@ -219,8 +219,23 @@ RefPitchResult pitchFromVocals (const float* vocals, int64 vocalsLength, int64 k
             for (int i = 0; i < n; ++i)
             {
                 const auto k = a + i;
-                const auto r = k + c.offsetSamples;   // 原曲の位置
-                chunk[(size_t) i] = r >= 0 && r < vocalsLength ? vocals[r] : 0.0f;
+                // 原曲の位置。速さが少し違う（tempoRatio ≠ 1）と、ずれは時間とともに広がる：比も掛けて、間は直線で補う
+                // （前は offset だけで、200 秒で 0.1〜0.2 秒ずれていた。監査 2026-10-03）
+                float v = 0.0f;
+                if (std::abs (c.tempoRatio - 1.0) < 1.0e-12)
+                {
+                    const auto r = k + c.offsetSamples;
+                    v = r >= 0 && r < vocalsLength ? vocals[r] : 0.0f;
+                }
+                else
+                {
+                    const auto rp = c.referencePosition (k);
+                    const auto r0 = (int64) std::floor (rp);
+                    const auto f = (float) (rp - (double) r0);
+                    const auto at = [&] (int64 j) { return j >= 0 && j < vocalsLength ? vocals[j] : 0.0f; };
+                    v = at (r0) + (at (r0 + 1) - at (r0)) * f;
+                }
+                chunk[(size_t) i] = v;
                 pos[(size_t) i] = k;
                 if (vocalsOut != nullptr)
                     (*vocalsOut)[(size_t) k] = chunk[(size_t) i];

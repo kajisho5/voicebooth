@@ -510,6 +510,9 @@ void UiSession::conformSong()
             for (auto& sec : s.project.sections) sec.startSample = scale (sec.startSample);
             for (auto& p : s.myPitch) p.sample = scale (p.sample);
             for (auto& p : s.refPitch) p.sample = scale (p.sample);
+            // ハモリのお手本の線と「お手本が使える区間」も同じ時間軸にそろえる（前はそのままで、44.1→48 kHz なら 8.8% ずれていた。監査 2026-10-03）
+            for (auto& p : s.refPitchHarm) p.sample = scale (p.sample);
+            for (auto& c : s.guideCovered) c = { scale (c.first), scale (c.second) };
             for (auto& l : s.project.lyrics.lines) { l.startSample = scaleTimed (l.startSample); l.endSample = scaleTimed (l.endSample); }
             s.project.sampleRate = target;
             s.project.lengthSamples = audio->length();
@@ -1362,18 +1365,23 @@ namespace
             return out;
         }
 
-        // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 + offset。速さが違うバージョンは作らない）
-        if (std::abs (align.tempoRatio - 1.0) < 0.001)
+        // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 × tempoRatio + offset。間は直線で補う）
+        // 速さの比も掛ける（前は offset だけで、0.1% 違うと 4 分で約 0.24 秒ずれていた。監査 2026-10-03）
         {
             auto o = std::make_shared<audio::SongAudio>();
             o->sampleRate = rate;
             o->buffer.setSize (1, (int) kar.size());
             o->buffer.clear();
+            const auto refLen = (juce::int64) ref.size();
             for (juce::int64 i = 0; i < (juce::int64) kar.size(); ++i)
             {
-                const auto j = i + align.offsetSamples;
-                if (j >= 0 && j < (juce::int64) ref.size())
-                    o->buffer.setSample (0, (int) i, ref[(size_t) j]);
+                const auto rp = align.referencePosition (i);
+                const auto j = (juce::int64) std::floor (rp);
+                if (j < 0 || j >= refLen)
+                    continue;
+                const auto f = (float) (rp - (double) j);
+                const auto a = ref[(size_t) j], b = j + 1 < refLen ? ref[(size_t) (j + 1)] : a;
+                o->buffer.setSample (0, (int) i, a + (b - a) * f);
             }
             out.original = o;
         }
