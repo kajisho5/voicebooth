@@ -268,7 +268,11 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     {
         separationOfferSeen = state().separationOfferSerial;
         const auto minutes = juce::jmax (1, juce::roundToInt (session.separationEstimateSeconds() / 60.0));
-        showConfirm (tr ("separation.confirm.title"), tr ("separation.confirm.message", minutes),
+        const auto key = state().guideKaraokeKey;
+        const auto message = key != 0 ? tr ("separation.confirm.messageKey", minutes,
+                                            (key > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (key)))
+                                      : tr ("separation.confirm.message", minutes);
+        showConfirm (tr ("separation.confirm.title"), message,
                      {
                          { tr ("separation.confirm.yes"), DialogPanel::KeyRole::primary, [this] { session.separateGuide(); } },
                          { tr ("separation.confirm.later"), DialogPanel::KeyRole::normal, {} },

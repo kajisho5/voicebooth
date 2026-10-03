@@ -1200,6 +1200,12 @@ namespace
         return m;
     }
 
+    /** 半音の差の表示（+2 / −2） */
+    juce::String signedSemitones (int k)
+    {
+        return (k > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (k));
+    }
+
     GuideOutcome analyseGuide (const juce::File& file, const audio::SongAudio& backing)
     {
         GuideOutcome out;
@@ -1270,6 +1276,7 @@ void UiSession::loadGuide (const juce::File& file)
 
     s.guideBusy = true;
     s.guideName = file.getFileName();
+    s.guideKaraokeKey = 0;
 
     // 原曲もプロジェクトの中にコピーして持つ（次に開いた時に合わせ直す。書き出しやプロジェクトの外には出さない。B14）
     if (file.isAChildOf (s.projectFolder))
@@ -1319,9 +1326,12 @@ void UiSession::loadGuide (const juce::File& file)
                 case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
                 case Kind::notAligned:      postNotice (tr ("guide.problem.notAligned")); break;
                 case Kind::needsSeparation:
-                    // 引き算では声が取れない：分離（B16）が使えれば勧める。モデルが無ければ理由と「分離モデルを入れる」キー
-                    // （ダウンロードは使う人が押した時だけ。勝手に始めない・この知らせを出すだけ）
+                case Kind::keyShift:
+                    // 引き算では声が取れない（ミックス違い・キー違いのカラオケ）：分離（B16）が使えれば勧める。
+                    // キー違いは分離した声の線をカラオケのキーにずらして重ねる（DESIGN 7.1.1）。
+                    // モデルが無ければ理由と「分離モデルを入れる」キー（ダウンロードは使う人が押した時だけ。勝手に始めない・この知らせを出すだけ）
                     s.guideNeedsSeparation = true;
+                    s.guideKaraokeKey = out->kind == Kind::keyShift ? out->keyShift : 0;
                     if (separationAvailable() && separationCached())
                         separateGuide();   // 前に分離した結果がある：聞かずにそれを使う（数秒）
                     else if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); }
@@ -1329,10 +1339,10 @@ void UiSession::loadGuide (const juce::File& file)
                     {
                         if (separation::SeparatorClient::executable().existsAsFile() && ! models::trustedKeys().empty())
                             s.modelDl.noticeSerial = s.noticeSerial + 1;
-                        postNotice (tr ("separation.noModel"));
+                        postNotice (s.guideKaraokeKey != 0 ? tr ("separation.noModelKey", signedSemitones (s.guideKaraokeKey))
+                                                           : tr ("separation.noModel"));
                     }
                     break;
-                case Kind::keyShift:        postNotice (tr ("guide.problem.keyShift", (out->keyShift > 0 ? "+" : "") + juce::String (out->keyShift))); break;
             }
             notify (change::view);
         });
@@ -2001,13 +2011,26 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 };
                 s.refPitch = toRef (out->points);
                 s.refPitchHarm = toRef (out->harmPoints);
+                const auto key = s.guideKaraokeKey;
+                if (key != 0)
+                {
+                    // キー違いのカラオケ：線はカラオケのキーへ。お手本の声は原曲のキーのままなので鳴らさない（伴奏とぶつかる）
+                    for (auto* ref : { &s.refPitch, &s.refPitchHarm })
+                        for (auto& p : *ref)
+                            p.midi += (float) key;
+                    out->vocals = nullptr;
+                    out->harmVocals = nullptr;
+                }
                 rejudgeAll();
                 updateTakeStats();
                 s.guideVocals = out->vocals;
                 s.guideHarmVocals = out->harmVocals;
                 syncGuideToEngine();
                 notify (change::takes | change::monitor);
-                postNotice (tr (out->harmVocals != nullptr ? "separation.doneHarmony" : "separation.done", juce::String (out->offsetSeconds, 2)));
+                if (key != 0)
+                    postNotice (tr ("separation.doneKey", juce::String (out->offsetSeconds, 2), signedSemitones (key)));
+                else
+                    postNotice (tr (out->harmVocals != nullptr ? "separation.doneHarmony" : "separation.done", juce::String (out->offsetSeconds, 2)));
             }
             else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", "can't read the result"));
             else                                                  postNotice (tr ("guide.problem.notAligned"));
