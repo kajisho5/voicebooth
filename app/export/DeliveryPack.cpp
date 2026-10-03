@@ -20,6 +20,13 @@ juce::String DeliveryPack::packFileName (TrackType t)
     return {};
 }
 
+bool DeliveryPack::fitsInZip (juce::int64 totalBytes, int numFiles)
+{
+    constexpr juce::int64 limit = 0xFFFFFFFFLL;   // 32 bit の大きさ・位置で表せる最大
+    constexpr juce::int64 perFile = 1024;          // ローカルの見出し・中央ディレクトリ・名前の分（十分に大きく）
+    return totalBytes >= 0 && totalBytes + (juce::int64) juce::jmax (0, numFiles) * perFile + 65536 < limit;
+}
+
 juce::File DeliveryPack::nextFolder (const juce::File& projectFolder, juce::Time when)
 {
     const auto base = "export_" + when.formatted ("%Y%m%d");
@@ -275,8 +282,14 @@ PackResult DeliveryPack::write (const project::Project& project, const juce::Fil
     if (! folder.getChildFile ("notes.txt").replaceWithText (notesText (project, o, r), false, false, "\n"))
         return fail ("can't write notes.txt");
 
-    // 4. zip（フォルダと同じ名前。WAV は無圧縮で格納、文字は圧縮）。一時ファイルに書いてから名前を変える
-    if (o.zip)
+    // 4. zip（フォルダと同じ名前。WAV は無圧縮で格納、文字は圧縮）。一時ファイルに書いてから名前を変える。
+    //    4 GiB を超える時は作らない（壊れた zip を渡さない。フォルダはそのまま使える。#22）
+    juce::int64 total = 0;
+    for (auto& name : r.files)
+        total += folder.getChildFile (name).getSize();
+    if (o.zip && ! fitsInZip (total, r.files.size()))
+        r.zipTooLarge = true;
+    else if (o.zip)
     {
         juce::ZipFile::Builder builder;
         for (auto& name : r.files)

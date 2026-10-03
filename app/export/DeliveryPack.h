@@ -43,6 +43,7 @@ struct PackResult
     juce::StringArray files;                    // 書いたファイル名（フォルダの中）
     std::map<project::TrackType, float> peaks;  // ボーカルごとの最大振幅
     float refmixGainDb = 0.0f;                  // refmix を下げた量（0 = 下げていない）
+    bool zipTooLarge = false;                   // 4 GiB を超えるので zip を作らなかった（フォルダだけ。#22）
 };
 
 class DeliveryPack
@@ -55,6 +56,11 @@ public:
 
     /** 同じ日のパックがあれば _2, _3 …（前の納品を上書きしない） */
     static juce::File nextFolder (const juce::File& projectFolder, juce::Time when);
+
+    /** zip に入れられる大きさか。JUCE の ZipFile::Builder は大きさ・位置を 32 bit で書き Zip64 に対応しないので、
+        合計が 4 GiB を超えると知らせなしに壊れた zip ができる（192 kHz・32bit float・20 分で約 5.5 GB。#22）。
+        WAV は無圧縮で入れるので、中身の合計に見出しの分の余裕を足して比べる */
+    static bool fitsInZip (juce::int64 totalBytes, int numFiles);
 
     static juce::String notesText (const project::Project&, const PackOptions&, const PackResult&);
     static juce::String takeMapText (const project::Project&, const PackOptions&);
