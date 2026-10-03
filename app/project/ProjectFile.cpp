@@ -419,7 +419,10 @@ juce::File findMedia (const juce::File& projectFolder, const juce::String& path,
     const auto f = projectFolder.getChildFile (path);
     if (f.existsAsFile() || path.isEmpty())
         return f;
-    const auto copy = projectFolder.getChildFile (folder).getChildFile (juce::File::createFileWithoutCheckingPath (path.replaceCharacter ('\\', '/')).getFileName());
+    // ファイル名は / と \ のどちらで区切られていても取る（File::getFileName は OS の区切りしか見ない。Windows で
+    // "C:/…/song.wav" の名前が取れなかった）
+    const auto name = path.replaceCharacter ('\\', '/').fromLastOccurrenceOf ("/", false, false);
+    const auto copy = projectFolder.getChildFile (folder).getChildFile (name);
     return copy.existsAsFile() ? copy : f;
 }
 } // namespace vb::project
