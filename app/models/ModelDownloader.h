@@ -40,6 +40,11 @@ public:
 /** juce::URL を使う本物 */
 std::unique_ptr<HttpSource> makeHttpSource();
 
+/** 小さいファイル（モデルの一覧・署名）を 1 回で取る。200 で、全部届いて maxBytes 以下の時だけ true
+    全部届いたかは大きさ（Content-Length）で見る。Windows・Mac の juce::URL は、最後に 0 バイトを読むまで
+    isExhausted() が false のまま（Content-Length の分だけ読むと false のまま）なので、それには頼らない */
+bool fetchSmall (HttpSource&, const juce::String& url, juce::MemoryBlock& out, juce::int64 maxBytes = 2 * 1024 * 1024);
+
 struct DownloadStatus
 {
     enum class Stage { downloading, waiting, verifying, done, interrupted, failed, cancelled };
