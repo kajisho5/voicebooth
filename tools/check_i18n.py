@@ -99,6 +99,19 @@ def main() -> int:
     for k in sorted(all_keys - used):
         warnings.append(f"使われていないキー: {k}")
 
+    # 用語表：同じものの訳を言語ごとに 1 つにそろえる（tools/i18n_glossary.json。#20）
+    glossary = json.loads((ROOT / "tools" / "i18n_glossary.json").read_text(encoding="utf-8"))
+    ja = tables.get("ja", {})
+    for rule in glossary["rules"]:
+        for k, text in ja.items():
+            if rule["ja"] not in text:
+                continue
+            for lang, words in rule["avoid"].items():
+                v = tables.get(lang, {}).get(k, "")
+                for w in words:
+                    if re.search(w, v, re.IGNORECASE):
+                        errors.append(f"[{lang}] {k}: 「{rule['ja']}」の訳に「{w}」を使わない（tools/i18n_glossary.json）")
+
     return report(errors, warnings, len(all_keys), list(tables))
 
 
