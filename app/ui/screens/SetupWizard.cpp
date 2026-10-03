@@ -1,4 +1,5 @@
 #include "SetupWizard.h"
+#include "i18n/Reasons.h"
 #include "audio/Resample.h"
 #include "../Timeline.h"
 #include "audio/DeviceRules.h"
@@ -769,7 +770,7 @@ void SetupWizard::paintDeviceLive (juce::Graphics& g, juce::Rectangle<int> body)
         else if (in.open)                                  text = in.permission == MicPermission::granted ? tr ("setup.device.permission.ok")
                                                                                                           : tr ("setup.device.permission.open");
         else if (in.problem == audio::InputProblem::stalled)    { text = tr ("setup.device.permission.stalled"); c = colours::bad; }
-        else if (in.problem == audio::InputProblem::openFailed) { text = tr ("setup.device.permission.failed", firstLine (in.error)); c = colours::bad; }
+        else if (in.problem == audio::InputProblem::openFailed) { text = tr ("setup.device.permission.failed", reasonText (firstLine (in.error))); c = colours::bad; }
         else if (in.problem == audio::InputProblem::noChannels) { text = tr ("setup.device.permission.noChannels"); c = colours::bad; }
         else                                               { text = tr ("setup.device.permission.noDevice"); c = colours::warn; }
         row (rowMic, tr ("setup.device.permission"), text, c);

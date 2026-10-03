@@ -49,7 +49,7 @@ Die aktuelle Version ist **0.2.0 Beta 2**. Änderungen und ältere Versionen fin
 2. **Falls eine Warnung erscheint** (die Beta ist noch nicht codesigniert, daher erscheint sie nur beim ersten Öffnen)
    - **Windows**: Wenn „Der Computer wurde durch Windows geschützt“ erscheint, klicke auf „Weitere Informationen“ → „Trotzdem ausführen“
    - **Mac**: Zieh VoiceBooth aus dem DMG in deinen Programme-Ordner und öffne es einmal → wenn macOS meldet, dass es nicht geöffnet werden kann, geh zu Systemeinstellungen → Datenschutz & Sicherheit → klicke unter Sicherheit auf „Dennoch öffnen“ (der Button erscheint etwa eine Stunde lang, nachdem du versucht hast, die App zu öffnen) → gib dein Passwort ein ([Anleitung von Apple](https://support.apple.com/de-de/guide/mac-help/mh40616/mac))
-3. **Nach dem Start** Sprache und Modus wählen. Wenn „Trennungsmodell herunterladen“ erscheint, auf Laden drücken (etwa 210 MB, nur beim ersten Mal; für Tonhöhe und Harmonie der Vorlage und zum Start nur mit dem Original)
+3. **Nach dem Start** Sprache und Modus wählen. Wenn „Trennungsmodell herunterladen“ erscheint, auf Laden drücken (etwa 210 MB, nur beim ersten Mal; für Tonhöhe und Harmonie der Referenz und zum Start nur mit dem Original)
 
 ![VoiceBooth-Hauptbildschirm](docs/screenshots/main-de.png)
 
@@ -63,10 +63,10 @@ Die aktuelle Version ist **0.2.0 Beta 2**. Änderungen und ältere Versionen fin
 | | |
 |---|---|
 | Betriebssystem | **Windows und Mac** (Mac: Apple Silicon und Intel). **Es gibt keine Version für Smartphone oder Tablet** |
-| Grafikkarte | **Nicht nötig.** Läuft nur mit der CPU. Schwer ist nur die Gesangstrennung: Ein 30-Sekunden-Song brauchte auf einer 4-Kern-CPU etwa 2 Minuten (die App zeigt eine geschätzte Dauer) |
+| Grafikkarte | **Nicht nötig.** Läuft nur mit der CPU. Schwer ist nur die Gesangstrennung: Sie dauert etwa das Vierfache der Songlänge (gemessen auf einer 4-Kern-CPU: etwa 2 Minuten für einen 30-Sekunden-Song, rund 15 Minuten für einen 4-Minuten-Song; langsamere CPUs brauchen länger; die App zeigt eine geschätzte Dauer) |
 | Ladbares Audio | **Nur Audiodateien auf deinem Computer** (wav / flac / aiff / ogg / mp3 / m4a). Songs aus Spotify, Apple Music, YouTube Music oder anderen Streamingdiensten lassen sich nicht direkt laden |
-| Größe | Der Installer hat unter Windows etwa 13 MB und auf dem Mac etwa 40 MB. Fehlen das Trennungs- und das Tonhöhenmodell (etwa 210 MB), fragt die App beim Start und lädt sie **nur, wenn du auf Laden drückst** (oder wähle Später). Außer der Prüfung der Modellliste wird nichts heimlich heruntergeladen |
-| Rechenintensives | Die Trennung läuft **nur, wenn du den Button drückst**. Die Songtext-Anzeige ist **standardmäßig aus** (in den Einstellungen einschalten) |
+| Größe | Der Installer hat unter Windows etwa 13 MB und auf dem Mac etwa 40 MB. Fehlen das Trennungs- und das Tonhöhenmodell (etwa 210 MB), fragt die App beim Start und lädt sie **nur, wenn du auf Laden drückst** (oder wähle Später). Sonst greift die App nur aufs Netz zu, um die Modellliste und neue Versionen zu prüfen (höchstens einmal am Tag; in den Einstellungen abschaltbar) |
+| Rechenintensives | Die Trennung läuft, wenn du eine Referenz hinzufügst oder „Nur mit dem Original starten“ wählst (im Hintergrund; Wiedergabe und Aufnahme gehen weiter). Wird die Referenzstimme per Subtraktion gewonnen, läuft danach auch eine Trennung, um Lead und Harmonien aufzuteilen. Das bloße Öffnen der App startet sie nie. Die Songtext-Anzeige ist **standardmäßig aus** (in den Einstellungen einschalten) |
 | Harmonien | Du kannst Harmoniespuren aufnehmen. Wird die Referenz getrennt, werden Lead und Harmonien aufgeteilt und **eine Harmonie-Referenz (Linie und Stimme)** wird ebenfalls angezeigt (Harmoniespuren werden mit ihr verglichen). Auch eine per Original − Karaoke gewonnene Referenz wird aufgeteilt, indem danach der Lead aus dem Original geholt wird (dauert etwas) |
 | Getrenntes Audio | Getrennter Gesang und getrennte Begleitung sind **für dein persönliches Üben**. VoiceBooth ändert nichts an den Rechten am Originalsong. Verbreite oder veröffentliche sie (auch als Instrumental für Cover) nur, soweit die ursprünglichen Rechteinhaber es erlauben |
 | Preis | **Kostenlos.** Kein Abo, keine In-App-Käufe. Du kannst die Entwicklung über [GitHub Sponsors](https://github.com/sponsors/kajisho5) unterstützen (freiwillig; ändert keine Funktionen) |

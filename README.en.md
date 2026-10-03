@@ -63,10 +63,10 @@ The current version is **0.2.0 beta 2**. Changes and older versions are on the [
 | | |
 |---|---|
 | OS | **Both Windows and Mac** (Mac: Apple silicon and Intel). **There is no phone or tablet version** |
-| Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: a 30-second song took about 2 minutes on a 4-core CPU (the app shows an estimated time) |
+| Graphics card | **Not needed.** It runs on the CPU alone. Only vocal separation is heavy: it takes roughly 4 times the song's length (measured on a 4-core CPU: about 2 minutes for a 30-second song, around 15 minutes for a 4-minute song; slower CPUs take longer; the app shows an estimated time) |
 | Audio you can load | **Only audio files on your computer** (wav / flac / aiff / ogg / mp3 / m4a). You cannot load songs directly from Spotify, Apple Music, YouTube Music or other streaming services |
-| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. If the separation and pitch models (about 210 MB) are missing, the app asks at startup and downloads them **only when you press Download** (you can also choose Later). Apart from checking the model list, nothing is fetched behind your back |
-| Heavy processing | Separation runs **only when you press the button**. Lyrics display is **off by default** (turn it on in Settings) |
+| Size | The installer is about 13 MB on Windows and about 40 MB on Mac. If the separation and pitch models (about 210 MB) are missing, the app asks at startup and downloads them **only when you press Download** (you can also choose Later). The only other network access is checking the model list and checking for a new version (at most once a day; you can turn it off in Settings) |
+| Heavy processing | Separation runs when you add a guide or choose "Start from the original only" (it runs in the background; you can keep playing and recording). When the guide vocal is taken out by subtraction, separation also runs afterwards to split the lead and harmonies. Just opening the app never starts it. Lyrics display is **off by default** (turn it on in Settings) |
 | Harmonies | You can record harmony tracks. When the guide is separated, the lead vocal and harmonies are split and **a harmony guide (line and voice)** is shown too (a harmony track is compared against it). A guide taken as original − karaoke is split too, by extracting the lead from the original afterwards (takes a little while) |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
 | Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
@@ -77,8 +77,8 @@ The current version is **0.2.0 beta 2**. Changes and older versions are on the [
 | | Details |
 |---|---|
 | Open a song | The formats above, also by drag and drop. The start of the song lines up the same on Windows and Mac |
-| Original + karaoke | Use the original song (with vocals) as the reference and sing over the karaoke / instrumental. Differences such as intro length are aligned automatically. The karaoke is subtracted from the original to extract the vocal, which becomes the reference pitch line |
-| Original only | Separate the original to make an instrumental, and show the reference line too (needs the separation model) |
+| Original + karaoke | Use the original song (with vocals) as the guide and sing over the karaoke / instrumental. Differences such as intro length are aligned automatically. The karaoke is subtracted from the original to extract the vocal, which becomes the reference pitch line |
+| Original only | Separate the original to make an instrumental, and show the guide line too (needs the separation model) |
 | Pitch in color | Your pitch is drawn as a line on top: lime when you are on pitch, amber then red as you drift. Singing an octave off can still be lined up on the display |
 | Practice | Tempo 50–150 %, key ±6. Practice slowly, but the delivery take is always recorded at the original tempo and key |
 | Hear the guide | Listen to the guide vocal extracted from the original, with the backing or solo (practice tempo/key apply). When the guide is separated, the lead and harmonies can be heard on their own |
@@ -87,7 +87,7 @@ The current version is **0.2.0 beta 2**. Changes and older versions are on the [
 | Click and count-in | A click on the song's beat (higher on beat 1; follows the practice tempo). Counts 1–2 bars before REC; re-recording a range counts in before the range. Headphones only, never recorded or exported |
 | Main / Double / Harmony | Record doubles and harmonies to the same length and play them back together |
 | Take comparison | List your takes newest first, hear each one in place in the song for a range (or one comp segment), and use the one you pick (Standard and up; Ctrl / ⌘+Z undoes it) |
-| Entry timing | Compared with the reference, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
+| Entry timing | Compared with the guide, shows how many ms early or late your entry is (Standard and up). Pro also shows how much of the time you are on pitch, and vibrato |
 | Export | Full-length WAV from the start of the song, and a delivery pack (a WAV per track, a check mix, notes, zip) |
 | Lyrics (off by default) | Load .txt / .lrc, sync by tapping |
 | Skins | Recolour the whole app (10 built-in). Share them as `.vbskin` files |
@@ -149,7 +149,7 @@ If the guide line looks off, right-click the pitch lane for "10 ms earlier / lat
 | Color | Used for |
 |---|---|
 | Signal (lime) | Your pitch when it is on, the playhead, lit LEDs |
-| Reference (ice blue) | The reference tolerance band |
+| Reference (ice blue) | The guide tolerance band |
 | Amber / Coral | Slightly off / far off, warnings |
 | Tally (red) | Recording only |
 

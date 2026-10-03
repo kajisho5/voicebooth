@@ -26,10 +26,8 @@ public:
     static int preferredHeight (project::Mode);
 
 private:
-    void onSessionChanged (juce::uint32 c) override
-    {
-        if (c & (change::playhead | change::range | change::view | change::tracks | change::mode | change::transport | change::takes | change::songInfo)) repaint();
-    }
+    void onSessionChanged (juce::uint32 c) override;
+    float headX = -1.0e9f;   // 前に描いた再生ヘッドの x（再生ヘッドだけ動いたとき、その間だけ描き直す。#26）
 
     struct Row { project::TrackType type; int trackIndex; juce::Rectangle<float> area; bool current; };
     void showTakeMenu();   // 右クリック：リハーサルのテイクを本番に入れる（録り間違いの救済）
@@ -49,6 +47,13 @@ private:
     void drawCompareRange (juce::Graphics&, const TimeMap&, juce::Rectangle<float>, project::TrackType);
     void drawWave (juce::Graphics&, const TimeMap&, const Row&);
     void drawRecording (juce::Graphics&, const TimeMap&, const Row&);
+
+    // 再生ヘッドと録音中の帯以外（波形・斜線・採用区間・トラック名）は画像にためておき、変わったときだけ描き直す。
+    // 波形は列ごとにピークを数えるので重く、再生中に毎フレーム描き直していた（#26）
+    void paintStatic (juce::Graphics&);
+    juce::Image staticLayer;
+    bool staticDirty = true;
+    struct StaticKey { int w = 0, h = 0, skin = -1; float scale = 0.0f, boost = -1.0f; } staticKey;
 
     lane::RangeGesture gesture;
 };
