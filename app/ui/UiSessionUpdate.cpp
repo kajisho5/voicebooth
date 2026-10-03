@@ -17,8 +17,8 @@ void UiSession::restoreAppPrefs (bool autoCheck, bool betas, const juce::String&
     s.updateLastCheck = lastCheckMs;
     s.cacheFolder = folder;
 
-    // 前の起動で見つけた版：24 時間たっていなくても知らせを出し直す（確かめ直さない）。
-    // もう入れた（いまの版がそれ以上）・飛ばした・ベータを切った後のベータなら出さない
+    // 前の起動で見つけたバージョン：24 時間たっていなくても知らせを出し直す（確かめ直さない）。
+    // もう入れた（いまのバージョンがそれ以上）・飛ばした・ベータを切った後のベータなら出さない
     const auto r = update::Release::fromJson (found);
     const auto cur = update::currentVersion();
     if (r.found && update::compareVersions (update::parseVersion (r.version), update::parseVersion (cur)) > 0
@@ -45,7 +45,7 @@ void UiSession::checkForUpdatesNow()
     if (s.updateChecking || s.isPlaying || s.isRecording)   // 設定のキーも止めている間だけ押せる
         return;
 
-    // 押して確かめた時は、飛ばした版でも見せる（自分から聞いたので）
+    // 押して確かめた時は、飛ばしたバージョンでも見せる（自分から聞いたので）
     std::weak_ptr<bool> weak = alive;
     s.updateChecking = updateChecker.start (update::currentVersion(), update::includePrereleases (update::currentVersion(), s.updateBetas), {},
                                             [this, weak] (update::CheckResult r) { if (! weak.expired()) finishUpdateCheck (r, true); });
@@ -63,7 +63,7 @@ void UiSession::finishUpdateCheck (const update::CheckResult& r, bool userAsked)
         s.updateLastCheck = juce::Time::currentTimeMillis();
         if (r.release.found && userAsked && r.release.version == s.updateSkipped)
             s.updateSkipped = {};
-        setUpdateAvailable (r.release);   // 無ければ前の知らせも消す（取り下げられた版など）
+        setUpdateAvailable (r.release);   // 無ければ前の知らせも消す（取り下げられたバージョンなど）
     }
 
     // 起動時の確認は黙っている（つながらない・上限でも何も言わない）。押した時だけ結果を知らせる
@@ -112,7 +112,7 @@ void UiSession::skipUpdate()
 {
     if (s.updateVersion.isEmpty())
         return;
-    if (! s.updateRelease.sample)   // 見本（--screen=update）の版は覚えない
+    if (! s.updateRelease.sample)   // 見本（--screen=update）のバージョンは覚えない
         s.updateSkipped = s.updateVersion;
     setUpdateAvailable ({});
 }

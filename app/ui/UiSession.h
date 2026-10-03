@@ -165,18 +165,18 @@ public:
     void setTrackGain (int index, float fader);
 
     // --- 更新の確認（DESIGN 11.7。GitHub のリリース）とアプリ共通のキャッシュ。実装は UiSessionUpdate.cpp ----
-    /** アプリ設定から戻す（起動時）。found：前に見つけて覚えておいた版（Release::toJson。まだ新しければ知らせを出し直す） */
+    /** アプリ設定から戻す（起動時）。found：前に見つけて覚えておいたバージョン（Release::toJson。まだ新しければ知らせを出し直す） */
     void restoreAppPrefs (bool autoCheck, bool betas, const juce::String& skipped, juce::int64 lastCheckMs,
                           const juce::String& found, const juce::File& cacheFolder);
     /** 起動時：自動の確認が入っていて、前回から 24 時間たっていれば裏で確かめる（失敗しても何も言わない） */
     void checkForUpdatesIfDue();
-    /** 「今すぐ確かめる」：結果（最新・新しい版・つながらない）を知らせで出す */
+    /** 「今すぐ確かめる」：結果（最新・新しいバージョン・つながらない）を知らせで出す */
     void checkForUpdatesNow();
     void setUpdateAutoCheck (bool);
     void setUpdateBetas (bool);
     /** 新しいバージョンの知らせ（ステータスバー）。found でなければ消す（見本の画面にも使う） */
     void setUpdateAvailable (const update::Release&);
-    /** 「このバージョンを飛ばす」：覚えておき、次の版が出るまで知らせない */
+    /** 「このバージョンを飛ばす」：覚えておき、次のバージョンが出るまで知らせない */
     void skipUpdate();
     /** アプリ共通のキャッシュの場所（設定で選んだ所、無ければ既定）。曲ごとの <プロジェクト>/Cache/ とは別 */
     juce::File cacheFolder() const;

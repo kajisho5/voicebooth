@@ -35,7 +35,7 @@ struct ModelEntry
 
 struct Manifest
 {
-    int serial = 0;                           // 一覧の版（大きいほど新しい）
+    int serial = 0;                           // 一覧のバージョン（大きいほど新しい）
     std::vector<ModelEntry> models;
     const ModelEntry* find (const juce::String& id) const;
 };

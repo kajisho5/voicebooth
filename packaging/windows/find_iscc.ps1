@@ -1,7 +1,7 @@
 # Inno Setup の ISCC.exe を探す（CI と build_installer.ps1 で共用）
 # Inno Setup 6.5 以降は既定で「自分だけ」に入る（%LOCALAPPDATA%\Programs）ので、Program Files・ユーザーの Programs・
 # アンインストール情報（レジストリの InstallLocation）・PATH を順に見る。見つかれば @{ Path; Version }、無ければ $null
-# PATH は最後（choco の shim は別の版情報を持つため、本体の場所を優先する）
+# PATH は最後（choco の shim は別のバージョン情報を持つため、本体の場所を優先する）
 
 # 文字列から x.y.z を取り出す。0.0.0 は「読めなかった」扱い
 function ConvertTo-IsccVersion([string]$text) {
@@ -19,7 +19,7 @@ function Find-Iscc {
         foreach ($dir in @("Inno Setup 6", "Inno Setup 7")) { $candidates += (Join-Path (Join-Path $base $dir) "ISCC.exe") }
     }
 
-    # 版：ISCC.exe のファイル情報が "0.0.0.0" のことがある（windows-latest の 6.7.1 で確認）ので、
+    # バージョン：ISCC.exe のファイル情報が "0.0.0.0" のことがある（windows-latest の 6.7.1 で確認）ので、
     # ファイル情報・レジストリ・ISCC の出力をすべて読み、0.0.0 を除いた一番新しいものを使う
     $registryVersions = @()
     $keys = @(

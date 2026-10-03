@@ -160,11 +160,11 @@ struct Session
 
     // 新しいバージョンの知らせ（DESIGN 11.7。GitHub のリリースを見る。UiSessionUpdate.cpp）。updateVersion が空なら出さない
     juce::String updateVersion;
-    update::Release updateRelease;        // 知らせている版（ページ・この OS のインストーラー・本文）
+    update::Release updateRelease;        // 知らせているバージョン（ページ・この OS のインストーラー・本文）
     bool updateAutoCheck = true;          // 起動時に確かめる（24 時間に 1 回まで。設定で切れる）
-    bool updateBetas = false;             // ベータも知らせる（いまの版がベータなら切っていても知らせる）
+    bool updateBetas = false;             // ベータも知らせる（いまのバージョンがベータなら切っていても知らせる）
     bool updateChecking = false;
-    juce::String updateSkipped;           // 「このバージョンを飛ばす」で飛ばした版
+    juce::String updateSkipped;           // 「このバージョンを飛ばす」で飛ばしたバージョン
     juce::int64 updateLastCheck = 0;      // 最後に確かめられた時刻（ms。つながらなかった時は進めない）
     int updateNoticeSerial = -1;          // この番号の知らせには「見る」キーを付ける（今すぐ確かめた時）
 

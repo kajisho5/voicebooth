@@ -37,8 +37,8 @@
                     戻せなければ既定のデバイスで開く
       updateAutoCheck / updateBetas  起動時に新しいバージョンを確かめるか（既定は入）・ベータも知らせるか（DESIGN 11.7）
       updateLastCheck  最後に確かめられた時刻（ms。24 時間に 1 回まで）
-      updateSkipped    「このバージョンを飛ばす」で飛ばした版
-      updateFound      見つけた版（JSON。次の起動でも知らせを出す）
+      updateSkipped    「このバージョンを飛ばす」で飛ばしたバージョン
+      updateFound      見つけたバージョン（JSON。次の起動でも知らせを出す）
       cacheFolder   アプリ共通のキャッシュの場所（空 = 既定のアプリのデータ/VoiceBooth/Cache。DESIGN 8） */
 
 namespace vb

@@ -12,7 +12,7 @@ namespace
 
     double midiHz (double m) { return 440.0 * std::pow (2.0, (m - 69.0) / 12.0); }
 
-    /** 伴奏。transpose で半音ずらした版も作れる（同じ乱数の並び） */
+    /** 伴奏。transpose で半音ずらしたバージョンも作れる（同じ乱数の並び） */
     std::vector<float> backing (double seconds, double transpose, int seed)
     {
         juce::Random rnd (seed);
@@ -170,7 +170,7 @@ public:
 
         beginTest ("cut version (TV size): each part gets its own offset, nothing is bridged");
         {
-            // カラオケ = 伴奏の 0〜18 秒 ＋ 28〜40 秒（10 秒を切った版）
+            // カラオケ = 伴奏の 0〜18 秒 ＋ 28〜40 秒（10 秒を切ったバージョン）
             std::vector<float> cut (band.begin(), band.begin() + (long) (18.0 * sr));
             cut.insert (cut.end(), band.begin() + (long) (28.0 * sr), band.end());
             const auto kar = karaoke (cut, 0.5, 1.0, 13);

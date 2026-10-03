@@ -184,7 +184,7 @@ public:
             expect (r1.status != RefPitchResult::Status::ok);
             expect (r1.points.empty());
 
-            // 速さ違いの版（比が 1 でない）は引かない
+            // 速さ違いのバージョン（比が 1 でない）は引かない
             const auto kar = karaoke (b, 0.8);
             auto stretched = alignReference (orig.data(), (juce::int64) orig.size(), kar.data(), (juce::int64) kar.size(), sr);
             stretched.tempoRatio = 1.002;

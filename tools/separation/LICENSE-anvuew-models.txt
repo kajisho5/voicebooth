@@ -16,7 +16,7 @@ Notice for the BS-RoFormer separation models distributed with VoiceBooth (anvuew
       SHA-256 60347271e8493fdff28ef558c3b2297afb869a1f4462594ed548038264bec395 (204,493,312 bytes)
     https://huggingface.co/anvuew/BS-RoFormer/resolve/main/config.yaml
       SHA-256 033e57abee226a480ef410e0631b9fe00e8b7bc9a3bb5fe55659d0b43a238701 (1,969 bytes)
-    （リポジトリの版 / repository revision 24988f47270cb3529b62c4f3bbb8234f4586de9b）
+    （リポジトリのバージョン / repository revision 24988f47270cb3529b62c4f3bbb8234f4586de9b）
 
   karaoke BS-RoFormer（lead vocal。データセット / dataset by becruily）
     https://huggingface.co/anvuew/karaoke_bs_roformer
@@ -24,7 +24,7 @@ Notice for the BS-RoFormer separation models distributed with VoiceBooth (anvuew
       SHA-256 206d04757cb5f75ca3b55f8a0a48f5c26aa2351d4ff3c7adbfc9affa30ea3ae4 (204,486,925 bytes)
     https://huggingface.co/anvuew/karaoke_bs_roformer/resolve/main/karaoke_bs_roformer_anvuew.yaml
       SHA-256 5cb3f127ecbc6a8e37f31ea7e05f60f360a44da43e857bde805b7b68558f6338 (1,973 bytes)
-    （リポジトリの版 / repository revision 0d4423d42e12cf2ba39ae09171028507b8a2a7be）
+    （リポジトリのバージョン / repository revision 0d4423d42e12cf2ba39ae09171028507b8a2a7be）
 
 変更 / Modifications（2026-10-02、VoiceBooth）
   - PyTorch の ckpt を ONNX（opset 18）に書き出した。STFT / iSTFT を外に出し、front・12 層・head の 14 個のグラフに分けた

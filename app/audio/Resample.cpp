@@ -18,7 +18,7 @@ const juce::Array<double>& recordingRates()
 namespace
 {
     /** JUCE の窓付き sinc は全体の大きさがわずかに小さい（実測 0.99 倍、周波数によらない）。
-        一度だけ直流を通して測り、その逆数を掛けて 1 倍に戻す（JUCE の版が変わっても追従する） */
+        一度だけ直流を通して測り、その逆数を掛けて 1 倍に戻す（JUCE のバージョンが変わっても追従する） */
     float sincGainCorrection()
     {
         static const float correction = []
