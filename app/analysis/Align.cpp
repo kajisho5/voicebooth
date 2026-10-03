@@ -423,7 +423,7 @@ LocalLag localLag (const float* a, juce::int64 aLength, const float* b, juce::in
     };
 
     // 粗く：4 サンプルずつ平均して間引いた音で（高い音が消えるので、間引いても外さない）
-    constexpr int coarse = 4;
+    static constexpr int coarse = 4;   // static：ラムダでキャプチャせずに使える（MSVC は constexpr のローカルも暗黙にはキャプチャしない）
     auto decimate = [] (const float* x, juce::int64 n)
     {
         std::vector<float> d ((size_t) (n / coarse));
