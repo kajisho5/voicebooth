@@ -177,6 +177,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/Retro.cpp
     app/audio/PitchTracker.cpp
     app/audio/Resample.cpp
+    app/audio/PitchShift.cpp
     app/audio/DeviceRules.cpp)
 
 # テイクと採用区間・書き出し（DESIGN 6 / 8 / 9：Phase B5〜）。UI に依存しない。テストからも使う
@@ -487,6 +488,7 @@ if(VOICEBOOTH_TESTS)
         tests/ClickTests.cpp
         tests/UpdateCheckTests.cpp
         tests/TakeCompareTests.cpp
+        tests/PitchShiftTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

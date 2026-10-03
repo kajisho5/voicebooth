@@ -12,6 +12,7 @@
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
 #include "project/Comp.h"
+#include "audio/PitchShift.h"
 #include "export/ExportService.h"
 #include "export/DeliveryPack.h"
 #include "SongMarks.h"
@@ -1957,8 +1958,9 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
     notify (change::view);
     const auto karaoke = s.songOriginal;
     const auto serial = s.songSerial;
+    const auto key = s.guideKaraokeKey;   // キー違いのカラオケ：お手本の声もカラオケのキーへずらして鳴らす
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, vocalsFile, backingFile, karaoke, serial]
+    juce::Thread::launch ([this, weak, vocalsFile, backingFile, karaoke, serial, key]
     {
         auto out = std::make_shared<GuideOutcome>();
         auto voc = readAudio (vocalsFile);
@@ -2007,9 +2009,26 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                     analysis::pitchFromVocals (vm.data(), (juce::int64) vm.size(), (juce::int64) kar.size(), rate, align, {}, &allOnBacking);
                     splitHarmony (allOnBacking, onBacking, rate, *out);
                 }
+                if (key != 0 && out->kind == GuideOutcome::Kind::ok)
+                {
+                    // 線は合わせた後に半音ずらす（メッセージスレッド）。聴く声はここで高さだけ変える（長さ・位置はそのまま）
+                    auto shifted = [key] (const std::shared_ptr<const audio::SongAudio>& a) -> std::shared_ptr<const audio::SongAudio>
+                    {
+                        if (a == nullptr)
+                            return nullptr;
+                        auto r = std::make_shared<audio::SongAudio>();
+                        r->sampleRate = a->sampleRate;
+                        const auto y = audio::shiftPitch (a->buffer.getReadPointer (0), a->length(), a->sampleRate, key);
+                        r->buffer.setSize (1, (int) y.size());
+                        r->buffer.copyFrom (0, 0, y.data(), (int) y.size());
+                        return r;
+                    };
+                    out->vocals = shifted (out->vocals);
+                    out->harmVocals = shifted (out->harmVocals);
+                }
             }
         }
-        juce::MessageManager::callAsync ([this, weak, out, serial, songRate = karaoke->sampleRate]
+        juce::MessageManager::callAsync ([this, weak, out, serial, key, songRate = karaoke->sampleRate]
         {
             if (weak.expired() || serial != s.songSerial)
                 return;
@@ -2027,15 +2046,12 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 };
                 s.refPitch = toRef (out->points);
                 s.refPitchHarm = toRef (out->harmPoints);
-                const auto key = s.guideKaraokeKey;
                 if (key != 0)
                 {
-                    // キー違いのカラオケ：線はカラオケのキーへ。お手本の声は原曲のキーのままなので鳴らさない（伴奏とぶつかる）
+                    // キー違いのカラオケ：線もカラオケのキーへ（聴く声は裏でずらしてある）
                     for (auto* ref : { &s.refPitch, &s.refPitchHarm })
                         for (auto& p : *ref)
                             p.midi += (float) key;
-                    out->vocals = nullptr;
-                    out->harmVocals = nullptr;
                 }
                 rejudgeAll();
                 updateTakeStats();
