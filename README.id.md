@@ -51,7 +51,7 @@ Versi saat ini **0.2.0 beta 2**. Perubahan dan versi lama ada di [halaman rilis]
    - **Mac**: pindahkan VoiceBooth dari DMG ke folder Aplikasi lalu buka sekali → jika macOS bilang tidak bisa dibuka, buka Pengaturan Sistem → Privasi & Keamanan → di bagian Keamanan, klik "Tetap Buka" (tombol muncul sekitar satu jam setelah Anda mencoba membuka aplikasi) → masukkan kata sandi ([petunjuk Apple](https://support.apple.com/id-id/guide/mac-help/mh40616/mac))
 3. **Saat aplikasi terbuka**, pilih bahasa dan mode. Saat muncul "Unduh model pemisahan", tekan Unduh (sekitar 210 MB, hanya pertama kali; dipakai untuk nada dan harmoni panduan serta memulai hanya dari lagu asli)
 
-![Layar utama VoiceBooth](docs/screenshots/main-en.png)
+![Layar utama VoiceBooth](docs/screenshots/main-id.png)
 
 > Tangkapan layar ini adalah mock-up pengembangan yang digambar dari data contoh. Tampilan dengan lagu sungguhan masih terus diperbaiki dan bisa terlihat berbeda.
 

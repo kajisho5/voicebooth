@@ -51,7 +51,7 @@ A versão atual é **0.2.0 beta 2**. As mudanças e versões anteriores estão n
    - **Mac**: mova o VoiceBooth do DMG para a pasta Aplicativos e abra uma vez → se o macOS disser que não pode abrir, vá em Ajustes do Sistema → Privacidade e Segurança → em Segurança, clique em "Abrir Mesmo Assim" (o botão aparece por cerca de uma hora depois que você tenta abrir o app) → digite sua senha ([instruções da Apple](https://support.apple.com/pt-br/guide/mac-help/mh40616/mac))
 3. **Quando abrir**, escolha o idioma e um modo. Quando aparecer "Baixar o modelo de separação", clique em Baixar (cerca de 210 MB, só na primeira vez; usado para a afinação e as harmonias do guia e para começar só com o original)
 
-![Tela principal do VoiceBooth](docs/screenshots/main-en.png)
+![Tela principal do VoiceBooth](docs/screenshots/main-pt-BR.png)
 
 > Esta captura é um protótipo de desenvolvimento desenhado com dados de exemplo. A exibição com músicas reais ainda está sendo melhorada e pode ficar diferente.
 
