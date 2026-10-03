@@ -21,6 +21,17 @@ struct ProjectExtras
     double recordRate = 0.0;      // 録音の SR（0 = 曲に合わせる）
     bool recordFloat = false;     // 32bit float で録る
     int deviceFallbackRate = 0;   // 機器が曲の SR で開けず、代わりに使った SR（0 = 使っていない）
+
+    /** 録ったトラックのモニター（B12）：音量（フェーダー 0..1、0.75 = 0 dB）・M・S */
+    struct TrackMix
+    {
+        TrackType type = TrackType::main;
+        float gain = 0.75f;
+        bool mute = false, solo = false;
+    };
+    std::vector<TrackMix> trackMix;   // 空 = 既定のまま（古いファイル）
+    int practiceTempo = 100;          // 練習のテンポ（%）・キー（半音）。B11
+    int practiceKey = 0;
 };
 
 juce::String toJson (const Project&, const ProjectExtras& = {});

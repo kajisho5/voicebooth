@@ -80,6 +80,28 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
         set (rec, "device_fallback_rate", extras.deviceFallbackRate);
     set (root, "record_format", rec);
 
+    if (! extras.trackMix.empty())
+    {
+        juce::Array<var> mix;
+        for (auto& m : extras.trackMix)
+        {
+            auto o = obj();
+            set (o, "type", trackKey (m.type));
+            set (o, "gain", std::round ((double) m.gain * 1000.0) / 1000.0);   // 0.800000011920929 のような端数を残さない
+            set (o, "mute", m.mute);
+            set (o, "solo", m.solo);
+            mix.add (o);
+        }
+        set (root, "track_mix", mix);
+    }
+    if (extras.practiceTempo != 100 || extras.practiceKey != 0)
+    {
+        auto pr = obj();
+        set (pr, "tempo_percent", extras.practiceTempo);
+        set (pr, "key_shift", extras.practiceKey);
+        set (root, "practice", pr);
+    }
+
     if (p.key.known())
     {
         auto k = obj();
@@ -242,6 +264,22 @@ LoadedProject fromJson (const juce::String& text)
         out.extras.recordRate = getDouble (rec, "sample_rate");
         out.extras.recordFloat = getBool (rec, "float");
         out.extras.deviceFallbackRate = getInt (rec, "device_fallback_rate");
+    }
+    if (const auto* mix = root.getProperty ("track_mix", var()).getArray())
+        for (auto& o : *mix)
+        {
+            ProjectExtras::TrackMix m;
+            if (! trackTypeFrom (getString (o, "type"), m.type))
+                continue;
+            m.gain = juce::jlimit (0.0f, 1.0f, (float) getDouble (o, "gain", 0.75));
+            m.mute = getBool (o, "mute");
+            m.solo = getBool (o, "solo");
+            out.extras.trackMix.push_back (m);
+        }
+    if (const auto pr = root.getProperty ("practice", var()); pr.isObject())
+    {
+        out.extras.practiceTempo = juce::jlimit (50, 150, getInt (pr, "tempo_percent", 100));
+        out.extras.practiceKey = juce::jlimit (-6, 6, getInt (pr, "key_shift", 0));
     }
 
     if (const auto k = root.getProperty ("key_original", var()); k.isObject())

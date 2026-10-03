@@ -27,7 +27,7 @@ UiSession::UiSession() : s (dummy::makeSession()) {}
 void UiSession::notify (juce::uint32 changes)
 {
     // プロジェクトに入るものが変わったら、少し待ってから自動保存（B14）
-    if ((changes & (change::takes | change::songInfo | change::recordFormat)) != 0 && changes != change::all)
+    if ((changes & (change::takes | change::songInfo | change::recordFormat | change::tracks | change::practice)) != 0 && changes != change::all)
         markDirty();
     // 録ったトラックの再生（B12）：採用区間が変わったら作り直し、音量・M / S・録音中は今すぐ
     if (isEngineDriven())
@@ -190,6 +190,17 @@ void UiSession::restoreProject()
     s.project.lyrics = lp.lyrics;
     song::updateLineEnds (s.project.lyrics, s.project.lengthSamples, s.sampleRate());
 
+    // 録ったトラックの音量・M・S と練習のテンポ・キー（古いファイルには無い：既定のまま）
+    for (auto& m : loaded->extras.trackMix)
+        for (auto& tu : s.trackUi)
+            if (tu.type == m.type)
+            {
+                tu.monitorGain = m.gain;
+                tu.mute = m.mute;
+                tu.solo = m.solo;
+            }
+    setPractice (loaded->extras.practiceTempo, loaded->extras.practiceKey);
+
     if (lp.sampleRate != s.sampleRate())
         postNotice (tr ("project.rateChanged", formatKhz (lp.sampleRate), formatKhz (s.sampleRate())));
     else if (takes > 0)
@@ -234,6 +245,10 @@ void UiSession::saveProject()
     ex.recordRate = s.recordRate;
     ex.recordFloat = s.recordFloat;
     ex.deviceFallbackRate = s.deviceFallbackRate;
+    for (auto& tu : s.trackUi)   // 録ったトラックの音量・M・S（B12）と練習のテンポ・キー（B11）も覚える
+        ex.trackMix.push_back ({ tu.type, tu.monitorGain, tu.mute, tu.solo });
+    ex.practiceTempo = s.tempoPercent;
+    ex.practiceKey = s.keyShift;
 
     // 世代バックアップ：開いてから最初の保存と、その後 10 分ごとに、前の .vbooth を Backups/ へ（新しい 10 個を残す）
     const auto now = juce::Time::getMillisecondCounter();
