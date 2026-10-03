@@ -8,10 +8,10 @@
 
 /*  起動オプション（開発・スクリーンショット用）
       --gallery              部品ギャラリー
-      --lang=ja|en|ko|zh-Hans|zh-Hant   表示言語（保存された設定より優先）
+      --lang=ja|en|ko|zh-Hans|zh-Hant|es|pt-BR|id|vi|tr|de|fr  表示言語（保存された設定より優先）
       --skin=<id>            スキン（booth / studio-day / … / 自作の id。保存された設定より優先、保存はしない）
       --screen=<name>        start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
-                             skin-editor-borrow / confirm-rec / song-info / lyrics
+                             skin-editor-borrow / confirm-rec / song-info / lyrics / compare（テイク比較。B18c）
       --open=<path>          その曲を開く（起動画面で読み込み → 波形。B1）
       --lyrics=<path>        歌詞パッドをその .txt / .lrc で開く（B4b）
       --guide=<path>         --open の曲を開いたら、このお手本（声入りの原曲）を重ねる（B9）。--open が無ければ起動画面のお手本の枠に入れる
@@ -23,6 +23,7 @@
       --no-first-run         初回起動の流れを出さない
       --reduce-motion        動きを減らす（OS の設定に関係なく。ばね・明滅・揺れを止めて最終状態だけ。DESIGN 4.10）
       --motion               動きを出す（OS で動きを減らす設定でも。確認用）
+      --no-update-check      起動時に新しいバージョンを確かめない（--screen= を付けた時も確かめない。スクリーンショット用）
 
     アプリ設定（PropertiesFile）に保存するもの
       language      表示言語（初回に選び、以後は設定から変更）
@@ -33,7 +34,12 @@
       recentProjects  最近のプロジェクト（.vbooth のフルパス。1 行に 1 つ、新しい順。B14）
       latencyProfiles  往復の遅れ（B6）。機器の組み合わせ（ドライバ|入力|出力|SR|バッファ）ごとの実測（サンプル）と手入力（ms）。JSON
       audioDevice   オーディオデバイスの設定（AudioDeviceManager の XML。ドライバ・入出力の機器・入力チャンネル・SR・バッファ）。
-                    戻せなければ既定のデバイスで開く */
+                    戻せなければ既定のデバイスで開く
+      updateAutoCheck / updateBetas  起動時に新しいバージョンを確かめるか（既定は入）・ベータも知らせるか（DESIGN 11.7）
+      updateLastCheck  最後に確かめられた時刻（ms。24 時間に 1 回まで）
+      updateSkipped    「このバージョンを飛ばす」で飛ばした版
+      updateFound      見つけた版（JSON。次の起動でも知らせを出す）
+      cacheFolder   アプリ共通のキャッシュの場所（空 = 既定のアプリのデータ/VoiceBooth/Cache。DESIGN 8） */
 
 namespace vb
 {
@@ -238,7 +244,20 @@ public:
         if (savedMode == "standard") session->setMode (project::Mode::standard);
         if (savedMode == "pro")      session->setMode (project::Mode::pro);
         session->setShowLyrics (stored->getBoolValue ("showLyrics", false));
-        session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));   // 歌詞レーン（既定は出さない）
+        session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));
+        // クリック・カウントイン（2026-10-02）。クリックの入り切りは、曲を開いてテンポが分かってから効く（setClick はテンポを見るので、値だけ戻す）
+        session->setCountIn (stored->getIntValue ("countInBars", 1));
+        session->setClickLevel ((float) stored->getDoubleValue ("clickLevel", 0.62));
+        session->restoreClickOn (stored->getBoolValue ("clickOn", false));
+        session->setVoiceRange (stored->getIntValue ("voiceLow", -1), stored->getIntValue ("voiceHigh", -1));   // 声域（おすすめのキー）   // 歌詞レーン（既定は出さない）
+        {
+            // 新しいバージョンの確認（DESIGN 11.7）とアプリ共通のキャッシュの場所（DESIGN 8）
+            const auto cache = stored->getValue ("cacheFolder");
+            session->restoreAppPrefs (stored->getBoolValue ("updateAutoCheck", true), stored->getBoolValue ("updateBetas", false),
+                                      stored->getValue ("updateSkipped"), stored->getValue ("updateLastCheck").getLargeIntValue(),
+                                      stored->getValue ("updateFound"),
+                                      juce::File::isAbsolutePath (cache) ? juce::File (cache) : juce::File());
+        }
         session->addListener (this);
 
         window = std::make_unique<MainWindow> (*session, hooks);
@@ -261,12 +280,20 @@ public:
         if (auto* m = window->main())
             m->applyLaunchOptions (o);
 
+        // 新しいバージョン（DESIGN 11.7）：24 時間に 1 回まで、裏で確かめる。見つかればステータスバーに知らせ（失敗しても黙っている）
+        if (o.screen.isEmpty() && ! args.contains ("--no-update-check"))
+            session->checkForUpdatesIfDue();
+
         // 初回起動：言語を選ぶ → モードの質問
         const bool firstRun = args.contains ("--first-run")
                            || (! stored->getBoolValue ("firstRunDone", false) && ! args.contains ("--no-first-run"));
-        if (firstRun && o.screen.isEmpty() && o.open == juce::File())
-            if (auto* m = window->main())
+        if (auto* m = window->main())
+        {
+            if (firstRun && o.screen.isEmpty() && o.open == juce::File())
                 m->openWelcome();
+            else if (o.screen.isEmpty())
+                m->openStartIfNoSong();   // 2 回目からも、曲を開いていなければ起動画面（最近のプロジェクト）から
+        }
     }
 
     void shutdown() override
@@ -336,6 +363,45 @@ private:
                 settings()->setValue ("latencyProfiles", json);
                 settings()->saveIfNeeded();
             }
+        }
+
+        if (changes & change::practice)
+        {
+            const auto& st = session->get();
+            if (st.voiceLow != settings()->getIntValue ("voiceLow", -1) || st.voiceHigh != settings()->getIntValue ("voiceHigh", -1))
+            {
+                settings()->setValue ("voiceLow", st.voiceLow);
+                settings()->setValue ("voiceHigh", st.voiceHigh);
+                settings()->saveIfNeeded();
+            }
+        }
+
+        // クリック・カウントイン（2026-10-02）：値が変わった時だけ書く
+        if (changes & (change::transport | change::monitor))
+        {
+            const auto& st = session->get();
+            if (st.countInBars != settings()->getIntValue ("countInBars", 1) || st.clickOn != settings()->getBoolValue ("clickOn", false)
+                || std::abs (st.clickLevel - (float) settings()->getDoubleValue ("clickLevel", 0.62)) > 1.0e-4f)
+            {
+                settings()->setValue ("countInBars", st.countInBars);
+                settings()->setValue ("clickOn", st.clickOn);
+                settings()->setValue ("clickLevel", st.clickLevel);
+                settings()->saveIfNeeded();
+            }
+        }
+
+        if (changes & change::prefs)
+        {
+            // 値が同じなら PropertiesFile は書かない
+            const auto& st = session->get();
+            settings()->setValue ("updateAutoCheck", st.updateAutoCheck);
+            settings()->setValue ("updateBetas", st.updateBetas);
+            settings()->setValue ("updateSkipped", st.updateSkipped);
+            settings()->setValue ("updateLastCheck", juce::String (st.updateLastCheck));
+            if (! st.updateRelease.sample)   // 見本（--screen=update）は覚えない
+                settings()->setValue ("updateFound", st.updateRelease.found ? st.updateRelease.toJson() : juce::String());
+            settings()->setValue ("cacheFolder", st.cacheFolder.getFullPathName());
+            settings()->saveIfNeeded();
         }
 
         if ((changes & change::mode) == 0) return;

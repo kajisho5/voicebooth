@@ -9,7 +9,6 @@
 
   - 署名は OpenSSL（3.0 以上）の Ed25519。秘密鍵（.pem）はリポジトリ・CI に置かない
   - out/manifest.json と out/manifest.json.sig（64 バイトを base64 で 1 行）を書く。同じ一覧に別のモデルを足す時は --merge で前の manifest.json を渡す
-  - 歌詞の認識（B17）は 1 ファイル：--files ggml-small.bin --id whisper-small-1 --role lyrics
   - 最後に公開鍵（64 桁の 16 進）を出す。アプリの app/models/ModelManifest.cpp の builtIn に入れる（初回だけ）
 """
 import argparse, base64, hashlib, json, os, subprocess, sys

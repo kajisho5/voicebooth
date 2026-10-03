@@ -193,10 +193,6 @@ void StatusBar::paint (juce::Graphics& g)
                                     : tr ("status.separating", pct), colours::ref);
     }
 
-    // 歌詞の自動合わせ（B17。裏で進む）
-    if (s.lyricsAligning)
-        chip (tr ("status.lyricsAligning", juce::roundToInt (s.lyricsAlignProgress * 100.0f)), colours::ref);
-
     // 分離モデルのダウンロード（B16。画面を閉じても裏で続く）
     {
         using DS = models::DownloadStatus::Stage;
@@ -204,8 +200,7 @@ void StatusBar::paint (juce::Graphics& g)
         if (st == (int) DS::downloading || st == (int) DS::verifying || st == (int) DS::waiting || st == (int) DS::interrupted)
         {
             const auto pct = s.modelDl.size > 0 ? (int) (100 * s.modelDl.received / s.modelDl.size) : 0;
-            const bool ly = s.modelDl.kind == 1;
-            chip (tr (s.modelDl.paused ? (ly ? "status.lyricsModelDlPaused" : "status.modelDlPaused") : (ly ? "status.lyricsModelDl" : "status.modelDl"), pct), colours::ref);
+            chip (tr (s.modelDl.paused ? "status.modelDlPaused" : "status.modelDl", pct), colours::ref);
         }
     }
 

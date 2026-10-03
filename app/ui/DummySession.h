@@ -5,6 +5,7 @@
 #include "audio/WaveformOverview.h"
 #include "audio/AudioEngine.h"
 #include "audio/PitchTracker.h"
+#include "update/UpdateCheck.h"
 #include <map>
 
 /*  見た目フェーズ専用の固定ダミー（DESIGN 20）
@@ -58,8 +59,11 @@ struct Session
     int64 recordStart = 0;                // 今回の録音を始めた位置（採用はここから。遡及録音ならフレーズの頭。B7）
     int64 recordEnd = -1;                 // 区間の録り直し（パンチイン。B10）の終わり。-1 = 通し
     bool canUndoTake = false;             // 直前のテイクを採用から外せる（Ctrl / ⌘+Z。B10）
-    int countInBars = 1;
-    bool clickOn = false;
+    int countInBars = 1;                  // 録音の前に数える小節（0 = Off）。範囲の録り直しでは助走の小節（設定に保存）
+    bool clickOn = false;                 // クリック（メトロノーム）。テンポが分かっている時だけ鳴る（設定に保存）
+    float clickLevel = 0.62f;             // クリック・カウントインの音量（フェーダー 0..1、0.75 = 0 dB。設定に保存）
+    bool countingIn = false;              // 録音の前のカウントイン中（曲はまだ鳴っていない）
+    int64 countInPosition = 0;            // その時に聞こえている拍の位置（BAR.BEAT に出す。曲の頭より前は負）
 
     // 表示（ピッチ・波形で共有）
     int64 viewStart = 0, viewEnd = 0;
@@ -78,7 +82,22 @@ struct Session
     project::RecMode recMode = project::RecMode::delivery;
     float offVocalGain = 0.51f, mainGain = 0.72f, harmonyGain = 0.40f, monitorGain = 0.64f;
     float monitorReverb = 0.25f;
+    // モニターの帯のメーター（フェーダー後のピーク、dBFS。2026-10-02）。エンジンがあれば 30 Hz で上書き、UI_MOCK はこの見本の値
+    float backingMeterDb = -18.2f, guideMeterDb = -23.0f, clickMeterDb = -20.0f, harmGuideMeterDb = -26.0f;
     bool backingMuted = false;
+    // お手本の声を聴く（2026-10-02）。取り出した声（オフボの時間・オフボの元の SR・モノラル）。無ければ nullptr。
+    // 音量は mainGain。S（ソロ）はオフボ・お手本・録ったトラックのうち、それだけを鳴らす
+    std::shared_ptr<const audio::SongAudio> guideVocals;
+    bool guideMuted = false, guideSolo = false, backingSolo = false;
+    // ハモリのお手本（2026-10-02）：分離した声からリードボーカル（karaoke のモデル）を引いた残り。無ければ nullptr。
+    // これがある時、guideVocals はリードだけ。音量は harmonyGain
+    std::shared_ptr<const audio::SongAudio> guideHarmVocals;
+    bool guideHarmMuted = false, guideHarmSolo = false;
+    // 自分の S（ソロ）：自分の声だけを聴く（オフボ・お手本・録ったトラックを止める）。モニターの S は同時に 1 つ。
+    // 自分の声はほかの S では消さない（お手本だけを流して重ねて歌う時に、自分が聞こえなくならない）
+    bool selfSolo = false;
+    // 声域（MIDI。-1 = まだ）。設定に保存。おすすめのキーに使う
+    int voiceLow = -1, voiceHigh = -1;
 
     // 自分の声のモニター（B4）。出力がスピーカーらしい機器に替わったら、ハウリングしないよう最初だけミュート
     bool selfMuted = false;
@@ -122,14 +141,35 @@ struct Session
         int vibNotes = 0;
     };
     std::map<juce::String, TakeStats> takeStats;
+    // テイク比較（B18c）：比べている間の範囲と、いま試聴で入れているテイク（採用区間はその形に差し替わっている）
+    struct TakeCompare
+    {
+        bool active = false;
+        int serial = 0;                               // 比べ始めるたびに増える（閉じたパネルが次の比較を止めないように）
+        TrackType track = TrackType::main;
+        int64 from = 0, to = 0;
+        enum class Scope { song, inOut, segment } scope = Scope::song;
+        juce::String previewing;                      // 空 = いまの採用（元のまま）
+        std::vector<project::CompSegment> original;   // 比べ始めた時の採用区間（「採用中」の印・元に戻す形）
+    } compare;
     bool exporting = false;
 
     // 画面下に一度だけ出す知らせ（トースト）。noticeSerial が増えたら出す
     juce::String noticeText;
     int noticeSerial = 0;
 
-    // 新しいバージョンの知らせ（DESIGN 11.7。今はモックのみ。空なら出さない）
+    // 新しいバージョンの知らせ（DESIGN 11.7。GitHub のリリースを見る。UiSessionUpdate.cpp）。updateVersion が空なら出さない
     juce::String updateVersion;
+    update::Release updateRelease;        // 知らせている版（ページ・この OS のインストーラー・本文）
+    bool updateAutoCheck = true;          // 起動時に確かめる（24 時間に 1 回まで。設定で切れる）
+    bool updateBetas = false;             // ベータも知らせる（いまの版がベータなら切っていても知らせる）
+    bool updateChecking = false;
+    juce::String updateSkipped;           // 「このバージョンを飛ばす」で飛ばした版
+    juce::int64 updateLastCheck = 0;      // 最後に確かめられた時刻（ms。つながらなかった時は進めない）
+    int updateNoticeSerial = -1;          // この番号の知らせには「見る」キーを付ける（今すぐ確かめた時）
+
+    // アプリ共通のキャッシュの場所（作ったオフボなど。DESIGN 8）。空 = 既定（system::defaultCacheFolder）
+    juce::File cacheFolder;
 
     // 入力。UI_MOCK ではこのダミーのまま。エンジンがあれば UiSession が実デバイスの値で上書きする（B3）
     juce::String inputDevice, driver;
@@ -168,6 +208,7 @@ struct Session
 
     std::vector<RefNote> refNotes;
     std::vector<PitchPoint> refPitch;
+    std::vector<PitchPoint> refPitchHarm;   // ハモリのお手本の音程（オフボの時間。2026-10-02）。空ならハモリのトラックもメインと比べる
     std::vector<PitchPoint> myPitch;
 
     // お手本（声入りの原曲。B9。DESIGN 7.1.1）。refPitch はオフボの時間
@@ -189,12 +230,16 @@ struct Session
         bool paused = false;
         juce::String error;
         int noticeSerial = -1;            // この番号の知らせには「分離モデルを入れる」キーを付ける
-        int kind = 0;                     // 0 = 分離（B16）、1 = 歌詞の認識（B17）
     } modelDl;
-    // 歌詞の自動合わせ（B17）：お手本から取り出した声を認識して、行の時刻を推定する
-    bool lyricsAligning = false;
-    float lyricsAlignProgress = 0.0f;     // 0..1
     bool guideNeedsSeparation = false;    // 引き算で声が取れなかった（モデルが入ったら分離を勧める）
+    // 原曲で聴く（聞き比べ・時間合わせの確認。DESIGN 4.6 Original）：合わせた原曲（オフボの時間・オフボの元の SR・モノラル）と、オフボの代わりに鳴らすか
+    std::shared_ptr<const audio::SongAudio> guideOriginal;
+    bool listenOriginal = false;
+    bool guideAlignRough = false;
+    // カット版（DESIGN 7.1.1）：お手本が使える所（オフボの時間・曲の SR）。曲のほぼ全部なら空（「お手本なし」を描かない）
+    std::vector<std::pair<int64, int64>> guideCovered;          // 時間合わせの確かさが低い（「推定」と出す。DESIGN 7.1.1）
+    double guideNudgeMs = 0.0;            // お手本の位置の手直し（ms。+ で後ろへ。DESIGN 7.1.1。プロジェクトに保存）
+    int guideKaraokeKey = 0;              // キー違いのカラオケ：カラオケ = 原曲 + この半音（分離した線をその分ずらす。DESIGN 7.1.1）
 
     // リハーサルで録ったテイクの救済：この番号の知らせには「本番に入れる」を付ける
     int rescueNoticeSerial = -1;
@@ -222,6 +267,12 @@ struct Session
         const auto t = currentTrack().type;
         return t == TrackType::harm1 || t == TrackType::harm2;
     }
+    /** そのトラックが比べるお手本：ハモリのトラックはハモリのお手本（あれば）、ほかはメイン */
+    const std::vector<PitchPoint>& refFor (TrackType t) const
+    {
+        return (t == TrackType::harm1 || t == TrackType::harm2) && ! refPitchHarm.empty() ? refPitchHarm : refPitch;
+    }
+    const std::vector<PitchPoint>& activeRef() const { return refFor (currentTrack().type); }
     const song::Line* lyricAt (int64 sample) const;
     const song::Line* lyricAfter (int64 sample) const;
 };

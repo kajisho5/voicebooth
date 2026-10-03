@@ -517,10 +517,16 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
     if (probe.process (input, outputs, numOutputs, numSamples))
         return;
 
-    // オフボ（出力を全部書く）。鳴らした曲の範囲に合わせて素の声を録る（B5）
+    // オフボ（出力を全部書く。クリックもここで足す）。鳴らした曲の範囲に合わせて素の声を録る（B5）。
+    // カウントインの終わりのブロックは曲が lead サンプル目から始まるので、入力もそこから合わせる（数えている間の声は録らない）
     const auto played = core.render (outputs, numOutputs, numSamples);
-    recorder.process (input, numSamples, played.start, played.played, played.wrapped);
-    pitch.push (input, numSamples, played.start, played.wrapped ? 0 : played.played, played.step);   // 自分の声のピッチ（B8）。検出は別のスレッド
+    const float* sung = input != nullptr ? input + played.lead : nullptr;
+    const auto sungSamples = numSamples - played.lead;
+    recorder.process (sung, sungSamples, played.start, played.played, played.wrapped);
+    // 自分の声のピッチ（B8）。検出は別のスレッド。数えている分も入力は途切れさせずに渡す（位置なし＝曲の線には入らない）
+    if (played.lead > 0)
+        pitch.push (input, played.lead, played.start, 0, played.step);
+    pitch.push (sung, sungSamples, played.start, played.wrapped ? 0 : played.played, played.step);
 
     // 自分の声（とモニターリバーブ）を足す
     monitor.process (input, outputs, numOutputs, numSamples);

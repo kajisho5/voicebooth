@@ -18,7 +18,7 @@ namespace
     }
 }
 
-LyricsLane::LyricsLane (UiSession& u, Actions& a) : SessionView (u), actions (a), syncKey (tr ("lyrics.sync")), autoKey (tr ("lyrics.auto"))
+LyricsLane::LyricsLane (UiSession& u, Actions& a) : SessionView (u), actions (a), syncKey (tr ("lyrics.sync"))
 {
     editButton.setButtonText (tr ("lyrics.pad"));
     editButton.withIcon (Icon::edit).withFont (sans (11.5f, Weight::medium));
@@ -32,16 +32,6 @@ LyricsLane::LyricsLane (UiSession& u, Actions& a) : SessionView (u), actions (a)
     syncKey.withShortcut ("Enter");
     syncKey.onClick = [this] { session.setLyricSyncing (! state().lyricSyncing); };
     addChildComponent (syncKey);
-
-    // 自動で合わせる（B17）：お手本の声を認識して行の時刻を推定する。動いている間 LED が点き、押すと止める
-    autoKey.withLed().withToggle (false).withFont (sans (11.5f, Weight::medium));
-    autoKey.setTooltip (tr ("lyrics.auto.tooltip"));
-    autoKey.onClick = [this]
-    {
-        if (state().lyricsAligning) session.stopLyricsAlign();
-        else                        session.alignLyricsAuto();
-    };
-    addChildComponent (autoKey);
 
     refreshKeys();
 }
@@ -63,18 +53,10 @@ void LyricsLane::onSessionChanged (juce::uint32 c)
 void LyricsLane::refreshKeys()
 {
     const auto& s = state();
-    const bool had = syncKey.isVisible(), hadAuto = autoKey.isVisible();
+    const bool had = syncKey.isVisible();
     syncKey.setVisible (! s.project.lyrics.empty());
     syncKey.setToggleState (s.lyricSyncing, juce::dontSendNotification);
-    autoKey.setVisible (! s.project.lyrics.empty() && s.engineAttached);   // 見本（UI_MOCK）では出さない
-    autoKey.setToggleState (s.lyricsAligning, juce::dontSendNotification);
-    const auto label = s.lyricsAligning ? tr ("lyrics.auto.running", juce::roundToInt (s.lyricsAlignProgress * 100.0f)) : tr ("lyrics.auto");
-    if (autoKey.getButtonText() != label)
-    {
-        autoKey.setButtonText (label);
-        if (autoKey.isVisible()) resized();
-    }
-    if (had != syncKey.isVisible() || hadAuto != autoKey.isVisible())
+    if (had != syncKey.isVisible())
         resized();
 }
 
@@ -94,13 +76,6 @@ void LyricsLane::resized()
         syncKey.setSize (10, 28);
         const auto sw = syncKey.idealWidth();
         syncKey.setBounds (r.removeFromRight (sw).withSizeKeepingCentre (sw, 28));
-    }
-    if (autoKey.isVisible())
-    {
-        r.removeFromRight (6);
-        autoKey.setSize (10, 28);
-        const auto aw = autoKey.idealWidth();
-        autoKey.setBounds (r.removeFromRight (aw).withSizeKeepingCentre (aw, 28));
     }
     r.removeFromRight (metrics::pad);
     textArea = r.withTrimmedLeft (22);

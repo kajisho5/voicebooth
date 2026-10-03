@@ -1,0 +1,47 @@
+VoiceBooth が配る BS-RoFormer の分離モデル（anvuew、GPL-3.0）について
+Notice for the BS-RoFormer separation models distributed with VoiceBooth (anvuew, GPL-3.0)
+=====================================================================================
+
+配るもの / Distributed folders
+  bs-roformer-anvuew-ft1-int8-1/       front.onnx, layer0..11.onnx, head.onnx, parts.json （声 / 伴奏 vocals / instrumental）
+  bs-roformer-anvuew-karaoke-int8-1/   front.onnx, layer0..11.onnx, head.onnx, parts.json （リードボーカル lead vocal）
+
+元の重み / Original weights
+  作者 / Author: anvuew  (https://huggingface.co/anvuew)
+  ライセンス / License: GNU General Public License v3.0 (GPL-3.0)
+
+  BS-RoFormer ft1（vocals）
+    https://huggingface.co/anvuew/BS-RoFormer
+    https://huggingface.co/anvuew/BS-RoFormer/resolve/main/bs_roformer_ft1_anvuew_sdr_12.55.ckpt
+      SHA-256 60347271e8493fdff28ef558c3b2297afb869a1f4462594ed548038264bec395 (204,493,312 bytes)
+    https://huggingface.co/anvuew/BS-RoFormer/resolve/main/config.yaml
+      SHA-256 033e57abee226a480ef410e0631b9fe00e8b7bc9a3bb5fe55659d0b43a238701 (1,969 bytes)
+    （リポジトリの版 / repository revision 24988f47270cb3529b62c4f3bbb8234f4586de9b）
+
+  karaoke BS-RoFormer（lead vocal。データセット / dataset by becruily）
+    https://huggingface.co/anvuew/karaoke_bs_roformer
+    https://huggingface.co/anvuew/karaoke_bs_roformer/resolve/main/karaoke_bs_roformer_anvuew.ckpt
+      SHA-256 206d04757cb5f75ca3b55f8a0a48f5c26aa2351d4ff3c7adbfc9affa30ea3ae4 (204,486,925 bytes)
+    https://huggingface.co/anvuew/karaoke_bs_roformer/resolve/main/karaoke_bs_roformer_anvuew.yaml
+      SHA-256 5cb3f127ecbc6a8e37f31ea7e05f60f360a44da43e857bde805b7b68558f6338 (1,973 bytes)
+    （リポジトリの版 / repository revision 0d4423d42e12cf2ba39ae09171028507b8a2a7be）
+
+変更 / Modifications（2026-10-02、VoiceBooth）
+  - PyTorch の ckpt を ONNX（opset 18）に書き出した。STFT / iSTFT を外に出し、front・12 層・head の 14 個のグラフに分けた
+    Converted the PyTorch checkpoints to ONNX (opset 18) with the STFT / iSTFT moved outside the graph,
+    split into 14 graphs (front, layer0..11, head).
+  - MatMul の重みを int8 に量子化した（per-channel、動的量子化。Gemm は MatMul + Add に直してから）
+    Quantized the MatMul weights to int8 (per-channel dynamic quantization, after rewriting Gemm as MatMul + Add).
+  - アプリが読む parts.json（hop・層の数など）を足した / Added parts.json (hop, layer count, ...) read by the app.
+  学習し直し・重みの手直しはしていない / No retraining or manual weight edits.
+
+対応するソース / Corresponding source (GPL-3.0 section 6)
+  変換の手順とスクリプト：VoiceBooth のリポジトリの tools/separation/
+  （bs_common.py、export_bs_parts.py、quantize_parts.py、verify_bs_parts.py、README.md）
+  The conversion scripts and instructions are in tools/separation/ of the VoiceBooth source repository.
+  元の重み（上の URL）＋ これらのスクリプトで、配っているファイルを作り直せる。
+  モデルの定義は ZFTurbo/Music-Source-Separation-Training の models/bs_roformer/bs_roformer.py（MIT）を使う。
+
+これらのモデルは GPL-3.0 の下で配る。保証はない。GPL-3.0 の全文：https://www.gnu.org/licenses/gpl-3.0.txt
+These converted models are distributed under the GPL-3.0, WITHOUT ANY WARRANTY.
+Full text: https://www.gnu.org/licenses/gpl-3.0.txt

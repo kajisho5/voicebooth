@@ -50,6 +50,81 @@ namespace
         }
         return x;
     }
+
+    void addKick (std::vector<float>& x, double t, float amp)
+    {
+        const auto s0 = (size_t) (t * sr);
+        for (size_t i = 0; i < (size_t) (0.12 * sr) && s0 + i < x.size(); ++i)
+        {
+            const auto tt = (double) i / sr;
+            x[s0 + i] += amp * (float) (std::sin (twoPi * (55.0 + 70.0 * std::exp (-tt * 40.0)) * tt) * std::exp (-tt * 25.0));
+        }
+    }
+
+    void addSnare (std::vector<float>& x, double t, float amp, juce::Random& rnd)
+    {
+        const auto s0 = (size_t) (t * sr);
+        float last = 0.0f;
+        for (size_t i = 0; i < (size_t) (0.15 * sr) && s0 + i < x.size(); ++i)
+        {
+            const auto tt = (double) i / sr;
+            const auto body = std::sin (twoPi * 240.0 * tt) * std::exp (-tt * 30.0);   // 胴（200 Hz より上：キックの帯に入らない）
+            const auto white = rnd.nextFloat() * 2.0f - 1.0f;
+            const auto noise = (white - last) * 0.5f * std::exp (-tt * 22.0);          // 響き線のざらつき（高い方に寄せる）
+            last = white;
+            x[s0 + i] += amp * (float) (0.6 * body + 0.6 * noise);
+        }
+    }
+
+    void addHat (std::vector<float>& x, double t, float amp, juce::Random& rnd)
+    {
+        const auto s0 = (size_t) (t * sr);
+        float last = 0.0f;
+        for (size_t i = 0; i < (size_t) (0.03 * sr) && s0 + i < x.size(); ++i)
+        {
+            const auto white = rnd.nextFloat() * 2.0f - 1.0f;
+            x[s0 + i] += amp * (white - last) * 0.5f * std::exp (-(float) i / (float) (0.006 * sr));   // 高い音だけ
+            last = white;
+        }
+    }
+
+    /** バラード（2026-10-02、実際の曲で拍の線が裏にずれた形）：キックは 1・3 拍目と、2・4 拍目の裏にも同じ強さで入り、
+        8 小節ごとの頭にだけ特大の 1 発（キメ）。スネアは 2・4 拍目、ハイハットは 8 分。和音は 8 分音符だけ食って変わる */
+    std::vector<float> ballad (double bpm, double lead, double seconds, const std::vector<std::pair<int, bool>>& chords, int seed = 3)
+    {
+        juce::Random rnd (seed);
+        const auto n = (size_t) (seconds * sr);
+        std::vector<float> x (n, 0.0f);
+        const auto beat = 60.0 / bpm;
+        int k = 0;
+        for (double t = lead; t < seconds - 0.3; t += beat, ++k)
+        {
+            const auto b = k % 4;
+            if (b == 0) addKick (x, t, k % 32 == 0 ? 1.0f : 0.35f);
+            if (b == 2) addKick (x, t, 0.35f);
+            if (b == 1 || b == 3) addKick (x, t + 0.5 * beat, 0.35f);   // 裏のキック（シンコペーション）
+            if (b == 1 || b == 3) addSnare (x, t, 0.3f, rnd);
+            addHat (x, t, 0.05f, rnd);
+            addHat (x, t + 0.5 * beat, 0.07f, rnd);
+        }
+        int bar = 0;
+        for (double t = lead; t < seconds; t += 4.0 * beat, ++bar)
+        {
+            const auto [root, isMinor] = chords[(size_t) bar % chords.size()];
+            const auto from = bar == 0 ? t : t - 0.5 * beat;   // 和音は 8 分音符だけ食って変わる（J-POP によくある）
+            const auto s0 = (size_t) (from * sr), s1 = std::min (n, (size_t) ((t + 3.5 * beat) * sr));
+            for (const auto iv : { 0, isMinor ? 3 : 4, 7, 12 })
+            {
+                const auto f = midiHz (root + iv);
+                for (size_t i = s0; i < s1; ++i)
+                {
+                    const auto ph = twoPi * f * (double) (i - s0) / sr;
+                    x[i] += (float) (0.05 * (std::sin (ph) + 0.4 * std::sin (2 * ph)));
+                }
+            }
+        }
+        return x;
+    }
 }
 
 class MusicInfoTests : public juce::UnitTest
@@ -71,6 +146,24 @@ public:
                 expectWithinAbsoluteError ((double) t.downbeatSample / sr, 0.73, 0.015, juce::String (bpm));
                 expectGreaterThan (t.confidence, 0.2f);
                 expectEquals (t.beatsPerBar, 4);
+            }
+        }
+
+        beginTest ("tempo: ballad with off-beat kicks and a big accent keeps the beat lines on the beats");
+        {
+            for (auto bpm : { 92.0, 100.0, 108.0 })
+            {
+                const auto lead = 0.61;
+                const auto x = ballad (bpm, lead, 50.0, cMajor);
+                const auto t = estimateTempo (x.data(), (juce::int64) x.size(), sr);
+                expectWithinAbsoluteError (t.bpm, bpm, 0.05, juce::String (bpm));
+                // 拍の線（小節の頭から 1 拍ごと）が本当の拍の上にあること（どの拍が 1 拍目かは問わない）
+                const auto beat = 60.0 / t.bpm;
+                auto off = std::fmod ((double) t.downbeatSample / sr - lead, beat);
+                if (off < 0.0) off += beat;
+                if (off > 0.5 * beat) off -= beat;
+                logMessage ("  ballad " + juce::String (bpm) + ": estimated " + juce::String (t.bpm) + " BPM, beat-line offset " + juce::String (off * 1000.0, 1) + " ms");
+                expectWithinAbsoluteError (off, 0.0, 0.03, "beat phase at " + juce::String (bpm) + " BPM");
             }
         }
 

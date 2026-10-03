@@ -209,6 +209,24 @@ Session makeSession()
         p.lyrics.lines.push_back (line);
     }
 
+    // テイクの解析の見本（テイク比較のパネル用。B18c）。本物は録ったテイクの音程とお手本から作る
+    {
+        auto st = [] (double onset, float inBand, float cents, float vibHz, float vibC)
+        {
+            Session::TakeStats t;
+            t.entries = 10; t.matched = 9; t.onsetMs = onset;
+            t.inBand = inBand; t.meanAbsCents = cents; t.pitchFrames = 1800;
+            t.vibRateHz = vibHz; t.vibDepthCents = vibC; t.vibNotes = vibHz > 0.0f ? 4 : 0;
+            return t;
+        };
+        s.takeStats[takeWaveKey (TrackType::main, "take1")] = st (62.0, 0.64f, 31.0f, 0.0f, 0.0f);
+        s.takeStats[takeWaveKey (TrackType::main, "take2")] = st (38.0, 0.78f, 22.0f, 5.2f, 24.0f);
+        s.takeStats[takeWaveKey (TrackType::main, "take3")] = st (-24.0, 0.71f, 26.0f, 5.8f, 31.0f);
+        s.takeStats[takeWaveKey (TrackType::main, "take4")] = st (9.0, 0.86f, 17.0f, 5.5f, 28.0f);
+        s.takeStats[takeWaveKey (TrackType::doubleTrack, "take1")] = st (21.0, 0.74f, 24.0f, 0.0f, 0.0f);
+        s.takeStats[takeWaveKey (TrackType::doubleTrack, "take2")] = st (12.0, 0.81f, 19.0f, 0.0f, 0.0f);
+    }
+
     for (auto& n : melody)
         s.refNotes.push_back ({ s.sec (n.t), s.sec (n.t + n.len), n.midi, n.vib, n.cons });
 
@@ -262,9 +280,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
         { TrackType::harm2,       false, false, false, 0.60f, 4 },
     };
 
-    // 頭から 30 秒を表示（短い曲は全体）
+    // 頭から 15 秒を表示（短い曲は全体）。音符の棒が読める幅。Ctrl / Cmd ＋ホイールで変えられる
     s.viewStart = 0;
-    s.viewEnd = juce::jmax ((int64) 1, juce::jmin (lengthSamples, s.sec (30.0)));
+    s.viewEnd = juce::jmax ((int64) 1, juce::jmin (lengthSamples, s.sec (15.0)));
 
     // 表示の好み
     s.mode                = prev.mode;
@@ -277,11 +295,20 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.pitchToleranceCents = prev.pitchToleranceCents;
     s.countInBars         = prev.countInBars;
     s.clickOn             = prev.clickOn;
+    s.clickLevel          = prev.clickLevel;
+    s.backingMeterDb      = prev.backingMeterDb;
+    s.guideMeterDb        = prev.guideMeterDb;
+    s.harmGuideMeterDb    = prev.harmGuideMeterDb;
+    s.clickMeterDb        = prev.clickMeterDb;
     s.loopOn              = prev.loopOn;
     // オフボは 0 dB（0.75）から。前も開いた曲なら、その音量を引き継ぐ
     s.offVocalGain        = prev.backingWave != nullptr ? prev.offVocalGain : 0.75f;
     s.backingMuted        = prev.backingWave != nullptr && prev.backingMuted;
     s.mainGain            = prev.mainGain;
+    s.guideMuted          = prev.guideMuted;
+    s.guideHarmMuted      = prev.guideHarmMuted;
+    s.voiceLow            = prev.voiceLow;
+    s.voiceHigh           = prev.voiceHigh;
     s.harmonyGain         = prev.harmonyGain;
     s.monitorGain         = prev.monitorGain;
     s.monitorReverb       = prev.monitorReverb;
@@ -311,7 +338,14 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.noticeSerial    = prev.noticeSerial;      // 前の知らせを出し直さない
     s.output          = prev.output;
     s.engineAttached  = prev.engineAttached;
-    s.updateVersion   = prev.updateVersion;
+    s.updateVersion   = prev.updateVersion;     // 更新の確認・キャッシュの場所はアプリの設定（曲と関係ない）
+    s.updateRelease   = prev.updateRelease;
+    s.updateAutoCheck = prev.updateAutoCheck;
+    s.updateBetas     = prev.updateBetas;
+    s.updateChecking  = prev.updateChecking;
+    s.updateSkipped   = prev.updateSkipped;
+    s.updateLastCheck = prev.updateLastCheck;
+    s.cacheFolder     = prev.cacheFolder;
     s.modelDl         = prev.modelDl;           // モデルのダウンロードは曲と関係ない（続いている物を開き直さない）
     return s;
 }

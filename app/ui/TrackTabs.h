@@ -1,6 +1,7 @@
 #pragma once
 
 #include "UiSession.h"
+#include "Actions.h"
 #include "parts/KeyButton.h"
 
 namespace vb
@@ -41,7 +42,7 @@ private:
 class TrackTabs : public juce::Component, private SessionView
 {
 public:
-    explicit TrackTabs (UiSession&);
+    TrackTabs (UiSession&, Actions&);
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -51,7 +52,8 @@ public:
 private:
     void onSessionChanged (juce::uint32) override;
 
+    Actions& actions;
     juce::OwnedArray<TrackCard> cards;
-    KeyButton compare;
+    KeyButton compare;   // テイク比較（B18c）：いまのトラックのテイクを並べて聴き比べるパネルを開く
 };
 } // namespace vb

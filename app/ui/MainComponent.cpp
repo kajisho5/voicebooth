@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 #include "screens/StartScreen.h"
+#include "screens/AboutDialog.h"
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
@@ -9,14 +10,17 @@
 #include "screens/UpdateDialog.h"
 #include "screens/SongInfoDialog.h"
 #include "screens/LyricsDialog.h"
+#include "screens/RangeDialog.h"
+#include "screens/TakeCompareDialog.h"
 #include "SongMarks.h"
+#include "system/AppCache.h"
 
 namespace vb
 {
 MainComponent::MainComponent (UiSession& u, AppHooks& h)
     : SessionView (u),
       hooks (h),
-      top (u, actions), transport (u, actions), pitch (u, actions), lyrics (u, actions), wave (u), tracks (u), rack (u, actions), status (u)
+      top (u, actions), transport (u, actions), pitch (u, actions), lyrics (u, actions), wave (u, actions), tracks (u, actions), rack (u, actions), status (u)
 {
     actions.toggleRecord = [this] { toggleRecord(); };
     actions.requestTempo = [this] (int v) { requestTempo (v); };
@@ -25,9 +29,16 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openSetup    = [this] { openSetup(); };
     actions.openExport   = [this] { openExport(); };
     actions.openSettings = [this] { openSettings(); };
+    actions.openVoiceRange = [this]
+    {
+        auto dlg = std::make_unique<RangeDialog> (session);
+        dlg->onCloseRequest = [this] { overlay.close(); };
+        overlay.show (std::move (dlg));
+    };
     actions.openSongInfo = [this] { openSongInfo(); };
     actions.openLyrics   = [this] { openLyrics(); };
     actions.editSectionName = [this] (int i) { openSectionName (i); };
+    actions.openTakeCompare = [this] (long long from, long long to) { openTakeCompare (from, to); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
@@ -97,7 +108,11 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     {
         // --open と一緒なら開いた後に重ねる。--guide だけなら起動画面のお手本の枠に入れる（原曲だけで始める。B16）
         if (o.open != juce::File())
+        {
             pendingGuide = o.guide;
+            if (auto* start = dynamic_cast<StartScreen*> (overlay.getContent()))
+                start->markGuideAfterOpen();
+        }
         else if (auto* start = dynamic_cast<StartScreen*> (overlay.getContent()))
             start->setGuide (o.guide);
         else
@@ -112,6 +127,8 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "setup3")       openSetup (2);
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
+    if (o.screen == "about")        openAbout();
+    if (o.screen == "range" && actions.openVoiceRange) actions.openVoiceRange();
     if (o.screen == "skin-templates") openSkinTemplates();
     if (o.screen == "skin-editor" || o.screen == "skin-editor-borrow")
         openSkinEditor();
@@ -127,9 +144,19 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
         });
     }
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
+    if (o.screen == "compare")      openTakeCompare (0, 0);   // テイク比較（B18c。見本は Main の IN / OUT）
 
-    // DESIGN 11.7 のモック（通信しない）
-    if (o.screen.startsWith ("update"))  session.setUpdateAvailable ("0.2.0");
+    // DESIGN 11.7 の見本（通信しない。版・本文は見本、キーは本物のリリースのページを開く）
+    if (o.screen.startsWith ("update"))
+    {
+        update::Release sample;
+        sample.found = sample.sample = true;
+        sample.version = "0.2.0";
+        sample.published = "2026-10-15";
+        sample.pageUrl = "https://github.com/kajisho5/voicebooth/releases";
+        sample.notes = "- " + tr ("update.sample.note1") + "\n- " + tr ("update.sample.note2") + "\n- " + tr ("update.sample.note3");
+        session.setUpdateAvailable (sample);
+    }
     if (o.screen == "update")             openUpdate();
     using Stage = ModelDownloadDialog::Stage;
     if (o.screen == "model-download")     openModelDownload ((int) Stage::confirm, true);
@@ -164,6 +191,14 @@ void MainComponent::timerCallback()
 
 void MainComponent::onSessionChanged (juce::uint32 changes)
 {
+    // 本物のアプリで曲を開く前は、見本の画面（デモの曲・ダミーの線）を見せない（起動画面を閉じてモデルの確認を出す時など）
+    {
+        const bool show = ! needsSong();
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &top, &transport, &pitch, &wave, &tracks, &rack })
+            c->setVisible (show);
+        lyrics.setVisible (show && state().showLyrics);
+    }
+
     // 曲が開いたら、--guide= のお手本を重ねる（B9）
     if ((changes & change::song) && pendingGuide != juce::File() && state().backingWave != nullptr)
     {
@@ -222,9 +257,7 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
             // 画面を閉じても裏で続く（進み具合は状態バー）。終わったら知らせる
             modelStageBehind = m.stage;
             juce::Component::SafePointer<MainComponent> safe (this);
-            if (m.stage == (int) DS::done && m.kind == 1)
-                showToast (tr ("model.lyrics.readyToast"));   // 歌詞はそのまま合わせ始める（UiSession が続ける）
-            else if (m.stage == (int) DS::done)
+            if (m.stage == (int) DS::done)
             {
                 if (pendingOriginal != juce::File() && state().songOriginal == nullptr && session.separationAvailable())
                 {
@@ -239,7 +272,7 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
                     showToast (tr ("model.readyToast"));
             }
             else if (m.stage == (int) DS::failed)
-                showToast (tr (m.kind == 1 ? "model.lyrics.failedToast" : "model.failedToast"), tr ("model.details"),
+                showToast (tr ("model.failedToast"), tr ("model.details"),
                            [safe] { if (safe != nullptr) safe->openLiveModelDownload ((int) MS::failed); });
         }
     }
@@ -249,7 +282,11 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     {
         separationOfferSeen = state().separationOfferSerial;
         const auto minutes = juce::jmax (1, juce::roundToInt (session.separationEstimateSeconds() / 60.0));
-        showConfirm (tr ("separation.confirm.title"), tr ("separation.confirm.message", minutes),
+        const auto key = state().guideKaraokeKey;
+        const auto message = key != 0 ? tr ("separation.confirm.messageKey", minutes,
+                                            (key > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (key)))
+                                      : tr ("separation.confirm.message", minutes);
+        showConfirm (tr ("separation.confirm.title"), message,
                      {
                          { tr ("separation.confirm.yes"), DialogPanel::KeyRole::primary, [this] { session.separateGuide(); } },
                          { tr ("separation.confirm.later"), DialogPanel::KeyRole::normal, {} },
@@ -263,6 +300,8 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         const auto& s = state();
         if (s.modelDl.noticeSerial == s.noticeSerial)
             showToast (s.noticeText, tr ("model.getButton"), [this] { session.requestSeparationModel(); });   // 押した時だけ一覧を見に行く
+        else if (s.updateNoticeSerial == s.noticeSerial)
+            showToast (s.noticeText, tr ("update.view"), [this] { openUpdate(); });   // 「今すぐ確かめる」で見つけた
         else if (s.rescueNoticeSerial == s.noticeSerial)
         {
             // リハーサルで録ったテイク（原速・原キー）：本番のつもりだったらその場で入れられる
@@ -289,7 +328,7 @@ void MainComponent::resized()
     tracks.setBounds (r.removeFromBottom (TrackTabs::height));
     wave.setBounds (r.removeFromBottom (WaveLane::preferredHeight (state().mode)));
     // 歌詞レーンは設定で出した時だけ（既定は出さない）
-    lyrics.setVisible (state().showLyrics);
+    lyrics.setVisible (state().showLyrics && ! needsSong());
     if (state().showLyrics)
         lyrics.setBounds (r.removeFromBottom (LyricsLane::height));
     pitch.setBounds (r);
@@ -380,7 +419,17 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     {
         if (key.getKeyCode() == juce::KeyPress::tabKey)
             return false;
-        if (key == juce::KeyPress::escapeKey)
+        // テイク比較（B18c）：Esc でやめる＝元の採用区間に戻してから閉じる。パネルにフォーカスが無くても ↑ ↓・Space は届ける
+        if (auto* compare = dynamic_cast<TakeCompareDialog*> (overlay.getContent()))
+        {
+            if (key == juce::KeyPress::escapeKey)
+                compare->cancel();
+            else
+                compare->keyPressed (key);
+            return true;
+        }
+        // 曲を開く前の起動画面は Esc で閉じない（閉じても使える画面が無い）
+        if (key == juce::KeyPress::escapeKey && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr))
             overlay.close();
         return true;
     }
@@ -598,7 +647,7 @@ void MainComponent::confirmDiscardRecording()
 {
     showConfirm (tr ("confirm.discard.title"), tr ("confirm.discard.message"),
                  {
-                     { tr ("confirm.discard.yes"), DialogPanel::KeyRole::danger, [this] { session.setRecording (false); } },
+                     { tr ("confirm.discard.yes"), DialogPanel::KeyRole::danger, [this] { session.discardRecording(); } },
                      { tr ("confirm.discard.no"), DialogPanel::KeyRole::normal, {} },
                  });
 }
@@ -638,6 +687,17 @@ StartScreen* MainComponent::openStart (bool firstRun)
     };
     overlay.show (std::move (screen), false);
     return raw;
+}
+
+bool MainComponent::needsSong() const
+{
+    return state().engineAttached && state().projectFile == juce::File();
+}
+
+void MainComponent::openStartIfNoSong()
+{
+    if (needsSong() && ! overlay.isShowing())
+        openStart();
 }
 
 void MainComponent::openSong (const juce::File& f)
@@ -715,10 +775,32 @@ void MainComponent::openExport()
         const bool pack = d->packSelected();
         const bool refmix = d->refmixSelected();
         const bool real = state().backingWave != nullptr;
-        overlay.close();   // d はここで消える
-        if (real && pack) session.exportPack (chosen, bits, refmix);
-        else if (real)    session.exportTracks (chosen, bits);
-        else      showToast (tr ("export.mockToast"));
+        auto* self = this;   // 下の close でこのラムダ（d の中）も消えるので、使う物は先に手元へ
+        overlay.close();     // d はここで消える
+        if (! real)
+        {
+            self->showToast (tr ("export.mockToast"));
+            return;
+        }
+        auto run = [self, chosen, bits, pack, refmix]
+        {
+            if (pack) self->session.exportPack (chosen, bits, refmix);
+            else      self->session.exportTracks (chosen, bits);
+        };
+        // お手本の声がある所で録っていない所があれば、書き出す前に確かめる（DESIGN 12。無音で書き出す）
+        const auto missing = self->session.unrecordedSummary (chosen);
+        if (missing.isEmpty())
+        {
+            run();
+            return;
+        }
+        juce::Component::SafePointer<MainComponent> safe (self);
+        self->showConfirm (tr ("export.unrecorded.title"), tr ("export.unrecorded.message", missing.joinIntoString ("\n")),
+                     {
+                         { tr ("export.unrecorded.yes"), DialogPanel::KeyRole::primary, run },
+                         { tr ("export.unrecorded.back"), DialogPanel::KeyRole::normal,
+                           [safe] { juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openExport(); }); } },
+                     });
     };
     overlay.show (std::move (dlg), true);
 }
@@ -747,7 +829,53 @@ void MainComponent::openSettings()
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSkinTemplates(); });
     };
+    dlg->onClearCache = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->confirmClearCache(); });
+    };
+    dlg->onAbout = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openAbout(); });
+    };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openAbout()
+{
+    // 閉じたら設定に戻る（設定から開くので）
+    auto dlg = std::make_unique<AboutDialog>();
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onCloseRequest = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::confirmClearCache()
+{
+    // 消すのはアプリのキャッシュ（作ったオフボ）だけ。曲ごとの <プロジェクト>/Cache/ は消さない。どちらを選んでも設定に戻る
+    const auto folder = session.cacheFolder();
+    const auto size = system::cacheSize (folder);
+    juce::Component::SafePointer<MainComponent> safe (this);
+    auto backToSettings = [safe] { juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); }); };
+    showConfirm (tr ("settings.cache.clear.title"), tr ("settings.cache.clear.message", system::formatSize (size)),
+                 {
+                     { tr ("settings.cache.clear.yes"), DialogPanel::KeyRole::danger, [this, folder, backToSettings]
+                       {
+                           // 分離の途中（オフボを作っている）は消さない：作りかけのファイルを壊す
+                           if (state().separating)
+                               showToast (tr ("settings.cache.clear.busy"));
+                           else
+                               showToast (system::clearCache (folder) ? tr ("settings.cache.cleared")
+                                                                      : tr ("settings.cache.clear.failed"));
+                           backToSettings();
+                       } },
+                     { tr ("common.cancel"), DialogPanel::KeyRole::normal, backToSettings },
+                 });
 }
 
 void MainComponent::openSkinTemplates()
@@ -843,12 +971,47 @@ void MainComponent::openSectionName (int index)
     overlay.show (std::move (dlg), true);
 }
 
+void MainComponent::openTakeCompare (int64 from, int64 to)
+{
+    // テイク比較（B18c）：from >= to ならトラックのキーから（IN / OUT があればその範囲、無ければ曲全体）、
+    // そうでなければ採用区間のバーで選んだ区間。範囲はループで聴く（曲全体は今の位置から）
+    using Scope = dummy::Session::TakeCompare::Scope;
+    const auto& s = state();
+    auto scope = Scope::segment;
+    if (to <= from)
+    {
+        scope = s.hasRange() ? Scope::inOut : Scope::song;
+        from = s.hasRange() ? s.rangeIn : 0;
+        to = s.hasRange() ? s.rangeOut : s.project.lengthSamples;
+    }
+    if (! session.beginTakeCompare (from, to, scope))
+    {
+        notice (tr (s.isRecording ? "compare.disabled.recording" : "compare.none"));
+        return;
+    }
+    auto dlg = std::make_unique<TakeCompareDialog> (session);
+    dlg->onFinished = [this] { overlay.close(); };
+    // 右に出す（背景を暗くしない：波形レーンの採用区間が差し替わるのを見ながら選ぶ）。外をクリックしても閉じない（試聴中の誤操作で消えない）
+    overlay.show (std::move (dlg), false, OverlayHost::Placement::side);
+}
+
 void MainComponent::openUpdate()
 {
-    auto dlg = std::make_unique<UpdateDialog>();
-    dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onInstall = [this] { overlay.close(); showToast (tr ("update.title")); };   // モック：何もしない
-    dlg->onSkip = [this] { overlay.close(); session.setUpdateAvailable ({}); };
+    const auto r = state().updateRelease;
+    if (! r.found)
+        return;
+    auto dlg = std::make_unique<UpdateDialog> (r);
+    dlg->onCloseRequest = [this] { overlay.close(); };   // あとで：知らせは残す
+    // 署名していないので自分では入れ替えない：ブラウザで開くだけ（インストーラーを入れ直すと更新。知らせは入れ替わるまで残す）
+    auto open = [this] (const juce::String& url)
+    {
+        overlay.close();
+        if (juce::URL (url).launchInDefaultBrowser()) showToast (tr ("update.opened"));
+        else                                          showToast (tr ("update.openFailed", url));
+    };
+    dlg->onOpen = [r, open] { open (r.assetUrl.isNotEmpty() ? r.assetUrl : r.pageUrl); };
+    dlg->onOpenPage = [r, open] { open (r.pageUrl); };
+    dlg->onSkip = [this] { overlay.close(); session.skipUpdate(); };
     overlay.show (std::move (dlg), true);
 }
 
@@ -864,7 +1027,7 @@ void MainComponent::openLiveModelDownload (int stage)
         modelStageBehind = state().modelDl.stage;
         overlay.close();
         // 原曲だけで始めようとしていた（曲はまだ無い）：起動画面に戻る。入っていればそのまま分離へ
-        if (state().modelDl.kind == 0 && pendingOriginal != juce::File() && state().songOriginal == nullptr)
+        if (pendingOriginal != juce::File() && state().songOriginal == nullptr)
         {
             const auto original = pendingOriginal;
             if (done) pendingOriginal = juce::File();
@@ -878,7 +1041,7 @@ void MainComponent::openLiveModelDownload (int stage)
             return;
         }
         // 入ったら、待っていた分離を勧める（お手本の原曲が引き算で取れなかった時）
-        if (done && state().modelDl.kind == 0 && state().guideNeedsSeparation && session.separationAvailable())
+        if (done && state().guideNeedsSeparation && session.separationAvailable())
             juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.offerSeparation(); });
     };
     overlay.show (std::move (dlg), false);

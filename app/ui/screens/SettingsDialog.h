@@ -19,6 +19,8 @@ public:
     std::function<void (const juce::String& skinId)> onSkin;   // DESIGN 4.11
     std::function<void()> onEditSkin;
     std::function<void()> onNewSkin;   // テンプレートから作る
+    std::function<void()> onAbout;        // このアプリについて・ライセンス
+    std::function<void()> onClearCache;   // キャッシュを空にする（確認は MainComponent が出す）
 
 protected:
     void layoutBody (juce::Rectangle<int>) override;
@@ -36,6 +38,11 @@ private:
     KeyButton editSkin, newSkin;
     SegmentedKeys mode, tolerance, countIn, crossfade;
     KeyButton octaveAlign, showLyrics, openSetup, cacheKey, supportKey;
+    KeyButton cacheOpen, cacheClear;               // キャッシュの場所（DESIGN 8）：開く・空にする
+    KeyButton updateAuto, updateBetas, updateNow;  // 新しいバージョンの確認（DESIGN 11.7）
+    std::unique_ptr<juce::FileChooser> chooser;
+    void chooseCacheFolder();
+    void refreshNotes();
     system::Info systemInfo;
     std::vector<Row> rows;
     std::vector<juce::Rectangle<int>> rowAreas;
