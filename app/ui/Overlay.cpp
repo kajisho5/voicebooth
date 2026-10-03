@@ -44,9 +44,9 @@ void DialogPanel::resized()
     for (auto* k : footerKeys)
     {
         if (! k->isVisible()) continue;   // 隠したキーは詰める
-        k->setSize (10, 34);
+        k->setSize (10, footerKeyHeight);
         const auto w = juce::jmax (96, k->idealWidth());
-        k->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 34));
+        k->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, footerKeyHeight));
         f.removeFromRight (8);
     }
 
@@ -66,7 +66,7 @@ void DialogPanel::paint (juce::Graphics& g)
     auto head = getLocalBounds().removeFromTop (headerH).reduced (padding, 0);
     paint::microLabel (g, head.removeFromTop (headerH / 2).toFloat().withTrimmedTop (10.0f), microTitle, colours::textMute);
     g.setColour (colours::text);
-    g.setFont (sans (17.0f, Weight::semibold));
+    g.setFont (sans (titleHeight, Weight::semibold));
     g.drawText (title, head.withTrimmedRight (40).translated (0, -6), juce::Justification::centredLeft, true);
 
     paint::hline (g, (float) headerH, 0.0f, b.getWidth());

@@ -32,13 +32,17 @@ protected:
 private:
     void onSessionChanged (juce::uint32) override;
 
-    /** 行の高さを窓の高さに合わせる（広い窓ではゆったり、狭い窓でも全部の行が収まる） */
+    /** 1920x1080 の窓で等倍。窓が小さい時は全体（文字・行・キー）を同じ割合で縮めて、全部の行を収める */
     void fitToParent();
-    int rowH = 56;
+    void applyScale (float);
+    float scale = 1.0f;
+    int rowH = 62, ctrlH = 44;
+    KeyButton* closeFooter = nullptr;
+    KeyButton* aboutFooter = nullptr;
 
     // control が無い行は value（と LED）を右に描く。extra は control の左に並べるキー
     struct Row { juce::String label, note; juce::Component* control; int controlWidth; juce::String value = {}; juce::Colour led = {};
-                 std::vector<KeyButton*> extras = {}; };
+                 std::vector<KeyButton*> extras = {}; int baseWidth = 0; };   // baseWidth：等倍の時の右の欄の幅
 
     std::vector<skin::Skin> skinChoices;
     Dropdown language, skinPicker;
