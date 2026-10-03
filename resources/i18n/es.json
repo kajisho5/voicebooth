@@ -179,6 +179,7 @@
   "load.error.readFailed": "Error al leer (el archivo puede estar dañado): {0}",
   "load.error.tooLong": "La canción es demasiado larga (máximo {1} minutos): {0}",
   "load.error.unsupported": "Este sistema no puede leer este archivo, o está dañado: {0} (conviértelo a WAV / FLAC / AIFF)",
+  "load.memoryTight": "Esta canción es grande y se espera que use unos {0} GB de memoria (este equipo tiene {1} GB). Si todo va lento o el análisis se detiene, conviértela a 48 kHz y ábrela de nuevo",
   "lyrics.applied.sections": "{0} secciones añadidas",
   "lyrics.applied.timed": "Letra cargada ({0} líneas, {1} con tiempos)",
   "lyrics.applied.untimed": "Letra cargada ({0} líneas). Usa “Sincronizar a mano” para marcar dónde empieza cada línea.",

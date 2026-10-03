@@ -58,6 +58,12 @@ struct LoadResult
     bool ok() const { return error == Error::none; }
 };
 
+/** 曲を開いて使うのに要るメモリの見込み（バイト）：曲のバッファ（32bit float）の 5 倍。
+    曲・SR をそろえ直した曲・お手本（声入りの原曲・取り出した声）・録ったトラックの分（20 分・384 kHz・ステレオで約 18 GB。#21） */
+juce::int64 estimatedMemoryBytes (juce::int64 lengthSamples, int numChannels);
+/** 見込みが搭載メモリの 6 割を超えるか（超えるときは開いた後に知らせる。断りはしない）。memoryMB が 0 以下（分からない）なら false */
+bool memoryTight (juce::int64 estimatedBytes, juce::int64 memoryMB);
+
 /** 翻訳キー（load.error.*） */
 const char* errorKey (LoadResult::Error);
 
