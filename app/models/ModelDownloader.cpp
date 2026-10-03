@@ -95,6 +95,27 @@ namespace
 
 std::unique_ptr<HttpSource> makeHttpSource() { return std::make_unique<JuceHttp>(); }
 
+bool fetchSmall (HttpSource& http, const juce::String& url, juce::MemoryBlock& out, juce::int64 maxBytes)
+{
+    out.reset();
+    auto r = http.get (url, 0, {});
+    if (r.body == nullptr || r.status != 200)
+        return false;
+    char buffer[16384];
+    juce::int64 total = 0;
+    for (;;)
+    {
+        const auto n = r.body->read (buffer, (int) juce::jmin ((juce::int64) sizeof (buffer), maxBytes + 1 - total));
+        if (n <= 0)
+            break;
+        out.append (buffer, (size_t) n);
+        total += n;
+        if (total > maxBytes)
+            return false;   // 大きすぎる（一覧・署名ではない）
+    }
+    return r.length < 0 || total == r.length;   // 途中で切れた物は使わない
+}
+
 //==============================================================================
 ModelDownloader::ModelDownloader (std::unique_ptr<HttpSource> source)
     : juce::Thread ("VoiceBooth model download"), http (std::move (source)) {}
