@@ -71,6 +71,8 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
     {
         auto ref = obj();
         set (ref, "path", extras.guidePath);
+        if (extras.guideNudgeMs != 0.0)
+            set (ref, "nudge_ms", extras.guideNudgeMs);
         set (root, "reference", ref);
     }
     auto rec = obj();
@@ -258,7 +260,10 @@ LoadedProject fromJson (const juce::String& text)
     p.inputProfileId = getString (root, "input_profile_id");
 
     if (const auto ref = root.getProperty ("reference", var()); ref.isObject())
+    {
         out.extras.guidePath = getString (ref, "path");
+        out.extras.guideNudgeMs = juce::jlimit (-500.0, 500.0, getDouble (ref, "nudge_ms"));
+    }
     if (const auto rec = root.getProperty ("record_format", var()); rec.isObject())
     {
         out.extras.recordRate = getDouble (rec, "sample_rate");

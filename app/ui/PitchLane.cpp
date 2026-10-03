@@ -190,7 +190,41 @@ void PitchLane::mouseDown (const juce::MouseEvent& e)
         session.seek (map().sampleAt ((float) juce::jmax (plotArea.getX(), e.x)));
     }
     else if (plotArea.contains (e.getPosition()))
+    {
+        // 右クリック：お手本の位置の手直し（お手本がある時。DESIGN 7.1.1）
+        menuGesture = e.mods.isPopupMenu();
+        if (menuGesture)
+        {
+            showGuideMenu();
+            return;
+        }
         gesture.down (session, map(), e.position.x);
+    }
+}
+
+void PitchLane::showGuideMenu()
+{
+    const auto& s = state();
+    juce::PopupMenu menu;
+    const bool hasGuide = s.engineAttached && ! s.refPitch.empty() && ! s.isRecording;
+    const auto now = (s.guideNudgeMs > 0 ? "+" : "") + juce::String (s.guideNudgeMs, 0);
+    menu.addSectionHeader (tr ("pitch.menu.nudge", now));
+    const double steps[] = { -10.0, -1.0, 1.0, 10.0 };
+    const char* keys[] = { "pitch.menu.earlier10", "pitch.menu.earlier1", "pitch.menu.later1", "pitch.menu.later10" };
+    for (int i = 0; i < 4; ++i)
+        menu.addItem (i + 1, tr (keys[i]), hasGuide);
+    menu.addItem (5, tr ("pitch.menu.nudgeReset"), hasGuide && s.guideNudgeMs != 0.0);
+    if (! hasGuide)
+        menu.addItem (-1, tr ("pitch.menu.noGuide"), false);
+
+    juce::Component::SafePointer<PitchLane> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition().withStandardItemHeight (28),
+                        [safe, steps] (int chosen)
+                        {
+                            if (safe == nullptr) return;
+                            if (chosen >= 1 && chosen <= 4) safe->session.nudgeGuide (steps[chosen - 1]);
+                            if (chosen == 5)                safe->session.resetGuideNudge();
+                        });
 }
 
 void PitchLane::mouseDrag (const juce::MouseEvent& e)
@@ -205,6 +239,8 @@ void PitchLane::mouseDrag (const juce::MouseEvent& e)
         return;
     }
 
+    if (menuGesture)
+        return;
     if (draggingRuler)
         session.seek (map().sampleAt ((float) juce::jlimit (plotArea.getX(), plotArea.getRight(), e.x)));
     else if (plotArea.contains (e.getMouseDownPosition()))
@@ -221,6 +257,8 @@ void PitchLane::mouseUp (const juce::MouseEvent& e)
         return;
     }
 
+    if (std::exchange (menuGesture, false))
+        return;
     if (! draggingRuler && plotArea.contains (e.getMouseDownPosition()))
         gesture.up (session, map(), e.position.x);
     draggingRuler = false;

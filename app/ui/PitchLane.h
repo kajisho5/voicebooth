@@ -26,6 +26,7 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
+    void showGuideMenu();
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseMagnify (const juce::MouseEvent&, float scaleFactor) override;
 
@@ -61,6 +62,7 @@ private:
     KeyButton octaveAlign, octaveUp, fullRange;
     lane::RangeGesture gesture;
     bool draggingRuler = false;
+    bool menuGesture = false;   // 右クリックのメニュー（ドラッグ・離した時は何もしない）
     int draggingTag = -1;          // 掴んでいる区間の札
     bool tagMoved = false;
     float tagGrabOffset = 0.0f;

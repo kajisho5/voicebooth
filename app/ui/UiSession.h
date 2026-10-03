@@ -113,6 +113,9 @@ public:
     void restoreClickOn (bool on) { s.clickOn = on; notify (change::transport); }
 
     // --- 表示 ---------------------------------------------------------------
+    /** お手本の位置の手直し（±1 / ±10 ms。DESIGN 7.1.1）。線・判定・お手本の声をずらす。0 で元へ */
+    void nudgeGuide (double deltaMs);
+    void resetGuideNudge();
     void setView (int64 start, int64 end);
     /** 横の拡大・縮小（ピッチと波形で共有）。anchor の位置は画面の同じ所に残す。factor < 1 で寄る。幅は 2 秒〜曲の長さ */
     void zoomView (int64 anchor, double factor);
@@ -397,6 +400,10 @@ private:
     bool analysingLatency = false;    // 録り終えた測定音を裏で解析している
 
     // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
+    /** お手本の線と声を d サンプル（時間軸）ずらす（手直しの分。データだけ。判定・エンジンは呼ぶ側） */
+    void shiftGuideData (int64 d);
+    /** 解析し直した直後のお手本に、保存してある手直しを当てる。当てたら true */
+    bool applyGuideNudge();
     bool shadowActive = false;
     bool discarding = false;     // discardRecording の間だけ：止めたテイクを捨てる
     juce::File shadowFile;

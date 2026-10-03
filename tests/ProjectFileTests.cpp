@@ -84,6 +84,7 @@ public:
 
             ProjectExtras ex;
             ex.guidePath = "Audio/guide.wav";
+            ex.guideNudgeMs = -12.0;
             ex.recordRate = 96000.0;
             ex.recordFloat = true;
             ex.trackMix = { { TrackType::main, 0.5f, true, false }, { TrackType::harm1, 0.75f, false, true } };
@@ -103,6 +104,7 @@ public:
             expectEquals (back.project.tracks[0].takes[0].useTo, (juce::int64) 399000);
             expect (! json.contains ("\"tempo_percent\": 100"));
             expectEquals (back.extras.guidePath, ex.guidePath);
+            expectEquals (back.extras.guideNudgeMs, -12.0);
             expectEquals ((int) back.extras.trackMix.size(), 2);
             expect (back.extras.trackMix[0].mute && ! back.extras.trackMix[0].solo);
             expect (back.extras.trackMix[1].type == TrackType::harm1 && back.extras.trackMix[1].solo);

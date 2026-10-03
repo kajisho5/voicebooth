@@ -18,6 +18,7 @@ constexpr int formatVersion = 1;
 struct ProjectExtras
 {
     juce::String guidePath;       // お手本（声入りの原曲。B9）のコピー。プロジェクトフォルダ相対。空 = なし
+    double guideNudgeMs = 0.0;    // お手本の位置の手直し（ms。+ で後ろへ）
     double recordRate = 0.0;      // 録音の SR（0 = 曲に合わせる）
     bool recordFloat = false;     // 32bit float で録る
     int deviceFallbackRate = 0;   // 機器が曲の SR で開けず、代わりに使った SR（0 = 使っていない）

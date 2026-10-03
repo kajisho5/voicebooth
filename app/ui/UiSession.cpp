@@ -211,6 +211,7 @@ void UiSession::restoreProject()
     notify (change::takes | change::tracks | change::songInfo | change::view);
 
     // お手本（声入りの原曲）はもう一度合わせ直す（数秒〜。結果は知らせで）
+    s.guideNudgeMs = loaded->extras.guideNudgeMs;   // お手本の位置の手直し（合わせ直した後に当てる）
     if (loaded->extras.guidePath.isNotEmpty())
     {
         const auto guide = s.projectFolder.getChildFile (loaded->extras.guidePath);
@@ -243,6 +244,7 @@ void UiSession::saveProject()
 
     project::ProjectExtras ex;
     ex.guidePath = s.guidePath;
+    ex.guideNudgeMs = s.guideNudgeMs;
     ex.recordRate = s.recordRate;
     ex.recordFloat = s.recordFloat;
     ex.deviceFallbackRate = s.deviceFallbackRate;
@@ -1294,6 +1296,8 @@ void UiSession::loadGuide (const juce::File& file)
     s.guideBusy = true;
     s.guideName = file.getFileName();
     s.guideKaraokeKey = 0;
+    if (s.guidePath.isNotEmpty() && ! s.projectFolder.getChildFile (s.guidePath).getFileName().equalsIgnoreCase (file.getFileName()))
+        s.guideNudgeMs = 0.0;   // 別のお手本：前の手直しは引き継がない
 
     // 原曲もプロジェクトの中にコピーして持つ（次に開いた時に合わせ直す。書き出しやプロジェクトの外には出さない。B14）
     if (file.isAChildOf (s.projectFolder))
@@ -1334,6 +1338,7 @@ void UiSession::loadGuide (const juce::File& file)
                     s.guideVocals = out->vocals;
                     s.refPitchHarm.clear();          // 引き算の声は 1 本。リードのモデルがあれば、続けてリードとハモリに分ける
                     s.guideHarmVocals = nullptr;
+                    if (applyGuideNudge()) { rejudgeAll(); updateTakeStats(); }
                     syncGuideToEngine();
                     notify (change::takes | change::monitor);
                     postNotice (tr ("guide.done", juce::String (out->offsetSeconds, 2)));
@@ -1944,6 +1949,7 @@ void UiSession::analyseLead (const juce::File& leadFile)
             updateTakeStats();
             s.guideVocals = out->vocals;
             s.guideHarmVocals = out->harmVocals;
+            if (applyGuideNudge()) { rejudgeAll(); updateTakeStats(); }
             syncGuideToEngine();
             notify (change::takes | change::monitor | change::view);
             postNotice (tr ("guide.harmonyDone"));
@@ -2057,6 +2063,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 updateTakeStats();
                 s.guideVocals = out->vocals;
                 s.guideHarmVocals = out->harmVocals;
+                if (applyGuideNudge()) { rejudgeAll(); updateTakeStats(); }
                 syncGuideToEngine();
                 notify (change::takes | change::monitor);
                 if (key != 0)
@@ -3114,6 +3121,69 @@ void UiSession::setRangeOutAtPlayhead()
 }
 
 //==============================================================================
+void UiSession::shiftGuideData (int64 d)
+{
+    if (d == 0)
+        return;
+    for (auto* ref : { &s.refPitch, &s.refPitchHarm })
+        for (auto& p : *ref)
+            p.sample += d;
+
+    const auto rate = s.sampleRate();
+    auto shifted = [d, rate] (const std::shared_ptr<const audio::SongAudio>& a) -> std::shared_ptr<const audio::SongAudio>
+    {
+        if (a == nullptr || rate <= 0.0)
+            return a;
+        const auto n = (int) a->length();
+        const auto da = (int) std::llround ((double) d * a->sampleRate / rate);   // 声はオフボの元の SR で持っている
+        auto r = std::make_shared<audio::SongAudio>();
+        r->sampleRate = a->sampleRate;
+        r->buffer.setSize (a->buffer.getNumChannels(), n);
+        r->buffer.clear();
+        for (int ch = 0; ch < a->buffer.getNumChannels(); ++ch)
+        {
+            // + は後ろへ（頭に無音）、- は前へ（頭を捨てる）
+            const auto from = juce::jmax (0, -da), to = juce::jmax (0, da);
+            const auto count = n - juce::jmax (from, to);
+            if (count > 0)
+                r->buffer.copyFrom (ch, to, a->buffer, ch, from, count);
+        }
+        return r;
+    };
+    s.guideVocals = shifted (s.guideVocals);
+    s.guideHarmVocals = shifted (s.guideHarmVocals);
+}
+
+bool UiSession::applyGuideNudge()
+{
+    const auto d = (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate());
+    shiftGuideData (d);
+    return d != 0;
+}
+
+void UiSession::nudgeGuide (double deltaMs)
+{
+    if (s.refPitch.empty() && s.guideVocals == nullptr)
+        return;
+    const auto rate = s.sampleRate();
+    const auto oldMs = s.guideNudgeMs;
+    const auto newMs = juce::jlimit (-500.0, 500.0, oldMs + deltaMs);
+    const auto d = (int64) std::llround (newMs * 0.001 * rate) - (int64) std::llround (oldMs * 0.001 * rate);
+    s.guideNudgeMs = newMs;
+    shiftGuideData (d);
+    rejudgeAll();
+    updateTakeStats();
+    syncGuideToEngine();
+    markDirty();
+    notify (change::takes | change::monitor | change::view);
+    postNotice (tr ("guide.nudged", (newMs > 0 ? "+" : "") + juce::String (newMs, 0)));
+}
+
+void UiSession::resetGuideNudge()
+{
+    nudgeGuide (-s.guideNudgeMs);
+}
+
 void UiSession::setView (int64 start, int64 end)
 {
     s.viewStart = start;

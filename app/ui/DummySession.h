@@ -232,6 +232,7 @@ struct Session
         int noticeSerial = -1;            // この番号の知らせには「分離モデルを入れる」キーを付ける
     } modelDl;
     bool guideNeedsSeparation = false;    // 引き算で声が取れなかった（モデルが入ったら分離を勧める）
+    double guideNudgeMs = 0.0;            // お手本の位置の手直し（ms。+ で後ろへ。DESIGN 7.1.1。プロジェクトに保存）
     int guideKaraokeKey = 0;              // キー違いのカラオケ：カラオケ = 原曲 + この半音（分離した線をその分ずらす。DESIGN 7.1.1）
 
     // リハーサルで録ったテイクの救済：この番号の知らせには「本番に入れる」を付ける
