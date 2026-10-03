@@ -179,6 +179,7 @@
   "load.error.readFailed": "Error while reading (the file may be damaged): {0}",
   "load.error.tooLong": "The song is too long (up to {1} minutes): {0}",
   "load.error.unsupported": "Can't read this file on this system, or it is damaged: {0} (convert it to WAV / FLAC / AIFF)",
+  "load.memoryTight": "This song is large and is expected to use about {0} GB of memory (this computer has {1} GB). If things get slow or analysis stops, convert it to 48 kHz and open it again",
   "lyrics.applied.sections": "{0} sections added",
   "lyrics.applied.timed": "Lyrics loaded ({0} lines, {1} with times)",
   "lyrics.applied.untimed": "Lyrics loaded ({0} lines). Use “Tap to sync” to set when each line starts.",

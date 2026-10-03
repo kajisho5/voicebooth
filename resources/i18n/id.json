@@ -179,6 +179,7 @@
   "load.error.readFailed": "Galat saat membaca (file mungkin rusak): {0}",
   "load.error.tooLong": "Lagu terlalu panjang (maks. {1} menit): {0}",
   "load.error.unsupported": "File ini tidak bisa dibaca di sistem ini, atau rusak: {0} (konversikan ke WAV / FLAC / AIFF)",
+  "load.memoryTight": "Lagu ini besar dan diperkirakan memakai sekitar {0} GB memori (komputer ini punya {1} GB). Jika jadi lambat atau analisis berhenti, ubah ke 48 kHz lalu buka lagi",
   "lyrics.applied.sections": "{0} bagian ditambahkan",
   "lyrics.applied.timed": "Lirik dimuat ({0} baris, {1} dengan waktu)",
   "lyrics.applied.untimed": "Lirik dimuat ({0} baris). Pakai “Sinkron ketuk” untuk menandai awal tiap baris.",
