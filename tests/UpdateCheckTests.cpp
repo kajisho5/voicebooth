@@ -1,4 +1,5 @@
 #include "update/UpdateCheck.h"
+#include "update/Installer.h"
 #include "system/AppCache.h"
 #include <juce_core/juce_core.h>
 
@@ -159,6 +160,76 @@ public:
             expectEquals (back.version, juce::String ("0.2.0"));
             expectEquals (back.assetSize, (juce::int64) 12000000);
             expect (back.notes.contains ("Faster"));
+        }
+
+        beginTest ("in-app update: SHA-256 from the asset digest, kept across restarts");
+        {
+            const auto hex = juce::String::repeatedString ("ab", 32);
+            expectEquals (sha256FromDigest ("sha256:" + hex), hex);
+            expectEquals (sha256FromDigest ("SHA256:" + hex.toUpperCase()), hex);
+            expect (sha256FromDigest ("sha512:" + hex).isEmpty());
+            expect (sha256FromDigest ("sha256:" + hex.substring (2)).isEmpty());
+            expect (sha256FromDigest ("sha256:" + hex.replace ("a", "z")).isEmpty());
+            expect (sha256FromDigest ({}).isEmpty());
+
+            // GitHub の asset の digest を読む。無い版（古いリリース）は空 = アプリ内では入れ替えない
+            const auto withDigest = release ("v0.2.0", false).replace (R"("size": 8493465,)", R"("size": 8493465, "digest": "sha256:)" + hex + "\",");
+            auto r = pickRelease (list ({ withDigest }), "0.1.0", false, Platform::windows);
+            expectEquals (r.assetSha256, hex);
+            expectEquals (Release::fromJson (r.toJson()).assetSha256, hex);
+            expect (pickRelease (list ({ release ("v0.2.0", false) }), "0.1.0", false, Platform::windows).assetSha256.isEmpty());
+        }
+
+        beginTest ("in-app update: only plain installer names are saved");
+        {
+            expect (safeAssetName ("VoiceBooth-0.2.0-win-x64-setup.exe", Platform::windows));
+            expect (safeAssetName ("VoiceBooth-0.2.0-mac-universal.dmg", Platform::mac));
+            expect (! safeAssetName ("VoiceBooth-0.2.0-mac-universal.dmg", Platform::windows));
+            expect (! safeAssetName ("../VoiceBooth-0.2.0-win-x64-setup.exe", Platform::windows));
+            expect (! safeAssetName ("x/VoiceBooth-0.2.0-win-x64-setup.exe", Platform::windows));
+            expect (! safeAssetName ("x\\VoiceBooth-0.2.0-win-x64-setup.exe", Platform::windows));
+            expect (! safeAssetName ("C:VoiceBooth-0.2.0-win-x64-setup.exe", Platform::windows));
+            expect (! safeAssetName ({}, Platform::other));
+        }
+
+        beginTest ("in-app update: installer arguments and the Mac swap script");
+        {
+            const auto args = windowsInstallerArguments();
+            for (auto* a : { "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/relaunch=1" })
+                expect (args.contains (a), a);
+
+            // 入れ替えは「新しい物を横に置く → 古い物をよける → 入れる」。失敗したら元に戻して DMG を開く
+            const auto script = macSwapScript();
+            expect (script.startsWith ("#!/bin/sh"));
+            expect (script.contains ("hdiutil attach") && script.contains ("ditto"));
+            expect (script.indexOf ("mv \"$app\" \"$old\"") < script.indexOf ("mv \"$staged\" \"$app\""));
+            expect (script.contains ("mv \"$old\" \"$app\""));   // 戻す
+            expect (script.contains ("open \"$dmg\""));            // 手で入れられるように
+           #if ! JUCE_WINDOWS
+            // sh として文法が正しい（実際に入れ替えるのは Mac だけ）
+            const auto tmp = juce::File::createTempFile (".sh");
+            expect (tmp.replaceWithText (script, false, false, "\n"));
+            juce::ChildProcess sh;
+            expect (sh.start (juce::StringArray { "/bin/sh", "-n", tmp.getFullPathName() }));
+            sh.waitForProcessToFinish (10000);
+            expectEquals ((int) sh.getExitCode(), 0);
+            tmp.deleteFile();
+           #endif
+        }
+
+        beginTest ("in-app update: only a writable app bundle outside the disk image is replaced");
+        {
+            const auto root = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("vb-bundle-test");
+            root.deleteRecursively();
+            const auto app = root.getChildFile ("VoiceBooth.app");
+            app.createDirectory();
+            expect (macBundleReplaceable (app));
+            expect (! macBundleReplaceable (root));                              // .app でない
+            expect (! macBundleReplaceable (root.getChildFile ("Gone.app")));    // 無い
+            juce::String why;
+            expect (! macBundleReplaceable (juce::File ("/Volumes/VoiceBooth/VoiceBooth.app"), &why));
+            expect (why.isNotEmpty());
+            root.deleteRecursively();
         }
 
         beginTest ("HTTP results: offline, rate limited, failed, ok");

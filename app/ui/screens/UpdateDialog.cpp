@@ -28,17 +28,72 @@ namespace
 }
 
 //==============================================================================
-UpdateDialog::UpdateDialog (const update::Release& r)
+UpdateDialog::UpdateDialog (const update::Release& r, UiSession* session)
     : DialogPanel (tr ("update.title"), tr ("update.micro")), release (r),
-      notes (update::plainNotes (update::notesForLanguage (r.notes, i18n::current() == i18n::Language::ja)))
+      notes (update::plainNotes (update::notesForLanguage (r.notes, i18n::current() == i18n::Language::ja))),
+      live (session)
 {
-    const bool asset = release.assetUrl.isNotEmpty();
-    addFooterKey (tr (asset ? "update.download" : "update.openPage"), KeyRole::primary, [this] { if (onOpen) onOpen(); });
-    if (asset)
-        addFooterKey (tr ("update.page"), KeyRole::normal, [this] { if (onOpenPage) onOpenPage(); });
-    addFooterKey (tr ("update.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
-    addFooterKey (tr ("update.skip"), KeyRole::normal, [this] { if (onSkip) onSkip(); });
+    using DS = models::DownloadStatus::Stage;
+    inPlace = live != nullptr && live->canUpdateInPlace();
+    const auto stage = live != nullptr ? (*live)->updateDl.stage : -1;
+    downloading = inPlace && (stage == (int) DS::downloading || stage == (int) DS::verifying
+                              || stage == (int) DS::waiting || stage == (int) DS::interrupted);
+    if (downloading)
+    {
+        // 取っている途中：やめる・閉じる（裏で続く）だけ
+        addFooterKey (tr ("update.background"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+        addFooterKey (tr ("common.cancel"), KeyRole::normal, [this] { if (onCancelDownload) onCancelDownload(); });
+        startTimerHz (10);
+    }
+    else if (inPlace)
+    {
+        addFooterKey (tr ("update.now"), KeyRole::primary, [this] { if (onUpdateNow) onUpdateNow(); });
+        addFooterKey (tr ("update.download"), KeyRole::normal, [this] { if (onOpen) onOpen(); });
+        addFooterKey (tr ("update.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+        addFooterKey (tr ("update.skip"), KeyRole::normal, [this] { if (onSkip) onSkip(); });
+    }
+    else
+    {
+        const bool asset = release.assetUrl.isNotEmpty();
+        addFooterKey (tr (asset ? "update.download" : "update.openPage"), KeyRole::primary, [this] { if (onOpen) onOpen(); });
+        if (asset)
+            addFooterKey (tr ("update.page"), KeyRole::normal, [this] { if (onOpenPage) onOpenPage(); });
+        addFooterKey (tr ("update.later"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+        addFooterKey (tr ("update.skip"), KeyRole::normal, [this] { if (onSkip) onSkip(); });
+    }
     setSize (680, 600);
+}
+
+UpdateDialog::~UpdateDialog() { stopTimer(); }
+
+void UpdateDialog::timerCallback() { repaint(); }
+
+void UpdateDialog::paintProgress (juce::Graphics& g, juce::Rectangle<float> r)
+{
+    using DS = models::DownloadStatus::Stage;
+    const auto& d = (*live)->updateDl;
+    const auto size = juce::jmax ((juce::int64) 1, d.size);
+    const auto frac = juce::jlimit (0.0, 1.0, (double) d.received / (double) size);
+
+    heading (g, r, d.stage == (int) DS::verifying ? tr ("model.verifying") : tr ("update.downloading"));
+    auto bar = r.removeFromTop (12.0f);
+    paint::inset (g, bar, 3.0f);
+    g.setColour (d.stage == (int) DS::verifying ? colours::ref : colours::signal);
+    g.fillRoundedRectangle (bar.reduced (2.0f).withWidth ((bar.getWidth() - 4.0f) * (float) frac), 2.0f);
+    r.removeFromTop (10.0f);
+
+    auto line = r.removeFromTop (22.0f);
+    g.setColour (colours::text);
+    g.setFont (mono (12.0f, Weight::medium));
+    const auto mb = [] (juce::int64 b) { return juce::String ((double) b / (1024.0 * 1024.0), 1); };
+    g.drawText (mb (d.received) + " / " + mb (size) + " MB", line, juce::Justification::centredLeft, false);
+    g.drawText (juce::String (juce::roundToInt (frac * 100.0)) + "%", line, juce::Justification::centredRight, false);
+    r.removeFromTop (14.0f);
+
+    if (d.paused)
+        infoLine (g, r, Icon::rec, colours::warn, tr ("update.paused"));
+    infoLine (g, r, Icon::shield, colours::signal, tr ("update.howto.inPlace"));
+    infoLine (g, r, Icon::check, colours::textMute, tr ("update.keep.inPlace"));
 }
 
 void UpdateDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
@@ -70,6 +125,12 @@ void UpdateDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
             paint::microLabel (g, v.withTrimmedLeft (12.0f), tr ("update.beta"), colours::warn);
     }
     r.removeFromTop (18.0f);
+
+    if (downloading && live != nullptr)
+    {
+        paintProgress (g, r);
+        return;
+    }
 
     // 下から：更新について（3 行）。残りを本文に使う
     auto safety = r.removeFromBottom (24.0f + 4.0f + 26.0f * 3.0f);
@@ -149,10 +210,19 @@ void UpdateDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)
 
     // 更新について（自分では入れ替えない・未署名・入れる前に終了）
     heading (g, safety, tr ("update.safety"));
-    infoLine (g, safety, Icon::globe, colours::signal,
-              tr (release.assetUrl.isNotEmpty() ? "update.howto.asset" : "update.howto.page"), colours::text);
-    infoLine (g, safety, Icon::warning, colours::warn, tr ("update.unsigned"));
-    infoLine (g, safety, Icon::check, colours::textMute, tr ("update.keep"));
+    if (inPlace)
+    {
+        infoLine (g, safety, Icon::download, colours::signal, tr ("update.howto.inPlace"), colours::text);
+        infoLine (g, safety, Icon::warning, colours::warn, tr ("update.unsigned.inPlace"));
+        infoLine (g, safety, Icon::check, colours::textMute, tr ("update.keep.inPlace"));
+    }
+    else
+    {
+        infoLine (g, safety, Icon::globe, colours::signal,
+                  tr (release.assetUrl.isNotEmpty() ? "update.howto.asset" : "update.howto.page"), colours::text);
+        infoLine (g, safety, Icon::warning, colours::warn, tr ("update.unsigned"));
+        infoLine (g, safety, Icon::check, colours::textMute, tr ("update.keep"));
+    }
 }
 
 //==============================================================================

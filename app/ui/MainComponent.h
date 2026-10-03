@@ -89,6 +89,8 @@ public:
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
+    /** 取り終えたインストーラーで入れ替える（保存して終了。入れ替えた後に起動し直す） */
+    void installUpdateNow();
     /** 設定の「空にする」：大きさを見せて確かめてから、アプリのキャッシュを空にする（終わったら設定に戻る） */
     void confirmClearCache();
     void openModelDownload (int stage, bool animate, float from = -1.0f);   // ModelDownloadDialog::Stage、from：届いた割合
@@ -147,6 +149,7 @@ private:
     void maybeOpenSetup();      // 初めての機器なら入力セットアップを開く（B13）
     int separationOfferSeen = 0;   // 「分離しますか？」を出した回数（B16）
     int modelDialogSeen = 0;       // 分離モデルのダウンロード画面を開いた回数（B16）
+    int updateStageSeen = -1;      // アプリ内の更新のダウンロードの段階（変わったら知らせる・入れ替える）
     int modelStageShown = -2;      // いま開いているダウンロード画面の段階（-2 = 開いていない）
     juce::File pendingOriginal;    // 原曲だけで始めたいがモデルが無かった：モデルが入ったら起動画面から続ける（B16）
     int modelStageBehind = -1;     // 画面を閉じた後に見た段階（裏で進んだダウンロードの終わりを知らせる）

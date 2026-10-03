@@ -178,6 +178,15 @@ public:
     void setUpdateAvailable (const update::Release&);
     /** 「このバージョンを飛ばす」：覚えておき、次の版が出るまで知らせない */
     void skipUpdate();
+    /** アプリ内で更新できるか（インストーラーと SHA-256 が分かり、この OS・置き場所で入れ替えられる） */
+    bool canUpdateInPlace() const;
+    /** ［今すぐ更新］：インストーラーを裏で取り、SHA-256 を照合する（再生・録音の間は一時停止。途中から再開できる）。
+        進み具合は updateDl。取り終わると updateDl.stage が done になり、installer に置き場所 */
+    void startUpdateDownload();
+    void cancelUpdateDownload();
+    /** 取り終えたインストーラーで入れ替えを始める（保存してから）。true なら呼んだ側がすぐアプリを終える。
+        録音・書き出し中、失敗した時は false（理由は知らせで出す） */
+    bool beginUpdateInstall();
     /** アプリ共通のキャッシュの場所（設定で選んだ所、無ければ既定）。曲ごとの <プロジェクト>/Cache/ とは別 */
     juce::File cacheFolder() const;
     /** 場所を変える（空で既定に戻す）。前の場所にある分は動かさない（次から新しい場所に作る） */
@@ -386,6 +395,7 @@ private:
     juce::uint32 stemGeneration = 0, stemSlotGeneration[4] {};
     juce::String stemSignature[4];
     std::unique_ptr<models::ModelDownloader> modelDownloader;   // B16
+    std::unique_ptr<models::ModelDownloader> updateDownloader;  // アプリ内の更新（インストーラー 1 つ）
     std::unique_ptr<models::ModelEntry> modelEntry;              // 署名を確かめた一覧の中の分離モデル
     std::unique_ptr<models::ModelEntry> karaokeEntry;            // 同じ一覧のリードボーカルのモデル（ハモリのお手本。2026-10-02）
     std::unique_ptr<models::ModelEntry> pitchEntry;              // 同じ一覧の音程モデル（RMVPE。分離と続けて入れる。2026-10-02）
