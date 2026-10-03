@@ -107,7 +107,11 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     {
         // --open と一緒なら開いた後に重ねる。--guide だけなら起動画面のお手本の枠に入れる（原曲だけで始める。B16）
         if (o.open != juce::File())
+        {
             pendingGuide = o.guide;
+            if (auto* start = dynamic_cast<StartScreen*> (overlay.getContent()))
+                start->markGuideAfterOpen();
+        }
         else if (auto* start = dynamic_cast<StartScreen*> (overlay.getContent()))
             start->setGuide (o.guide);
         else

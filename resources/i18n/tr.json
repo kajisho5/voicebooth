@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "%{0} · yaklaşık {1} dk kaldı",
   "analyze.failed": "FAIL",
+  "analyze.later": "SONRA",
+  "analyze.laterNote": "\"Sonra\" öğeleri ana ekrana geçtikten sonra arka planda analiz edilir.",
   "analyze.mono": "Mono",
   "analyze.note": "Ayırma başarısız olursa kendi altyapınızla devam edebilirsiniz (armoni referansı olmadan).",
   "analyze.separated": "Vokal ayrıldı ve altyapı oluşturuldu",

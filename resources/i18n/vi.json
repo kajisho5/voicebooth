@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}% · còn khoảng {1} phút",
   "analyze.failed": "FAIL",
+  "analyze.later": "SAU KHI MỞ",
+  "analyze.laterNote": "Các mục \"Sau khi mở\" được phân tích ngầm sau khi vào màn hình chính.",
   "analyze.mono": "Mono",
   "analyze.note": "Nếu tách giọng thất bại, bạn vẫn có thể tiếp tục với beat của mình (không có bè mẫu).",
   "analyze.separated": "Đã tách giọng và tạo beat",

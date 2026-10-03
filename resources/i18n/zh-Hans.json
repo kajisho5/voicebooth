@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}%・约剩 {1} 分钟",
   "analyze.failed": "FAIL",
+  "analyze.later": "打开后",
+  "analyze.laterNote": "\"打开后\"的项目会在进入主界面后于后台分析。",
   "analyze.mono": "单声道",
   "analyze.note": "分离失败时，可以使用你自己的伴奏继续（无法使用和声参考）。",
   "analyze.separated": "已分离人声并生成伴奏",

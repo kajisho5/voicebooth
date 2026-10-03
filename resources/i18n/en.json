@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}% · about {1} min left",
   "analyze.failed": "FAIL",
+  "analyze.later": "AFTER OPEN",
+  "analyze.laterNote": "\"After open\" items are analyzed in the background once you are on the main screen.",
   "analyze.mono": "Mono",
   "analyze.note": "If separation fails you can continue with your own instrumental (no harmony reference).",
   "analyze.separated": "Separated the voice and made the backing track",

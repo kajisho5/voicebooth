@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}% · sekitar {1} menit lagi",
   "analyze.failed": "FAIL",
+  "analyze.later": "SETELAH",
+  "analyze.laterNote": "Item \"Setelah\" dianalisis di latar belakang setelah layar utama terbuka.",
   "analyze.mono": "Mono",
   "analyze.note": "Jika pemisahan gagal, Anda bisa lanjut dengan instrumental sendiri (tanpa panduan harmoni).",
   "analyze.separated": "Vokal dipisahkan dan instrumental sudah dibuat",

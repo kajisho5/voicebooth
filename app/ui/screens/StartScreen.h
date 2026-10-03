@@ -31,6 +31,8 @@ public:
     void startFromOriginal (const juce::File& original);
     /** お手本（声入りの原曲）の枠に入れる（読むのはオフボを開いた後） */
     void setGuide (const juce::File&);
+    /** お手本は開いた後に重ねる（--open と --guide を一緒に渡した時）。解析の「お手本ピッチ」を「開いた後」と出す */
+    void markGuideAfterOpen() { guideAfterOpen = true; repaint(); }
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -66,7 +68,7 @@ private:
     std::unique_ptr<juce::FileChooser> chooser;
 
     Phase phase = Phase::home;
-    bool firstRun, dragHover = false;
+    bool firstRun, dragHover = false, guideAfterOpen = false;
     juce::Point<int> dragPos;
     juce::File guideFile;                      // お手本（声入りの原曲。B9）
     juce::File file;

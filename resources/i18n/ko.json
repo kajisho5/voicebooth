@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}%·약 {1}분 남음",
   "analyze.failed": "FAIL",
+  "analyze.later": "연 뒤",
+  "analyze.laterNote": "\"연 뒤\" 항목은 메인 화면으로 넘어간 뒤 백그라운드에서 분석합니다.",
   "analyze.mono": "모노",
   "analyze.note": "분리에 실패해도 갖고 있는 MR(반주)로 계속할 수 있습니다(하모니 가이드는 사용할 수 없음).",
   "analyze.separated": "목소리를 분리해 반주(MR)를 만들었습니다",

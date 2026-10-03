@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}%・残り約 {1} 分",
   "analyze.failed": "FAIL",
+  "analyze.later": "開いた後",
+  "analyze.laterNote": "「開いた後」の項目は、メイン画面に移ってから裏で解析します。",
   "analyze.mono": "モノラル",
   "analyze.note": "分離に失敗した場合は、お手持ちのオフボで続けられます（ハモリのお手本は使えません）。",
   "analyze.separated": "声を分離して、オフボを作りました",

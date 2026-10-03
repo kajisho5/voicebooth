@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}% · noch etwa {1} Min.",
   "analyze.failed": "FAIL",
+  "analyze.later": "DANACH",
+  "analyze.laterNote": "„Danach“-Punkte werden im Hintergrund analysiert, sobald der Hauptbildschirm offen ist.",
   "analyze.mono": "Mono",
   "analyze.note": "Wenn die Trennung fehlschlägt, kannst du mit deinem eigenen Instrumental weitermachen (ohne Harmonie-Referenz).",
   "analyze.separated": "Gesang getrennt und Instrumental erstellt",

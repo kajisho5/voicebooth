@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}%・約剩 {1} 分鐘",
   "analyze.failed": "FAIL",
+  "analyze.later": "開啟後",
+  "analyze.laterNote": "「開啟後」的項目會在進入主畫面後於背景分析。",
   "analyze.mono": "單聲道",
   "analyze.note": "分離失敗時，可以使用你自己的伴奏繼續（無法使用和聲參考）。",
   "analyze.separated": "已分離人聲並產生伴奏",

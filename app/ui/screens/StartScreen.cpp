@@ -639,7 +639,7 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         auto row = r.removeFromTop (46).toFloat();
         r.removeFromTop (6);
 
-        // 1 行目（形式・長さ）と、原曲だけで始めた時の 2 行目（分離。B16）が本物。ほかは SKIP（このバージョンでは解析しない）
+        // 1 行目（形式・長さ）と、原曲だけで始めた時の 2 行目（分離。B16）がこの画面で進む。テンポ・お手本の音程は「開いた後」、声域は SKIP
         const bool sepRow = i == 1 && fromOriginal;
         const bool real = i == 0 || sepRow;
         const bool sepFailed = phase == Phase::failed && separationError.isNotEmpty();
@@ -663,7 +663,10 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         g.setColour (c);
         g.setFont (mono (11.0f, Weight::medium));
         const auto eta = state().separationEta;
-        const auto statusText = ! real ? tr ("analyze.skip")
+        // テンポ・キーは開いた後に裏で推定する（B9b）。お手本があれば、音程と分離（引き算で取れない時・リードとハモリ分け）も開いた後（B9 / B16）
+        const bool withGuide = guideFile != juce::File() || guideAfterOpen;   // 分離（要る時・リードとハモリ分け）も開いた後
+        const bool later = (i == 3) || (i == 2 && (withGuide || fromOriginal)) || (i == 1 && withGuide);
+        const auto statusText = ! real ? tr (later ? "analyze.later" : "analyze.skip")
                               : waiting ? tr ("analyze.wait")
                               : failed ? tr ("analyze.failed")
                               : done   ? tr ("analyze.done")
@@ -699,6 +702,7 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
     r.removeFromTop (8);
     g.setColour (colours::textMute);
     g.setFont (sans (11.5f));
-    g.drawFittedText (tr ("analyze.skipNote") + "\n" + tr ("analyze.note"), r.removeFromTop (40), juce::Justification::topLeft, 3, 1.0f);
+    g.drawFittedText (tr ("analyze.laterNote") + " " + tr ("analyze.skipNote") + "\n" + tr ("analyze.note"), r.removeFromTop (40),
+                      juce::Justification::topLeft, 3, 1.0f);
 }
 } // namespace vb

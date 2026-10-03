@@ -12,6 +12,8 @@
   "analyze.done": "DONE",
   "analyze.eta": "{0}% · faltam cerca de {1} min",
   "analyze.failed": "FAIL",
+  "analyze.later": "DEPOIS",
+  "analyze.laterNote": "Os itens \"Depois\" são analisados em segundo plano quando você estiver na tela principal.",
   "analyze.mono": "Mono",
   "analyze.note": "Se a separação falhar, você pode continuar com seu próprio instrumental (sem referência de harmonia).",
   "analyze.separated": "A voz foi separada e o instrumental foi criado",
