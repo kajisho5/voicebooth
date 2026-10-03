@@ -77,6 +77,8 @@ public:
     StartScreen* openStart (bool firstRun = false);
     /** 本物のアプリで曲を開いていなければ起動画面を出す（見本の曲・ダミーの線を見せない。ほかの画面が出ていれば何もしない） */
     void openStartIfNoSong();
+    /** 分離などのモデルがまだ無ければ、ダウンロードの確認を出す（起動した時・初回のモードを選んだ後。「あとで」なら次の起動でまた勧める） */
+    void offerModelsIfMissing();
     /** 本物のアプリで、まだ曲を開いていない（起動画面を閉じるとダミーが見えてしまう） */
     bool needsSong() const;
     void openSong (const juce::File&);

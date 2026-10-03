@@ -258,7 +258,7 @@
   "model.retry": "Unduh lagi",
   "model.role": "pemisahan vokal / instrumental",
   "model.space": "Ruang kosong: {0} (cukup)",
-  "model.sub": "Untuk memisahkan mix lengkap menjadi instrumental dan vokal, model diunduh sekali. Setelah itu langsung siap dipakai.",
+  "model.sub": "Diperlukan untuk memisahkan lagu menjadi instrumental dan vokal serta menampilkan nada dan harmoni panduan. Diunduh sekali saja.",
   "model.title": "Unduh model pemisahan",
   "model.verified": "Terverifikasi (SHA-256 cocok)",
   "model.verify": "Diperiksa (SHA-256) sebelum dipakai",

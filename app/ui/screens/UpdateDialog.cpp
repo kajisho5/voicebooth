@@ -185,8 +185,8 @@ ModelDownloadDialog::ModelDownloadDialog (Stage s, bool anim, float from)
     build (from);
 }
 
-ModelDownloadDialog::ModelDownloadDialog (Stage s, UiSession& session)
-    : DialogPanel (tr ("model.title"), tr ("model.micro")), stage (s), animate (false), live (&session)
+ModelDownloadDialog::ModelDownloadDialog (Stage s, UiSession& session, bool resumes)
+    : DialogPanel (tr ("model.title"), tr ("model.micro")), stage (s), animate (false), live (&session), resumesWork (resumes)
 {
     const auto& m = session->modelDl;
     modelMB = juce::jmax (1.0, (double) m.size / (1024.0 * 1024.0));
@@ -242,7 +242,7 @@ void ModelDownloadDialog::build (float from)
             break;
 
         case Stage::done:
-            addFooterKey (tr ("model.continue"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
+            addFooterKey (resumesWork ? tr ("model.continue") : tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
             gotMB = modelMB;
             flash = 1.0f;     // 開いた時に全体が一度光る
             break;
@@ -447,12 +447,18 @@ void ModelDownloadDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> are
         g.setFont (mono (12.0f, Weight::medium));
         g.drawText (juce::String (juce::roundToInt (modelMB)) + " MB", top.removeFromRight (90.0f), juce::Justification::centredRight, false);
         g.setColour (colours::text);
-        g.setFont (mono (14.0f, Weight::semibold));
+        const auto nameFont = mono (14.0f, Weight::semibold);
+        g.setFont (nameFont);
         const auto name = modelName;
-        g.drawText (name, top.removeFromLeft (textWidth (mono (14.0f, Weight::semibold), name) + 14.0f), juce::Justification::centredLeft, false);
-        g.setColour (colours::textDim);
-        g.setFont (sans (12.0f));
-        g.drawText (tr ("model.role"), top, juce::Justification::centredLeft, true);
+        const auto nameWidth = textWidth (nameFont, name) + 14.0f;
+        // 名前が長い時（3 つ並ぶ）は用途を出さず、名前を幅に収める（切れて見えないようにする）
+        g.drawFittedText (name, top.removeFromLeft (juce::jmin (nameWidth, top.getWidth())).toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
+        if (top.getWidth() >= textWidth (sans (12.0f), tr ("model.role")))
+        {
+            g.setColour (colours::textDim);
+            g.setFont (sans (12.0f));
+            g.drawText (tr ("model.role"), top, juce::Justification::centredLeft, true);
+        }
 
         g.setColour (colours::textMute);
         g.setFont (sans (11.0f));

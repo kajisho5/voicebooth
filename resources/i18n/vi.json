@@ -258,7 +258,7 @@
   "model.retry": "Tải lại",
   "model.role": "tách giọng hát / beat",
   "model.space": "Dung lượng trống: {0} (đủ)",
-  "model.sub": "Để tách một bản mix hoàn chỉnh thành beat và giọng hát, mô hình được tải về một lần. Sau đó dùng được ngay.",
+  "model.sub": "Cần để tách bài hát thành beat và giọng hát, và hiển thị cao độ cùng bè của bản hướng dẫn. Chỉ tải về một lần.",
   "model.title": "Tải mô hình tách giọng",
   "model.verified": "Đã xác minh (SHA-256 khớp)",
   "model.verify": "Được kiểm tra (SHA-256) trước khi dùng",

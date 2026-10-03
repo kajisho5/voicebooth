@@ -1505,30 +1505,45 @@ namespace
     }
 }
 
-void UiSession::requestSeparationModel()
+bool UiSession::modelsMissing() const
+{
+    using SC = separation::SeparatorClient;
+    using DS = models::DownloadStatus::Stage;
+    if (engine == nullptr || models::trustedKeys().empty() || ! SC::executable().existsAsFile())
+        return false;
+    if (s.modelDl.stage == (int) DS::downloading || s.modelDl.stage == (int) DS::verifying)
+        return false;
+    return ! SC::modelInstalled() || ! SC::karaokeInstalled() || ! SC::pitchModelFile().existsAsFile();
+}
+
+void UiSession::requestSeparationModel (bool onlyIfMissing)
 {
     if (engine == nullptr)
         return;
     const auto keys = models::trustedKeys();
     if (keys.empty())
     {
-        postNotice (tr ("model.notYet"));   // 配布の鍵がまだ（持ち主が用意したら使える）
+        if (! onlyIfMissing)
+            postNotice (tr ("model.notYet"));   // 配布の鍵がまだ（持ち主が用意したら使える）
         return;
     }
-    auto openDialog = [this]
+    auto openDialog = [this, onlyIfMissing]
     {
+        if (onlyIfMissing && modelsToDownload().empty())
+            return;   // 一覧にある物はすべて入っている（照合し直しは勧めない）
         // 分離・リードボーカル（ハモリのお手本）・音程のモデルのうち、まだ入っていない物をまとめて入れる（名前・ライセンス・大きさを並べる）
         juce::StringArray titles, licenses;
         juce::int64 size = 0;
+        // 名前はかっこ書き（作者）を省く：3 つ並べても 1 行に収める（作者は「このアプリについて」に出す）
         for (auto& [entry, folder] : modelsToDownload())
         {
-            titles.add (entry.title);
+            titles.add (entry.title.upToFirstOccurrenceOf (" (", false, false));
             licenses.addIfNotAlreadyThere (entry.license);
             size += entry.totalSize();
         }
         if (titles.isEmpty() && modelEntry != nullptr)   // すべて入っている：分離のモデルを照合し直す
         {
-            titles.add (modelEntry->title);
+            titles.add (modelEntry->title.upToFirstOccurrenceOf (" (", false, false));
             licenses.add (modelEntry->license);
             size = modelEntry->totalSize();
         }
