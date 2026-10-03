@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Guide (notes, judged ±{0}c)",
   "pitch.legend.refHarmony": "Harmony guide (notes, judged ±{0}c)",
   "pitch.legend.zoom": "{0} + wheel to zoom",
+  "pitch.listenOriginal": "Hear original",
+  "pitch.listenOriginal.tooltip": "On: plays the time-aligned original instead of the backing track at the same volume (to compare and check the alignment). Switching keeps the position. Available once a guide (original with vocals) has been aligned",
   "pitch.menu.earlier1": "1 ms earlier",
   "pitch.menu.earlier10": "10 ms earlier",
   "pitch.menu.later1": "1 ms later",

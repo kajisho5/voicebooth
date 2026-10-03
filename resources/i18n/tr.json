@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Referans (notalar, ±{0}c ile)",
   "pitch.legend.refHarmony": "Armoni referansı (notalar, ±{0}c ile)",
   "pitch.legend.zoom": "{0} + tekerlek ile yakınlaştır",
+  "pitch.listenOriginal": "Orijinali dinle",
+  "pitch.listenOriginal.tooltip": "Açık: altyapı yerine zamanı hizalanmış orijinali aynı seste çalar (karşılaştırma ve hizalamayı kontrol için). Geçişte konum atlamaz. Bir rehber (vokalli orijinal) hizalandıktan sonra kullanılabilir",
   "pitch.menu.earlier1": "1 ms önce",
   "pitch.menu.earlier10": "10 ms önce",
   "pitch.menu.later1": "1 ms sonra",

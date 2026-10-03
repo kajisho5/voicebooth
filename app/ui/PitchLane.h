@@ -59,7 +59,7 @@ private:
 
     Actions& actions;
     juce::Rectangle<int> rulerArea, gutterArea, plotArea, footerArea, legendArea, analysisArea;
-    KeyButton octaveAlign, octaveUp, fullRange;
+    KeyButton octaveAlign, octaveUp, fullRange, listenOriginal;
     lane::RangeGesture gesture;
     bool draggingRuler = false;
     bool menuGesture = false;   // 右クリックのメニュー（ドラッグ・離した時は何もしない）

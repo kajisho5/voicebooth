@@ -293,6 +293,8 @@
   "pitch.legend.ref": "お手本（音符・±{0}c で判定）",
   "pitch.legend.refHarmony": "ハモリのお手本（音符・±{0}c で判定）",
   "pitch.legend.zoom": "{0}＋ホイールで拡大",
+  "pitch.listenOriginal": "原曲で聴く",
+  "pitch.listenOriginal.tooltip": "オン：オフボの代わりに、時間を合わせた原曲を同じ音量で鳴らします（聞き比べ・時間合わせの確認）。切り替えても位置は飛びません。お手本（声入りの原曲）を入れて合わせられた時に使えます",
   "pitch.menu.earlier1": "1 ms 前へ",
   "pitch.menu.earlier10": "10 ms 前へ",
   "pitch.menu.later1": "1 ms 後ろへ",

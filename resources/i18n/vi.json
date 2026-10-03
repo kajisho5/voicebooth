@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Mẫu (nốt, chấm ±{0}c)",
   "pitch.legend.refHarmony": "Bè mẫu (nốt, chấm ±{0}c)",
   "pitch.legend.zoom": "{0} + con lăn để phóng to",
+  "pitch.listenOriginal": "Nghe bản gốc",
+  "pitch.listenOriginal.tooltip": "Bật: phát bản gốc đã căn thời gian thay cho bản beat với cùng âm lượng (để so sánh và kiểm tra căn chỉnh). Chuyển đổi không làm nhảy vị trí. Dùng được sau khi bản mẫu (bản gốc có giọng) đã được căn",
   "pitch.menu.earlier1": "Sớm hơn 1 ms",
   "pitch.menu.earlier10": "Sớm hơn 10 ms",
   "pitch.menu.later1": "Trễ hơn 1 ms",

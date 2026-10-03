@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Referencia (notas, ±{0}c)",
   "pitch.legend.refHarmony": "Referencia de armonía (notas, ±{0}c)",
   "pitch.legend.zoom": "{0} + rueda para ampliar",
+  "pitch.listenOriginal": "Oír original",
+  "pitch.listenOriginal.tooltip": "Activado: reproduce el original alineado en lugar de la pista sin voz, al mismo volumen (para comparar y comprobar la alineación). Al cambiar no salta la posición. Disponible cuando se ha alineado una guía (original con voz)",
   "pitch.menu.earlier1": "1 ms antes",
   "pitch.menu.earlier10": "10 ms antes",
   "pitch.menu.later1": "1 ms después",

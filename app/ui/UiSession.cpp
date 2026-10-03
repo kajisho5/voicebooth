@@ -1100,6 +1100,24 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
 namespace
 {
     /** お手本の解析の結果（裏のスレッド → メッセージスレッド） */
+    /** 音を d サンプル（時間軸 timelineRate）ずらした写し。+ は後ろへ（頭に無音）、- は前へ（頭を捨てる）。長さは同じ */
+    std::shared_ptr<const audio::SongAudio> shiftedAudio (const std::shared_ptr<const audio::SongAudio>& a, juce::int64 d, double timelineRate)
+    {
+        if (a == nullptr || d == 0 || timelineRate <= 0.0)
+            return a;
+        const auto n = (int) a->length();
+        const auto da = (int) std::llround ((double) d * a->sampleRate / timelineRate);   // 声・原曲はオフボの元の SR で持っている
+        auto r = std::make_shared<audio::SongAudio>();
+        r->sampleRate = a->sampleRate;
+        r->buffer.setSize (a->buffer.getNumChannels(), n);
+        r->buffer.clear();
+        const auto from = juce::jmax (0, -da), to = juce::jmax (0, da);
+        const auto count = n - juce::jmax (from, to);
+        for (int ch = 0; ch < a->buffer.getNumChannels() && count > 0; ++ch)
+            r->buffer.copyFrom (ch, to, a->buffer, ch, from, count);
+        return r;
+    }
+
     struct GuideOutcome
     {
         enum class Kind { ok, loadFailed, notAligned, needsSeparation, keyShift };
@@ -1112,6 +1130,7 @@ namespace
         // ハモリのお手本（2026-10-02）：分離の時、リードを取れていれば。vocals はリードだけになる
         std::vector<audio::PitchFrame> harmPoints;
         std::shared_ptr<const audio::SongAudio> harmVocals;
+        std::shared_ptr<const audio::SongAudio> original;   // 時間を合わせた原曲（オフボの時間・モノラル）。聞き比べ用。速さが違えば無し
     };
 
     /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
@@ -1256,6 +1275,22 @@ namespace
             return out;   // notAligned
         out.offsetSeconds = (double) align.offsetSamples / rate;
 
+        // 聞き比べ用の原曲（オフボの時間へ。原曲の位置 = オフボの位置 + offset。速さが違う版は作らない）
+        if (std::abs (align.tempoRatio - 1.0) < 0.001)
+        {
+            auto o = std::make_shared<audio::SongAudio>();
+            o->sampleRate = rate;
+            o->buffer.setSize (1, (int) kar.size());
+            o->buffer.clear();
+            for (juce::int64 i = 0; i < (juce::int64) kar.size(); ++i)
+            {
+                const auto j = i + align.offsetSamples;
+                if (j >= 0 && j < (juce::int64) ref.size())
+                    o->buffer.setSample (0, (int) i, ref[(size_t) j]);
+            }
+            out.original = o;
+        }
+
         // キー違いのカラオケは引けない（音程は分かっても声が取り出せない）
         const auto key = analysis::estimateKeyShift (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
         if (key.semitones != 0 && key.confidence > 0.3)
@@ -1323,6 +1358,12 @@ void UiSession::loadGuide (const juce::File& file)
                 return;   // 消えた・別の曲を開いた
             s.guideBusy = false;
             using Kind = GuideOutcome::Kind;
+            // 聞き比べ用の原曲（合わせられた時）。保存してある手直しもここで当てる
+            s.guideOriginal = out->original;
+            s.guideOriginal = shiftedAudio (s.guideOriginal, (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate()), s.sampleRate());
+            if (s.guideOriginal == nullptr)
+                s.listenOriginal = false;
+            syncGuideToEngine();
             switch (out->kind)
             {
                 case Kind::ok:
@@ -3121,7 +3162,7 @@ void UiSession::setRangeOutAtPlayhead()
 }
 
 //==============================================================================
-void UiSession::shiftGuideData (int64 d)
+void UiSession::shiftGuideData (int64 d, bool withOriginal)
 {
     if (d == 0)
         return;
@@ -3130,34 +3171,16 @@ void UiSession::shiftGuideData (int64 d)
             p.sample += d;
 
     const auto rate = s.sampleRate();
-    auto shifted = [d, rate] (const std::shared_ptr<const audio::SongAudio>& a) -> std::shared_ptr<const audio::SongAudio>
-    {
-        if (a == nullptr || rate <= 0.0)
-            return a;
-        const auto n = (int) a->length();
-        const auto da = (int) std::llround ((double) d * a->sampleRate / rate);   // 声はオフボの元の SR で持っている
-        auto r = std::make_shared<audio::SongAudio>();
-        r->sampleRate = a->sampleRate;
-        r->buffer.setSize (a->buffer.getNumChannels(), n);
-        r->buffer.clear();
-        for (int ch = 0; ch < a->buffer.getNumChannels(); ++ch)
-        {
-            // + は後ろへ（頭に無音）、- は前へ（頭を捨てる）
-            const auto from = juce::jmax (0, -da), to = juce::jmax (0, da);
-            const auto count = n - juce::jmax (from, to);
-            if (count > 0)
-                r->buffer.copyFrom (ch, to, a->buffer, ch, from, count);
-        }
-        return r;
-    };
-    s.guideVocals = shifted (s.guideVocals);
-    s.guideHarmVocals = shifted (s.guideHarmVocals);
+    s.guideVocals = shiftedAudio (s.guideVocals, d, rate);
+    s.guideHarmVocals = shiftedAudio (s.guideHarmVocals, d, rate);
+    if (withOriginal)
+        s.guideOriginal = shiftedAudio (s.guideOriginal, d, rate);
 }
 
 bool UiSession::applyGuideNudge()
 {
     const auto d = (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate());
-    shiftGuideData (d);
+    shiftGuideData (d, false);   // 原曲は合わせた時にもう当ててある
     return d != 0;
 }
 
@@ -3177,6 +3200,17 @@ void UiSession::nudgeGuide (double deltaMs)
     markDirty();
     notify (change::takes | change::monitor | change::view);
     postNotice (tr ("guide.nudged", (newMs > 0 ? "+" : "") + juce::String (newMs, 0)));
+}
+
+void UiSession::setListenOriginal (bool on)
+{
+    on = on && s.guideOriginal != nullptr;
+    if (s.listenOriginal == on)
+        return;
+    s.listenOriginal = on;
+    syncBackingLevel();
+    syncGuideGain();
+    notify (change::monitor | change::view);
 }
 
 void UiSession::resetGuideNudge()
@@ -3379,7 +3413,8 @@ void UiSession::syncBackingLevel()
     if (engine == nullptr) return;
     // モニターの S はそれだけを鳴らす：ほかの S が点いていればオフボは止める
     const bool soloedAway = anyMonitorSolo() && ! s.backingSolo;
-    engine->setBackingLevel (s.offVocalGain, s.backingMuted || soloedAway);
+    engine->setBackingLevel (s.offVocalGain, s.backingMuted || soloedAway || (s.listenOriginal && s.guideOriginal != nullptr));
+    syncGuideGain();   // 原曲で聴く時は、原曲がオフボの音量・M・S に従う
 }
 
 void UiSession::syncGuideGain()
@@ -3389,6 +3424,9 @@ void UiSession::syncGuideGain()
     engine->setVocalGain (audio::PlaybackCore::guideSlot, audible ? audio::PlaybackCore::faderToGain (s.mainGain) : 0.0f);
     const bool harmAudible = s.guideHarmVocals != nullptr && ! s.guideHarmMuted && (! anyMonitorSolo() || s.guideHarmSolo);
     engine->setVocalGain (audio::PlaybackCore::harmGuideSlot, harmAudible ? audio::PlaybackCore::faderToGain (s.harmonyGain) : 0.0f);
+    // 原曲で聴く：オフボの代わりに、オフボと同じ音量・M・S で
+    const bool originalAudible = s.listenOriginal && s.guideOriginal != nullptr && ! s.backingMuted && (! anyMonitorSolo() || s.backingSolo);
+    engine->setVocalGain (audio::PlaybackCore::originalSlot, originalAudible ? audio::PlaybackCore::faderToGain (s.offVocalGain) : 0.0f);
 }
 
 void UiSession::syncGuideToEngine()
@@ -3398,7 +3436,8 @@ void UiSession::syncGuideToEngine()
     const auto generation = ++guideGeneration;
     // お手本（リード、または分けていない声）とハモリのお手本。録音形式で SR をそろえている時は裏でそろえてから鳴らす
     const std::pair<int, std::shared_ptr<const audio::SongAudio>> stems[] = { { audio::PlaybackCore::guideSlot, s.guideVocals },
-                                                                             { audio::PlaybackCore::harmGuideSlot, s.guideHarmVocals } };
+                                                                             { audio::PlaybackCore::harmGuideSlot, s.guideHarmVocals },
+                                                                             { audio::PlaybackCore::originalSlot, s.guideOriginal } };
     for (auto& [slot, guide] : stems)
     {
         if (guide == nullptr || rate <= 0.0)

@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Panduan (not, dinilai ±{0}c)",
   "pitch.legend.refHarmony": "Panduan harmoni (not, dinilai ±{0}c)",
   "pitch.legend.zoom": "{0} + roda untuk zoom",
+  "pitch.listenOriginal": "Dengar asli",
+  "pitch.listenOriginal.tooltip": "Aktif: memutar lagu asli yang sudah diselaraskan sebagai pengganti instrumental dengan volume sama (untuk membandingkan dan memeriksa penyelarasan). Posisi tidak melompat saat berganti. Tersedia setelah panduan (lagu asli dengan vokal) diselaraskan",
   "pitch.menu.earlier1": "1 ms lebih awal",
   "pitch.menu.earlier10": "10 ms lebih awal",
   "pitch.menu.later1": "1 ms lebih lambat",

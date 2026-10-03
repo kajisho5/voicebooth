@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Referenz (Noten, bewertet ±{0}c)",
   "pitch.legend.refHarmony": "Harmonie-Referenz (Noten, bewertet ±{0}c)",
   "pitch.legend.zoom": "{0} + Mausrad: Zoom",
+  "pitch.listenOriginal": "Original hören",
+  "pitch.listenOriginal.tooltip": "Ein: spielt statt des Playbacks das zeitlich angeglichene Original in gleicher Lautstärke (zum Vergleichen und Prüfen der Ausrichtung). Die Position bleibt beim Umschalten. Verfügbar, sobald eine Vorlage (Original mit Gesang) ausgerichtet ist",
   "pitch.menu.earlier1": "1 ms früher",
   "pitch.menu.earlier10": "10 ms früher",
   "pitch.menu.later1": "1 ms später",

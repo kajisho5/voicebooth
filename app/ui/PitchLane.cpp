@@ -44,9 +44,10 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
     : SessionView (u), actions (a),
       octaveAlign (tr ("pitch.octaveAlign")),
       octaveUp (tr ("pitch.octaveUp")),
-      fullRange (tr ("pitch.fullRange"))
+      fullRange (tr ("pitch.fullRange")),
+      listenOriginal (tr ("pitch.listenOriginal"))
 {
-    for (auto* b : { &octaveAlign, &octaveUp, &fullRange })
+    for (auto* b : { &octaveAlign, &octaveUp, &fullRange, &listenOriginal })
     {
         b->withLed().withToggle (false).withFont (sans (11.5f, Weight::medium));
         addAndMakeVisible (b);
@@ -58,6 +59,9 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
     octaveAlign.onClick = [this] { session.setOctaveAlign (! state().octaveAlign); };
     octaveUp.onClick    = [this] { session.setOctaveUp (! state().octaveUp); };
     fullRange.onClick   = [this] { session.setFullRange (! state().fullRange); };
+    // 原曲で聴く（聞き比べ・時間合わせの確認。お手本を入れて合わせられた時だけ押せる）
+    listenOriginal.setTooltip (tr ("pitch.listenOriginal.tooltip"));
+    listenOriginal.onClick = [this] { session.setListenOriginal (! state().listenOriginal); };
 
     onSessionChanged (change::all);
 }
@@ -68,6 +72,13 @@ void PitchLane::onSessionChanged (juce::uint32 changes)
     octaveAlign.setToggleState (s.octaveAlign, juce::dontSendNotification);
     octaveUp.setToggleState (s.octaveUp, juce::dontSendNotification);
     fullRange.setToggleState (s.fullRange, juce::dontSendNotification);
+    listenOriginal.setToggleState (s.listenOriginal, juce::dontSendNotification);
+    listenOriginal.setEnabled (s.guideOriginal != nullptr);
+    if (listenOriginal.isVisible() != s.engineAttached)
+    {
+        listenOriginal.setVisible (s.engineAttached);   // 見本（UI_MOCK）には原曲が無い
+        resized();
+    }
 
     if (changes & change::mode)
         resized();
@@ -84,8 +95,10 @@ void PitchLane::resized()
     plotArea = r;
 
     auto f = footerArea.reduced (metrics::pad, 0);
-    for (auto* b : { &fullRange, &octaveUp, &octaveAlign })
+    for (auto* b : { &fullRange, &octaveUp, &octaveAlign, &listenOriginal })
     {
+        if (! b->isVisible())
+            continue;
         b->setSize (10, 26);
         const auto w = b->idealWidth();
         b->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 26));

@@ -293,6 +293,8 @@
   "pitch.legend.ref": "参考（音符·±{0}c 判定）",
   "pitch.legend.refHarmony": "和声参考（音符·±{0}c 判定）",
   "pitch.legend.zoom": "{0} + 滚轮缩放",
+  "pitch.listenOriginal": "听原曲",
+  "pitch.listenOriginal.tooltip": "开启：用对齐后的原曲替代伴奏，以相同音量播放（用于对比和确认对齐）。切换时位置不跳。放入示范（带人声的原曲）并对齐后可用",
   "pitch.menu.earlier1": "提前 1 ms",
   "pitch.menu.earlier10": "提前 10 ms",
   "pitch.menu.later1": "延后 1 ms",

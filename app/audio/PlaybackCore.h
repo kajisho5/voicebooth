@@ -59,9 +59,10 @@ public:
     bool isPracticeShifted() const;
 
     /** 録ったトラックの音（B12）。slot は 0..maxStems-1、buffer は曲の SR・曲の長さのモノラル（nullptr で外す）。メッセージスレッド */
-    static constexpr int maxStems = 6;   // 0..3 = 録ったトラック（Main / Double / Harm 1 / Harm 2）、4 = お手本の声（リード）、5 = ハモリのお手本
+    static constexpr int maxStems = 7;   // 0..3 = 録ったトラック（Main / Double / Harm 1 / Harm 2）、4 = お手本の声（リード）、5 = ハモリのお手本、6 = 原曲（聞き比べ）
     static constexpr int guideSlot = 4;
     static constexpr int harmGuideSlot = 5;
+    static constexpr int originalSlot = 6;
     void setStem (int slot, std::shared_ptr<const juce::AudioBuffer<float>> buffer);
     /** トラックの音量（直線の倍率。0 で鳴らさない）。どのスレッドからでも。20 ms でなめらかに */
     void setStemGain (int slot, float linearGain);
@@ -134,7 +135,7 @@ private:
     std::atomic<bool> playing { false }, reachedEnd { false }, muted { false }, loopOn { false };
     std::atomic<juce::int64> position { 0 }, pendingSeek { -1 }, loopIn { 0 }, loopOut { 0 };
     std::atomic<float> gain { 1.0f };
-    std::atomic<float> stemGain[maxStems] { { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f } };
+    std::atomic<float> stemGain[maxStems] { { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 1.0f }, { 0.0f } };
     std::atomic<double> speed { 1.0 };
     std::atomic<int> semitones { 0 };
     std::atomic<bool> stretchReset { true };        // 次のブロックでストレッチを頭からやり直す（再生開始・シーク・曲替え）

@@ -293,6 +293,8 @@
   "pitch.legend.ref": "Guia (notas, avaliado ±{0}c)",
   "pitch.legend.refHarmony": "Guia de harmonia (notas, avaliado ±{0}c)",
   "pitch.legend.zoom": "{0} + roda para ampliar",
+  "pitch.listenOriginal": "Ouvir original",
+  "pitch.listenOriginal.tooltip": "Ligado: toca o original alinhado no lugar do playback, no mesmo volume (para comparar e conferir o alinhamento). A posição não pula ao trocar. Disponível depois que uma guia (original com voz) for alinhada",
   "pitch.menu.earlier1": "1 ms antes",
   "pitch.menu.earlier10": "10 ms antes",
   "pitch.menu.later1": "1 ms depois",

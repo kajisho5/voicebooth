@@ -101,6 +101,8 @@ float PlaybackCore::mixAt (const SongAudio& s, int channel, juce::int64 pos, con
                 peakGuide = juce::jmax (peakGuide, std::abs (x));
             else if (k == harmGuideSlot)
                 peakHarmGuide = juce::jmax (peakHarmGuide, std::abs (x));
+            else if (k == originalSlot)
+                peakBacking = juce::jmax (peakBacking, std::abs (x));   // 原曲はオフボの代わり：オフボのメーターに出す
             v += x;
         }
     return v;
