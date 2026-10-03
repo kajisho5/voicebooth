@@ -181,10 +181,17 @@ jobs:
           path: dist
           merge-multiple: true
 
+      # GitHub の画面で先にリリースを作った時（タグもそこで作る）は、そのリリースにファイルを付けて題・本文をそろえる
       - name: Create the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la dist
-          gh release create "$GITHUB_REF_NAME" dist/* --title "VoiceBooth $GITHUB_REF_NAME" \
-             --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "VoiceBooth $GITHUB_REF_NAME" \
+               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "VoiceBooth $GITHUB_REF_NAME" \
+               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag
+          fi
