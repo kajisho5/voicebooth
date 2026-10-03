@@ -34,7 +34,7 @@ jobs:
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -59,7 +59,7 @@ jobs:
   i18n:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check translations
         run: python3 tools/check_i18n.py
       # 言葉の決まり（CLAUDE.md。「バージョン」の書き方など）
@@ -74,7 +74,7 @@ jobs:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # プレリリースのタグ（v0.1.0-beta.1）なら、アプリのバージョンに印（beta.1）を付ける。更新の確認（DESIGN 11.7）が
       # いまのバージョンをベータと分かり、次のベータ・同じバージョンの正式版を正しく比べられるように。タグ以外・正式版のタグは空
@@ -127,7 +127,7 @@ jobs:
           arch -x86_64 "$TESTS"
 
       # ビルドしたフォルダそのもの（従来どおり）
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: VoiceBooth-${{ runner.os }}
           path: build/VoiceBooth_artefacts/Release
@@ -182,7 +182,7 @@ jobs:
           VB_VERSION: ${{ steps.version.outputs.version }}
         run: packaging/macos/make_dmg.sh --version "$VB_VERSION"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os == 'Windows'
         with:
           name: VoiceBooth-${{ steps.version.outputs.version }}-win-x64-setup
@@ -191,7 +191,7 @@ jobs:
           compression-level: 0   # setup.exe は圧縮済み
           retention-days: 7
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os == 'macOS'
         with:
           name: VoiceBooth-${{ steps.version.outputs.version }}-mac-universal
@@ -205,7 +205,7 @@ jobs:
     needs: i18n
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install dependencies
         run: |
@@ -233,7 +233,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Check the tag against the version
         id: tag
@@ -256,7 +256,7 @@ jobs:
           if [ "$base" != "$ver" ]; then echo "::error::tag $tag does not match CMake version $ver"; exit 1; fi
           if [[ "$tag" == *-* ]]; then echo "pre=--prerelease" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
 
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: VoiceBooth-[0-9]*   # バージョンつきのインストーラーだけ（VoiceBooth-Windows / -macOS の中身は付けない）
           path: dist
