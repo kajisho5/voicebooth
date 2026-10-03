@@ -31,6 +31,9 @@ protected:
     virtual void paintBody (juce::Graphics&, juce::Rectangle<int>) {}
 
     static constexpr int headerH = 58, footerH = 60, padding = 22;
+    float titleHeight = 17.0f;   // 見出しの字（JUCE の高さ）
+    bool titleExact = false;     // true：titleHeight を換算しない（実寸で組むダイアログ）
+    int footerKeyHeight = 34;    // 下部のキーの高さ
 
 private:
     juce::String title, microTitle;

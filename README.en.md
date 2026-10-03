@@ -100,7 +100,7 @@ The engine is the same; only what you see changes. A project made in one mode op
 ## How to use it
 
 1. **Install** the installer from [Releases](https://github.com/kajisho5/voicebooth/releases) (see Download below). On first launch, pick your language and a mode (easy / standard / pro); you can change both later in Settings.
-2. **Open a song**: drop the **off-vocal (karaoke)** track on the upper box of the start screen and, optionally, the **original with vocals** on the lower box. With the original, the timing is aligned automatically and the **guide pitch** appears on the piano roll. With only the original, use "Start from the original only" to separate it (the first time, you are asked before the models are downloaded). Reopening the same song continues where you left off.
+2. **Open a song**: drop the **off-vocal (karaoke)** track on the upper box of the start screen and, optionally, the **original with vocals** on the lower box. With the original, the timing is aligned automatically and the **guide pitch** appears on the piano roll. With only the original, use "Start from the original only" to separate it (the first time, you are asked before the models are downloaded). Reopening the same song continues where you left off. The separation models (about 210 MB) can be installed any time from "Get the separation model…" on the start screen or the "Separation models" row in Settings (downloaded only when you press it).
 3. **Set up input**: the first time, input setup opens — device → level → latency measurement. **Use headphones.**
 4. **Practise**: **Space** plays / stops. Guide notes are blue bars; your voice is a line (lime when in tune, amber → red when off). Change **tempo / key** in PRACTICE (delivery takes go back to the original tempo and key). Drag on a lane (or `[` `]`) for IN / OUT, **L** to loop, drag the edges to adjust. **Ctrl / ⌘ + wheel** zooms.
 5. **Record**: arm a track card (Main / Double / Harm), press **R** to record and **R** or Space to stop. With a range, only that range is re-recorded (punch-in). **Ctrl / ⌘ + Z** undoes a take; **Esc** → "Discard" during recording throws it away. Use "Compare takes" to pick the best one.
@@ -154,7 +154,7 @@ Logo usage rules (clear space, minimum size, light-background versions) and ever
 | CPU | 64-bit, 4 cores | 6 cores or more (Apple M1 or later, a recent Intel Core i5 / AMD Ryzen 5 class or better) |
 | Memory | 8 GB | 16 GB |
 | Free disk space | 2 GB | 10 GB or more (SSD) |
-| Display | 1280×800 | 1440×900 or larger |
+| Display | 1280×800 | 1920×1080 or larger |
 | Audio | Built-in input/output works | An audio interface and wired headphones (ASIO on Windows gives lower latency) |
 | Internet | For the first download of the separation model, and for the update check (looks at GitHub releases at most once a day and sends nothing else; can be turned off in Settings). Everything except separation works offline | — |
 

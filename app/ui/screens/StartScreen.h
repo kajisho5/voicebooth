@@ -24,6 +24,7 @@ public:
     std::function<void()> onDone;
     /** 原曲だけで始めたいが分離モデルが無い（入れられる）：呼び出し側がモデルの確認を出す（B16） */
     std::function<void (const juce::File& original)> onNeedModel;
+    std::function<void()> onInstallModels;   // 「分離モデルを入れる」（起動画面は開いたまま。確かめたらダウンロードの確認に替わる）
 
     /** その曲の読み込みを始める（解析画面へ） */
     void openFile (const juce::File&);
@@ -84,6 +85,7 @@ private:
     juce::Rectangle<int> panel, dropArea, guideArea, localNoteArea, recentArea, firstRunArea;
     std::vector<juce::Rectangle<int>> recentRows;
     juce::OwnedArray<KeyButton> firstRunKeys;
-    KeyButton openFolder, continueKey, cancelKey, anotherKey, originalKey;
+    KeyButton openFolder, continueKey, cancelKey, anotherKey, originalKey, modelKey;
+    bool canInstallModels() const;
 };
 } // namespace vb

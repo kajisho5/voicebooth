@@ -288,7 +288,7 @@ SetupWizard::SetupWizard (UiSession& u, int initialStep)
         rebuildDeviceControls();
     }
 
-    setSize (780, live() ? 630 : 560);
+    setSize (920, live() ? 660 : 590);
     setStep (initialStep);
 }
 
@@ -562,19 +562,19 @@ void SetupWizard::layoutBody (juce::Rectangle<int> body)
         const LiveLayout l (body);
         if (inputList != nullptr)  inputList->setBounds (l.inList);
         if (outputList != nullptr) outputList->setBounds (l.outList);
-        if (driverPick != nullptr) driverPick->setBounds (l.control (rowDriver, juce::jmin (300, driverPick->idealWidth())));
+        if (driverPick != nullptr) driverPick->setBounds (l.control (rowDriver, juce::jmin (380, driverPick->idealWidth())));
         if (channelKeys != nullptr) channelKeys->setBounds (l.control (rowChannel, channelKeys->idealWidth()));
-        if (channelPick != nullptr) channelPick->setBounds (l.control (rowChannel, juce::jmin (220, channelPick->idealWidth())));
-        if (bufferPick != nullptr) bufferPick->setBounds (l.control (rowBuffer, juce::jmin (180, bufferPick->idealWidth())));
+        if (channelPick != nullptr) channelPick->setBounds (l.control (rowChannel, juce::jmin (280, channelPick->idealWidth())));
+        if (bufferPick != nullptr) bufferPick->setBounds (l.control (rowBuffer, juce::jmin (240, bufferPick->idealWidth())));
         if (ratePick != nullptr)
         {
-            const auto rw = juce::jmin (230, ratePick->idealWidth());
+            const auto rw = juce::jmin (330, ratePick->idealWidth());
             ratePick->setBounds (l.control (rowFormat, rw));
             if (bitKeys != nullptr)
             {
                 auto a = l.rows[rowFormat].withTrimmedLeft (labelW + rw + 10);
                 const auto bw = juce::jmin (a.getWidth(), bitKeys->idealWidth());
-                bitKeys->setBounds (a.removeFromLeft (bw).withSizeKeepingCentre (bw, 26));
+                bitKeys->setBounds (a.removeFromLeft (bw).withSizeKeepingCentre (bw, 30));
             }
         }
     }

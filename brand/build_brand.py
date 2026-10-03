@@ -186,8 +186,8 @@ def build_social_app():
     out = OUT / "marketing"
     W, H = 1280, 640
     shot = SRC / "app-screen.png"
-    sw, sh = 880, 532                       # 画面（1100x665 を縮める）
-    sx, sy = 452, 64
+    sw, sh = 880, 495                       # 画面（1100x619 を縮める。1920x1080 の窓 1760x990 と同じ 16:9）
+    sx, sy = 452, 82
     wm, _ = wordmark(64, 228, 66, C["text"])
     l1, _ = text_path("歌ってみた専用DAW", 30, 66, 292, "IBMPlexSansJP-Medium.ttf")
     l2, _ = text_path("見て直して、一本渡す。", 30, 66, 334, "IBMPlexSansJP-Medium.ttf")

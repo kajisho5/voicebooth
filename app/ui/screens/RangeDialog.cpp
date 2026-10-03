@@ -38,7 +38,7 @@ RangeDialog::RangeDialog (UiSession& u)
     });
     addFooterKey (tr ("common.close"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
 
-    setSize (640, headerH + 14 + 300 + footerH + 6);
+    setSize (760, headerH + 14 + 330 + footerH + 6);
     refreshKeys();
 }
 

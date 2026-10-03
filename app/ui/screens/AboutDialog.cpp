@@ -26,7 +26,7 @@ AboutDialog::AboutDialog()
     addFooterKey (tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
     addFooterKey (tr ("about.license"), KeyRole::normal, [] { juce::URL (licenseUrl).launchInDefaultBrowser(); });
     addFooterKey (tr ("about.source"), KeyRole::normal, [] { juce::URL (sourceUrl).launchInDefaultBrowser(); });
-    setSize (720, 590);
+    setSize (860, 640);
 }
 
 void AboutDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> area)

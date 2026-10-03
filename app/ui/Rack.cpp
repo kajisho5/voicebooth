@@ -410,7 +410,7 @@ void MonitorModule::paint (juce::Graphics& g)
     paint::led (g, { r.getX() + 3.0f, r.getCentreY() }, 2.6f, n.tone, true);
     g.setColour (n.tone);
     g.setFont (sans (10.5f));
-    g.drawFittedText (n.text, r.withTrimmedLeft (11.0f).toNearestInt(), juce::Justification::centredLeft, 2, 0.9f);
+    g.drawFittedText (n.text, r.withTrimmedLeft (11.0f).toNearestInt(), juce::Justification::centredLeft, 2, 1.0f);
 }
 
 void MonitorModule::resized()
@@ -423,7 +423,11 @@ void MonitorModule::resized()
 
     auto r = content();
     hadNotice = noticeFor (state()).text.isNotEmpty();
-    noticeArea = hadNotice ? r.removeFromBottom (28).withTrimmedTop (4) : juce::Rectangle<int>();
+    // 狭い窓（1280x800）でフェーダーが潰れるなら、注記より フェーダーを残す（注記は余裕がある時だけ）
+    const auto noticeH = 28 + juce::roundToInt (18.0f * textBoostAmount());
+    constexpr int faderNeeds = 30 + 22 + 6 + 18 + 2 + 70;   // 名前・M/S・値・フェーダーの最小
+    const bool showNotice = hadNotice && r.getHeight() - noticeH >= faderNeeds + juce::roundToInt (20.0f * textBoostAmount());
+    noticeArea = showNotice ? r.removeFromBottom (noticeH).withTrimmedTop (4) : juce::Rectangle<int>();   // 2 行（字の大きさに合わせる）
     const auto w = r.getWidth() / juce::jmax (1, visible);
     for (auto* st : strips)
         if (st->isVisible())

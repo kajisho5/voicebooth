@@ -104,6 +104,7 @@ public:
     void showToast (const juce::String&, const juce::String& actionLabel, std::function<void()> action);
 
     static constexpr int defaultWidth = 1440, defaultHeight = 900;
+    static constexpr int preferredWidth = 1760, preferredHeight = 990;   // 1920x1080 の画面で開く大きさ（作業領域に収まらなければ縮める）
     static constexpr int minWidth = 1280, minHeight = 800;
 
 private:

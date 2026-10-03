@@ -6,7 +6,7 @@ namespace vb
 {
 namespace
 {
-    constexpr int dialogW = 468, dialogH = 744;
+    constexpr int dialogW = 560, dialogH = 800;
     constexpr int headerRowH = 26, rowH = 34, labelW = 92, gap = 14;
 
     juce::StringArray tonicItems()

@@ -25,6 +25,8 @@ English follows Japanese.
 - **キー違いのカラオケ**：分離した声の線と声をカラオケのキーにずらして重ねる
 - **時間合わせの手直し**：ピッチレーンを右クリックで ±1 / ±10 ms、「ここで合わせる」。「原曲で聴く」でカラオケと聞き比べ。カット版は原曲に無い所に「お手本なし」
 - 範囲の端をつまんで動かす（拍・区間の頭に吸い付く）、書き出し前の「録っていない所」の確認、トラックの音量・M / S と練習のテンポ・キーをプロジェクトに保存、「このアプリについて」（ライセンス）
+- **1920x1080 で読みやすく**：全画面の文字を大きくした（以前は字の実寸が 7〜9 px）。設定画面はデジタル庁デザインシステムの目安（本文 16 px・補足 14 px）。1920x1080 の画面では窓を 1760x990 で開く
+- **分離モデルをいつでも入れられる**：起動画面の［分離モデルを入れる…］と、設定の「分離モデル」の行（入っているか・受け取り中の進み具合も出る）
 - 直したもの：録音中 Esc →「破棄する」でテイクが残っていた、曲を開かずに起動すると見本の画面が出ていた、ほか
 
 ## 入っているもの
@@ -75,6 +77,8 @@ English follows Japanese.
 - **Karaoke in a different key**: the separated guide line and vocal are shifted to the karaoke key
 - **Fixing the alignment**: right-click the pitch lane for ±1 / ±10 ms and "Align here"; "Hear original" to A/B against the karaoke; cut versions show "No guide" where the original has no match
 - Drag range edges (snaps to beats and section starts), a check for unrecorded parts before export, track volume / M / S and practice tempo / key saved in the project, an About / license screen
+- **Readable at 1920x1080**: text is larger on every screen (it used to be 7–9 px tall). Settings follows the Japanese Digital Agency design system (16 px body, 14 px notes). On a 1920x1080 screen the window opens at 1760x990
+- **Install the separation models any time**: "Get the separation model…" on the start screen and a "Separation models" row in Settings (shows whether they are installed and the download progress)
 - Fixes: Esc → "Discard" during recording kept the take; launching without a song showed the demo screen; and more
 
 ## What's in it

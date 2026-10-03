@@ -76,7 +76,15 @@ public:
         setResizable (true, true);
         setResizeLimits (MainComponent::minWidth, MainComponent::minHeight, 4096, 2160);
         rebuild();
-        centreWithSize (MainComponent::defaultWidth, MainComponent::defaultHeight);
+        // 1920x1080 の画面を基準にする：作業領域（タスクバー・Dock を除く）いっぱいに近い大きさで開く。
+        // 画面より大きくは開かない（拡大 125 % 以上や小さい画面）。窓枠・タイトルバーの分を残す
+        auto width = MainComponent::defaultWidth, height = MainComponent::defaultHeight;
+        if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        {
+            width = juce::jmin (MainComponent::preferredWidth, d->userArea.getWidth() - 16);
+            height = juce::jmin (MainComponent::preferredHeight, d->userArea.getHeight() - 48);
+        }
+        centreWithSize (width, height);   // 最小（minWidth / minHeight）より小さくはならない
         setVisible (true);
         focusContent();
     }
@@ -158,6 +166,9 @@ public:
     void initialise (const juce::String& commandLine) override
     {
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
+        // 文字の大きさ：1920x1080 の画面で満額。小さい画面・拡大 125 % 以上ではほとんど大きくしない（部品が収まるように）
+        if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+            setTextBoost (textBoostFor (d->userArea.getHeight()));
 
         juce::PropertiesFile::Options opts;
         opts.applicationName = "VoiceBooth";

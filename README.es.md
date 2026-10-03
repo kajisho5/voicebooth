@@ -143,7 +143,7 @@ Las normas de uso del logo (espacio libre, tamaño mínimo, versiones para fondo
 | CPU | 64 bits, 4 núcleos | 6 núcleos o más (Apple M1 o posterior, un Intel Core i5 / AMD Ryzen 5 reciente o superior) |
 | Memoria | 8 GB | 16 GB |
 | Espacio libre en disco | 2 GB | 10 GB o más (SSD) |
-| Pantalla | 1280×800 | 1440×900 o mayor |
+| Pantalla | 1280×800 | 1920×1080 o mayor |
 | Audio | La entrada/salida integrada funciona | Una interfaz de audio y auriculares con cable (ASIO en Windows da menos latencia) |
 | Internet | Para la primera descarga del modelo de separación y para buscar actualizaciones (consulta las versiones de GitHub como mucho una vez al día y no envía nada más; se puede desactivar en Ajustes). Todo salvo la separación funciona sin conexión | — |
 

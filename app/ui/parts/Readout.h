@@ -33,7 +33,8 @@ public:
     void setState (State s) { state = s; repaint(); }
     void paint (juce::Graphics&) override;
 
-    static int idealWidth() { return 96; }
+    /** いちばん長い文言（STANDBY など）が収まる幅（文字の大きさ・言語で変わる） */
+    static int idealWidth();
 
 private:
     State state = State::standby;

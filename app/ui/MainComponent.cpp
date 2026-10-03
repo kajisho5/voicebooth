@@ -321,11 +321,11 @@ void MainComponent::resized()
     top.setBounds (r.removeFromTop (TopBar::height));
     transport.setBounds (r.removeFromTop (TransportBar::height));
     status.setBounds (r.removeFromBottom (StatusBar::height));
-    rack.setBounds (r.removeFromRight (metrics::rackWidth));
+    rack.setBounds (r.removeFromRight (metrics::rackWidth + juce::roundToInt ((float) metrics::rackExtra * textBoostAmount())));
 
     // キャンバス：下から積み、残りはすべてピッチレーン（主役）
     canvasArea = r;
-    tracks.setBounds (r.removeFromBottom (TrackTabs::height));
+    tracks.setBounds (r.removeFromBottom (TrackTabs::height()));
     wave.setBounds (r.removeFromBottom (WaveLane::preferredHeight (state().mode)));
     // 歌詞レーンは設定で出した時だけ（既定は出さない）
     lyrics.setVisible (state().showLyrics && ! needsSong());
@@ -685,6 +685,11 @@ StartScreen* MainComponent::openStart (bool firstRun)
             safe->session.requestSeparationModel();
         });
     };
+    screen->onInstallModels = [safe]
+    {
+        // 起動画面は開いたまま一覧を確かめる。読めたらダウンロードの確認に替わり、閉じたら起動画面に戻る
+        if (safe != nullptr) safe->session.requestSeparationModel();
+    };
     overlay.show (std::move (screen), false);
     return raw;
 }
@@ -838,6 +843,12 @@ void MainComponent::openSettings()
     {
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openAbout(); });
+    };
+    dlg->onInstallModels = [this, safe]
+    {
+        // 設定を閉じてから一覧を見に行く（確かめたらダウンロードの確認を出す。B16）
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.requestSeparationModel(); });
     };
     overlay.show (std::move (dlg), true);
 }
@@ -1043,6 +1054,9 @@ void MainComponent::openLiveModelDownload (int stage)
         // 入ったら、待っていた分離を勧める（お手本の原曲が引き算で取れなかった時）
         if (done && state().guideNeedsSeparation && session.separationAvailable())
             juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.offerSeparation(); });
+        // 起動画面から入れに来た（曲はまだ無い）：起動画面に戻る（閉じたままだと何も無い画面になる）
+        else
+            juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openStartIfNoSong(); });
     };
     overlay.show (std::move (dlg), false);
 }

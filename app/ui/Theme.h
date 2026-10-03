@@ -103,7 +103,8 @@ namespace metrics
 {
     constexpr int pad        = 14;    // 画面端の余白
     constexpr int gutter     = 64;    // ピッチ/波形レーン左の固定幅（時間軸を揃える）
-    constexpr int rackWidth  = 312;   // 右ラック
+    constexpr int rackWidth  = 312;   // 右ラック（文字の換算が満額の時は rackExtra を足す）
+    constexpr int rackExtra  = 48;
     constexpr float keyRadius    = 4.0f;
     constexpr float windowRadius = 3.0f;
 }
@@ -111,8 +112,23 @@ namespace metrics
 //==============================================================================
 enum class Weight { regular, medium, semibold };
 
+/** 文字の大きさ（1920x1080 基準）。各部品は 1440x900 の頃の数値（JUCE の高さ＝字の上下の幅）で書いてあり、
+    そのままだと字の実寸が 7〜8 px になる。sans / mono はこの換算を通して、小さい字ほど大きくする
+    （12 以下は 1.6 倍、大きい見出しは 1.15 倍まで）。ダイアログを実寸（px）で組む時は sansExact / monoExact */
+float uiTextHeight (float designHeight);
+
+/** 換算の効き（0 = 換算しない〜1 = 1920x1080 の等倍で満額）。起動時に画面の作業領域の高さから決める。
+    小さい画面や拡大 125 % 以上では OS がすでに大きく描くので、ほとんど効かせない（部品が収まらなくなるため） */
+void setTextBoost (float amount);
+float textBoostAmount();
+float textBoostFor (int userAreaHeight);
+
 /** 本文・ラベル。日本語・英語は IBM Plex Sans JP、韓国語・中国語は OS の標準フォント */
 juce::Font sans (float height, Weight = Weight::regular);
+
+/** 換算しない（設定画面などデジタル庁の目安で実寸を決めている所）。height は JUCE の高さ（字の上下の幅） */
+juce::Font sansExact (float height, Weight = Weight::regular);
+juce::Font monoExact (float height, Weight = Weight::medium, float tracking = 0.0f);
 
 /** 指定した言語の本文フォント（UI の言語と無関係に） */
 juce::Font sansIn (i18n::Language, float height, Weight = Weight::regular);

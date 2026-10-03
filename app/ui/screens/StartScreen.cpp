@@ -4,6 +4,7 @@
 #include "project/ProjectFile.h"
 #include "separation/SeparatorClient.h"
 #include "models/ModelManifest.h"
+#include "models/ModelDownloader.h"
 
 namespace vb
 {
@@ -45,7 +46,8 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
       continueKey (tr ("analyze.continue")),
       cancelKey (tr ("common.cancel")),
       anotherKey (tr ("analyze.chooseAnother")),
-      originalKey (tr ("start.fromOriginal"))
+      originalKey (tr ("start.fromOriginal")),
+      modelKey (tr ("model.getButton"))
 {
     const char* keys[] = { "start.first.sing", "start.first.deliver", "start.first.detail" };
     const project::Mode modes[] = { project::Mode::easy, project::Mode::standard, project::Mode::pro };
@@ -92,6 +94,20 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     originalKey.withIcon (Icon::mic);
     originalKey.onClick = [this] { startFromOriginal (guideFile); };
     addChildComponent (originalKey);
+
+    // 分離モデルがまだ無い時だけ（ダウンロードは押した時だけ。11.7）
+    modelKey.withIcon (Icon::download);
+    modelKey.onClick = [this] { if (onInstallModels) onInstallModels(); };
+    addChildComponent (modelKey);
+}
+
+bool StartScreen::canInstallModels() const
+{
+    using DS = models::DownloadStatus::Stage;
+    const auto stage = state().modelDl.stage;
+    return state().engineAttached && ! session.separationAvailable()
+        && separation::SeparatorClient::executable().existsAsFile() && ! models::trustedKeys().empty()
+        && stage != (int) DS::downloading && stage != (int) DS::verifying;
 }
 
 StartScreen::~StartScreen()
@@ -351,6 +367,7 @@ void StartScreen::resized()
     for (auto* k : firstRunKeys) k->setVisible (home && firstRun);   // 最初の 1 回だけ（DESIGN 2）
     openFolder.setVisible (home);
     originalKey.setVisible (home && guideFile != juce::File() && state().engineAttached);
+    modelKey.setVisible (home && canInstallModels());
     continueKey.setVisible (phase == Phase::loaded);
     cancelKey.setVisible (phase == Phase::loading || phase == Phase::separating);
     anotherKey.setVisible (phase == Phase::loaded || phase == Phase::failed);
@@ -402,6 +419,11 @@ void StartScreen::resized()
     }
     openFolder.setSize (10, 32);
     openFolder.setBounds (rows.removeFromTop (40).removeFromLeft (openFolder.idealWidth()).withSizeKeepingCentre (openFolder.idealWidth(), 32));
+    if (modelKey.isVisible())
+    {
+        modelKey.setSize (10, 32);
+        modelKey.setBounds (rows.removeFromTop (40).removeFromLeft (modelKey.idealWidth()).withSizeKeepingCentre (modelKey.idealWidth(), 32));
+    }
 
     if (! firstRun)
         return;
