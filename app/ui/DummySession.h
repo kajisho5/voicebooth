@@ -167,6 +167,15 @@ struct Session
     juce::String updateSkipped;           // 「このバージョンを飛ばす」で飛ばしたバージョン
     juce::int64 updateLastCheck = 0;      // 最後に確かめられた時刻（ms。つながらなかった時は進めない）
     int updateNoticeSerial = -1;          // この番号の知らせには「見る」キーを付ける（今すぐ確かめた時）
+    // アプリ内の更新（［今すぐ更新］）：インストーラーを取って照合する
+    struct UpdateDownload
+    {
+        int stage = -1;                   // models::DownloadStatus::Stage（-1 = 始めていない）
+        juce::int64 received = 0, size = 0;
+        bool paused = false;
+        juce::String error;
+        juce::File installer;             // 照合済みのインストーラー（done の時）
+    } updateDl;
 
     // アプリ共通のキャッシュの場所（作ったオフボなど。DESIGN 8）。空 = 既定（system::defaultCacheFolder）
     juce::File cacheFolder;

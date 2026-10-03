@@ -120,6 +120,8 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename:
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; In-app update (DESIGN 11.7): the app runs this installer with /VERYSILENT /relaunch=1 and quits; start it again when done
+Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: RelaunchAfterUpdate
 
 ; Settings, takes and downloaded models live in the user's data folder and are kept on uninstall
 ; (the user's recordings must never be deleted by the uninstaller).
@@ -131,3 +133,10 @@ Root: HKA; Subkey: "Software\Classes\.vbooth\OpenWithProgids"; ValueType: string
 Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project"; ValueType: string; ValueName: ""; ValueData: "VoiceBooth Project"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#AppExeName},0"
 Root: HKA; Subkey: "Software\Classes\VoiceBooth.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" ""%1"""
+
+[Code]
+// /relaunch=1 is passed only by VoiceBooth's own in-app update
+function RelaunchAfterUpdate: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:relaunch|0}') = '1');
+end;

@@ -7,22 +7,34 @@ namespace vb
 {
 /** 新しいバージョンのお知らせ（DESIGN 11.7）
     ステータスバーの知らせを押すと開く。GitHub のリリース（UiSession::checkForUpdates*）で見つけたバージョンの中身を見せる。
-    ビルドは署名していないので自分では入れ替えない：主のキーはブラウザでこの OS のインストーラー（無ければリリースのページ）を開く */
-class UpdateDialog : public DialogPanel
+    アプリ内で入れ替えられる時（UiSession::canUpdateInPlace）は主のキーが［今すぐ更新］：押すとこの画面のまま
+    ダウンロードと照合の進み具合に替わり、終わると入れ替えて起動し直す（MainComponent）。
+    入れ替えられない時は、主のキーでブラウザにこの OS のインストーラー（無ければリリースのページ）を開く */
+class UpdateDialog : public DialogPanel, private juce::Timer
 {
 public:
-    explicit UpdateDialog (const update::Release&);
+    /** live：本物の状態（ダウンロードの進み具合を読む）。null なら見本 */
+    UpdateDialog (const update::Release&, UiSession* live = nullptr);
+    ~UpdateDialog() override;
 
-    /** onOpen：主のキー（インストーラーかページ）、onOpenPage：リリースのページ（インストーラーがある時だけキーを出す）、
-        onSkip：このバージョンを飛ばす。「あとで」は閉じるだけ（onCloseRequest） */
-    std::function<void()> onOpen, onOpenPage, onSkip;
+    /** onUpdateNow：［今すぐ更新］、onOpen：ブラウザでインストーラーかページ、onOpenPage：リリースのページ、
+        onSkip：このバージョンを飛ばす、onCancelDownload：ダウンロードをやめる。「あとで」は閉じるだけ（onCloseRequest。取っている途中ならバックグラウンドで続く） */
+    std::function<void()> onUpdateNow, onOpen, onOpenPage, onSkip, onCancelDownload;
+
+    /** ダウンロード中の表示か（MainComponent が、取り終えたらそのまま入れ替えるかを決める） */
+    bool showingDownload() const { return downloading; }
 
 protected:
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
 
 private:
+    void timerCallback() override;
+    void paintProgress (juce::Graphics&, juce::Rectangle<float>);
+
     update::Release release;
     juce::String notes;   // 本文の平文（update::plainNotes）
+    UiSession* live = nullptr;
+    bool inPlace = false, downloading = false;
 };
 
 /** モデルの初回ダウンロード（DESIGN 11.7。静的モック）

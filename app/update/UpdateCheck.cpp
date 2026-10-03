@@ -181,6 +181,7 @@ juce::String Release::toJson() const
     o->setProperty ("assetUrl", assetUrl);
     o->setProperty ("assetName", assetName);
     o->setProperty ("assetSize", assetSize);
+    o->setProperty ("assetSha256", assetSha256);
     o->setProperty ("published", published);
     o->setProperty ("notes", notes);
     o->setProperty ("prerelease", prerelease);
@@ -198,12 +199,13 @@ Release Release::fromJson (const juce::String& json)
     r.assetUrl = v["assetUrl"].toString();
     r.assetName = v["assetName"].toString();
     r.assetSize = (juce::int64) v["assetSize"];
+    r.assetSha256 = sha256FromDigest ("sha256:" + v["assetSha256"].toString());
     r.published = v["published"].toString();
     r.notes = v["notes"].toString();
     r.prerelease = (bool) v["prerelease"];
     // 開くのは GitHub のページだけ（設定ファイルが書き換えられていても、よそのアドレスは開かない）
     r.found = parseVersion (r.version).valid && r.pageUrl.startsWith ("https://github.com/");
-    if (! r.assetUrl.startsWith ("https://github.com/"))
+    if (! r.assetUrl.startsWith ("https://github.com/") || ! safeAssetName (r.assetName, currentPlatform()))
         r.assetUrl = {};
     return r;
 }
@@ -253,16 +255,32 @@ Release pickRelease (const juce::String& json, const juce::String& current, bool
         {
             const auto name = a["name"].toString();
             const auto url = a["browser_download_url"].toString();
-            if (assetMatches (name, platform) && url.startsWith ("https://github.com/"))
+            if (assetMatches (name, platform) && safeAssetName (name, platform) && url.startsWith ("https://github.com/"))
             {
                 r.assetName = name;
                 r.assetUrl = url;
                 r.assetSize = (juce::int64) a["size"];
+                r.assetSha256 = sha256FromDigest (a["digest"].toString());
                 break;
             }
         }
     r.found = true;
     return r;
+}
+
+juce::String sha256FromDigest (const juce::String& digest)
+{
+    if (! digest.startsWithIgnoreCase ("sha256:"))
+        return {};
+    const auto hex = digest.substring (7).trim().toLowerCase();
+    return hex.length() == 64 && hex.containsOnly ("0123456789abcdef") ? hex : juce::String();
+}
+
+bool safeAssetName (const juce::String& name, Platform platform)
+{
+    if (name.isEmpty() || name.containsAnyOf ("/\\:") || name.contains ("..") || name.startsWithChar ('.'))
+        return false;
+    return platform == Platform::other || assetMatches (name, platform);
 }
 
 juce::String notesForLanguage (const juce::String& markdown, bool japanese)
