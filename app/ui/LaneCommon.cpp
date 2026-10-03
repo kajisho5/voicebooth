@@ -248,20 +248,69 @@ std::vector<SectionTag> sectionTags (const dummy::Session& s, const TimeMap& map
     return tags;
 }
 
-void RangeGesture::down (UiSession&, const TimeMap& map, float x)
+int rangeEdgeAt (const dummy::Session& s, const TimeMap& map, float x)
+{
+    if (! s.hasRange())
+        return -1;
+    const auto dIn = std::abs (x - map.x (s.rangeIn)), dOut = std::abs (x - map.x (s.rangeOut));
+    if (juce::jmin (dIn, dOut) > 5.0f)
+        return -1;
+    return dIn <= dOut ? 0 : 1;
+}
+
+int64 snap (const dummy::Session& s, const TimeMap& map, int64 sample)
+{
+    constexpr float reachPx = 8.0f;
+    auto best = sample;
+    auto bestPx = reachPx;
+    auto consider = [&] (int64 c)
+    {
+        const auto d = std::abs (map.x (c) - map.x (sample));
+        if (d <= bestPx)
+        {
+            bestPx = d;
+            best = c;
+        }
+    };
+
+    if (s.tempoKnown())
+    {
+        const auto sr = s.sampleRate();
+        const auto k = song::beatIndexAt (s.project.tempo, sample, sr);
+        consider (song::beatSample (s.project.tempo, k, sr));
+        consider (song::beatSample (s.project.tempo, k + 1, sr));
+    }
+    for (auto& sec : s.project.sections)
+        consider (sec.startSample);
+    consider (s.playhead);
+    return juce::jlimit ((int64) 0, s.project.lengthSamples, best);
+}
+
+void RangeGesture::down (UiSession& session, const TimeMap& map, float x)
 {
     startX = x;
     startSample = map.sampleAt (x);
     dragging = false;
+    const auto& s = session.get();
+    edge = rangeEdgeAt (s, map, x);
+    fixedSample = edge == 0 ? s.rangeOut : s.rangeIn;
 }
 
-void RangeGesture::drag (UiSession& session, const TimeMap& map, float x)
+void RangeGesture::drag (UiSession& session, const TimeMap& map, float x, bool snapOn)
 {
     if (! dragging && std::abs (x - startX) < 4.0f)
         return;   // 4px 未満はクリック扱い
 
     dragging = true;
-    session.setRange (startSample, map.sampleAt (juce::jlimit (map.x0, map.x1, x)));
+    auto at = map.sampleAt (juce::jlimit (map.x0, map.x1, x));
+    if (snapOn)
+        at = snap (session.get(), map, at);
+    if (edge >= 0)
+    {
+        session.setRange (fixedSample, at);   // つまんだ端だけ動かす（反対側を越えたら入れ替わる）
+        return;
+    }
+    session.setRange (snapOn ? snap (session.get(), map, startSample) : startSample, at);
 }
 
 void RangeGesture::up (UiSession& session, const TimeMap& map, float x)
@@ -269,6 +318,7 @@ void RangeGesture::up (UiSession& session, const TimeMap& map, float x)
     if (! dragging)
         session.seek (map.sampleAt (x));
     dragging = false;
+    edge = -1;
 }
 
 void drawHatch (juce::Graphics& g, juce::Rectangle<float> area, juce::Colour c)

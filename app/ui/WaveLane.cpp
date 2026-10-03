@@ -60,7 +60,9 @@ void WaveLane::mouseMove (const juce::MouseEvent& e)
 {
     // 選び直せる所だけ指のカーソル（波形の上は今までどおり範囲を選ぶ）
     const bool pick = overCompBar (e.position) && session.canCompareTakes();
-    setMouseCursor (pick ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::IBeamCursor);
+    const bool edge = ! pick && e.x >= metrics::gutter && lane::rangeEdgeAt (state(), map(), e.position.x) >= 0;
+    setMouseCursor (pick ? juce::MouseCursor::PointingHandCursor
+                         : (edge ? juce::MouseCursor::LeftRightResizeCursor : juce::MouseCursor::IBeamCursor));
 }
 
 void WaveLane::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) { lane::wheel (session, map(), e, w); }
@@ -156,7 +158,7 @@ void WaveLane::showTakeMenu()
 void WaveLane::mouseDrag (const juce::MouseEvent& e)
 {
     if (e.getMouseDownX() < metrics::gutter || menuGesture) return;
-    gesture.drag (session, map(), e.position.x);
+    gesture.drag (session, map(), e.position.x, ! e.mods.isAltDown());
 }
 
 void WaveLane::mouseUp (const juce::MouseEvent& e)

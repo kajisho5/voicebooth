@@ -146,7 +146,13 @@ int PitchLane::tagAt (juce::Point<float> p) const
 
 void PitchLane::mouseMove (const juce::MouseEvent& e)
 {
-    setMouseCursor (tagAt (e.position) >= 0 ? juce::MouseCursor::DraggingHandCursor : juce::MouseCursor::NormalCursor);
+    // 区間の札は指、範囲の端（つまんで動かせる）は左右の矢印
+    if (tagAt (e.position) >= 0)
+        setMouseCursor (juce::MouseCursor::DraggingHandCursor);
+    else if (plotArea.contains (e.getPosition()) && lane::rangeEdgeAt (state(), map(), e.position.x) >= 0)
+        setMouseCursor (juce::MouseCursor::LeftRightResizeCursor);
+    else
+        setMouseCursor (juce::MouseCursor::NormalCursor);
 }
 
 void PitchLane::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) { lane::wheel (session, map(), e, w); }
@@ -202,7 +208,7 @@ void PitchLane::mouseDrag (const juce::MouseEvent& e)
     if (draggingRuler)
         session.seek (map().sampleAt ((float) juce::jlimit (plotArea.getX(), plotArea.getRight(), e.x)));
     else if (plotArea.contains (e.getMouseDownPosition()))
-        gesture.drag (session, map(), e.position.x);
+        gesture.drag (session, map(), e.position.x, ! e.mods.isAltDown());
 }
 
 void PitchLane::mouseUp (const juce::MouseEvent& e)
