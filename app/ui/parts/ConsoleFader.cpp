@@ -216,9 +216,14 @@ void ChannelStrip::paint (juce::Graphics& g)
     auto names = nameArea;
     if (note.isNotEmpty())
     {
+        // 1 行に入らなければ 2 行に折り返す（「Oreilles seules」「Chỉ để nghe」が 1 行で切れていた。#19）。
+        // 2 行にする高さが無ければ（低い画面）、1 行のまま字の幅を詰める
+        const auto f = sans (9.5f);
+        const auto lineH = 12 + juce::roundToInt (3.0f * textBoostAmount());
+        const auto lines = textWidth (f, note) > (float) names.getWidth() && names.getHeight() >= lineH * 2 + 14 ? 2 : 1;
         g.setColour (colours::textMute);
-        g.setFont (sans (9.5f));
-        g.drawText (note, names.removeFromBottom (12 + juce::roundToInt (3.0f * textBoostAmount())), juce::Justification::centred, false);
+        g.setFont (f);
+        g.drawFittedText (note, names.removeFromBottom (lineH * lines), juce::Justification::centred, lines, 0.8f);
     }
 
     g.setColour (colours::text.withAlpha (0.9f));

@@ -128,14 +128,47 @@ void OverlayHost::close()
 
 void OverlayHost::resized()
 {
-    if (content == nullptr) return;
+    if (content == nullptr || placing) return;
+    const juce::ScopedValueSetter<bool> guard (placing, true);
     if (content->getWidth() == 0 || content->getHeight() == 0)
+    {
+        content->setTransform ({});
         content->setBounds (getLocalBounds());
-    else if (placement == Placement::side)
-        content->setTopLeftPosition (getWidth() - content->getWidth() - 16,
-                                     juce::jmax (8, (getHeight() - content->getHeight()) / 2));
-    else
-        content->setCentrePosition (getLocalBounds().getCentre());
+        return;
+    }
+
+    // 見えている範囲（窓が画面より大きいとき・小さい画面は、画面の作業領域と重なる所）。
+    // パネルがそこに収まらなければ、全体を縮めて収める（書き出しの見出しと［書き出す］が画面の外に出ていた。#18）
+    auto visible = getLocalBounds();
+    if (isShowing())
+        if (const auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
+            visible = visible.getIntersection (getLocalArea (nullptr, d->userArea));
+    if (visible.isEmpty())
+        visible = getLocalBounds();
+    const auto avail = visible.reduced (16);
+    const auto w = (float) content->getWidth(), h = (float) content->getHeight();
+    const auto k = juce::jmin (1.0f, (float) avail.getWidth() / w, (float) avail.getHeight() / h);
+
+    if (k >= 1.0f)
+    {
+        content->setTransform ({});
+        if (placement == Placement::side)
+            content->setTopLeftPosition (getWidth() - content->getWidth() - 16,
+                                         juce::jmax (8, (getHeight() - content->getHeight()) / 2));
+        else
+            content->setCentrePosition (getLocalBounds().getCentre());
+        return;
+    }
+    const auto x = placement == Placement::side ? (float) avail.getRight() - w * k : (float) avail.getCentreX() - w * k * 0.5f;
+    const auto y = (float) avail.getCentreY() - h * k * 0.5f;
+    content->setTopLeftPosition (0, 0);
+    content->setTransform (juce::AffineTransform::scale (juce::jmax (0.4f, k)).translated (x, y));
+}
+
+void OverlayHost::childBoundsChanged (juce::Component* child)
+{
+    if (child == content.get())
+        resized();
 }
 
 void OverlayHost::paint (juce::Graphics& g)
@@ -143,12 +176,12 @@ void OverlayHost::paint (juce::Graphics& g)
     if (placement == Placement::centre)
         g.fillAll (colours::shadow (0.58f));
     else if (content != nullptr)
-        juce::DropShadow (colours::shadow (0.55f), 28, { 0, 8 }).drawForRectangle (g, content->getBounds());   // 暗くしない代わりに影で浮かせる
+        juce::DropShadow (colours::shadow (0.55f), 28, { 0, 8 }).drawForRectangle (g, content->getBoundsInParent());   // 暗くしない代わりに影で浮かせる
 }
 
 void OverlayHost::mouseDown (const juce::MouseEvent& e)
 {
-    if (dismissible && content != nullptr && ! content->getBounds().contains (e.getPosition()))
+    if (dismissible && content != nullptr && ! content->getBoundsInParent().contains (e.getPosition()))
         close();
 }
 } // namespace vb
