@@ -73,8 +73,11 @@ bool TakeRecorder::fileHolds (const juce::File& f, juce::int64 samples)
     // 失敗を知らせずに捨てる。WAV の頭には実際に書けた長さが入るので、それと比べる（監査 2026-10-03）
     if (samples <= 0)
         return true;
+    auto stream = f.createInputStream();
+    if (stream == nullptr)
+        return false;   // ファイルが無い・開けない
     juce::WavAudioFormat wav;
-    std::unique_ptr<juce::AudioFormatReader> reader (wav.createReaderFor (f.createInputStream().release(), true));
+    std::unique_ptr<juce::AudioFormatReader> reader (wav.createReaderFor (stream.release(), true));
     return reader != nullptr && reader->lengthInSamples >= samples;
 }
 

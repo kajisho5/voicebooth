@@ -135,15 +135,18 @@ public:
 
         beginTest ("crafted header: huge SR and sample count is refused (no overflow)");
         {
-            // 8bit モノラル・SR 10 億・data チャンクは 0xFFFFFFF0 バイト（約 43 億サンプル = 約 4 秒）と書いた、中身の無いファイル。
-            // 時間だけ見ると上限内だが、サンプル数は int を超える（監査 2026-10-03：確保した外へ読み込んでいた）
+            // RF64・8bit モノラル・SR 10 億・data は 0x100001000 バイト（約 43 億サンプル = 約 4.3 秒）と書いた、中身の少ないファイル。
+            // 時間だけ見ると上限内だが、サンプル数は int を超え、int に切り詰めると 4096 になる。前はその 4096 サンプルの
+            // バッファへ 43 億サンプル分を読み込もうとして、確保した外へ書いていた（監査 2026-10-03）
             juce::MemoryOutputStream m;
             auto u32 = [&m] (juce::uint32 v) { m.writeInt ((int) v); };
             auto u16 = [&m] (juce::uint16 v) { m.writeShort ((short) v); };
-            m.write ("RIFF", 4); u32 (0xFFFFFFF8u); m.write ("WAVE", 4);
+            auto u64 = [&m] (juce::uint64 v) { m.writeInt64 ((juce::int64) v); };
+            m.write ("RF64", 4); u32 (0xFFFFFFFFu); m.write ("WAVE", 4);
+            m.write ("ds64", 4); u32 (28); u64 (0x200000000ull); u64 (0x100001000ull); u64 (0x100001000ull); u32 (0);
             m.write ("fmt ", 4); u32 (16); u16 (1); u16 (1); u32 (1000000000u); u32 (1000000000u); u16 (1); u16 (8);
-            m.write ("data", 4); u32 (0xFFFFFFF0u);
-            for (int i = 0; i < 4096; ++i) m.writeByte ((char) 0x80);
+            m.write ("data", 4); u32 (0xFFFFFFFFu);
+            for (int i = 0; i < 8192; ++i) m.writeByte ((char) 0x80);
             const auto crafted = dir.getChildFile ("crafted.wav");
             crafted.replaceWithData (m.getData(), m.getDataSize());
 

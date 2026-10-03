@@ -398,7 +398,8 @@ public:
             for (int tries = 0; tries < 300 && seen < rate; ++tries)
             {
                 juce::WavAudioFormat wav;
-                std::unique_ptr<juce::AudioFormatReader> rd (wav.createReaderFor (f.createInputStream().release(), true));
+                auto in = f.createInputStream();
+                std::unique_ptr<juce::AudioFormatReader> rd (in != nullptr ? wav.createReaderFor (in.release(), true) : nullptr);
                 seen = rd != nullptr ? rd->lengthInSamples : 0;
                 if (seen < rate)
                     juce::Thread::sleep (10);
