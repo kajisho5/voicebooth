@@ -28,6 +28,28 @@
 **專為翻唱錄音打造的小型人聲 DAW。**
 跟著伴奏唱，在螢幕上看著音高修正，只重錄想改的部分，再匯出混音師可以直接使用的 WAV。只做這些事，不是萬能 DAW。
 
+## 下載（免費）
+
+<p align="center">
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Windows 版"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Mac 版"></a>
+</p>
+
+| 電腦 | 檔案（點擊儲存） | 大小 |
+|---|---|---|
+| Windows 10 / 11（64 位元） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
+| Mac（macOS 11 以上，Apple 晶片 / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
+
+目前版本為 **0.2.0 beta 2**。更新內容與舊版本請見[發布頁面](https://github.com/kajisho5/voicebooth/releases)。沒有手機、平板版本。
+
+### 第一次使用（3 步驟）
+
+1. **點擊上方按鈕儲存檔案**，再雙擊儲存的檔案進行安裝
+2. **如果出現警告**（測試版尚未進行程式碼簽署，只在第一次開啟時出現）
+   - **Windows**：出現「Windows 已保護您的電腦」時，點選「其他資訊」→「仍要執行」
+   - **Mac**：把 DMG 裡的 VoiceBooth 拖進「應用程式」檔案夾並開啟一次 → 如果提示無法打開，前往系統設定 →「隱私權與安全性」→ 在「安全性」部分點選「強制打開」（嘗試開啟後約 1 小時內才會出現）→ 輸入密碼（[Apple 的說明](https://support.apple.com/zh-tw/guide/mac-help/mh40616/mac)）
+3. **啟動後**選擇語言與模式。接著出現「下載分離模型」時，請按［下載］（約 210 MB，僅第一次。用於示範音高、和聲與只用原曲開始）
+
 ![VoiceBooth 主畫面](docs/screenshots/main-zh-Hant.png)
 
 > 此截圖是用範例資料繪製的開發中樣稿。實際歌曲的顯示仍在改進中，看起來可能有所不同。
@@ -42,7 +64,7 @@
 | 支援的系統 | **Windows 和 Mac 都支援**（Mac 同時支援 Apple 晶片 / Intel）。**沒有手機、平板版本** |
 | 顯示卡 | **不需要。** 只用 CPU 就能執行。只有人聲分離比較吃資源，在 4 核心 CPU 上處理一首 30 秒的歌約需 2 分鐘（畫面會顯示預估時間） |
 | 可匯入的音源 | **僅限電腦上的音訊檔案**（wav / flac / aiff / ogg / mp3 / m4a）。無法直接從 Spotify、Apple Music、YouTube Music 等訂閱服務匯入 |
-| 大小 | 安裝檔 Windows 約 13 MB，Mac 約 40 MB。分離與音高模型（約 210 MB）**只在使用時按下按鈕才會下載**，不會擅自下載 |
+| 大小 | 安裝檔 Windows 約 13 MB，Mac 約 40 MB。若尚未安裝分離與音高模型（約 210 MB），啟動時會詢問，**只有按下［下載］才會下載**（也可以選擇「稍後」）。除了檢查模型列表，不會擅自下載 |
 | 吃資源的處理 | 分離**只在按下按鈕時**執行。歌詞顯示**預設關閉**（可在設定中開啟） |
 | 和聲 | 可以錄製和聲軌。分離參考時會把主唱與和聲分開，並顯示**和聲參考（線和人聲）**（選擇和聲軌時與和聲線比較）。用「原曲 − 伴奏」取得的參考也會隨後從原曲取出主唱並分開（需要一點時間） |
 | 分離出的音訊 | 分離出的人聲和伴奏**僅供個人練習**。VoiceBooth 不會改變原曲的權利歸屬。散布、公開（包括作為翻唱伴奏散布）請只在原曲權利人允許的範圍內進行 |
@@ -74,7 +96,6 @@
 目前的測試版還沒有以下功能（畫面上也不會顯示）。
 
 - 分離人聲以外的聲部（吉他、鼓等）
-
 
 ### 交付檔案的約定
 
@@ -151,15 +172,6 @@
 - 藍牙耳機延遲較大，不適合錄音
 - 尚未在 Arm 版 Windows 上測試
 - 數值為開發階段的參考。依據見 [`docs/DESIGN.md`](docs/DESIGN.md) 11.6.1（日文）
-
-## 下載
-
-請從 [Releases](https://github.com/kajisho5/voicebooth/releases) 下載：Windows 用 `VoiceBooth-<版本>-win-x64-setup.exe`，Mac 用 `VoiceBooth-<版本>-mac-universal.dmg`。
-
-測試版還**沒有進行程式碼簽章**，因此第一次開啟時系統會顯示警告。
-
-- **Windows**：出現「Windows 已保護您的電腦」時，點選「其他資訊」→「仍要執行」
-- **Mac**：把 DMG 裡的 VoiceBooth 拖進「應用程式」檔案夾並開啟一次 → 如果提示無法打開，前往系統設定 →「隱私權與安全性」→ 在「安全性」部分點選「強制打開」（嘗試開啟後約 1 小時內才會出現）→ 輸入密碼（[Apple 的說明](https://support.apple.com/zh-tw/guide/mac-help/mh40616/mac)）
 
 ## 支持開發
 

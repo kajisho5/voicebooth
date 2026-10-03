@@ -303,7 +303,12 @@ public:
             if (firstRun && o.screen.isEmpty() && o.open == juce::File())
                 m->openWelcome();
             else if (o.screen.isEmpty())
+            {
                 m->openStartIfNoSong();   // 2 回目からも、曲を開いていなければ起動画面（最近のプロジェクト）から
+                // 分離などのモデルがまだ無ければ、ダウンロードを勧める（初回はモードを選んだ後。--no-update-check の時は起動時にネットへ行かない）
+                if (! args.contains ("--no-update-check"))
+                    m->offerModelsIfMissing();
+            }
         }
     }
 
