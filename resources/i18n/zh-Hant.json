@@ -180,6 +180,7 @@
   "load.error.readFailed": "讀取時發生錯誤（檔案可能已損毀）：{0}",
   "load.error.tooLong": "歌曲太長（最長 {1} 分鐘）：{0}",
   "load.error.unsupported": "此環境無法讀取該格式，或檔案已損毀：{0}（轉換為 WAV / FLAC / AIFF 後即可開啟）",
+  "load.memoryTight": "這首歌較大，預計會使用約 {0} GB 記憶體（這台電腦有 {1} GB）。如果執行變慢或分析停止，請轉換為 48 kHz 後再開啟",
   "lyrics.applied.sections": "已新增 {0} 個段落",
   "lyrics.applied.timed": "已讀取歌詞（{0} 行，帶時間 {1} 行）",
   "lyrics.applied.untimed": "已讀取歌詞（{0} 行）。可用「敲擊對時」設定每行的開唱時間",

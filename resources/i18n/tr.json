@@ -180,6 +180,7 @@
   "load.error.readFailed": "Okuma sırasında hata (dosya bozuk olabilir): {0}",
   "load.error.tooLong": "Şarkı çok uzun (en fazla {1} dakika): {0}",
   "load.error.unsupported": "Bu dosya bu sistemde okunamıyor ya da bozuk: {0} (WAV / FLAC / AIFF'e dönüştürün)",
+  "load.memoryTight": "Bu şarkı büyük ve yaklaşık {0} GB bellek kullanması bekleniyor (bu bilgisayarda {1} GB var). Yavaşlarsa veya analiz durursa 48 kHz'e dönüştürüp yeniden açın",
   "lyrics.applied.sections": "{0} bölüm eklendi",
   "lyrics.applied.timed": "Şarkı sözü yüklendi ({0} satır, {1} tanesi zamanlı)",
   "lyrics.applied.untimed": "Şarkı sözü yüklendi ({0} satır). Her satırın başlangıcını ayarlamak için “Dokunarak eşle”yi kullanın.",

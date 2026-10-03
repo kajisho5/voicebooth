@@ -48,6 +48,16 @@ void registerSongFormats (juce::AudioFormatManager& formats)
     formats.registerBasicFormats();
 }
 
+juce::int64 estimatedMemoryBytes (juce::int64 lengthSamples, int numChannels)
+{
+    return juce::jmax ((juce::int64) 0, lengthSamples) * juce::jmax (1, numChannels) * (juce::int64) sizeof (float) * 5;
+}
+
+bool memoryTight (juce::int64 estimatedBytes, juce::int64 memoryMB)
+{
+    return memoryMB > 0 && (double) estimatedBytes > (double) memoryMB * 1024.0 * 1024.0 * 0.6;
+}
+
 LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
                      const std::function<bool (float)>& progress)
 {
