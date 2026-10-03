@@ -94,6 +94,11 @@ def main() -> int:
                 line = code.count("\n", 0, pos) + 1
                 errors.append(f"{rel}:{line}: 表示文字列の直書き（tr() を使う）: \"{lit[:40]}\"")
 
+    # ビルドの設定から使うキー（Mac のマイク許可の文を InfoPlist.strings にする。CMakeLists.txt）
+    for m in KEY_LITERAL.finditer((ROOT / "CMakeLists.txt").read_text(encoding="utf-8")):
+        if m.group(1).split(".")[0] in namespaces:
+            used.add(m.group(1))
+
     for k in sorted(used - all_keys):
         errors.append(f"表にないキーを使っています: {k}")
     for k in sorted(all_keys - used):
