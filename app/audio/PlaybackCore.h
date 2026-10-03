@@ -102,6 +102,7 @@ public:
         bool wrapped = false;
         double step = 1.0;
         int lead = 0;
+        bool busy = false;   // 曲の差し替え中で鳴らせなかった（曲が止まったのではない。録音はこのブロックを飛ばす）
     };
 
     PlaybackCore();
@@ -126,6 +127,7 @@ private:
 
     juce::SpinLock songLock;
     std::shared_ptr<const SongAudio> song;          // songLock で保護
+    std::atomic<bool> loaded { false };             // song があるか（lock なしで読む。setSong が lock の中で書く）
     std::shared_ptr<const juce::AudioBuffer<float>> stems[maxStems];   // songLock で保護
     std::unique_ptr<RubberBand::RubberBandStretcher> stretcher;   // songLock で保護
     juce::AudioBuffer<float> stretchIn, stretchOut; // songLock で保護（rebuildStretcher で確保）

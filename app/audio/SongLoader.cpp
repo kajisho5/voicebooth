@@ -1,6 +1,7 @@
 #include "SongLoader.h"
 #include "MediaFoundationFormat.h"
 #include "Mp3Format.h"
+#include <limits>
 
 namespace vb::audio
 {
@@ -80,7 +81,10 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
         return r;
     }
 
-    if ((double) info.lengthSamples / info.sampleRate > maxSongMinutes * 60.0 || info.numChannels > 8)
+    // 長さは時間だけでなくサンプル数でも見る。バッファは int のサンプル数なので、極端な SR を書いたファイル
+    // （時間は短いのにサンプル数が int を超える）を通すと、確保した外へ読み込んでしまう（監査 2026-10-03）
+    if ((double) info.lengthSamples / info.sampleRate > maxSongMinutes * 60.0 || info.numChannels > 8
+        || info.sampleRate > maxSampleRate || info.lengthSamples > (int64) std::numeric_limits<int>::max())
     {
         r.error = LoadResult::Error::tooLong;
         return r;

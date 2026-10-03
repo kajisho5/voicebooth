@@ -44,6 +44,8 @@ juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool f
     // 裏で書く。FIFO は 10 秒分（ディスクが一瞬詰まっても落ちない）
     auto threaded = std::make_unique<juce::AudioFormatWriter::ThreadedWriter> (w.release(), writerThread,
                                                                                (int) (sampleRate * 10.0));
+    // 1 秒ごとに WAV の頭（長さ）を書き直す。録音中に落ちても、そこまでの声が読めるファイルで残る（監査 2026-10-03）
+    threaded->setFlushInterval (juce::jmax (1, (int) sampleRate));
     started = false;
     ended = false;
     dropped = false;
@@ -65,6 +67,20 @@ juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool f
     return {};
 }
 
+bool TakeRecorder::fileHolds (const juce::File& f, juce::int64 samples)
+{
+    // 書いたはずの長さが本当にファイルにあるか。ディスクが一杯になると、裏の書き込み（JUCE の ThreadedWriter）は
+    // 失敗を知らせずに捨てる。WAV の頭には実際に書けた長さが入るので、それと比べる（監査 2026-10-03）
+    if (samples <= 0)
+        return true;
+    auto stream = f.createInputStream();
+    if (stream == nullptr)
+        return false;   // ファイルが無い・開けない
+    juce::WavAudioFormat wav;
+    std::unique_ptr<juce::AudioFormatReader> reader (wav.createReaderFor (stream.release(), true));
+    return reader != nullptr && reader->lengthInSamples >= samples;
+}
+
 TakeRecorder::Result TakeRecorder::finish()
 {
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> w;
@@ -84,7 +100,7 @@ TakeRecorder::Result TakeRecorder::finish()
     r.length = started.load() ? recorded.load() : 0;
     r.peak = peak.load();
     r.clipped = r.peak >= clipLevel;
-    r.dropped = dropped.load();
+    r.dropped = dropped.load() || ! fileHolds (file, r.length);
     started = false;
     ended = false;
     return r;
