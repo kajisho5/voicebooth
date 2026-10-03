@@ -263,6 +263,7 @@
   "pitch.legend.mine": "Siz (doğru / ±50c / kaymış)",
   "pitch.legend.ref": "Referans (notalar, ±{0}c ile)",
   "pitch.legend.refHarmony": "Armoni referansı (notalar, ±{0}c ile)",
+  "pitch.legend.zoom": "{0} + tekerlek ile yakınlaştır",
   "pitch.notAnalyzed": "Referans perde henüz analiz edilmedi",
   "pitch.octaveAlign": "Oktav hizala",
   "pitch.octaveAlign.tooltip": "Perdenizi referansın oktavında göster",

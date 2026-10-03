@@ -3008,6 +3008,37 @@ void UiSession::setView (int64 start, int64 end)
     notify (change::view);
 }
 
+void UiSession::zoomView (int64 anchor, double factor)
+{
+    const auto length = s.project.lengthSamples;
+    const auto span = s.viewEnd - s.viewStart;
+    if (length <= 0 || span <= 0)
+        return;
+
+    const auto minSpan = juce::jmin (length, (int64) (2.0 * s.sampleRate()));
+    const auto next = juce::jlimit (minSpan, length, (int64) std::llround ((double) span * factor));
+    if (next == span)
+        return;
+
+    anchor = juce::jlimit (s.viewStart, s.viewEnd, anchor);
+    const auto k = (double) (anchor - s.viewStart) / (double) span;
+    const auto start = juce::jlimit ((int64) 0, length - next, anchor - (int64) std::llround (k * (double) next));
+    setView (start, start + next);
+}
+
+void UiSession::scrollView (double fraction)
+{
+    const auto length = s.project.lengthSamples;
+    const auto span = s.viewEnd - s.viewStart;
+    if (length <= 0 || span <= 0)
+        return;
+
+    const auto start = juce::jlimit ((int64) 0, juce::jmax ((int64) 0, length - span),
+                                     s.viewStart + (int64) std::llround (fraction * (double) span));
+    if (start != s.viewStart)
+        setView (start, start + span);
+}
+
 void UiSession::setCrossfade (double ms)
 {
     ms = juce::jlimit (0.0, 50.0, ms);

@@ -263,6 +263,7 @@
   "pitch.legend.mine": "Du (sauber / ±50c / daneben)",
   "pitch.legend.ref": "Referenz (Noten, bewertet ±{0}c)",
   "pitch.legend.refHarmony": "Harmonie-Referenz (Noten, bewertet ±{0}c)",
+  "pitch.legend.zoom": "{0} + Mausrad: Zoom",
   "pitch.notAnalyzed": "Die Referenz-Tonhöhe wurde noch nicht analysiert",
   "pitch.octaveAlign": "Oktave angleichen",
   "pitch.octaveAlign.tooltip": "Deine Tonhöhe in der Oktave der Referenz anzeigen",

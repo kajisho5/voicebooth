@@ -263,6 +263,7 @@
   "pitch.legend.mine": "自己（準 / ±50c / 偏離）",
   "pitch.legend.ref": "參考（音符·±{0}c 判定）",
   "pitch.legend.refHarmony": "和聲參考（音符·±{0}c 判定）",
+  "pitch.legend.zoom": "{0} + 滾輪縮放",
   "pitch.notAnalyzed": "尚未分析示範音高",
   "pitch.octaveAlign": "八度對齊",
   "pitch.octaveAlign.tooltip": "即使八度不同也對齊顯示",

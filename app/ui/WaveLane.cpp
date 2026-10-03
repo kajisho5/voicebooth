@@ -63,6 +63,9 @@ void WaveLane::mouseMove (const juce::MouseEvent& e)
     setMouseCursor (pick ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::IBeamCursor);
 }
 
+void WaveLane::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) { lane::wheel (session, map(), e, w); }
+void WaveLane::mouseMagnify (const juce::MouseEvent& e, float scale)                       { lane::magnify (session, map(), e, scale); }
+
 juce::String WaveLane::getTooltip()
 {
     const auto p = getMouseXYRelative().toFloat();

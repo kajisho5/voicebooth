@@ -263,6 +263,7 @@
   "pitch.legend.mine": "Vous (juste / ±50c / faux)",
   "pitch.legend.ref": "Guide (notes, évalué à ±{0}c)",
   "pitch.legend.refHarmony": "Guide d'harmonie (notes, évalué à ±{0}c)",
+  "pitch.legend.zoom": "{0} + molette : zoom",
   "pitch.notAnalyzed": "La hauteur de référence n'a pas encore été analysée",
   "pitch.octaveAlign": "Aligner l'octave",
   "pitch.octaveAlign.tooltip": "Afficher votre hauteur dans l'octave de la référence",

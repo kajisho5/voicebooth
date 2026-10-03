@@ -112,6 +112,10 @@ public:
 
     // --- 表示 ---------------------------------------------------------------
     void setView (int64 start, int64 end);
+    /** 横の拡大・縮小（ピッチと波形で共有）。anchor の位置は画面の同じ所に残す。factor < 1 で寄る。幅は 2 秒〜曲の長さ */
+    void zoomView (int64 anchor, double factor);
+    /** 横に送る（表示の幅に対する割合。+ で右へ） */
+    void scrollView (double fraction);
     void setOctaveAlign (bool);
     /** 歌詞レーンを出すか（設定。既定は出さない） */
     void setShowLyrics (bool);

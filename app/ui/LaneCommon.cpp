@@ -71,6 +71,28 @@ juce::Colour playheadColour (const dummy::Session& s)
     return s.isRecording ? colours::rec : colours::signal;
 }
 
+void wheel (UiSession& session, const TimeMap& map, const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    if (e.mods.isCommandDown())
+    {
+        // ホイール 1 刻み（deltaY 0.25 前後）で約 1.4 倍
+        if (! juce::approximatelyEqual (w.deltaY, 0.0f))
+            session.zoomView (map.sampleAt (e.position.x), std::pow (2.0, -(double) w.deltaY * 2.0));
+        return;
+    }
+
+    // レーンは縦に送る物が無いので、縦ホイールも横送りにする（下へ回す＝先へ）
+    const auto dx = ! juce::approximatelyEqual (w.deltaX, 0.0f) ? -w.deltaX : -w.deltaY;
+    if (! juce::approximatelyEqual (dx, 0.0f))
+        session.scrollView ((double) dx * 0.4);
+}
+
+void magnify (UiSession& session, const TimeMap& map, const juce::MouseEvent& e, float scaleFactor)
+{
+    if (scaleFactor > 0.0f)
+        session.zoomView (map.sampleAt (e.position.x), 1.0 / (double) scaleFactor);
+}
+
 TimeMap makeMap (const dummy::Session& s, juce::Rectangle<float> plot)
 {
     return { s.viewStart, s.viewEnd, plot.getX(), plot.getRight() };

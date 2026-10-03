@@ -263,6 +263,7 @@
   "pitch.legend.mine": "Bạn (đúng / ±50c / lệch)",
   "pitch.legend.ref": "Mẫu (nốt, chấm ±{0}c)",
   "pitch.legend.refHarmony": "Bè mẫu (nốt, chấm ±{0}c)",
+  "pitch.legend.zoom": "{0} + con lăn để phóng to",
   "pitch.notAnalyzed": "Cao độ mẫu chưa được phân tích",
   "pitch.octaveAlign": "Khớp quãng tám",
   "pitch.octaveAlign.tooltip": "Hiển thị cao độ của bạn ở quãng tám của mẫu",

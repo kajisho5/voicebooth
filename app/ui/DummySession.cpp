@@ -280,9 +280,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
         { TrackType::harm2,       false, false, false, 0.60f, 4 },
     };
 
-    // 頭から 30 秒を表示（短い曲は全体）
+    // 頭から 15 秒を表示（短い曲は全体）。音符の棒が読める幅。Ctrl / Cmd ＋ホイールで変えられる
     s.viewStart = 0;
-    s.viewEnd = juce::jmax ((int64) 1, juce::jmin (lengthSamples, s.sec (30.0)));
+    s.viewEnd = juce::jmax ((int64) 1, juce::jmin (lengthSamples, s.sec (15.0)));
 
     // 表示の好み
     s.mode                = prev.mode;

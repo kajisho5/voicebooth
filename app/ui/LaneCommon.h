@@ -34,6 +34,12 @@ void drawHatch (juce::Graphics&, juce::Rectangle<float> area, juce::Colour);
 
 juce::Colour playheadColour (const dummy::Session&);
 
+/** ホイール：Ctrl / Cmd ＋ホイール＝マウスの位置を中心に横の拡大・縮小、ホイールだけ（縦・横）＝横に送る。
+    ピッチと波形で同じ動き（DESIGN 4.3「ズームはピッチと波形で共有」・PZ） */
+void wheel (UiSession&, const TimeMap&, const juce::MouseEvent&, const juce::MouseWheelDetails&);
+/** トラックパッドのピンチ＝拡大・縮小 */
+void magnify (UiSession&, const TimeMap&, const juce::MouseEvent&, float scaleFactor);
+
 /** レーン上のマウス操作：クリック＝その位置へ移動、ドラッグ＝範囲選択（DESIGN 6.4） */
 class RangeGesture
 {

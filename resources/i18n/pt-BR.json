@@ -263,6 +263,7 @@
   "pitch.legend.mine": "Você (afinado / ±50c / desafinado)",
   "pitch.legend.ref": "Guia (notas, avaliado ±{0}c)",
   "pitch.legend.refHarmony": "Guia de harmonia (notas, avaliado ±{0}c)",
+  "pitch.legend.zoom": "{0} + roda para ampliar",
   "pitch.notAnalyzed": "A afinação de referência ainda não foi analisada",
   "pitch.octaveAlign": "Alinhar oitava",
   "pitch.octaveAlign.tooltip": "Mostrar sua afinação na oitava da referência",

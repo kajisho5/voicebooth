@@ -263,6 +263,7 @@
   "pitch.legend.mine": "自分（合う / ±50c / 外れ）",
   "pitch.legend.ref": "お手本（音符・±{0}c で判定）",
   "pitch.legend.refHarmony": "ハモリのお手本（音符・±{0}c で判定）",
+  "pitch.legend.zoom": "{0}＋ホイールで拡大",
   "pitch.notAnalyzed": "お手本のピッチはまだ解析していません",
   "pitch.octaveAlign": "オクターブ合わせ",
   "pitch.octaveAlign.tooltip": "オクターブ違いで歌っても合わせて表示",

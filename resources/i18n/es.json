@@ -263,6 +263,7 @@
   "pitch.legend.mine": "Tú (afinado / ±50c / desafinado)",
   "pitch.legend.ref": "Referencia (notas, ±{0}c)",
   "pitch.legend.refHarmony": "Referencia de armonía (notas, ±{0}c)",
+  "pitch.legend.zoom": "{0} + rueda para ampliar",
   "pitch.notAnalyzed": "El tono de referencia aún no se ha analizado",
   "pitch.octaveAlign": "Alinear octava",
   "pitch.octaveAlign.tooltip": "Muestra tu tono en la octava de la referencia",

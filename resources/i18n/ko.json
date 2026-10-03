@@ -263,6 +263,7 @@
   "pitch.legend.mine": "내 음정(맞음 / ±50c / 벗어남)",
   "pitch.legend.ref": "가이드(음표·±{0}c 판정)",
   "pitch.legend.refHarmony": "하모니 가이드(음표·±{0}c 판정)",
+  "pitch.legend.zoom": "{0} + 휠로 확대",
   "pitch.notAnalyzed": "가이드 음정은 아직 분석하지 않았습니다",
   "pitch.octaveAlign": "옥타브 맞춤",
   "pitch.octaveAlign.tooltip": "옥타브가 달라도 맞춰서 표시",
