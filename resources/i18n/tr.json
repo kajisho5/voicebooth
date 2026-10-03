@@ -324,7 +324,7 @@
   "practice.tempo.original": "Orijinal {0} BPM",
   "practice.tempo.shifted": "Yalnızca pratik",
   "practice.tempo.unknown": "Orijinal (tempo ayarlı değil)",
-  "project.copyFailed": "Şarkı proje klasörüne kopyalanamadı (diskteki boş alanı kontrol edin). Orijinal dosya kullanılıyor: {0}",
+  "project.copyFailed": "Dosya proje klasörüne kopyalanamadı (diskteki boş alanı kontrol edin). Orijinal dosya kullanılıyor: {0}",
   "project.error.newer": "Bu proje daha yeni bir VoiceBooth ({0}) ile yapıldı. Önce güncelleyin, sonra açın",
   "project.error.notProject": "Bu bir VoiceBooth projesi değil: {0}",
   "project.error.songMissing": "Projenin şarkı dosyası bulunamadı ({0}). Audio klasörünün de birlikte taşındığından emin olun",

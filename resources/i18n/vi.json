@@ -324,7 +324,7 @@
   "practice.tempo.original": "Gốc {0} BPM",
   "practice.tempo.shifted": "Chỉ để tập",
   "practice.tempo.unknown": "Gốc (chưa đặt tempo)",
-  "project.copyFailed": "Không sao chép được bài hát vào thư mục dự án (hãy kiểm tra dung lượng trống của ổ đĩa). Sẽ dùng file gốc: {0}",
+  "project.copyFailed": "Không sao chép được file vào thư mục dự án (hãy kiểm tra dung lượng trống của ổ đĩa). Sẽ dùng file gốc: {0}",
   "project.error.newer": "Dự án này được tạo bằng VoiceBooth mới hơn ({0}). Hãy cập nhật rồi mở lại",
   "project.error.notProject": "Đây không phải dự án VoiceBooth: {0}",
   "project.error.songMissing": "Không tìm thấy file bài hát của dự án ({0}). Hãy kiểm tra thư mục Audio đã được chuyển theo chưa",

@@ -103,8 +103,13 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
             for (auto& t : pendingProject->project.tracks)
                 for (auto& k : t.takes)
                     used.add (k.path);
-        if (const auto moved = project::recoverRetroLeftovers (s.projectFolder, used); moved > 0)
-            postNotice (tr ("project.recovered", moved));
+        if (const auto moved = project::recoverUnusedTakes (s.projectFolder, used); moved > 0)
+        {
+            if (pendingProject != nullptr)
+                recoveredTakes = moved;   // 「続きから開きました」の後に知らせる（上書きされないように。restoreProject）
+            else
+                postNotice (tr ("project.recovered", moved));
+        }
     }
     s.songOriginal = audio;
     s.songCurrent = audio;
@@ -211,6 +216,11 @@ void UiSession::restoreProject()
         postNotice (tr ("project.rateChanged", formatKhz (lp.sampleRate), formatKhz (s.sampleRate())));
     else if (takes > 0)
         postNotice (tr ("project.resumed", takes));
+    if (recoveredTakes > 0)
+    {
+        postNotice (tr ("project.recovered", recoveredTakes));
+        recoveredTakes = 0;
+    }
 
     restoring = false;
     notify (change::takes | change::tracks | change::songInfo | change::view);
@@ -219,7 +229,7 @@ void UiSession::restoreProject()
     s.guideNudgeMs = loaded->extras.guideNudgeMs;   // お手本の位置の手直し（合わせ直した後に当てる）
     if (loaded->extras.guidePath.isNotEmpty())
     {
-        const auto guide = s.projectFolder.getChildFile (loaded->extras.guidePath);
+        const auto guide = project::findMedia (s.projectFolder, loaded->extras.guidePath, "Audio/Guide");
         if (guide.existsAsFile())
             loadGuide (guide);
     }
@@ -695,8 +705,9 @@ juce::String UiSession::selectBufferSize (int n)                    { if (engine
 
 void UiSession::syncLoopToEngine()
 {
+    // 録音中はループしない（戻るとテイクが「曲の終わり」として閉じる）。録音中に範囲やループを変えても、録り終えてから効く
     if (engine != nullptr)
-        engine->setLoop (s.rangeIn, s.rangeOut, s.loopOn && s.hasRange());
+        engine->setLoop (s.rangeIn, s.rangeOut, s.loopOn && s.hasRange() && ! (s.isRecording && engine->isRecording()));
 }
 
 void UiSession::syncPracticeToEngine()
@@ -877,6 +888,11 @@ void UiSession::setRecording (bool r)
         notify (change::transport | change::practice);
         return;
     }
+
+    // 裏録りがまだ曲を鳴らしたブロックを受け取っていない（始まった直後）：ここで閉じる。閉じずに進むと、止めた時に
+    // このテイクを裏録りと取り違えて消してしまう（監査 2026-10-03）
+    if (shadowActive)
+        finishRecording();
 
     if (s.playhead >= s.project.lengthSamples)
         seek (0);
@@ -3043,7 +3059,12 @@ void UiSession::seek (int64 sample)
     // 飛んだ後に歌った声が曲の違う位置に置かれる（監査 2026-10-03）。録り直すなら止めてから
     if (s.isRecording)
     {
-        postNotice (tr ("record.noSeek"));
+        const auto now = juce::Time::getMillisecondCounter();
+        if (now - lastNoSeekNotice > 2000)
+        {
+            postNotice (tr ("record.noSeek"));
+            lastNoSeekNotice = now;
+        }
         return;
     }
     // 裏録り（B7）は捨てて録り直す（位置が変わると、ファイルの中の位置と曲の位置が合わなくなり、遡れない）

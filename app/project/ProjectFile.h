@@ -50,8 +50,12 @@ LoadedProject fromJson (const juce::String&);
 /** 一時ファイルに書いてから置き換える（途中で落ちても前のファイルが壊れない） */
 bool writeAtomically (const juce::File&, const juce::String& text);
 
-/** 前に落ちた・終わった時に残った裏録り（Audio/Takes/.retro-*.wav。B7）を片付ける。
-    プロジェクトが使っているもの（usedPaths：プロジェクトフォルダ相対）はそのまま。使っていないものは消さずに
-    Audio/Recovered/ へ移す（REC を押した後に落ちると、歌った声がこの名前のまま残るため）。移した数を返す */
-int recoverRetroLeftovers (const juce::File& projectFolder, const juce::StringArray& usedPaths);
+/** 開いた時、Audio/Takes/ のうちプロジェクトが使っていない WAV を片付ける。消さずに Audio/Recovered/ へ移す。
+    前に落ちた・終わった時に残った裏録り（.retro-*.wav。B7）と、録音中に落ちて .vbooth に入らなかったテイクが当たる。
+    使っているもの（usedPaths：プロジェクトフォルダ相対）はそのまま。移した数を返す */
+int recoverUnusedTakes (const juce::File& projectFolder, const juce::StringArray& usedPaths);
+
+/** プロジェクトの曲・お手本のファイル。path（相対か、コピーし終える前に保存された元の場所）に無ければ、
+    プロジェクトの中の folder/ にある同じ名前のファイル（コピーし終えた物）。どちらにも無ければ path のまま */
+juce::File findMedia (const juce::File& projectFolder, const juce::String& path, const juce::String& folder);
 } // namespace vb::project

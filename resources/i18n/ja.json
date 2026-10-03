@@ -324,7 +324,7 @@
   "practice.tempo.original": "原速 {0} BPM",
   "practice.tempo.shifted": "練習用",
   "practice.tempo.unknown": "原速（テンポ未設定）",
-  "project.copyFailed": "曲をプロジェクトのフォルダにコピーできませんでした（ディスクの空きを確認してください）。元のファイルをそのまま使います：{0}",
+  "project.copyFailed": "ファイルをプロジェクトのフォルダにコピーできませんでした（ディスクの空きを確認してください）。元のファイルをそのまま使います：{0}",
   "project.error.newer": "新しい VoiceBooth で作られたプロジェクトです（{0}）。アップデートしてから開いてください",
   "project.error.notProject": "VoiceBooth のプロジェクトとして読めません：{0}",
   "project.error.songMissing": "プロジェクトの曲ファイルが見つかりません（{0}）。Audio フォルダごと移動したか確認してください",
