@@ -25,6 +25,13 @@ struct Covered
 {
     juce::int64 karaokeStart = 0, karaokeEnd = 0;   // オフボの時間で [start, end)
     juce::int64 offsetSamples = 0;                  // この区間のずれ（カット版では区間ごとに違う）
+    double tempoRatio = 1.0;                        // 原曲の速さ ÷ オフボの速さ（全体で合った区間は AlignResult と同じ）
+
+    /** オフボの位置 → 原曲の位置（速さが少し違うと、ずれは時間とともに広がる。offset だけでは合わない） */
+    double referencePosition (juce::int64 karaokeSample) const
+    {
+        return (double) karaokeSample * tempoRatio + (double) offsetSamples;
+    }
 };
 
 struct AlignResult

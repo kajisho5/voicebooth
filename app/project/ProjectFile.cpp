@@ -391,4 +391,38 @@ bool writeAtomically (const juce::File& file, const juce::String& text)
         return false;
     return temp.overwriteTargetFileWithTemporary();
 }
+
+int recoverUnusedTakes (const juce::File& projectFolder, const juce::StringArray& usedPaths)
+{
+    const auto takes = projectFolder.getChildFile ("Audio/Takes");
+    int moved = 0;
+    for (auto& f : takes.findChildFiles (juce::File::findFiles, false, "*.wav", juce::File::FollowSymlinks::no))
+    {
+        const auto rel = f.getRelativePathFrom (projectFolder).replaceCharacter ('\\', '/');
+        if (usedPaths.contains (rel))
+            continue;   // 使っているテイク（名前を付け直せなかった遡及録音を含む）。触らない
+        const auto dir = projectFolder.getChildFile ("Audio/Recovered");
+        if (! dir.createDirectory().wasOk())
+            continue;   // 移せなければ、そのまま置いておく（消さない）
+        auto name = f.getFileName();
+        if (name.startsWithChar ('.'))
+            name = name.substring (1);   // 先頭の . を取る（隠しファイルにしない）
+        const auto dest = dir.getChildFile (name);
+        if (f.moveFileTo (dest.exists() ? dest.getNonexistentSibling (false) : dest))
+            ++moved;
+    }
+    return moved;
+}
+
+juce::File findMedia (const juce::File& projectFolder, const juce::String& path, const juce::String& folder)
+{
+    const auto f = projectFolder.getChildFile (path);
+    if (f.existsAsFile() || path.isEmpty())
+        return f;
+    // ファイル名は / と \ のどちらで区切られていても取る（File::getFileName は OS の区切りしか見ない。Windows で
+    // "C:/…/song.wav" の名前が取れなかった）
+    const auto name = path.replaceCharacter ('\\', '/').fromLastOccurrenceOf ("/", false, false);
+    const auto copy = projectFolder.getChildFile (folder).getChildFile (name);
+    return copy.existsAsFile() ? copy : f;
+}
 } // namespace vb::project

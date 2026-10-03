@@ -364,6 +364,50 @@ public:
             expectEquals (r.finish().length, (int64) 0);
             dir.deleteRecursively();
         }
+
+        beginTest ("recorder: a take the disk didn't fully hold is flagged (fileHolds compares the WAV header)");
+        {
+            auto dir = tempFolder ("rec4");
+            audio::TakeRecorder r;
+            const auto f = dir.getChildFile ("a.wav");
+            expect (r.begin (f, rate).isEmpty());
+            std::vector<float> x (1000, 0.1f);
+            r.process (x.data(), 1000, 0, 1000, false);
+            const auto res = r.finish();
+            expectEquals (res.length, (int64) 1000);
+            expect (! res.dropped);
+            expect (audio::TakeRecorder::fileHolds (f, 1000));
+            expect (! audio::TakeRecorder::fileHolds (f, 1001));                         // 書けたはずの長さより短い
+            expect (! audio::TakeRecorder::fileHolds (dir.getChildFile ("none.wav"), 1)); // ファイルが無い
+            expect (audio::TakeRecorder::fileHolds (dir.getChildFile ("none.wav"), 0));   // 何も録っていなければ問わない
+            dir.deleteRecursively();
+        }
+
+        beginTest ("recorder: while recording, the WAV header is rewritten about every second (a crash leaves a readable file)");
+        {
+            auto dir = tempFolder ("rec5");
+            audio::TakeRecorder r;
+            const auto f = dir.getChildFile ("a.wav");
+            expect (r.begin (f, rate).isEmpty());
+            std::vector<float> x (480, 0.1f);
+            for (int b = 0; b < 300; ++b)   // 3 秒
+                r.process (x.data(), 480, (int64) b * 480, 480, false);
+
+            // 閉じる前に、ファイルの頭に 1 秒以上の長さが書かれている（裏のスレッドが書くので少し待つ）
+            juce::int64 seen = 0;
+            for (int tries = 0; tries < 300 && seen < rate; ++tries)
+            {
+                juce::WavAudioFormat wav;
+                auto in = f.createInputStream();
+                std::unique_ptr<juce::AudioFormatReader> rd (in != nullptr ? wav.createReaderFor (in.release(), true) : nullptr);
+                seen = rd != nullptr ? rd->lengthInSamples : 0;
+                if (seen < rate)
+                    juce::Thread::sleep (10);
+            }
+            expectGreaterOrEqual (seen, (juce::int64) rate);
+            r.finish();
+            dir.deleteRecursively();
+        }
     }
 
     //==========================================================================

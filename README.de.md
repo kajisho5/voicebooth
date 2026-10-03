@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="Entwicklung unterstützen"></a>
 </p>
 
 # VoiceBooth
@@ -50,7 +51,7 @@ Die aktuelle Version ist **0.2.0 Beta 2**. Änderungen und ältere Versionen fin
    - **Mac**: Zieh VoiceBooth aus dem DMG in deinen Programme-Ordner und öffne es einmal → wenn macOS meldet, dass es nicht geöffnet werden kann, geh zu Systemeinstellungen → Datenschutz & Sicherheit → klicke unter Sicherheit auf „Dennoch öffnen“ (der Button erscheint etwa eine Stunde lang, nachdem du versucht hast, die App zu öffnen) → gib dein Passwort ein ([Anleitung von Apple](https://support.apple.com/de-de/guide/mac-help/mh40616/mac))
 3. **Nach dem Start** Sprache und Modus wählen. Wenn „Trennungsmodell herunterladen“ erscheint, auf Laden drücken (etwa 210 MB, nur beim ersten Mal; für Tonhöhe und Harmonie der Vorlage und zum Start nur mit dem Original)
 
-![VoiceBooth-Hauptbildschirm](docs/screenshots/main-en.png)
+![VoiceBooth-Hauptbildschirm](docs/screenshots/main-de.png)
 
 > Dieser Screenshot ist ein Entwicklungs-Mock-up aus Beispieldaten. Die Darstellung mit echten Songs wird noch verbessert und kann anders aussehen.
 
@@ -176,6 +177,10 @@ Regeln zur Logo-Nutzung (Schutzraum, Mindestgröße, Versionen für hellen Hinte
 ## Entwicklung unterstützen
 
 VoiceBooth ist kostenlos. Wenn sie dir gefällt, kannst du die Entwicklung über [GitHub Sponsors](https://github.com/sponsors/kajisho5) unterstützen. Sponsoring schaltet keine Funktionen frei; alle bekommen dieselbe App.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-Entwicklung%20unterst%C3%BCtzen-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="Entwicklung unterstützen"></a>
+</p>
 
 ## Lizenz
 

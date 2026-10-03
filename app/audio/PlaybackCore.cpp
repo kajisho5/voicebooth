@@ -22,6 +22,7 @@ void PlaybackCore::setSong (std::shared_ptr<const SongAudio> newSong)
         std::swap (song, newSong);
         for (int k = 0; k < maxStems; ++k)
             std::swap (stems[k], oldStems[k]);
+        loaded = song != nullptr;
     }
     newSong.reset();
     rebuildStretcher();
@@ -143,8 +144,9 @@ bool PlaybackCore::isPracticeShifted() const
 
 bool PlaybackCore::hasSong() const
 {
-    const juce::SpinLock::ScopedLockType sl (songLock);
-    return song != nullptr;
+    // lock を取らない。UI から 1 秒に何十回も呼ばれる。lock を取ると、そのブロックだけオーディオスレッドが
+    // 曲を読めずに無音になり、録音中なら「曲が終わった」と取り違えてテイクが閉じていた（監査 2026-10-03）
+    return loaded.load();
 }
 
 void PlaybackCore::prepare (double outputSampleRate)
@@ -243,7 +245,12 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
     } pushLevels { *this, numSamples };
 
     const juce::SpinLock::ScopedTryLockType sl (songLock);
-    if (! sl.isLocked() || song == nullptr || ! prepared)
+    if (! sl.isLocked())
+    {
+        r.busy = true;   // 曲・トラックの差し替え中（このブロックだけ無音。位置は進めない）
+        return r;
+    }
+    if (song == nullptr || ! prepared)
         return r;
 
     const auto& buffer = song->buffer;
@@ -446,7 +453,15 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
     }
     else
     {
-        if (! juce::exactlyEqual (timeRatio, appliedTime))   { st.setTimeRatio (timeRatio);   appliedTime = timeRatio; }
+        if (! juce::exactlyEqual (timeRatio, appliedTime))
+        {
+            // 再生中にテンポを変えた：Rubber Band の中には前の速さで作った分（遅延の長さ）が残っているのに、heard は
+            // すぐ新しい速さで進む。その分を先に引いておく（前は 50%→100% で拍・お手本・自分の線が 27 ms ずれたままだった。
+            // 実測で残りは 4 ms 以下。監査 2026-10-03）
+            heard -= (double) st.getStartDelay() * (step - 1.0 / appliedTime);
+            st.setTimeRatio (timeRatio);
+            appliedTime = timeRatio;
+        }
         if (! juce::exactlyEqual (pitchScale, appliedPitch)) { st.setPitchScale (pitchScale); appliedPitch = pitchScale; }
     }
     smoothedGain.setTargetValue (muted ? 0.0f : gain.load());

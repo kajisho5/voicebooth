@@ -253,6 +253,41 @@ public:
             }
         }
 
+        beginTest ("practice: changing the tempo while playing keeps the reported position on what is heard");
+        {
+            // 0.5 倍で鳴らし始め、曲の 1 秒あたりで 0.8 倍に変える（どちらも伸ばしたまま）。5.0 秒の音の頭が聞こえた時に、
+            // エンジンが言う位置も 5.0 秒か。前は Rubber Band の中に残る遅延の分を数えず、先を言っていた
+            // （拍・お手本・自分の線がずれる。1.0 倍に戻すと伸ばすのをやめるので起きない。監査 2026-10-03）
+            PlaybackCore core;
+            core.setSong (toneSong (0.0, 8.0, 48000.0, 5.0));
+            core.prepare (48000.0);
+            core.setPractice (0.5, 0);
+            core.play();
+            const int block = 512;
+            double reportedAtOnset = -1.0;
+            bool changed = false;
+            for (int b = 0; b < 48000 * 12 / block && reportedAtOnset < 0.0; ++b)
+            {
+                Block out (block);
+                const auto r = core.render (out.b.getArrayOfWritePointers(), 2, block);
+                if (! changed && r.start >= 48000)
+                {
+                    core.setPractice (0.8, 0);
+                    changed = true;
+                }
+                for (int i = 0; i < block; ++i)
+                    if (changed && std::abs (out.l (i)) > 0.1f)
+                    {
+                        reportedAtOnset = (double) r.start + i * r.step;
+                        break;
+                    }
+            }
+            expect (changed);
+            const auto errorMs = (reportedAtOnset - 5.0 * 48000.0) / 48.0;
+            logMessage ("    0.5 -> 0.8 while playing: position error at the onset " + juce::String (errorMs, 2) + " ms");
+            expect (std::abs (errorMs) < 6.0, juce::String (errorMs) + " ms");
+        }
+
         beginTest ("practice: seek, loop and end (B11)");
         {
             PlaybackCore core;

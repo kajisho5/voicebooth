@@ -21,6 +21,7 @@
   <img src="https://img.shields.io/badge/status-beta-F4B942?labelColor=141311" alt="Beta">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-8CC1EE?labelColor=141311" alt="Windows / macOS">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-C6EE6A?labelColor=141311" alt="AGPL-3.0-or-later">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/sponsor-%E2%99%A5-EA4AAA?labelColor=141311&logo=githubsponsors&logoColor=EA4AAA" alt="Geliştirmeyi destekle"></a>
 </p>
 
 # VoiceBooth
@@ -50,7 +51,7 @@ Güncel sürüm **0.2.0 beta 2**. Değişiklikler ve eski sürümler [sürümler
    - **Mac**: VoiceBooth'u DMG'den Uygulamalar klasörüne taşıyın ve bir kez açın → macOS açılamayacağını söylerse Sistem Ayarları → Gizlilik ve Güvenlik → Güvenlik bölümünde "Yine de Aç"a tıklayın (düğme, uygulamayı açmayı denedikten sonra yaklaşık bir saat görünür) → parolanızı girin ([Apple'ın açıklaması](https://support.apple.com/tr-tr/guide/mac-help/mh40616/mac))
 3. **Uygulama açılınca** dili ve bir modu seçin. "Ayırma modelini indir" çıkınca İndir'e basın (yaklaşık 210 MB, yalnızca ilk sefer; rehberin perdesi ve armonisi ile yalnızca orijinalden başlamak için kullanılır)
 
-![VoiceBooth ana ekranı](docs/screenshots/main-en.png)
+![VoiceBooth ana ekranı](docs/screenshots/main-tr.png)
 
 > Bu ekran görüntüsü, örnek verilerden çizilmiş bir geliştirme maketidir. Gerçek şarkılarla görünüm hâlâ iyileştiriliyor ve farklı görünebilir.
 
@@ -176,6 +177,10 @@ Logo kullanım kuralları (boşluk alanı, en küçük boyut, açık zemin sür�
 ## Geliştirmeyi destekleyin
 
 VoiceBooth ücretsizdir. Beğendiyseniz geliştirmeyi [GitHub Sponsors](https://github.com/sponsors/kajisho5) üzerinden destekleyebilirsiniz. Sponsorluk hiçbir özelliğin kilidini açmaz; herkes aynı uygulamayı alır.
+
+<p align="center">
+  <a href="https://github.com/sponsors/kajisho5"><img src="https://img.shields.io/badge/GitHub%20Sponsors-GEL%C4%B0%C5%9ET%C4%B0RMEY%C4%B0%20DESTEKLE-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=141311" alt="Geliştirmeyi destekle"></a>
+</p>
 
 ## Lisans
 

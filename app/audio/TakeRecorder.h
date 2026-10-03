@@ -28,7 +28,7 @@ public:
         juce::int64 length = 0;          // 書いたサンプル数（0 なら何も録れていない）
         float peak = 0.0f;               // 最大振幅（0..1 以上）
         bool clipped = false;            // -0.1 dBFS 以上が来た（DESIGN 13：テイクを赤く）
-        bool dropped = false;            // 書き込みが追いつかず落ちた（壊れたテイク。採用しない）
+        bool dropped = false;            // 書き込みが追いつかず落ちた・ディスクに書けなかった（壊れたテイク。採用しない）
     };
 
     /** ファイルを作って待機する。録音は次に再生中のブロックが来た時から。失敗なら理由（空なら成功）。
@@ -52,6 +52,9 @@ public:
 
     /** オーディオスレッド。input は 1 ch。rendered は同じコールバックで再生側が鳴らした範囲 */
     void process (const float* input, int numSamples, juce::int64 songStart, int songPlayed, bool wrapped) noexcept;
+
+    /** WAV ファイル f に samples サンプル以上が入っているか（書き込みが途中で失敗していないか） */
+    static bool fileHolds (const juce::File& f, juce::int64 samples);
 
     /** -0.1 dBFS（InputMeter と同じ線） */
     static constexpr float clipLevel = 0.98855309f;

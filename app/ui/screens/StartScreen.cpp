@@ -197,9 +197,8 @@ bool StartScreen::openProject (const juce::File& f)
         projectError = l.error;
         return false;
     }
-    auto song = f.getParentDirectory().getChildFile (l.project.songPath);
-    if (! song.existsAsFile())
-        song = juce::File (l.project.songPath);   // 古い形（元のファイルの場所）
+    // 書いてある場所（相対か、コピーし終える前に保存された元の場所）。無ければプロジェクトの中のコピー（Audio/）
+    auto song = project::findMedia (f.getParentDirectory(), l.project.songPath, "Audio");
     if (! song.existsAsFile())
     {
         projectError = "project.error.songMissing";
