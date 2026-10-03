@@ -323,6 +323,33 @@ if(WIN32)
 endif()
 
 # ---------------------------------------------------------------------------
+# Mac のマイク許可の文を 12 言語に（#23）。翻訳表（resources/i18n/*.json）の system.microphonePermission から
+# <言語>.lproj/InfoPlist.strings を作り、VoiceBooth.app/Contents/Resources に置く。macOS は使う人の言語の物を表示する
+# （無い言語は Info.plist の英語）。書いた後に plutil で形を確かめる
+# ---------------------------------------------------------------------------
+if(APPLE)
+    set(vb_lproj_root "${CMAKE_BINARY_DIR}/lproj")
+    file(REMOVE_RECURSE "${vb_lproj_root}")
+    file(GLOB vb_i18n_tables "${CMAKE_SOURCE_DIR}/resources/i18n/*.json")
+    foreach(table ${vb_i18n_tables})
+        get_filename_component(lang "${table}" NAME_WE)
+        file(READ "${table}" vb_json)
+        string(JSON vb_mic GET "${vb_json}" "system.microphonePermission")
+        string(REPLACE "\\" "\\\\" vb_mic "${vb_mic}")
+        string(REPLACE "\"" "\\\"" vb_mic "${vb_mic}")
+        file(WRITE "${vb_lproj_root}/${lang}.lproj/InfoPlist.strings" "\"NSMicrophoneUsageDescription\" = \"${vb_mic}\";\n")
+    endforeach()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${vb_i18n_tables})
+    add_custom_command(TARGET VoiceBooth POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_directory "${vb_lproj_root}" "$<TARGET_FILE_DIR:VoiceBooth>/../Resources")
+    foreach(table ${vb_i18n_tables})
+        get_filename_component(lang "${table}" NAME_WE)
+        add_custom_command(TARGET VoiceBooth POST_BUILD
+                           COMMAND plutil -lint "$<TARGET_FILE_DIR:VoiceBooth>/../Resources/${lang}.lproj/InfoPlist.strings")
+    endforeach()
+endif()
+
+# ---------------------------------------------------------------------------
 # Windows：ASIO（DESIGN 5 / 11.1 / B13）
 #   Steinberg ASIO SDK 2.3.4（2025-10-15）は Steinberg の独自ライセンスと GPL v3 のデュアル。ここでは GPL v3 で使う
 #   （AGPL-3.0 と組み合わせられる）。SDK はリポジトリに入れない：configure 時に Steinberg の公式の zip を取り、
@@ -448,33 +475,6 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
                            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${f}" "$<TARGET_FILE_DIR:VoiceBooth>")
     endforeach()
     target_compile_definitions(VoiceBooth PRIVATE VOICEBOOTH_HAS_SEPARATOR=1)
-endif()
-
-# ---------------------------------------------------------------------------
-# Mac のマイク許可の文を 12 言語に（#23）。翻訳表（resources/i18n/*.json）の system.microphonePermission から
-# <言語>.lproj/InfoPlist.strings を作り、VoiceBooth.app/Contents/Resources に置く。macOS は使う人の言語の物を表示する
-# （無い言語は Info.plist の英語）。書いた後に plutil で形を確かめる
-# ---------------------------------------------------------------------------
-if(APPLE)
-    set(vb_lproj_root "${CMAKE_BINARY_DIR}/lproj")
-    file(REMOVE_RECURSE "${vb_lproj_root}")
-    file(GLOB vb_i18n_tables "${CMAKE_SOURCE_DIR}/resources/i18n/*.json")
-    foreach(table ${vb_i18n_tables})
-        get_filename_component(lang "${table}" NAME_WE)
-        file(READ "${table}" vb_json)
-        string(JSON vb_mic GET "${vb_json}" "system.microphonePermission")
-        string(REPLACE "\\" "\\\\" vb_mic "${vb_mic}")
-        string(REPLACE "\"" "\\\"" vb_mic "${vb_mic}")
-        file(WRITE "${vb_lproj_root}/${lang}.lproj/InfoPlist.strings" "\"NSMicrophoneUsageDescription\" = \"${vb_mic}\";\n")
-    endforeach()
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${vb_i18n_tables})
-    add_custom_command(TARGET VoiceBooth POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_directory "${vb_lproj_root}" "$<TARGET_FILE_DIR:VoiceBooth>/../Resources")
-    foreach(table ${vb_i18n_tables})
-        get_filename_component(lang "${table}" NAME_WE)
-        add_custom_command(TARGET VoiceBooth POST_BUILD
-                           COMMAND plutil -lint "$<TARGET_FILE_DIR:VoiceBooth>/../Resources/${lang}.lproj/InfoPlist.strings")
-    endforeach()
 endif()
 
 # ---------------------------------------------------------------------------
