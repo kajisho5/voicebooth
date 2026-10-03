@@ -94,10 +94,28 @@ def main() -> int:
                 line = code.count("\n", 0, pos) + 1
                 errors.append(f"{rel}:{line}: 表示文字列の直書き（tr() を使う）: \"{lit[:40]}\"")
 
+    # ビルドの設定から使うキー（Mac のマイク許可の文を InfoPlist.strings にする。CMakeLists.txt）
+    for m in KEY_LITERAL.finditer((ROOT / "CMakeLists.txt").read_text(encoding="utf-8")):
+        if m.group(1).split(".")[0] in namespaces:
+            used.add(m.group(1))
+
     for k in sorted(used - all_keys):
         errors.append(f"表にないキーを使っています: {k}")
     for k in sorted(all_keys - used):
         warnings.append(f"使われていないキー: {k}")
+
+    # 用語表：同じものの訳を言語ごとに 1 つにそろえる（tools/i18n_glossary.json。#20）
+    glossary = json.loads((ROOT / "tools" / "i18n_glossary.json").read_text(encoding="utf-8"))
+    ja = tables.get("ja", {})
+    for rule in glossary["rules"]:
+        for k, text in ja.items():
+            if rule["ja"] not in text:
+                continue
+            for lang, words in rule["avoid"].items():
+                v = tables.get(lang, {}).get(k, "")
+                for w in words:
+                    if re.search(w, v, re.IGNORECASE):
+                        errors.append(f"[{lang}] {k}: 「{rule['ja']}」の訳に「{w}」を使わない（tools/i18n_glossary.json）")
 
     return report(errors, warnings, len(all_keys), list(tables))
 

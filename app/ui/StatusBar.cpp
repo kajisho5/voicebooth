@@ -1,4 +1,5 @@
 #include "StatusBar.h"
+#include "i18n/Reasons.h"
 #include "parts/Icons.h"
 #include "../models/ModelDownloader.h"
 
@@ -229,7 +230,7 @@ void StatusBar::paint (juce::Graphics& g)
     {
         g.setColour (colours::bad);
         g.setFont (sans (10.5f));
-        g.drawText (o.stalled ? tr ("status.deviceStalled") : tr ("status.noOutput", o.error),
+        g.drawText (o.stalled ? tr ("status.deviceStalled") : tr ("status.noOutput", reasonText (o.error)),
                     r.withTrimmedRight (8.0f), juce::Justification::centredRight, true);
         return;
     }

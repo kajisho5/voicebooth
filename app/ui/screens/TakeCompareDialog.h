@@ -85,6 +85,7 @@ private:
     juce::Rectangle<int> rangeArea, columnArea, hintArea;
 
     // 数値の列（右から）。プロだけ VIB
-    static constexpr int onsetW = 100, pitchW = 56, vibW = 96;
+    static constexpr int pitchW = 56, vibW = 96;
+    int onsetW = 100;   // ONSET の列は文字の幅から決める（「24 ms zu früh」が「24 ms zu fr」と切れ、早い / 遅いが読めなかった。#19）
 };
 } // namespace vb

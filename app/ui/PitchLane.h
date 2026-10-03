@@ -33,6 +33,16 @@ public:
 
 private:
     void onSessionChanged (juce::uint32) override;
+    float headX = -1.0e9f;   // 前に描いた再生ヘッドの x（再生ヘッドだけ動いたとき、その間だけ描き直す。#26）
+    std::pair<int, int> litKeys() const;   // いま歌っている音・いまのお手本の音（鍵盤で光らせる。無ければ -1）
+    std::pair<int, int> gutterKeys { -2, -2 };
+
+    // 再生ヘッドで変わらない物（背景・範囲・お手本の線・ルーラー・下の欄）は画像にためておき、変わったときだけ描き直す。
+    // お手本の線は点を全部たどるので重く、再生中に毎フレーム組み立て直していた（#26）
+    void paintStatic (juce::Graphics&);
+    juce::Image staticLayer;
+    bool staticDirty = true;
+    struct StaticKey { int w = 0, h = 0, skin = -1; float scale = 0.0f, boost = -1.0f; } staticKey;
 
     TimeMap map() const;
     /** ルーラーの e の位置にある区間の札（無ければ -1） */

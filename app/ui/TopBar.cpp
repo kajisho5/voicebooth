@@ -96,7 +96,8 @@ void TopBar::resized()
     auto r = getLocalBounds().reduced (metrics::pad, 0);
     auto centreH = [] (juce::Rectangle<int> a, int h) { return a.withSizeKeepingCentre (a.getWidth(), h); };
 
-    logoArea = r.removeFromLeft (136);
+    // ロゴの幅は名前の文字から測る（OS のフォントで描く言語で「VoiceBo」と切れていた。#19）
+    logoArea = r.removeFromLeft (juce::jmax (136, 36 + juce::roundToInt (textWidth (sans (16.5f, Weight::semibold), tr ("app.name"))) + 4));
     r.removeFromLeft (14);
 
     settings.setBounds (centreH (r.removeFromRight (32), 32));

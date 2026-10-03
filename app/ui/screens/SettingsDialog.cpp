@@ -374,11 +374,20 @@ void SettingsDialog::layoutBody (juce::Rectangle<int> r)
 
         if (row.control == nullptr) continue;
 
+        // キーだけの行：キーの文字が長い（フランス語の「Obtenir le modèle de séparation…」など）ときは、その幅を取る。
+        // 取らないと、キーが中央寄せで広がって右にはみ出していた（説明の文字の幅も controlWidth で決まる。#19）
+        auto* key = dynamic_cast<KeyButton*> (row.control);
+        if (key != nullptr && row.extras.empty())
+        {
+            key->setSize (10, ctrlH);
+            row.controlWidth = juce::jmax (row.controlWidth, key->idealWidth());
+        }
+
         auto c = a.removeFromRight (juce::jmax (juce::roundToInt (260 * scale), row.controlWidth));
-        if (auto* k = dynamic_cast<KeyButton*> (row.control))
+        if (auto* k = key)
         {
             k->setSize (10, ctrlH);
-            const auto w = juce::jmax (juce::roundToInt (120 * scale), k->idealWidth());
+            const auto w = juce::jmin (c.getWidth(), juce::jmax (juce::roundToInt (120 * scale), k->idealWidth()));
             k->setBounds (c.removeFromRight (w).withSizeKeepingCentre (w, ctrlH));
             // キーの左に並べるキー（並びは extras の順）
             for (auto it = row.extras.rbegin(); it != row.extras.rend(); ++it)
