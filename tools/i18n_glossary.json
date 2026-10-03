@@ -1,0 +1,16 @@
+{
+  "_about": "用語表（tools/check_i18n.py が使う）。日本語の文に ja の語があるキーでは、その言語で avoid の語を使わない（同じものの訳を 1 つにそろえる。#20）。avoid は正規表現（大文字・小文字は区別しない。「显示范唱」の中の「示范」のような語の境目は (?<!显) で外す）",
+  "rules": [
+    { "ja": "お手本", "avoid": {
+        "de": ["Vorlage"],
+        "tr": ["Rehber"],
+        "fr": ["référence"],
+        "en": ["reference"],
+        "es": ["referencia"],
+        "pt-BR": ["referência"],
+        "zh-Hans": ["(?<!显)示范", "参考"],
+        "zh-Hant": ["(?<!顯)示範", "參考"] } },
+    { "ja": "リハーサル", "avoid": { "id": ["latihan"] } },
+    { "ja": "モニターのみ", "avoid": { "en": ["ears"], "de": ["Ohr"], "fr": ["oreille"], "es": ["oído"], "id": ["telinga"], "ko": ["귀"], "tr": ["kulak"] } }
+  ]
+}

@@ -63,10 +63,10 @@ A versão atual é **0.2.0 beta 2**. As mudanças e versões anteriores estão n
 | | |
 |---|---|
 | Sistema | **Windows e Mac** (Mac: Apple silicon e Intel). **Não há versão para celular nem tablet** |
-| Placa de vídeo | **Não é necessária.** Roda só com a CPU. A única coisa pesada é a separação de voz: uma música de 30 segundos levou cerca de 2 minutos numa CPU de 4 núcleos (o app mostra um tempo estimado) |
+| Placa de vídeo | **Não é necessária.** Roda só com a CPU. A única coisa pesada é a separação de voz: leva cerca de 4 vezes a duração da música (medido numa CPU de 4 núcleos: cerca de 2 minutos para uma música de 30 segundos, uns 15 minutos para uma de 4 minutos; CPUs mais lentas levam mais; o app mostra um tempo estimado) |
 | Áudio que você pode carregar | **Só arquivos de áudio do seu computador** (wav / flac / aiff / ogg / mp3 / m4a). Não dá para carregar músicas direto do Spotify, Apple Music, YouTube Music ou outros serviços de streaming |
-| Tamanho | O instalador tem cerca de 13 MB no Windows e cerca de 40 MB no Mac. Se os modelos de separação e de afinação (cerca de 210 MB) não estiverem instalados, o app pergunta ao abrir e os baixa **só quando você aperta Baixar** (dá para escolher Depois). Fora a consulta da lista de modelos, nada é baixado escondido |
-| Processamento pesado | A separação roda **só quando você aperta o botão**. A letra fica **desligada por padrão** (ative em Ajustes) |
+| Tamanho | O instalador tem cerca de 13 MB no Windows e cerca de 40 MB no Mac. Se os modelos de separação e de afinação (cerca de 210 MB) não estiverem instalados, o app pergunta ao abrir e os baixa **só quando você aperta Baixar** (dá para escolher Depois). Além disso, o app só se conecta para consultar a lista de modelos e procurar uma versão nova (no máximo uma vez por dia; dá para desligar em Ajustes) |
+| Processamento pesado | A separação roda quando você adiciona uma guia ou escolhe "Começar só com a original" (em segundo plano; você pode continuar tocando e gravando). Quando a voz guia é obtida por subtração, a separação também roda depois para dividir a voz principal e as harmonias. Só abrir o app nunca a inicia. A letra fica **desligada por padrão** (ative em Ajustes) |
 | Harmonias | Você pode gravar faixas de harmonia. Quando a guia é separada, a voz principal e as harmonias são divididas e **uma guia de harmonias (linha e voz)** também aparece (as faixas de harmonia são comparadas com ela). Uma guia obtida como original − karaokê também é dividida, extraindo depois a voz principal da original (leva um tempinho) |
 | Áudio separado | A voz e o acompanhamento separados são **para o seu treino pessoal**. O VoiceBooth não muda os direitos da música original. Distribua ou publique (inclusive compartilhar como instrumental para covers) só até onde os detentores dos direitos originais permitirem |
 | Preço | **Grátis.** Sem assinatura, sem compras no app. Você pode apoiar o desenvolvimento pelo [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opcional; não muda nenhum recurso) |
@@ -138,7 +138,7 @@ O motor é o mesmo; só muda o que você vê. Um projeto feito em um modo abre e
 | Cor | Usada para |
 |---|---|
 | Signal (verde-limão) | Sua afinação quando está certa, o cursor de reprodução, LEDs acesos |
-| Reference (azul-gelo) | A faixa de tolerância da referência |
+| Reference (azul-gelo) | A faixa de tolerância da guia |
 | Amber / Coral | Um pouco desafinado / muito desafinado, avisos |
 | Tally (vermelho) | Só a gravação |
 
