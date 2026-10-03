@@ -128,6 +128,7 @@ packaging/macos/make_dmg.sh                     # → build/installer/VoiceBooth
 1. `packaging/release-tag.txt` を新しいバージョンのタグにする（ベータは `v0.2.0-beta.3` のように）
 2. バージョンの数字（`-` より前）が変わる時は、`CMakeLists.txt` の `project(VoiceBooth VERSION x.y.z ...)` も同じにする（インストーラーの名前もこのバージョンになる。違えば release ジョブが止める）
 3. `packaging/release-notes.md`（リリースの本文。日本語→英語）を直す。README（12 言語）冒頭の「ダウンロード」の欄のリンク（タグ `v…` とファイル名）と「いまのバージョン」を新しいバージョンにする（ボタンはそのバージョンのファイルを直接指す。プレリリースは `releases/latest` に出ないため）
+4. 機能や数字が変わったら、X の紹介ポスト（`docs/marketing/x-posts.md`、12 言語）も合わせる
 
 ほかの出し方（今まで通り使える）：`build` のワークフローを手で動かして `release_tag` にバージョンのタグを入れる（main から）、タグを push する（`git tag v0.1.0-beta.1 && git push origin v0.1.0-beta.1`）、GitHub の画面で先にリリースを作る（CI がファイルを付ける）。
 
