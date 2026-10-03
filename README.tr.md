@@ -51,7 +51,7 @@ Güncel sürüm **0.2.0 beta 2**. Değişiklikler ve eski sürümler [sürümler
    - **Mac**: VoiceBooth'u DMG'den Uygulamalar klasörüne taşıyın ve bir kez açın → macOS açılamayacağını söylerse Sistem Ayarları → Gizlilik ve Güvenlik → Güvenlik bölümünde "Yine de Aç"a tıklayın (düğme, uygulamayı açmayı denedikten sonra yaklaşık bir saat görünür) → parolanızı girin ([Apple'ın açıklaması](https://support.apple.com/tr-tr/guide/mac-help/mh40616/mac))
 3. **Uygulama açılınca** dili ve bir modu seçin. "Ayırma modelini indir" çıkınca İndir'e basın (yaklaşık 210 MB, yalnızca ilk sefer; rehberin perdesi ve armonisi ile yalnızca orijinalden başlamak için kullanılır)
 
-![VoiceBooth ana ekranı](docs/screenshots/main-en.png)
+![VoiceBooth ana ekranı](docs/screenshots/main-tr.png)
 
 > Bu ekran görüntüsü, örnek verilerden çizilmiş bir geliştirme maketidir. Gerçek şarkılarla görünüm hâlâ iyileştiriliyor ve farklı görünebilir.
 
