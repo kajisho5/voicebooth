@@ -51,7 +51,7 @@ Phiên bản hiện tại là **0.2.0 beta 2**. Thay đổi và các bản cũ c
    - **Mac**: chuyển VoiceBooth từ DMG vào thư mục Ứng dụng rồi mở một lần → nếu macOS báo không thể mở, vào Cài đặt hệ thống → Quyền riêng tư & Bảo mật → ở mục Bảo mật, bấm "Vẫn mở" (nút này hiện trong khoảng một giờ sau khi bạn thử mở ứng dụng) → nhập mật khẩu ([hướng dẫn của Apple](https://support.apple.com/vi-vn/guide/mac-help/mh40616/mac))
 3. **Khi ứng dụng mở**, chọn ngôn ngữ và chế độ. Khi hiện "Tải mô hình tách giọng", hãy bấm Tải về (khoảng 210 MB, chỉ lần đầu; dùng cho cao độ và bè của bản mẫu và để bắt đầu chỉ với bản gốc)
 
-![Màn hình chính của VoiceBooth](docs/screenshots/main-en.png)
+![Màn hình chính của VoiceBooth](docs/screenshots/main-vi.png)
 
 > Ảnh chụp màn hình này là bản mô phỏng trong quá trình phát triển, vẽ từ dữ liệu mẫu. Phần hiển thị với bài hát thật vẫn đang được cải thiện và có thể trông khác đi.
 
