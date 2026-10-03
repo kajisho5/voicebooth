@@ -12,7 +12,7 @@
 2. 最初のマイルストーンは **見た目だけ動くメイン画面モック**。音声エンジン・分離・録音はまだ接続しない。
 3. モックが承認されるまで、JUCEのオーディオコールバックやモデル推論を書き始めるな。
 4. Win / macOS 両対応。OS差分は音声I/Oと署名だけに閉じ込める。
-5. Utawave のソースをコピーするな（AGPL）。アイデアと操作感の参考に留める。
+5. ほかのソフトのソースをコピーするな。機能は自分で設計して作る。
 6. 実装言語・フレームワークは「11. 技術選定」に従う。勝手に Electron 全振りや Python GUI 本体にしない。
 7. コミット単位は「画面パーツ → 画面統合 → 結線1本」を守る。
 
@@ -49,7 +49,7 @@ app/                    … 本体
 
 - 表記: 画面・ドキュメントは `VoiceBooth`、識別子・ファイル名は小文字 `voicebooth`
 - 肩書き: 歌ってみた専用DAW
-- 使わない: **UtaDAW**（既存の Utawave と隣接して紛らわしい）
+- 使わない: 既存のソフトと紛らわしい名前
 
 ウィンドウタイトル: `VoiceBooth — {曲名}`  
 書き出し接頭辞: `voicebooth_`
@@ -58,7 +58,7 @@ app/                    … 本体
 
 - オフボーカルに合わせて歌ってみたを録り、ミックス担当へ渡す人
 - 音程を画面で見ながら直したい人
-- Cubase を開きたくないが、渡すファイルはDAWに載せたい人
+- 本格的な DAW を開きたくないが、渡すファイルは DAW に載せたい人
 - Windows または Mac、オーディオインターフェース利用を想定（オンボードマイクも動く）
 
 ### 1.5 やること
@@ -86,20 +86,17 @@ app/                    … 本体
 - 本格 EQ / コンプ / オートメーション
 - 自動ハモリ音声の完成生成（ガイド線は可、生成音声は不可）
 - 動画編集・テロップ
-- 無限VSTホスト（Utawave互換のため将来枠は残すが v1 は禁止）
+- 無限VSTホスト（将来枠は残すが v1 は禁止）
 - MIDI ピアノロール / 内蔵シンセ（v1禁止）
 - SNS投稿
 - クラウド必須アカウント
 - リアルタイム音源分離
 
-### 1.7 競合との位置
+### 1.7 位置づけ
 
-**Utawave**（2026、無料、軽量、録音特化DAW、JUCE、AGPL）  
-できること: オフボを置いて歌う、パンチイン、ループ、遡及録音、キー変更、歌詞パッド、モニターリバーブ、波形編集、プロジェクト1フォルダ、WAV書き出し。  
-できないこと: お手本ピッチ重ね、リアルタイム音程判定、音源分離、遅くして練習して原速Dryを出す、納品パック。
-
-本ソフトは **Utawaveでできる録音はできる** を下駄にし、その上に TakyuPractice 型のピッチ視線を載せる。  
-Utawave 後追いの小型Cubaseを作らない。
+録音に特化した軽い DAW としての基本（オフボを置いて歌う、パンチイン、ループ、遡及録音、キー変更、歌詞、モニターリバーブ、プロジェクト 1 フォルダ、WAV 書き出し）を押さえ、
+その上に、お手本の音程を重ねて見る・音程をその場で判定する・音源分離・遅くして練習して原速の Dry を出す・納品パック、を載せる。
+大きな DAW の小型版は作らない。
 
 ---
 
@@ -145,21 +142,20 @@ Utawave 後追いの小型Cubaseを作らない。
 
 ## 4. メイン画面レイアウト（最初にこれを作れ）
 
-機能面の参考: TakyuPractice（お手本ピッチ重ね・分離・テンポ変更）。  
-**見た目は似せない**（2026-10-01 決定）。配色・書体・部品の形・レイアウトのすべてで別物にする。
+**見た目は独自に作る**（2026-10-01 決定）。ほかのアプリに似せず、配色・書体・部品の形・レイアウトのすべてを VoiceBooth のものにする。
 
-| 観点 | TakyuPractice（似せない） | VoiceBooth |
-|---|---|---|
-| 地色 | 青みの紺 | 暖色グラファイト（4.9） |
-| 色 | ミント＋ラベンダー | ライム信号色＋アイスブルー |
-| お手本ピッチ | 細い線 | 許容幅の帯（リボン）＋細い中心線 |
-| 書体 | OS 標準ゴシック | IBM Plex Sans JP ＋ 数値は IBM Plex Mono |
-| ボタン | 枠線ボタン | キーキャップ＋点灯 LED |
-| ノブ | 目盛り付きノブ | LED リングのエンコーダー |
-| フェーダー | 横バー | 縦のコンソールフェーダー |
-| メーター | 小さなブロック | セグメント LED ＋目標帯 |
-| 配置 | 全幅の帯を縦に積む | 左にキャンバス、右に「ラック」 |
-| ロゴ | 波形アイコン | ブース（窓＋カプセル＋タリー） |
+| 観点 | VoiceBooth |
+|---|---|
+| 地色 | 暖色グラファイト（4.9） |
+| 色 | ライム信号色＋アイスブルー |
+| お手本ピッチ | 許容幅の帯（リボン）＋細い中心線 |
+| 書体 | IBM Plex Sans JP ＋ 数値は IBM Plex Mono |
+| ボタン | キーキャップ＋点灯 LED |
+| ノブ | LED リングのエンコーダー |
+| フェーダー | 縦のコンソールフェーダー |
+| メーター | セグメント LED ＋目標帯 |
+| 配置 | 左にキャンバス、右に「ラック」 |
+| ロゴ | ブース（窓＋カプセル＋タリー） |
 
 骨格はモードで変えない。密度だけ変える。
 
@@ -421,7 +417,7 @@ rec:        #FF3B30   … タリー赤（録音のみ）
 | booth | Booth（夜のブース） | #141311 暖色グラファイト | #C6EE6A ライム | #8CC1EE アイスブルー | #F4B942 / #FF6B5E | 既定（4.9） |
 | studio-day | Studio Day（昼のスタジオ） | #ECE8E0 明るい生成り | #5E8F00 深いライム | #2F7CC0 | #B97800 / #D23B2E | 明るい部屋・日中 |
 | sweet | Sweet（白とピンク） | #FBF4F7 白 | #D63F86 ピンク | #3E8FD6 | #B07A00 / #7B3FD1 紫 | 明るいスキン。ピンクを「合っている」に。bad はピンクに紛れないよう紫、rec は赤のまま（2026-10-01 追加） |
-| midnight | Midnight（深夜） | #0F1218 青みの黒 | #C6EE6A | #5FD3E8 シアン | #FFB547 / #FF5C6C | 青系が好きな人。ミント＋ラベンダーの組み合わせは避ける（4：TakyuPractice に似せない） |
+| midnight | Midnight（深夜） | #0F1218 青みの黒 | #C6EE6A | #5FD3E8 シアン | #FFB547 / #FF5C6C | 青系が好きな人。ミント＋ラベンダーの組み合わせは避ける（4：ほかのアプリに似せない） |
 | analog | Analog（アナログ卓） | #1A1611 焦げ茶 | #9BD45A 緑の LED | #7FB8C9 くすんだ青緑 | #F28C38 / #E8524A | 古いミキサー卓・クリーム色の文字 |
 | neon | Neon（ネオン） | #0B0A10 黒紫 | #39FF88 | #3FD0FF | #FFD23F / #FF4F8B | 配信映え |
 | gaming | Gaming（ゲーミング） | #0B0C10 黒 | #00E5FF シアン | #B15CFF 紫 | #FFB800 / #FF3D6E | ゲーム配信の機材っぽさ（2026-10-01 追加） |
@@ -540,7 +536,7 @@ REC中差分:
 - 簡単・標準は点数を出さない
 - 危険な設定ロック
 
-### 6.3 遡及録音（Utawaveから吸収する発想。実装は独自）
+### 6.3 遡及録音
 
 アーム済みトラックは再生開始と同時に裏バッファへ録る。  
 ユーザーが REC を押した位置から採用。押し遅れで頭が欠けない。  
@@ -819,14 +815,14 @@ Cache
   analysis.json
 ```
 
-プロジェクトは1フォルダ。使用音源は中へコピー（Utawave同等の持ち運び）。
+プロジェクトは1フォルダ。使用音源は中へコピー（フォルダごと持ち運べる）。
 
 プロジェクトファイル（2026-10-01 決定）：
 
 - 拡張子は **`.vbooth`**（中身は UTF-8 の JSON、`format_version` 付き）。`.vb` は Visual Basic のソースファイルの拡張子として広く使われていて、
   Windows で Visual Studio などに関連付けられていることがあるため使わない。`.vbooth` は検索した範囲で既存の利用が見つからなかった（2026-10-01）
 - 形：`Projects/{曲名}/{曲名}.vbooth` ＋ 同じフォルダに `Audio/`（曲のコピー・テイク）と `Cache/`（分離・解析の結果。消しても作り直せる）。
-  `.vbooth` をダブルクリックで開く。持ち運びはフォルダごと（Cubase の .cpr ＋ Audio フォルダと同じ考え方。Win と Mac で同じ形）
+  `.vbooth` をダブルクリックで開く。持ち運びはフォルダごと（プロジェクトファイル＋ Audio フォルダ。Win と Mac で同じ形）
 - インストーラで `.vbooth` を VoiceBooth に関連付け、専用のドキュメントアイコンを付ける（brand の「未対応」を解消）。
   関連付けは B14 で入れた（Win：.iss のレジストリ、Mac：Info.plist）。専用のドキュメントアイコンは未（当面アプリのアイコン）
 - テンポ・拍・キー・区間・歌詞（7.5）も `.vbooth` に入る
@@ -959,7 +955,7 @@ X API の料金 https://postproxy.dev/blog/x-api-pricing-2026/ 、Instagram の�
 ### 11.1 本体
 
 **JUCE 8 + C++17**  
-理由: Win/Mac の低遅延I/O、メーター、デバイス列挙、ウィンドウ、描画、配布サイズ。録音機として事故が少ない。Utawaveと同系統だがコードは独自。
+理由: Win/Mac の低遅延I/O、メーター、デバイス列挙、ウィンドウ、描画、配布サイズ。録音機として事故が少ない。コードはすべて独自。
 
 - Windows: WASAPI 必須。ASIO は既定で有効（ビルド時に Steinberg の公式の SDK を取得して SHA-256 で確かめる。SDK 自体はリポジトリに入れない。GPLv3 で使う。5 Step 1）
 - macOS: Core Audio。arm64 優先。ユニバーサルはP2以降でよい
@@ -1200,9 +1196,9 @@ Main採用後 → Harm1アーム → Mainを薄くモニター → 3度ガイド
 
 ---
 
-## 15. Utawaveから吸収するもの / しないもの
+## 15. 録音機として押さえるもの / しないもの
 
-吸収（独自実装）:
+押さえる（独自実装）:
 
 - オフボを自分で置ける
 - 1画面収録
@@ -1501,10 +1497,10 @@ Phase A だけやれ。音声デバイスは開くな。
 | 〃（前の既定） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記。モデルのコード・設定の MSST も MIT） | **第一候補**。ONNX Runtime（CPU）で動くことを確認済み（11.3） |
 | 〃 | BS PolarFormer（ZFTurbo） | 11.00 | 配布元リポジトリは MIT。重み単体の明記は未確認 | 確認できれば候補 |
 | 〃 | BS-RoFormer（viperx） | 10.87 | 明記なし | 使わない（許可待ち） |
-| 〃 | MVSEP の最新（BS Roformer 2026.07 など） | 12.33 | サービス側のモデル。重みの配布は未確認 | 使えない見込み |
+| 〃 | 外部サービスの非公開モデル | — | 重みの配布なし | 使えない |
 | 〃 | HTDemucs v4 | 約 9 前後 | MIT | 予備（品質は下） |
 | 分離：Main / ハモリ（リード / バック） | **BS-RoFormer karaoke（anvuew）を採用（2026-10-02）**：MedleyVox の 13 区間でリード SDR 6.98・バック 8.09（Cyru5 MedleyVox の上限 4.69 / 5.80）。元の音（ミックス）から 1 本目にリードを出す。int8 約 55 MB。GPL-3.0 | — | GPL-3.0 | 採用 |
-| 〃 | Mel-RoFormer Karaoke（aufr33 / viperx） | lead SDR 9.45 / back+inst 14.84（MVSEP） | **明記なし**（UVR の Issue #2295 で質問中・未回答） | 使わない（許可待ち）。代わりを探す |
+| 〃 | Mel-RoFormer Karaoke（aufr33 / viperx） | lead SDR 9.45 / back+inst 14.84（公開ベンチマーク） | **明記なし**（配布元に質問中・未回答） | 使わない（許可待ち） |
 | お手本ピッチ（B9） | RMVPE（伴奏入りの歌から直接ピッチ） | 論文：全 SNR で頑健 | 実装は Apache-2.0。学習済み重みの所在・条件は未確認 | 第一候補（重みを確認） |
 | 〃 | FCPE（高速） | MIR-1K RPA 96.79% | 未確認 | 速度が要る時の候補 |
 | 拍・小節の頭・BPM（B9b） | Beat This!（CPJKU、ISMIR 2024） | ダウンビートも出す。小さいモデルは約 8 MB | **コードと公開の重みが MIT**（リポジトリに明記） | **第一候補** |
@@ -1519,8 +1515,8 @@ Phase A だけやれ。音声デバイスは開くな。
 - まだ：正解の音源での SDR（int8・overlap 1・chunk 4 秒の影響）、Apple シリコン / Intel Mac / Windows の実機での速さ、メモリ再利用を切る方法（ORT のパッチか層ごとの分割）を C++ で、CoreML / DirectML で速くなるか
 - 有料配布にする場合（19 の未決）、商用利用の条件
 
-出典：MVSEP アルゴリズム一覧 https://mvsep.com/en/algorithms ／ MSST 学習済みモデル一覧 https://github.com/ZFTurbo/Music-Source-Separation-Training/blob/main/docs/pretrained_models.md ／
-Mel-Band RoFormer（Kimberley Jensen）https://huggingface.co/KimberleyJSN/melbandroformer ／ Karaoke のライセンス質問 https://github.com/Anjok07/ultimatevocalremovergui/issues/2295 ／
+出典：MSST 学習済みモデル一覧 https://github.com/ZFTurbo/Music-Source-Separation-Training/blob/main/docs/pretrained_models.md ／
+Mel-Band RoFormer（Kimberley Jensen）https://huggingface.co/KimberleyJSN/melbandroformer ／
 RMVPE https://arxiv.org/abs/2306.15412 , https://github.com/Dream-High/RMVPE ／ Beat This! https://github.com/CPJKU/beat_this ／ Essentia https://github.com/MTG/essentia ／ All-In-One https://github.com/mir-aidj/all-in-one ／ whisper.cpp（モデルサイズ）https://github.com/ggml-org/whisper.cpp ／ kotoba-whisper https://huggingface.co/kotoba-tech/kotoba-whisper-bilingual-v1.0
 
 仮決めしてよいもの:

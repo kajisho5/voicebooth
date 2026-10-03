@@ -634,7 +634,7 @@ def build_preview():
 
     parts.append(label("同じマーク：窓（ブース）＋マイクのカプセル＋タリーランプ", 840, y2 + 40, 16, C["text"]))
     parts.append(label("タリーはライム（待機・再生）。アプリ内では録音中に赤く灯る", 840, y2 + 72, 14))
-    parts.append(label("TakyuPractice の波形アイコンとは別系統（DESIGN 4）", 840, y2 + 102, 14))
+    parts.append(label("ほかのアプリと紛れない独自の形（DESIGN 4）", 840, y2 + 102, 14))
 
     svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">{"".join(parts)}</svg>'
     _png_from_string(svg, out / "preview-icons.png", W)
