@@ -1,3 +1,4 @@
+#include <iostream>
 #include "models/ModelDownloader.h"
 
 extern "C"
@@ -274,3 +275,26 @@ public:
 
 static ModelDownloadTests modelDownloadTests;
 } // namespace vb::models
+
+namespace vb::models
+{
+struct NetProbe : juce::UnitTest
+{
+    NetProbe() : juce::UnitTest ("NetProbe", "VoiceBooth") {}
+    void runTest() override
+    {
+        beginTest ("probe");
+        if (juce::SystemStats::getEnvironmentVariable ("VB_NET_PROBE", {}).isEmpty() && juce::SystemStats::getEnvironmentVariable ("GITHUB_ACTIONS", {}).isEmpty()) return;
+        auto http = makeHttpSource();
+        for (auto u : { manifestUrl(), manifestUrl() + ".sig" })
+        {
+            auto r = http->get (u, 0, {});
+            juce::MemoryBlock mb; juce::int64 n = -1; bool ex = false;
+            if (r.body) { juce::MemoryOutputStream m (mb, false); n = m.writeFromInputStream (*r.body, 2*1024*1024); ex = r.body->isExhausted(); }
+            std::cout << "NETPROBE " << (u + " status=" + juce::String (r.status) + " body=" + juce::String (r.body != nullptr ? 1 : 0) + " n=" + juce::String (n) + " exhausted=" + juce::String ((int) ex) + " len=" + juce::String (r.length)) << std::endl;
+            expectEquals (r.status, 200, u);
+        }
+    }
+};
+static NetProbe netProbe;
+}
