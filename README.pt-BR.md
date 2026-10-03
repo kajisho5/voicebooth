@@ -138,7 +138,7 @@ O motor é o mesmo; só muda o que você vê. Um projeto feito em um modo abre e
 | Cor | Usada para |
 |---|---|
 | Signal (verde-limão) | Sua afinação quando está certa, o cursor de reprodução, LEDs acesos |
-| Reference (azul-gelo) | A faixa de tolerância da referência |
+| Reference (azul-gelo) | A faixa de tolerância da guia |
 | Amber / Coral | Um pouco desafinado / muito desafinado, avisos |
 | Tally (vermelho) | Só a gravação |
 

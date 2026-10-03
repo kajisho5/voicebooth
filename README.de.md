@@ -49,7 +49,7 @@ Die aktuelle Version ist **0.2.0 Beta 2**. Änderungen und ältere Versionen fin
 2. **Falls eine Warnung erscheint** (die Beta ist noch nicht codesigniert, daher erscheint sie nur beim ersten Öffnen)
    - **Windows**: Wenn „Der Computer wurde durch Windows geschützt“ erscheint, klicke auf „Weitere Informationen“ → „Trotzdem ausführen“
    - **Mac**: Zieh VoiceBooth aus dem DMG in deinen Programme-Ordner und öffne es einmal → wenn macOS meldet, dass es nicht geöffnet werden kann, geh zu Systemeinstellungen → Datenschutz & Sicherheit → klicke unter Sicherheit auf „Dennoch öffnen“ (der Button erscheint etwa eine Stunde lang, nachdem du versucht hast, die App zu öffnen) → gib dein Passwort ein ([Anleitung von Apple](https://support.apple.com/de-de/guide/mac-help/mh40616/mac))
-3. **Nach dem Start** Sprache und Modus wählen. Wenn „Trennungsmodell herunterladen“ erscheint, auf Laden drücken (etwa 210 MB, nur beim ersten Mal; für Tonhöhe und Harmonie der Vorlage und zum Start nur mit dem Original)
+3. **Nach dem Start** Sprache und Modus wählen. Wenn „Trennungsmodell herunterladen“ erscheint, auf Laden drücken (etwa 210 MB, nur beim ersten Mal; für Tonhöhe und Harmonie der Referenz und zum Start nur mit dem Original)
 
 ![VoiceBooth-Hauptbildschirm](docs/screenshots/main-de.png)
 

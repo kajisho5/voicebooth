@@ -67,7 +67,7 @@ La version actuelle est **0.2.0 bêta 2**. Les nouveautés et les anciennes vers
 | Audio chargeable | **Uniquement les fichiers audio de votre ordinateur** (wav / flac / aiff / ogg / mp3 / m4a). Impossible de charger directement des titres de Spotify, Apple Music, YouTube Music ou d'autres services de streaming |
 | Taille | L'installeur fait environ 13 Mo sous Windows et environ 40 Mo sur Mac. Si les modèles de séparation et de hauteur (environ 210 Mo) manquent, l'app le propose au démarrage et ne les télécharge **que lorsque vous appuyez sur Télécharger** (vous pouvez aussi choisir Plus tard). Les seuls autres accès réseau sont la vérification de la liste des modèles et la recherche d'une nouvelle version (au plus une fois par jour ; désactivable dans Réglages) |
 | Traitements lourds | La séparation s'exécute quand vous ajoutez un guide ou choisissez « Partir de l'original seul » (en arrière-plan ; lecture et enregistrement restent possibles). Quand la voix guide est obtenue par soustraction, une séparation suit aussi pour distinguer voix principale et harmonies. Ouvrir l'app ne la lance jamais. L'affichage des paroles est **désactivé par défaut** (à activer dans Réglages) |
-| Harmonies | Vous pouvez enregistrer des pistes d'harmonie. Quand la référence est séparée, la voix principale et les harmonies sont distinguées et **une référence d'harmonies (ligne et voix)** est aussi affichée (les pistes d'harmonie sont comparées à elle). Une référence obtenue par original − karaoké est aussi divisée, en extrayant ensuite la voix principale de l'original (prend un peu de temps) |
+| Harmonies | Vous pouvez enregistrer des pistes d'harmonie. Quand le guide est séparé, la voix principale et les harmonies sont distinguées et **un guide d'harmonies (ligne et voix)** est aussi affiché (les pistes d'harmonie sont comparées à lui). Un guide obtenu par original − karaoké est aussi divisé, en extrayant ensuite la voix principale de l'original (prend un peu de temps) |
 | Audio séparé | La voix et l'accompagnement séparés sont **destinés à votre entraînement personnel**. VoiceBooth ne change rien aux droits du titre original. Ne les diffusez ou publiez (y compris en les partageant comme instrumental pour des reprises) que dans la mesure autorisée par les ayants droit d'origine |
 | Prix | **Gratuit.** Pas d'abonnement, pas d'achats intégrés. Vous pouvez soutenir le développement via [GitHub Sponsors](https://github.com/sponsors/kajisho5) (facultatif ; cela ne change aucune fonctionnalité) |
 | Langues | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
@@ -77,17 +77,17 @@ La version actuelle est **0.2.0 bêta 2**. Les nouveautés et les anciennes vers
 | | Détails |
 |---|---|
 | Ouvrir un titre | Les formats ci-dessus, aussi par glisser-déposer. Le début du titre est calé de la même façon sous Windows et sur Mac |
-| Original + karaoké | Utilisez le titre original (avec voix) comme référence et chantez sur le karaoké / l'instrumental. Les différences comme la durée de l'intro sont alignées automatiquement. Le karaoké est soustrait de l'original pour extraire la voix, qui devient la ligne de hauteur de référence |
-| Original seul | Sépare l'original pour créer un instrumental et afficher aussi la ligne de référence (nécessite le modèle de séparation) |
+| Original + karaoké | Utilisez le titre original (avec voix) comme guide et chantez sur le karaoké / l'instrumental. Les différences comme la durée de l'intro sont alignées automatiquement. Le karaoké est soustrait de l'original pour extraire la voix, qui devient la ligne de hauteur du guide |
+| Original seul | Sépare l'original pour créer un instrumental et afficher aussi la ligne guide (nécessite le modèle de séparation) |
 | Justesse en couleur | Votre hauteur est tracée en ligne par-dessus : vert citron quand c'est juste, puis ambre et rouge à mesure que vous vous écartez. Chanter à l'octave peut quand même être aligné à l'affichage |
 | Entraînement | Tempo 50–150 %, tonalité ±6. Entraînez-vous lentement, mais la prise livrée est toujours enregistrée au tempo et à la tonalité d'origine |
-| Écouter le guide | Écoutez la voix guide extraite de l'original, avec l'instrumental ou en solo (tempo et tonalité d'entraînement appliqués). Quand la référence est séparée, la voix principale et les harmonies s'écoutent séparément |
+| Écouter le guide | Écoutez la voix guide extraite de l'original, avec l'instrumental ou en solo (tempo et tonalité d'entraînement appliqués). Quand le guide est séparé, la voix principale et les harmonies s'écoutent séparément |
 | Tessiture et tonalité suggérée | Mesurez votre tessiture (notes la plus grave et la plus aiguë) au micro et obtenez une tonalité où tiennent les notes la plus grave et la plus aiguë du guide. Un clic l'applique ; si rien ne convient, il indique de combien de demi-tons ça dépasse |
 | Enregistrement | Enregistrement d'une traite, enregistrement rétroactif (appuyer sur REC en retard ne coupe jamais le premier mot), réenregistrement d'une plage (fondu de 8 ms à chaque bord ; 0–20 ms en Pro), mesure et compensation de la latence |
 | Clic et décompte | Un clic sur le tempo du morceau (plus aigu sur le temps 1 ; suit le tempo d'entraînement). Compte 1 à 2 mesures avant REC ; le réenregistrement d'une plage décompte avant la plage. Uniquement au casque, jamais enregistré ni exporté |
 | Main / Double / Harmonie | Enregistrez doublages et harmonies sur la même durée et écoutez-les ensemble |
 | Comparaison des prises | Liste tes prises de la plus récente à la plus ancienne, écoute chacune à sa place dans le morceau sur une plage (ou un segment du comp) et utilise celle que tu choisis (Standard et au-delà ; Ctrl / ⌘+Z annule) |
-| Calage des attaques | Par rapport à la référence, indique de combien de ms vous entrez en avance ou en retard (Standard et au-delà). Pro affiche aussi la part du temps où vous êtes juste, et le vibrato |
+| Calage des attaques | Par rapport au guide, indique de combien de ms vous entrez en avance ou en retard (Standard et au-delà). Pro affiche aussi la part du temps où vous êtes juste, et le vibrato |
 | Export | WAV pleine longueur depuis le début du titre, et un pack de livraison (un WAV par piste, un mix de contrôle, des notes, un zip) |
 | Paroles (désactivées par défaut) | Chargez un .txt / .lrc, calez au tap |
 | Thèmes | Changez les couleurs de toute l'app (10 intégrés). Partagez-les en fichiers `.vbskin` |
@@ -138,7 +138,7 @@ Le moteur est le même ; seul ce que vous voyez change. Un projet créé dans un
 | Couleur | Utilisée pour |
 |---|---|
 | Signal (vert citron) | Votre hauteur quand elle est juste, la tête de lecture, les LED allumées |
-| Reference (bleu glacier) | La bande de tolérance de la référence |
+| Reference (bleu glacier) | La bande de tolérance du guide |
 | Amber / Coral | Un peu faux / très faux, avertissements |
 | Tally (rouge) | Uniquement l'enregistrement |
 
