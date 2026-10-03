@@ -5,7 +5,9 @@ namespace vb
 {
 namespace
 {
-    constexpr int rowH = 46;
+    // 1920x1080（拡大 100 %）でも読める大きさ。行の高さは窓に合わせて minRowH〜maxRowH
+    constexpr int dialogW = 1040, minRowH = 48, maxRowH = 60, ctrlH = 40;
+    constexpr float labelSize = 17.0f, noteSize = 14.0f, keySize = 15.0f;
 
     juce::StringArray languageNames()
     {
@@ -154,22 +156,29 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
             break;
     }
 
+    // 文字は本画面のキーより一回り大きく（設定は説明を読む画面）。幅は下の idealWidth が文字から測る
     for (auto* s : { &tolerance, &countIn, &crossfade })
-        s->setFont (mono (11.5f, Weight::medium));
+        s->setFont (mono (keySize - 0.5f, Weight::medium));
+    mode.setFont (sans (keySize, Weight::medium));
+    for (auto* d : { &language, &skinPicker })
+        d->setFont (sans (keySize + 0.5f, Weight::medium));
+    for (auto* k : { &octaveAlign, &showLyrics, &openSetup, &cacheKey, &supportKey, &cacheOpen, &cacheClear,
+                     &updateAuto, &updateBetas, &updateNow, &editSkin, &newSkin })
+        k->withFont (sans (keySize, Weight::medium));
 
     rows = {
-        { tr ("settings.language"),   tr ("settings.language.note"),   &language,    juce::jmax (220, language.idealWidth()) },
-        { tr ("settings.mode"),       tr ("settings.mode.note"),       &mode,        260 },
-        { tr ("settings.tolerance"),  tr ("settings.tolerance.note"),  &tolerance,   200 },
+        { tr ("settings.language"),   tr ("settings.language.note"),   &language,    juce::jmax (260, language.idealWidth()) },
+        { tr ("settings.mode"),       tr ("settings.mode.note"),       &mode,        340 },
+        { tr ("settings.tolerance"),  tr ("settings.tolerance.note"),  &tolerance,   260 },
         { tr ("settings.octave"),     tr ("settings.octave.note"),     &octaveAlign, 0 },
         { tr ("settings.lyrics"),     tr ("settings.lyrics.note"),     &showLyrics,  0 },
-        { tr ("settings.countIn"),    tr ("settings.countIn.note"),    &countIn,     200 },
-        { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   240 },
+        { tr ("settings.countIn"),    tr ("settings.countIn.note"),    &countIn,     260 },
+        { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   320 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
         { tr ("settings.cache"),      {},                              &cacheKey,    0, {}, {}, { &cacheOpen, &cacheClear } },
         { tr ("settings.update"),     {},                              &updateAuto,  0, {}, {}, { &updateBetas, &updateNow } },
-        { tr ("settings.system"),     systemSummary (systemInfo),      nullptr,      330, systemValue, systemLed },
-        { tr ("settings.skin"),       tr ("settings.skin.note"),       &skinPicker,  juce::jmax (200, skinPicker.idealWidth()), {}, {}, { &newSkin, &editSkin } },
+        { tr ("settings.system"),     systemSummary (systemInfo),      nullptr,      460, systemValue, systemLed },
+        { tr ("settings.skin"),       tr ("settings.skin.note"),       &skinPicker,  juce::jmax (260, skinPicker.idealWidth()), {}, {}, { &newSkin, &editSkin } },
         { tr ("settings.support"),    tr ("settings.support.note"),    &supportKey,  0 },
     };
 
@@ -179,23 +188,43 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
             addAndMakeVisible (r.control);
         if (auto* k = dynamic_cast<KeyButton*> (r.control); k != nullptr && ! r.extras.empty())
         {
-            k->setSize (10, 32);
-            r.controlWidth = juce::jmax (96, k->idealWidth());   // キー自身の幅（左に並べる extras の分は下で足す）
+            k->setSize (10, ctrlH);
+            r.controlWidth = juce::jmax (120, k->idealWidth());   // キー自身の幅（左に並べる extras の分は下で足す）
         }
         for (auto* k : r.extras)
         {
             // control の左に置くキーの分だけ、文言の幅を詰める
-            k->setSize (10, 32);
-            r.controlWidth += juce::jmax (72, k->idealWidth()) + 8;
+            k->setSize (10, ctrlH);
+            r.controlWidth += juce::jmax (92, k->idealWidth()) + 8;
             addAndMakeVisible (k);
         }
     }
 
-    addFooterKey (tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); });
-    addFooterKey (tr ("about.open"), KeyRole::normal, [this] { if (onAbout) onAbout(); });
+    addFooterKey (tr ("common.close"), KeyRole::primary, [this] { if (onCloseRequest) onCloseRequest(); }).withFont (sans (keySize, Weight::medium));
+    addFooterKey (tr ("about.open"), KeyRole::normal, [this] { if (onAbout) onAbout(); }).withFont (sans (keySize, Weight::medium));
 
-    setSize (820, headerH + 14 + rowH * (int) rows.size() + footerH + 12);
+    setSize (dialogW, headerH + 14 + rowH * (int) rows.size() + footerH + 12);
     onSessionChanged (change::all);
+}
+
+void SettingsDialog::fitToParent()
+{
+    auto* parent = getParentComponent();
+    if (parent == nullptr || parent->getHeight() <= 0)
+        return;
+    // 窓が画面より大きい時（小さい画面・拡大 125 % 以上）は、画面に見えている所に収める
+    auto visible = parent->getLocalBounds();
+    if (parent->isShowing())
+        if (const auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (parent->getScreenBounds()))
+            visible = visible.getIntersection (parent->getLocalArea (nullptr, d->userArea));
+    if (visible.isEmpty())
+        visible = parent->getLocalBounds();
+
+    const auto fixed = headerH + 14 + footerH + 12;
+    const auto room = visible.getHeight() - 32 - fixed;   // 上下に 16 ずつ残す
+    rowH = juce::jlimit (minRowH, maxRowH, room / juce::jmax (1, (int) rows.size()));
+    setSize (juce::jmin (dialogW, visible.getWidth() - 32), fixed + rowH * (int) rows.size());
+    setCentrePosition (visible.getCentre());
 }
 
 void SettingsDialog::onSessionChanged (juce::uint32 changes)
@@ -291,15 +320,15 @@ void SettingsDialog::layoutBody (juce::Rectangle<int> r)
         auto c = a.removeFromRight (juce::jmax (260, row.controlWidth));
         if (auto* k = dynamic_cast<KeyButton*> (row.control))
         {
-            k->setSize (10, 32);
-            const auto w = juce::jmax (96, k->idealWidth());
-            k->setBounds (c.removeFromRight (w).withSizeKeepingCentre (w, 32));
+            k->setSize (10, ctrlH);
+            const auto w = juce::jmax (120, k->idealWidth());
+            k->setBounds (c.removeFromRight (w).withSizeKeepingCentre (w, ctrlH));
             // キーの左に並べるキー（並びは extras の順）
             for (auto it = row.extras.rbegin(); it != row.extras.rend(); ++it)
             {
                 c.removeFromRight (8);
-                const auto keyW = juce::jmax (72, (*it)->idealWidth());
-                (*it)->setBounds (c.removeFromRight (keyW).withSizeKeepingCentre (keyW, 32));
+                const auto keyW = juce::jmax (92, (*it)->idealWidth());
+                (*it)->setBounds (c.removeFromRight (keyW).withSizeKeepingCentre (keyW, ctrlH));
             }
         }
         else if (! row.extras.empty())
@@ -307,15 +336,15 @@ void SettingsDialog::layoutBody (juce::Rectangle<int> r)
             auto area = c.removeFromRight (row.controlWidth);
             for (auto* key : row.extras)
             {
-                const auto keyW = juce::jmax (72, key->idealWidth());
-                key->setBounds (area.removeFromLeft (keyW).withSizeKeepingCentre (keyW, 32));
+                const auto keyW = juce::jmax (92, key->idealWidth());
+                key->setBounds (area.removeFromLeft (keyW).withSizeKeepingCentre (keyW, ctrlH));
                 area.removeFromLeft (8);
             }
-            row.control->setBounds (area.withSizeKeepingCentre (area.getWidth(), 32));
+            row.control->setBounds (area.withSizeKeepingCentre (area.getWidth(), ctrlH));
         }
         else
         {
-            row.control->setBounds (c.removeFromRight (row.controlWidth).withSizeKeepingCentre (row.controlWidth, 32));
+            row.control->setBounds (c.removeFromRight (row.controlWidth).withSizeKeepingCentre (row.controlWidth, ctrlH));
         }
     }
 }
@@ -330,20 +359,21 @@ void SettingsDialog::paintBody (juce::Graphics& g, juce::Rectangle<int>)
 
         auto text = a.withTrimmedRight ((float) juce::jmax (260, rows[i].controlWidth) + 20.0f);
         g.setColour (colours::text);
-        g.setFont (sans (13.0f, Weight::medium));
-        g.drawText (rows[i].label, text.removeFromTop (rows[i].note.isEmpty() ? text.getHeight() : text.getHeight() * 0.55f),
+        g.setFont (sans (labelSize, Weight::medium));
+        g.drawText (rows[i].label, text.removeFromTop (rows[i].note.isEmpty() ? text.getHeight() : text.getHeight() * 0.54f),
                     rows[i].note.isEmpty() ? juce::Justification::centredLeft : juce::Justification::bottomLeft, true);
         if (rows[i].note.isNotEmpty())
         {
-            g.setColour (colours::textMute);
-            g.setFont (sans (11.0f));
-            g.drawText (rows[i].note, text, juce::Justification::topLeft, true);
+            // 説明は暗すぎると読めない（textMute は地との差が小さい）。textDim で一段明るく
+            g.setColour (colours::textDim);
+            g.setFont (sans (noteSize));
+            g.drawText (rows[i].note, text.withTrimmedTop (2.0f), juce::Justification::topLeft, true);
         }
 
         if (rows[i].control == nullptr && rows[i].value.isNotEmpty())
         {
             auto v = a.removeFromRight ((float) juce::jmax (260, rows[i].controlWidth));
-            g.setFont (sans (12.0f));
+            g.setFont (sans (keySize));
             const auto textW = juce::jmin (v.getWidth() - 18.0f, textWidth (g.getCurrentFont(), rows[i].value) + 2.0f);
             if (! rows[i].led.isTransparent())
                 paint::led (g, { v.getRight() - textW - 12.0f, v.getCentreY() }, 4.0f, rows[i].led, true);

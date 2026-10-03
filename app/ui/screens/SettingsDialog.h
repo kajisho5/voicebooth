@@ -22,12 +22,19 @@ public:
     std::function<void()> onAbout;        // このアプリについて・ライセンス
     std::function<void()> onClearCache;   // キャッシュを空にする（確認は MainComponent が出す）
 
+    void parentHierarchyChanged() override { fitToParent(); }
+    void parentSizeChanged() override { fitToParent(); }
+
 protected:
     void layoutBody (juce::Rectangle<int>) override;
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
 
 private:
     void onSessionChanged (juce::uint32) override;
+
+    /** 行の高さを窓の高さに合わせる（広い窓ではゆったり、狭い窓でも全部の行が収まる） */
+    void fitToParent();
+    int rowH = 56;
 
     // control が無い行は value（と LED）を右に描く。extra は control の左に並べるキー
     struct Row { juce::String label, note; juce::Component* control; int controlWidth; juce::String value = {}; juce::Colour led = {};

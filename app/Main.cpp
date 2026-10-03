@@ -76,7 +76,14 @@ public:
         setResizable (true, true);
         setResizeLimits (MainComponent::minWidth, MainComponent::minHeight, 4096, 2160);
         rebuild();
-        centreWithSize (MainComponent::defaultWidth, MainComponent::defaultHeight);
+        // 画面より大きく開かない（1920x1080 の拡大 125 % だと 1440x900 は縦にはみ出す）。窓枠・タイトルバーの分を残す
+        auto width = MainComponent::defaultWidth, height = MainComponent::defaultHeight;
+        if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+        {
+            width = juce::jmin (width, d->userArea.getWidth() - 16);
+            height = juce::jmin (height, d->userArea.getHeight() - 48);
+        }
+        centreWithSize (width, height);   // 最小（minWidth / minHeight）より小さくはならない
         setVisible (true);
         focusContent();
     }
