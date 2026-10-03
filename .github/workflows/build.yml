@@ -18,6 +18,10 @@ on:
     branches: [main]
     tags: ['v*']   # バージョンのタグ（v0.1.0、v0.1.0-beta.1 など）を push したら、作ったインストーラーで GitHub のリリースを作る
 
+# 権限は読むだけ（リリースを作る release ジョブだけ contents: write）。#16
+permissions:
+  contents: read
+
 # 同じブランチに新しく push したら、前の実行は止める（Mac のユニバーサル版は 30 分以上かかるため）
 concurrency:
   group: build-${{ github.ref }}
@@ -30,7 +34,7 @@ jobs:
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - id: plan
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,7 +59,7 @@ jobs:
   i18n:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Check translations
         run: python3 tools/check_i18n.py
       # 言葉の決まり（CLAUDE.md。「バージョン」の書き方など）
@@ -70,7 +74,7 @@ jobs:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # プレリリースのタグ（v0.1.0-beta.1）なら、アプリのバージョンに印（beta.1）を付ける。更新の確認（DESIGN 11.7）が
       # いまのバージョンをベータと分かり、次のベータ・同じバージョンの正式版を正しく比べられるように。タグ以外・正式版のタグは空
@@ -82,9 +86,14 @@ jobs:
         run: |
           if [[ "$RELEASE_TAG" == v*-* ]]; then echo "suffix=${RELEASE_TAG#*-}" >> "$GITHUB_OUTPUT"; fi
 
-      # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように
+      # Windows は C++ ランタイムを静的リンク（/MT）。配った exe が VC++ 再頒布パッケージ無しの PC でも起動するように。
+      # 印（タグ名・手で動かした時の入力から作る）は run の中へ直接展開せず、環境変数で渡す（#16）
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "-DVOICEBOOTH_VERSION_SUFFIX=${{ steps.label.outputs.suffix }}" ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
+        shell: bash
+        env:
+          SUFFIX: ${{ steps.label.outputs.suffix }}
+          MSVC_RUNTIME: ${{ runner.os == 'Windows' && '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded' || '' }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release "-DVOICEBOOTH_VERSION_SUFFIX=$SUFFIX" $MSVC_RUNTIME
 
       # 並列数は明示する。Mac は Makefile なので数なしの --parallel は make -j（上限なし）になり、
       # 3 コア・7 GB のランナーで約 100 個のコンパイルが同時に走ってメモリが溢れ、77 分かかっていた
@@ -94,19 +103,31 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure -V   # -V：mp3 / m4a の長さ・頭のずれをログに残す
 
-      # Mac はユニバーサル版（arm64 + x86_64）。両方入っていることと、Intel 側も Rosetta 2 でテストが通ることを確かめる
+      # Mac はユニバーサル版（arm64 + x86_64）。両方入っていることと、Intel 側も Rosetta 2 でテストが通ることを確かめる。
+      # .app の中の Mach-O はすべて（本体・分離の別プロセス VoiceBoothSeparator・ONNX Runtime の dylib。#14）。
+      # ONNX Runtime の universal2 は 1.22 が最後（1.23 以降は Apple シリコンだけ）：上げるとここで止まる
       - name: Check universal binary (macOS)
         if: runner.os == 'macOS'
         run: |
-          lipo -info build/VoiceBooth_artefacts/Release/VoiceBooth.app/Contents/MacOS/VoiceBooth
-          lipo build/VoiceBooth_artefacts/Release/VoiceBooth.app/Contents/MacOS/VoiceBooth -verify_arch arm64 x86_64
+          APP=build/VoiceBooth_artefacts/Release/VoiceBooth.app
+          test -x "$APP/Contents/MacOS/VoiceBoothSeparator" || { echo "::error::VoiceBoothSeparator is missing from the app"; exit 1; }
+          ls "$APP"/Contents/MacOS/libonnxruntime*.dylib > /dev/null || { echo "::error::ONNX Runtime is missing from the app"; exit 1; }
+          n=0
+          while IFS= read -r -d '' f; do
+            if file -b "$f" | grep -q 'Mach-O'; then
+              lipo -info "$f"
+              lipo "$f" -verify_arch arm64 x86_64 || { echo "::error::$f is not universal (arm64 + x86_64)"; exit 1; }
+              n=$((n + 1))
+            fi
+          done < <(find "$APP/Contents" -type f -print0)
+          echo "universal Mach-O files: $n"
           TESTS=$(find build -path '*VoiceBoothTests_artefacts*' -type f -name VoiceBoothTests -perm -u+x | head -1)
           lipo "$TESTS" -verify_arch arm64 x86_64
           arch -x86_64 /usr/bin/true 2>/dev/null || sudo /usr/sbin/softwareupdate --install-rosetta --agree-to-license
           arch -x86_64 "$TESTS"
 
       # ビルドしたフォルダそのもの（従来どおり）
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: VoiceBooth-${{ runner.os }}
           path: build/VoiceBooth_artefacts/Release
@@ -150,14 +171,18 @@ jobs:
         if: runner.os == 'Windows'
         id: win_setup
         shell: pwsh
-        run: ./packaging/windows/build_installer.ps1 -Version "${{ steps.version.outputs.version }}"
+        env:
+          VB_VERSION: ${{ steps.version.outputs.version }}
+        run: ./packaging/windows/build_installer.ps1 -Version "$env:VB_VERSION"
 
       - name: Build DMG (macOS)
         if: runner.os == 'macOS'
         id: mac_dmg
-        run: packaging/macos/make_dmg.sh --version "${{ steps.version.outputs.version }}"
+        env:
+          VB_VERSION: ${{ steps.version.outputs.version }}
+        run: packaging/macos/make_dmg.sh --version "$VB_VERSION"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: runner.os == 'Windows'
         with:
           name: VoiceBooth-${{ steps.version.outputs.version }}-win-x64-setup
@@ -166,7 +191,7 @@ jobs:
           compression-level: 0   # setup.exe は圧縮済み
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: runner.os == 'macOS'
         with:
           name: VoiceBooth-${{ steps.version.outputs.version }}-mac-universal
@@ -180,7 +205,7 @@ jobs:
     needs: i18n
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install dependencies
         run: |
@@ -208,7 +233,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Check the tag against the version
         id: tag
@@ -231,7 +256,7 @@ jobs:
           if [ "$base" != "$ver" ]; then echo "::error::tag $tag does not match CMake version $ver"; exit 1; fi
           if [[ "$tag" == *-* ]]; then echo "pre=--prerelease" >> "$GITHUB_OUTPUT"; else echo "pre=" >> "$GITHUB_OUTPUT"; fi
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: VoiceBooth-[0-9]*   # バージョンつきのインストーラーだけ（VoiceBooth-Windows / -macOS の中身は付けない）
           path: dist
@@ -243,16 +268,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.tag.outputs.name }}
+          PRE: ${{ steps.tag.outputs.pre }}
         run: |
           ls -la dist
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
             gh release edit "$TAG" --title "VoiceBooth $TAG" \
-               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
+               --notes-file packaging/release-notes.md $PRE
           elif [[ "$GITHUB_REF" != refs/tags/* ]]; then
             gh release create "$TAG" dist/* --title "VoiceBooth $TAG" --target "$GITHUB_SHA" \
-               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }}
+               --notes-file packaging/release-notes.md $PRE
           else
             gh release create "$TAG" dist/* --title "VoiceBooth $TAG" \
-               --notes-file packaging/release-notes.md ${{ steps.tag.outputs.pre }} --verify-tag
+               --notes-file packaging/release-notes.md $PRE --verify-tag
           fi

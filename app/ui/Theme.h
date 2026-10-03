@@ -95,6 +95,8 @@ namespace colours
 
 /** スキンの 16 色を差し替える（DESIGN 4.11）。描き直し・LookAndFeel の色の入れ直しは呼び出し側 */
 void applySkin (const skin::Skin&);
+/** スキンを当てるたびに増える番号（色を画像にためている部品が、作り直すかを決めるため。スキンエディタのプレビューでも増える） */
+int skinSerial();
 
 /** いま使っている 16 色 */
 skin::Colours currentSkinColours();

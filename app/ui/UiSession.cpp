@@ -1,4 +1,5 @@
 #include "UiSession.h"
+#include "i18n/Reasons.h"
 #include "audio/Retro.h"
 #include "audio/SongLoader.h"
 #include "audio/Resample.h"
@@ -928,7 +929,7 @@ void UiSession::setRecording (bool r)
     if (error.isNotEmpty())
     {
         syncLoopToEngine();
-        postNotice (tr ("record.problem.failed", error));
+        postNotice (tr ("record.problem.failed", reasonText (error)));
         return;
     }
 
@@ -1681,7 +1682,7 @@ void UiSession::requestSeparationModel (bool onlyIfMissing)
             if (weak.expired()) return;
             if (found == nullptr)
             {
-                postNotice (tr ("model.listFailed", error));
+                postNotice (tr ("model.listFailed", reasonText (error)));
                 return;
             }
             modelEntry = std::make_unique<models::ModelEntry> (*found);
@@ -1859,7 +1860,7 @@ void UiSession::separateGuide()
                 notify (change::view);
             };
             if (serial != s.songSerial) { fail ({}); return; }
-            if (! ok) { fail (tr ("separation.failed", "can't prepare the input")); return; }
+            if (! ok) { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
 
             if (separator == nullptr)
                 separator = std::make_unique<separation::SeparatorClient>();
@@ -1879,13 +1880,13 @@ void UiSession::separateGuide()
                 if (serial != s.songSerial) { s.guideBusy = false; return; }
                 if (! done)
                 {
-                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", error));
+                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
                     return;
                 }
                 analyseSeparated (vocals, backing);
             };
             if (! separator->start (mix, vocals, backing, std::move (cb), lead))
-                fail (tr ("separation.failed", "busy"));
+                fail (tr ("separation.failed", reasonText ("busy")));
         });
     });
 }
@@ -1894,7 +1895,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
 {
     auto fail = [done] (const juce::String& why) { if (done) done ({}, why); };
     if (! separationAvailable()) { fail (tr ("separation.noModelOriginal")); return; }
-    if (s.separating)            { fail (tr ("separation.failed", "busy")); return; }
+    if (s.separating)            { fail (tr ("separation.failed", reasonText ("busy"))); return; }
 
     // 作ったオフボはアプリ共通のキャッシュ（設定の「キャッシュの場所」）の offvocal/ に置く（曲を開くとプロジェクトの中にコピーされる）。
     // 同じ原曲・モデルなら作り直さない
@@ -1941,7 +1942,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
         juce::MessageManager::callAsync ([this, weak, ok, original, mix, vocals, backing, out, finish]
         {
             if (weak.expired()) return;
-            if (! ok) { finish ({}, tr ("separation.failed", "can't read the original")); return; }
+            if (! ok) { finish ({}, tr ("separation.failed", reasonText ("can't read the original"))); return; }
 
             if (separator == nullptr)
                 separator = std::make_unique<separation::SeparatorClient>();
@@ -1958,7 +1959,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                 if (weak.expired()) return;
                 if (! separated)
                 {
-                    finish ({}, error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", error));
+                    finish ({}, error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
                     return;
                 }
                 // 原曲の SR・長さのまま、声を引いてオフボにする（裏で）
@@ -1972,12 +1973,12 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                     juce::MessageManager::callAsync ([wrote, out, finish]
                     {
                         if (wrote) finish (out, {});
-                        else       finish ({}, tr ("separation.failed", "can't write the off vocal"));
+                        else       finish ({}, tr ("separation.failed", reasonText ("can't write the off vocal")));
                     });
                 });
             };
             if (! separator->start (mix, vocals, backing, std::move (cb)))
-                finish ({}, tr ("separation.failed", "busy"));
+                finish ({}, tr ("separation.failed", reasonText ("busy")));
         });
     });
 }
@@ -2040,7 +2041,7 @@ void UiSession::extractLead()
                 notify (change::view);
             };
             if (serial != s.songSerial) { fail ({}); return; }
-            if (! ok) { fail (tr ("separation.failed", "can't prepare the input")); return; }
+            if (! ok) { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
             if (separator == nullptr)
                 separator = std::make_unique<separation::SeparatorClient>();
             separation::SeparatorClient::Callbacks cb;
@@ -2060,13 +2061,13 @@ void UiSession::extractLead()
                 if (serial != s.songSerial) return;
                 if (! done)
                 {
-                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", error));
+                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
                     return;
                 }
                 analyseLead (lead);
             };
             if (! separator->start (mix, lead, rest, std::move (cb), {}, separation::SeparatorClient::karaokeModelFolder()))
-                fail (tr ("separation.failed", "busy"));
+                fail (tr ("separation.failed", reasonText ("busy")));
         });
     });
 }
@@ -2250,7 +2251,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 else
                     postNotice (tr (out->harmVocals != nullptr ? "separation.doneHarmony" : "separation.done", juce::String (out->offsetSeconds, 2)));
             }
-            else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", "can't read the result"));
+            else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", reasonText ("can't read the result")));
             else                                                  postNotice (tr ("guide.problem.notAligned"));
             notify (change::view);
         });
@@ -2799,7 +2800,7 @@ void UiSession::measureLatency()
     setPlaying (false);
     if (const auto error = engine->startLatencyProbe(); error.isNotEmpty())
     {
-        postNotice (tr ("latency.problem.failed", error));
+        postNotice (tr ("latency.problem.failed", reasonText (error)));
         return;
     }
     s.latencyMeasuring = true;
@@ -2953,7 +2954,7 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
             const auto res = exporter::ExportService::exportTrackDry (project, t, folder,
                                                                       dest.getChildFile (exporter::ExportService::dryFileName (song, t)), eo);
             if (res.ok) ++written;
-            else        failed.add (exporter::ExportService::dryFileName (song, t) + " (" + res.message + ")");
+            else        failed.add (exporter::ExportService::dryFileName (song, t) + "\n" + res.message);   // 理由はメッセージスレッドで訳す
         }
         juce::MessageManager::callAsync ([this, weak, dest, failed, written]
         {
@@ -2961,7 +2962,13 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
                 return;
             s.exporting = false;
             if (failed.isEmpty()) postNotice (tr ("export.done", written, dest.getFullPathName()));
-            else                  postNotice (tr ("export.failed", failed.joinIntoString (", ")));
+            else
+            {
+                juce::StringArray lines;
+                for (auto& f : failed)
+                    lines.add (f.upToFirstOccurrenceOf ("\n", false, false) + " (" + reasonText (f.fromFirstOccurrenceOf ("\n", false, false)) + ")");
+                postNotice (tr ("export.failed", lines.joinIntoString (", ")));
+            }
             notify (change::takes);
         });
     });
@@ -3061,7 +3068,7 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
             s.exporting = false;
             if (r.ok && r.zipTooLarge) postNotice (tr ("export.pack.doneNoZip", r.files.size(), r.folder.getFullPathName()));
             else if (r.ok) postNotice (tr ("export.pack.done", r.files.size(), r.zipFile.getFullPathName()));
-            else      postNotice (tr ("export.failed", r.message));
+            else      postNotice (tr ("export.failed", reasonText (r.message)));
             notify (change::takes);
         });
     });

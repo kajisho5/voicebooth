@@ -83,7 +83,30 @@ void PitchLane::onSessionChanged (juce::uint32 changes)
     if (changes & change::mode)
         resized();
 
-    repaint();
+    // このレーンに関わらない変更（入力メーター 30 Hz・知らせ・保存など）では描き直さない。
+    // 再生ヘッドだけが動いたときは、前と今の位置の間と鍵盤だけ（#26）
+    constexpr juce::uint32 unrelated = change::meter | change::notice | change::project | change::prefs
+                                     | change::latency | change::recordFormat | change::device;
+    const auto relevant = changes & ~unrelated;
+    if (relevant == 0)
+        return;
+    if ((relevant & ~juce::uint32 (change::playhead)) != 0)
+        staticDirty = true;
+    const auto x = map().x (s.playhead);
+    const auto dirty = relevant == change::playhead ? lane::playheadDirty (headX, x, getHeight()) : juce::Rectangle<int>();
+    headX = x;
+    if (dirty.isEmpty())
+    {
+        repaint();
+        return;
+    }
+    repaint (dirty);
+    // 鍵盤は光る鍵が変わったときだけ（毎フレーム頼むと、鍵盤から再生ヘッドまでがまとめて描き直される）
+    if (const auto keys = litKeys(); keys != gutterKeys)
+    {
+        gutterKeys = keys;
+        repaint (gutterArea);
+    }
 }
 
 void PitchLane::resized()
@@ -292,6 +315,42 @@ void PitchLane::mouseDoubleClick (const juce::MouseEvent& e)
 //==============================================================================
 void PitchLane::paint (juce::Graphics& g)
 {
+    if (getWidth() <= 0 || getHeight() <= 0)
+        return;
+
+    // 動かない部分は画像から（実際の画素の細かさで作る）
+    const auto scale = juce::jmax (1.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+    const StaticKey key { getWidth(), getHeight(), skinSerial(), scale, textBoostAmount() };
+    if (staticDirty || ! staticLayer.isValid() || key.w != staticKey.w || key.h != staticKey.h || key.skin != staticKey.skin
+        || ! juce::exactlyEqual (key.scale, staticKey.scale) || ! juce::exactlyEqual (key.boost, staticKey.boost))
+    {
+        staticLayer = juce::Image (juce::Image::ARGB, juce::roundToInt ((float) getWidth() * scale), juce::roundToInt ((float) getHeight() * scale), true);
+        juce::Graphics ig (staticLayer);
+        ig.addTransform (juce::AffineTransform::scale (scale));
+        paintStatic (ig);
+        staticDirty = false;
+        staticKey = key;
+    }
+    g.drawImageTransformed (staticLayer, juce::AffineTransform::scale (1.0f / scale));
+
+    // 再生ヘッドで変わる物：自分の線（歌ったところまで）・再生ヘッド・いまの音・鍵盤の点灯
+    const auto& s = state();
+    const auto plot = plotArea.toFloat();
+    const auto m = map();
+    lane::drawRulerPlayhead (g, s, m, rulerArea.withTrimmedLeft (metrics::gutter).toFloat());
+    {
+        juce::Graphics::ScopedSaveState save (g);
+        g.reduceClipRegion (plotArea);
+        if (! drawCompareTake (g, m))   // テイク比較の間は、選んだテイクの線をお手本に重ねる（いま歌った線の代わりに）
+            drawMine (g, m);
+        lane::drawPlayhead (g, s, m, plot);
+        drawCurrent (g, m);
+    }
+    drawNoteGutter (g);
+}
+
+void PitchLane::paintStatic (juce::Graphics& g)
+{
     const auto& s = state();
     const auto plot = plotArea.toFloat();
     const auto m = map();
@@ -299,7 +358,7 @@ void PitchLane::paint (juce::Graphics& g)
     g.setColour (colours::panel);
     g.fillRect (rulerArea.withWidth (metrics::gutter));
     paint::hline (g, (float) rulerArea.getBottom() - 1.0f, 0.0f, (float) metrics::gutter);
-    lane::drawRuler (g, s, m, rulerArea.withTrimmedLeft (metrics::gutter).toFloat());
+    lane::drawRuler (g, s, m, rulerArea.withTrimmedLeft (metrics::gutter).toFloat(), false);
 
     {
         juce::Graphics::ScopedSaveState save (g);
@@ -311,8 +370,6 @@ void PitchLane::paint (juce::Graphics& g)
             drawMainGhost (g, m);
         drawReference (g, m);
         drawUncovered (g, m);
-        if (! drawCompareTake (g, m))   // テイク比較の間は、選んだテイクの線をお手本に重ねる（いま歌った線の代わりに）
-            drawMine (g, m);
 
         // お手本ピッチがまだない：解析中か、声入りの原曲をここにドロップする案内（B9）
         if (s.refPitch.empty())
@@ -324,11 +381,8 @@ void PitchLane::paint (juce::Graphics& g)
                                                        : tr ("pitch.notAnalyzed");
             g.drawText (text, plot.reduced (24.0f), juce::Justification::centred, false);
         }
-        lane::drawPlayhead (g, s, m, plot);
-        drawCurrent (g, m);
     }
 
-    drawNoteGutter (g);
     drawFooter (g);
 }
 
@@ -356,15 +410,10 @@ void PitchLane::drawBackground (juce::Graphics& g, const TimeMap& m)
     lane::drawTimeGrid (g, s, m, plot);
 }
 
-void PitchLane::drawNoteGutter (juce::Graphics& g)
+std::pair<int, int> PitchLane::litKeys() const
 {
-    // 鍵盤：白鍵は隣の黒鍵の真ん中まで（C・F は下の境から、E・B は上の境まで）、黒鍵は行の高さで左から 6 割。
-    // いま歌っている音の鍵はライム、いまのお手本の音の鍵はアイスブルーに光る。C には音名
+    // いま歌っている音と、いまのお手本の音（鍵盤を光らせる）
     const auto& s = state();
-    const auto r = gutterArea.toFloat();
-    g.setColour (colours::panel);
-    g.fillRect (r);
-
     int current = -1;
     if (auto* p = dummy::myPitchAt (s, s.playhead))
         current = (int) std::lround (p->midi + mineOffset());
@@ -375,6 +424,19 @@ void PitchLane::drawNoteGutter (juce::Graphics& g)
         if (it != notes.begin() && s.playhead <= std::prev (it)->end)
             guideNow = (int) std::lround (std::prev (it)->midi + refOffset());
     }
+    return { current, guideNow };
+}
+
+void PitchLane::drawNoteGutter (juce::Graphics& g)
+{
+    // 鍵盤：白鍵は隣の黒鍵の真ん中まで（C・F は下の境から、E・B は上の境まで）、黒鍵は行の高さで左から 6 割。
+    // いま歌っている音の鍵はライム、いまのお手本の音の鍵はアイスブルーに光る。C には音名
+    const auto& s = state();
+    const auto r = gutterArea.toFloat();
+    g.setColour (colours::panel);
+    g.fillRect (r);
+
+    const auto [current, guideNow] = litKeys();
 
     // 鍵盤の色は実物に寄せる（白と黒）。暗いスキンでは白鍵を少し落としてまぶしくしない
     const bool darkSkin = colours::bgDeep.getPerceivedBrightness() < 0.5f;
@@ -571,8 +633,10 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
     const auto off = mineOffset();
     const auto stroke = [] (float w) { return juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::rounded); };
 
-    // 自分の線は「歌ったところ」＝再生ヘッドまで
-    forEachRun (s.myPitch, s.viewStart - 4800, s.playhead, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
+    // 自分の線は「歌ったところ」＝再生ヘッドまで。描き直す範囲の左端より前（16 px の余白より左）は組み立てない
+    // （再生中は再生ヘッドの前後だけを描き直すので、線全体をたどると重い。#26）
+    const auto from = juce::jmax (s.viewStart - 4800, m.sampleAt ((float) g.getClipBounds().getX() - 16.0f));
+    forEachRun (s.myPitch, from, s.playhead, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
         // 同じ色の連続ごとに描く（境界点は両側で共有して途切れなく見せる）
         juce::Path path;
