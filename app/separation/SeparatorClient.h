@@ -21,7 +21,7 @@ public:
     static juce::File executable();
     /** モデルのフォルダ（環境変数 VB_SEPARATION_MODEL があればそこ、無ければアプリのデータの Models/separation/<id>） */
     static juce::File modelFolder();
-    /** 使うモデルの名前と版（キャッシュの鍵に入れる） */
+    /** 使うモデルの名前とバージョン（キャッシュの鍵に入れる） */
     static juce::String modelId();
     /** 分離に要る物（実行ファイルとモデルの部品）がそろっている */
     static bool available();

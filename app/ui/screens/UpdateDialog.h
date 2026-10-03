@@ -6,7 +6,7 @@
 namespace vb
 {
 /** 新しいバージョンのお知らせ（DESIGN 11.7）
-    ステータスバーの知らせを押すと開く。GitHub のリリース（UiSession::checkForUpdates*）で見つけた版の中身を見せる。
+    ステータスバーの知らせを押すと開く。GitHub のリリース（UiSession::checkForUpdates*）で見つけたバージョンの中身を見せる。
     ビルドは署名していないので自分では入れ替えない：主のキーはブラウザでこの OS のインストーラー（無ければリリースのページ）を開く */
 class UpdateDialog : public DialogPanel
 {
@@ -14,7 +14,7 @@ public:
     explicit UpdateDialog (const update::Release&);
 
     /** onOpen：主のキー（インストーラーかページ）、onOpenPage：リリースのページ（インストーラーがある時だけキーを出す）、
-        onSkip：この版を飛ばす。「あとで」は閉じるだけ（onCloseRequest） */
+        onSkip：このバージョンを飛ばす。「あとで」は閉じるだけ（onCloseRequest） */
     std::function<void()> onOpen, onOpenPage, onSkip;
 
 protected:

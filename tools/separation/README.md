@@ -46,8 +46,8 @@ C++ 側との約束（DESIGN 11.3）
 | karaoke の ckpt | https://huggingface.co/anvuew/karaoke_bs_roformer/resolve/main/karaoke_bs_roformer_anvuew.ckpt | 204,486,925 | `206d04757cb5f75ca3b55f8a0a48f5c26aa2351d4ff3c7adbfc9affa30ea3ae4` |
 | karaoke の設定 | https://huggingface.co/anvuew/karaoke_bs_roformer/resolve/main/karaoke_bs_roformer_anvuew.yaml | 1,973 | `5cb3f127ecbc6a8e37f31ea7e05f60f360a44da43e857bde805b7b68558f6338` |
 
-確かめた時のリポジトリの版：`anvuew/BS-RoFormer` 24988f47270cb3529b62c4f3bbb8234f4586de9b、
-`anvuew/karaoke_bs_roformer` 0d4423d42e12cf2ba39ae09171028507b8a2a7be（`resolve/main` を `resolve/<版>` にすると固定できる）。
+確かめた時のリポジトリのバージョン：`anvuew/BS-RoFormer` 24988f47270cb3529b62c4f3bbb8234f4586de9b、
+`anvuew/karaoke_bs_roformer` 0d4423d42e12cf2ba39ae09171028507b8a2a7be（`resolve/main` を `resolve/<バージョン>` にすると固定できる）。
 
 ## 必要なもの
 
