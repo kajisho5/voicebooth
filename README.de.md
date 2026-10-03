@@ -143,7 +143,7 @@ Regeln zur Logo-Nutzung (Schutzraum, Mindestgröße, Versionen für hellen Hinte
 | CPU | 64-Bit, 4 Kerne | 6 Kerne oder mehr (Apple M1 oder neuer, aktueller Intel Core i5 / AMD Ryzen 5 oder besser) |
 | Arbeitsspeicher | 8 GB | 16 GB |
 | Freier Speicherplatz | 2 GB | 10 GB oder mehr (SSD) |
-| Bildschirm | 1280×800 | 1440×900 oder größer |
+| Bildschirm | 1280×800 | 1920×1080 oder größer |
 | Audio | Eingebauter Ein-/Ausgang funktioniert | Ein Audio-Interface und kabelgebundene Kopfhörer (ASIO unter Windows gibt geringere Latenz) |
 | Internet | Nur für den ersten Download des Trennungsmodells (alles außer der Trennung funktioniert offline) | — |
 

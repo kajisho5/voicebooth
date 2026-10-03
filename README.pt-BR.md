@@ -143,7 +143,7 @@ As regras de uso do logo (área de proteção, tamanho mínimo, versões para fu
 | CPU | 64 bits, 4 núcleos | 6 núcleos ou mais (Apple M1 ou posterior, um Intel Core i5 / AMD Ryzen 5 recente ou superior) |
 | Memória | 8 GB | 16 GB |
 | Espaço livre em disco | 2 GB | 10 GB ou mais (SSD) |
-| Tela | 1280×800 | 1440×900 ou maior |
+| Tela | 1280×800 | 1920×1080 ou maior |
 | Áudio | A entrada/saída embutida funciona | Uma interface de áudio e fones com fio (ASIO no Windows dá menos latência) |
 | Internet | Só para o primeiro download do modelo de separação (tudo, exceto a separação, funciona offline) | — |
 

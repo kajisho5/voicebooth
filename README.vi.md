@@ -143,7 +143,7 @@ Quy tắc sử dụng logo (khoảng trống, kích thước tối thiểu, phi�
 | CPU | 64-bit, 4 nhân | 6 nhân trở lên (Apple M1 trở lên, Intel Core i5 / AMD Ryzen 5 đời mới hoặc cao hơn) |
 | Bộ nhớ | 8 GB | 16 GB |
 | Dung lượng trống | 2 GB | 10 GB trở lên (SSD) |
-| Màn hình | 1280×800 | 1440×900 trở lên |
+| Màn hình | 1280×800 | 1920×1080 trở lên |
 | Âm thanh | Dùng được đầu vào/ra có sẵn | Sound card và tai nghe có dây (ASIO trên Windows cho độ trễ thấp hơn) |
 | Internet | Chỉ để tải mô hình tách giọng lần đầu (mọi thứ trừ tách giọng đều chạy offline) | — |
 

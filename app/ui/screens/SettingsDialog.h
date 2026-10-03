@@ -21,6 +21,10 @@ public:
     std::function<void()> onNewSkin;   // テンプレートから作る
     std::function<void()> onAbout;        // このアプリについて・ライセンス
     std::function<void()> onClearCache;   // キャッシュを空にする（確認は MainComponent が出す）
+    std::function<void()> onInstallModels;   // 分離モデルを入れる（設定を閉じてからダウンロードの確認を出す）
+
+    void parentHierarchyChanged() override { fitToParent(); }
+    void parentSizeChanged() override { fitToParent(); }
 
 protected:
     void layoutBody (juce::Rectangle<int>) override;
@@ -29,15 +33,24 @@ protected:
 private:
     void onSessionChanged (juce::uint32) override;
 
+    /** 1920x1080 の窓で等倍。窓が小さい時は全体（文字・行・キー）を同じ割合で縮めて、全部の行を収める */
+    void fitToParent();
+    void applyScale (float);
+    float scale = 1.0f;
+    int rowH = 58, ctrlH = 42;
+    KeyButton* closeFooter = nullptr;
+    KeyButton* aboutFooter = nullptr;
+
     // control が無い行は value（と LED）を右に描く。extra は control の左に並べるキー
     struct Row { juce::String label, note; juce::Component* control; int controlWidth; juce::String value = {}; juce::Colour led = {};
-                 std::vector<KeyButton*> extras = {}; };
+                 std::vector<KeyButton*> extras = {}; int baseWidth = 0; };   // baseWidth：等倍の時の右の欄の幅
 
     std::vector<skin::Skin> skinChoices;
     Dropdown language, skinPicker;
     KeyButton editSkin, newSkin;
     SegmentedKeys mode, tolerance, countIn, crossfade;
     KeyButton octaveAlign, showLyrics, openSetup, cacheKey, supportKey;
+    KeyButton modelKey;                            // 分離モデル：入れる／入っている／受け取り中（B16）
     KeyButton cacheOpen, cacheClear;               // キャッシュの場所（DESIGN 8）：開く・空にする
     KeyButton updateAuto, updateBetas, updateNow;  // 新しいバージョンの確認（DESIGN 11.7）
     std::unique_ptr<juce::FileChooser> chooser;
