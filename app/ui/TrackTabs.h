@@ -47,7 +47,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int height = 62;
+    static int height() { return 62 + juce::roundToInt (10.0f * textBoostAmount()); }   // 文字を大きくしている分（1920x1080）だけ高く
 
 private:
     void onSessionChanged (juce::uint32) override;

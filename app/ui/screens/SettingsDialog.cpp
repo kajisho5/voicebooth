@@ -206,17 +206,18 @@ void SettingsDialog::applyScale (float k)
     rowH = juce::roundToInt ((float) baseRowH * k);
     ctrlH = juce::roundToInt ((float) baseCtrlH * k);
     titleHeight = sansH (titlePx);
+    titleExact = true;
     footerKeyHeight = juce::roundToInt ((float) baseFooterKeyH * k);
 
     // 幅は下の idealWidth が文字から測るので、先に文字を決める
     for (auto* sk : { &tolerance, &countIn, &crossfade })
-        sk->setFont (mono (keyPx * monoEm * k, Weight::medium));
-    mode.setFont (sans (sansH (keyPx), Weight::medium));
+        sk->setFont (monoExact (keyPx * monoEm * k, Weight::medium));
+    mode.setFont (sansExact (sansH (keyPx), Weight::medium));
     for (auto* d : { &language, &skinPicker })
-        d->setFont (sans (sansH (keyPx), Weight::medium));
+        d->setFont (sansExact (sansH (keyPx), Weight::medium));
     for (auto* key : { &octaveAlign, &showLyrics, &openSetup, &cacheKey, &supportKey, &cacheOpen, &cacheClear,
                        &updateAuto, &updateBetas, &updateNow, &editSkin, &newSkin, &modelKey, closeFooter, aboutFooter })
-        key->withFont (sans (sansH (keyPx), Weight::medium));
+        key->withFont (sansExact (sansH (keyPx), Weight::medium));
 
     const auto px = [k] (int base) { return juce::roundToInt ((float) base * k); };
     for (auto& r : rows)
@@ -415,21 +416,21 @@ void SettingsDialog::paintBody (juce::Graphics& g, juce::Rectangle<int>)
 
         auto text = a.withTrimmedRight ((float) juce::jmax (juce::roundToInt (260 * scale), rows[i].controlWidth) + 24.0f * scale);
         g.setColour (colours::text);
-        g.setFont (sans (labelPx * sansEm * scale, Weight::medium));
+        g.setFont (sansExact (labelPx * sansEm * scale, Weight::medium));
         g.drawText (rows[i].label, text.removeFromTop (rows[i].note.isEmpty() ? text.getHeight() : text.getHeight() * 0.54f),
                     rows[i].note.isEmpty() ? juce::Justification::centredLeft : juce::Justification::bottomLeft, true);
         if (rows[i].note.isNotEmpty())
         {
             // 説明は暗すぎると読めない（textMute は地との差が小さい）。textDim で一段明るく
             g.setColour (colours::textDim);
-            g.setFont (sans (notePx * sansEm * scale));
+            g.setFont (sansExact (notePx * sansEm * scale));
             g.drawText (rows[i].note, text.withTrimmedTop (2.0f), juce::Justification::topLeft, true);
         }
 
         if (rows[i].control == nullptr && rows[i].value.isNotEmpty())
         {
             auto v = a.removeFromRight ((float) juce::jmax (juce::roundToInt (260 * scale), rows[i].controlWidth));
-            g.setFont (sans (keyPx * sansEm * scale));
+            g.setFont (sansExact (keyPx * sansEm * scale));
             const auto textW = juce::jmin (v.getWidth() - 18.0f, textWidth (g.getCurrentFont(), rows[i].value) + 2.0f);
             if (! rows[i].led.isTransparent())
                 paint::led (g, { v.getRight() - textW - 12.0f, v.getCentreY() }, 4.0f, rows[i].led, true);

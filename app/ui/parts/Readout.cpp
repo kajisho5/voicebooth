@@ -40,10 +40,25 @@ void Readout::paint (juce::Graphics& g)
 }
 
 //==============================================================================
+namespace
+{
+    juce::Font tallyFont() { return mono (11.0f, Weight::semibold, 0.16f); }
+}
+
+int TallyLamp::idealWidth()
+{
+    // LED の分（24）と右の余白（12）
+    const auto f = tallyFont();
+    float w = 0.0f;
+    for (auto* key : { "tally.standby", "tally.play", "tally.rec" })
+        w = juce::jmax (w, textWidth (f, tr (key)));
+    return juce::jmax (96, juce::roundToInt (w) + 36);
+}
+
 void TallyLamp::paint (juce::Graphics& g)
 {
     const auto b = getLocalBounds().toFloat().reduced (0.5f);
-    const auto f = mono (11.0f, Weight::semibold, 0.16f);
+    const auto f = tallyFont();
 
     if (state == State::rec)
     {

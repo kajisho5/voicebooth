@@ -321,11 +321,11 @@ void MainComponent::resized()
     top.setBounds (r.removeFromTop (TopBar::height));
     transport.setBounds (r.removeFromTop (TransportBar::height));
     status.setBounds (r.removeFromBottom (StatusBar::height));
-    rack.setBounds (r.removeFromRight (metrics::rackWidth));
+    rack.setBounds (r.removeFromRight (metrics::rackWidth + juce::roundToInt ((float) metrics::rackExtra * textBoostAmount())));
 
     // キャンバス：下から積み、残りはすべてピッチレーン（主役）
     canvasArea = r;
-    tracks.setBounds (r.removeFromBottom (TrackTabs::height));
+    tracks.setBounds (r.removeFromBottom (TrackTabs::height()));
     wave.setBounds (r.removeFromBottom (WaveLane::preferredHeight (state().mode)));
     // 歌詞レーンは設定で出した時だけ（既定は出さない）
     lyrics.setVisible (state().showLyrics && ! needsSong());

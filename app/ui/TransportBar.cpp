@@ -242,7 +242,7 @@ void TransportBar::resized()
 
     time.setBounds (centreH (r.removeFromLeft (172), 46));
     r.removeFromLeft (6);
-    beat.setBounds (centreH (r.removeFromLeft (84), 46));
+    beat.setBounds (centreH (r.removeFromLeft (104), 46));
     r.removeFromLeft (16);
 
     for (auto* b : { &loop, &rangeIn, &rangeOut })

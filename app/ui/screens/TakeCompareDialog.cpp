@@ -51,7 +51,7 @@ TakeCompareDialog::TakeCompareDialog (UiSession& u)
 
     rebuild();
     const auto rows = juce::jlimit (2, maxVisibleRows, (int) entries.size());
-    setSize (pro() ? 560 : 500, headerH + 14 + rangeRowH + 8 + columnRowH + rows * rowH + hintH + footerH + 6);
+    setSize (pro() ? 680 : 600, headerH + 14 + rangeRowH + 8 + columnRowH + rows * rowH + hintH + footerH + 6);
     refreshKeys();
 }
 

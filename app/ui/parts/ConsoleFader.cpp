@@ -190,7 +190,8 @@ ChannelStrip::ChannelStrip (const juce::String& n, double value, float meterLeve
 void ChannelStrip::resized()
 {
     auto r = getLocalBounds();
-    nameArea = r.removeFromTop (30);
+    // 2 行の名前（お手本 / Main）と小さな注記。文字を大きくしている分（1920x1080）だけ高くする
+    nameArea = r.removeFromTop (30 + juce::roundToInt ((note.isNotEmpty() ? 20.0f : 10.0f) * textBoostAmount()));
 
     auto keys = r.removeFromBottom (22);
     if (withMuteSolo && ! soloShown)
@@ -217,12 +218,12 @@ void ChannelStrip::paint (juce::Graphics& g)
     {
         g.setColour (colours::textMute);
         g.setFont (sans (9.5f));
-        g.drawText (note, names.removeFromBottom (12), juce::Justification::centred, false);
+        g.drawText (note, names.removeFromBottom (12 + juce::roundToInt (3.0f * textBoostAmount())), juce::Justification::centred, false);
     }
 
     g.setColour (colours::text.withAlpha (0.9f));
     g.setFont (sans (11.5f, Weight::medium));
-    g.drawFittedText (name, names, juce::Justification::centredBottom, 2, 0.9f);
+    g.drawFittedText (name, names, juce::Justification::centredBottom, 2, 0.85f);
 
     g.setColour (colours::textDim);
     g.setFont (mono (12.0f, Weight::medium));

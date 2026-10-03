@@ -67,7 +67,7 @@ LyricsDialog::LyricsDialog (UiSession& u)
         text.setText (song::toLyricText (ly, u->sampleRate()), false);
     }
 
-    setSize (780, 620);
+    setSize (920, 660);
     reparse();
 }
 

@@ -166,6 +166,9 @@ public:
     void initialise (const juce::String& commandLine) override
     {
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
+        // 文字の大きさ：1920x1080 の画面で満額。小さい画面・拡大 125 % 以上ではほとんど大きくしない（部品が収まるように）
+        if (const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
+            setTextBoost (textBoostFor (d->userArea.getHeight()));
 
         juce::PropertiesFile::Options opts;
         opts.applicationName = "VoiceBooth";

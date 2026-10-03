@@ -66,7 +66,7 @@ void DialogPanel::paint (juce::Graphics& g)
     auto head = getLocalBounds().removeFromTop (headerH).reduced (padding, 0);
     paint::microLabel (g, head.removeFromTop (headerH / 2).toFloat().withTrimmedTop (10.0f), microTitle, colours::textMute);
     g.setColour (colours::text);
-    g.setFont (sans (titleHeight, Weight::semibold));
+    g.setFont (titleExact ? sansExact (titleHeight, Weight::semibold) : sans (titleHeight, Weight::semibold));
     g.drawText (title, head.withTrimmedRight (40).translated (0, -6), juce::Justification::centredLeft, true);
 
     paint::hline (g, (float) headerH, 0.0f, b.getWidth());

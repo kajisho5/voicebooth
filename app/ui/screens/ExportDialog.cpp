@@ -87,7 +87,7 @@ ExportDialog::ExportDialog (UiSession& u)
     addFooterKey (tr ("export.do"), KeyRole::primary, [this] { if (onExport) onExport(); });
     addFooterKey (tr ("common.cancel"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
 
-    setSize (860, 520 + rowH * (int) rows.size());   // 行数（モードで変わる）に合わせる
+    setSize (1040, 520 + rowH * (int) rows.size());   // 行数（モードで変わる）に合わせる
 }
 
 void ExportDialog::layoutBody (juce::Rectangle<int> r)
@@ -124,9 +124,9 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
     {
         auto list = listArea;
         auto head = list.removeFromTop (22).toFloat().withTrimmedLeft (44.0f);
-        paint::microLabel (g, head.removeFromLeft (330.0f), tr ("export.col.file"), colours::textMute);
-        paint::microLabel (g, head.removeFromLeft (110.0f), tr ("export.col.length"), colours::textMute);
-        paint::microLabel (g, head.removeFromLeft (80.0f), tr ("export.col.peak"), colours::textMute);
+        paint::microLabel (g, head.removeFromLeft (420.0f), tr ("export.col.file"), colours::textMute);
+        paint::microLabel (g, head.removeFromLeft (140.0f), tr ("export.col.length"), colours::textMute);
+        paint::microLabel (g, head.removeFromLeft (130.0f), tr ("export.col.peak"), colours::textMute);
         paint::microLabel (g, head, tr ("export.col.status"), colours::textMute);
 
         for (size_t i = 0; i < rows.size(); ++i)
@@ -136,7 +136,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
             paint::hline (g, row.getBottom() - 1.0f, row.getX(), row.getRight(), colours::grid);
             row.removeFromLeft (44.0f);
 
-            auto name = row.removeFromLeft (330.0f);
+            auto name = row.removeFromLeft (420.0f);
             g.setColour (f.available ? colours::text : colours::textMute);
             g.setFont (mono (12.0f, Weight::medium));
             g.drawText (f.file, name.removeFromTop (name.getHeight() * 0.55f), juce::Justification::bottomLeft, true);
@@ -148,8 +148,8 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
             g.setColour (colours::textDim);
             g.setFont (mono (11.5f));
             g.drawText (f.available ? formatTime (s.project.lengthSamples, s.sampleRate(), true) : juce::String ("-"),
-                        row.removeFromLeft (110.0f), juce::Justification::centredLeft, false);
-            g.drawText (f.peak.isEmpty() ? juce::String ("-") : f.peak, row.removeFromLeft (80.0f), juce::Justification::centredLeft, false);
+                        row.removeFromLeft (140.0f), juce::Justification::centredLeft, false);
+            g.drawText (f.peak.isEmpty() ? juce::String ("-") : f.peak, row.removeFromLeft (130.0f), juce::Justification::centredLeft, false);
 
             auto chip = [&] (const juce::String& text, juce::Colour c, Icon icon)
             {

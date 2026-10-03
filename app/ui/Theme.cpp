@@ -172,8 +172,62 @@ juce::Typeface::Ptr sansTypeface (Weight w)
     return FontCache::getInstance()->sans[(int) w];
 }
 
+namespace
+{
+    float textBoost = 1.0f;
+}
+
+void setTextBoost (float amount)
+{
+    textBoost = juce::jlimit (0.0f, 1.0f, amount);
+}
+
+float textBoostAmount() { return textBoost; }
+
+float textBoostFor (int userAreaHeight)
+{
+    // 作業領域の高さ 800 以下 → 0、1000 以上（1920x1080 の 100 %）→ 1。その間はなめらかに
+    return juce::jlimit (0.0f, 1.0f, (float) (userAreaHeight - 800) / 200.0f);
+}
+
+float uiTextHeight (float h)
+{
+    const auto full = juce::jlimit (1.15f, 1.6f, 1.6f - juce::jmax (0.0f, h - 12.0f) * 0.035f);
+    return h * (1.0f + (full - 1.0f) * textBoost);
+}
+
+namespace
+{
+    /** 日本語の本文は字の実寸 11 px（JUCE の高さ 16.5）を下回らない（注記・小さな説明が読めないため） */
+    float sansHeight (float h) { return juce::jmax (uiTextHeight (h), juce::jmin (16.5f, h * 2.0f) * textBoost); }
+}
+
+namespace
+{
+    juce::Font sansInExact (i18n::Language lang, float height, Weight w)
+    {
+        if (! i18n::info (lang).embeddedFont)
+            if (auto face = systemTypeface (lang, w))
+                return juce::Font (juce::FontOptions (face).withHeight (height));
+        return embeddedSans (height, w);
+    }
+}
+
+juce::Font sansExact (float height, Weight w)
+{
+    return sansInExact (i18n::current(), height, w);
+}
+
+juce::Font monoExact (float height, Weight w, float tracking)
+{
+    return juce::Font (juce::FontOptions (FontCache::getInstance()->mono[(int) w])
+                           .withHeight (height)
+                           .withKerningFactor (tracking));
+}
+
 juce::Font sansIn (i18n::Language lang, float height, Weight w)
 {
+    height = sansHeight (height);
     if (! i18n::info (lang).embeddedFont)
         if (auto face = systemTypeface (lang, w))
             return juce::Font (juce::FontOptions (face).withHeight (height));
@@ -197,14 +251,12 @@ juce::Font sansForLanguageName (const juce::String& text, float height, Weight w
 juce::Font sansFor (const juce::String& text, float height, Weight w)
 {
     // 日本語の歌詞・曲名は UI の言語に関係なく日本語の字形で描く
-    return containsKana (text) ? embeddedSans (height, w) : sans (height, w);
+    return containsKana (text) ? embeddedSans (sansHeight (height), w) : sans (height, w);
 }
 
 juce::Font mono (float height, Weight w, float tracking)
 {
-    return juce::Font (juce::FontOptions (FontCache::getInstance()->mono[(int) w])
-                           .withHeight (height)
-                           .withKerningFactor (tracking));
+    return monoExact (uiTextHeight (height), w, tracking);
 }
 
 float textWidth (const juce::Font& f, const juce::String& s)
