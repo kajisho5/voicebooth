@@ -49,6 +49,7 @@
 #else
  #include <signal.h>
  #include <cerrno>
+ #include <sys/resource.h>   // setpriority
 #endif
 
 namespace
@@ -74,6 +75,17 @@ bool parentAlive (juce::int64 pid)
     return running;
    #else
     return ::kill ((pid_t) pid, 0) == 0 || errno != ESRCH;
+   #endif
+}
+
+/** 自分の優先度を下げる（分離・音程は数分〜数十分 CPU を使い切る。録音・再生をしている本体と CPU を取り合わないように。#26）。
+    ONNX Runtime のスレッドもこの優先度を引き継ぐ */
+void lowerPriority()
+{
+   #if JUCE_WINDOWS
+    SetPriorityClass (GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
+   #else
+    setpriority (PRIO_PROCESS, 0, 10);
    #endif
 }
 
@@ -294,6 +306,7 @@ static juce::StringArray commandLineArgs (int argc, char* argv[])
 
 int main (int argc, char* argv[])
 {
+    lowerPriority();
     const auto args = commandLineArgs (argc, argv);
 
     const juce::File modelDir (arg (args, "--model")), in (arg (args, "--in")), outVocals (arg (args, "--vocals")), outBacking (arg (args, "--backing"));
