@@ -49,4 +49,9 @@ LoadedProject fromJson (const juce::String&);
 
 /** 一時ファイルに書いてから置き換える（途中で落ちても前のファイルが壊れない） */
 bool writeAtomically (const juce::File&, const juce::String& text);
+
+/** 前に落ちた・終わった時に残った裏録り（Audio/Takes/.retro-*.wav。B7）を片付ける。
+    プロジェクトが使っているもの（usedPaths：プロジェクトフォルダ相対）はそのまま。使っていないものは消さずに
+    Audio/Recovered/ へ移す（REC を押した後に落ちると、歌った声がこの名前のまま残るため）。移した数を返す */
+int recoverRetroLeftovers (const juce::File& projectFolder, const juce::StringArray& usedPaths);
 } // namespace vb::project

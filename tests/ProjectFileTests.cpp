@@ -137,6 +137,28 @@ public:
             expectEquals (f.getParentDirectory().getNumberOfChildFiles (juce::File::findFiles), 1);   // 一時ファイルは残らない
             dir.deleteRecursively();
         }
+
+        beginTest ("leftover retro recordings: the used take stays, others move to Audio/Recovered (never deleted)");
+        {
+            auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory)
+                           .getChildFile ("VoiceBoothTests-retro-" + juce::String (juce::Random::getSystemRandom().nextInt64()));
+            const auto takes = dir.getChildFile ("Audio/Takes");
+            expect (takes.createDirectory().wasOk());
+            const auto used = takes.getChildFile (".retro-1-100.wav");     // 名前を付け直せずに採用したテイク
+            const auto sung = takes.getChildFile (".retro-2-200.wav");     // REC の後に落ちた：歌った声
+            const auto normal = takes.getChildFile ("Main_take1.wav");
+            for (auto& f : { used, sung, normal })
+                expect (f.replaceWithText ("x"));
+
+            expectEquals (recoverRetroLeftovers (dir, { "Audio/Takes/.retro-1-100.wav" }), 1);
+            expect (used.existsAsFile());
+            expect (normal.existsAsFile());
+            expect (! sung.exists());
+            expect (dir.getChildFile ("Audio/Recovered/retro-2-200.wav").existsAsFile());
+
+            expectEquals (recoverRetroLeftovers (dir, { "Audio/Takes/.retro-1-100.wav" }), 0);   // 2 回目は何もしない
+            dir.deleteRecursively();
+        }
     }
 };
 

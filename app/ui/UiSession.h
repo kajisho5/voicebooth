@@ -90,6 +90,8 @@ public:
     // --- 輸送 ---------------------------------------------------------------
     void setPlaying (bool);
     void setRecording (bool);
+    /** アプリを終える前（メッセージスレッド）。録音中ならそこまでをテイクとして入れ、裏録りは消し、保存する */
+    void closeForQuit();
     /** 録音を止めて、いま録っているテイクを捨てる（Esc →「破棄する」。ファイルも消し、採用もしない） */
     void discardRecording();
     void stop();
@@ -363,7 +365,11 @@ private:
     void syncStemGains();          // トラックの音量・M / S・録音中を再生に反映
     void restoreProject();
     void markDirty();
-    void copyIntoProject (const juce::File& source, const juce::String& relativePath);
+    static juce::String cacheKey (const juce::File& guide, const juce::String& modelId);
+    enum class CopyTarget { song, guide };
+    /** 曲・お手本をプロジェクトの中へコピーする（裏で）。終わるまでは元のファイルを指し、終わったら relativePath にする。
+        失敗したら知らせて、元のファイルを指したままにする */
+    void copyIntoProject (const juce::File& source, const juce::String& relativePath, CopyTarget);
     int64 prerollSamples() const;
     void startWithCountIn (bool punch);   // 止まった所から録る時の再生の頭（カウントイン。2026-10-02）
     void syncClickToEngine();

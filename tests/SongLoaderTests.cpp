@@ -133,6 +133,25 @@ public:
             expect (loadSong (empty, formats).error == LoadResult::Error::empty);
         }
 
+        beginTest ("crafted header: huge SR and sample count is refused (no overflow)");
+        {
+            // 8bit モノラル・SR 10 億・data チャンクは 0xFFFFFFF0 バイト（約 43 億サンプル = 約 4 秒）と書いた、中身の無いファイル。
+            // 時間だけ見ると上限内だが、サンプル数は int を超える（監査 2026-10-03：確保した外へ読み込んでいた）
+            juce::MemoryOutputStream m;
+            auto u32 = [&m] (juce::uint32 v) { m.writeInt ((int) v); };
+            auto u16 = [&m] (juce::uint16 v) { m.writeShort ((short) v); };
+            m.write ("RIFF", 4); u32 (0xFFFFFFF8u); m.write ("WAVE", 4);
+            m.write ("fmt ", 4); u32 (16); u16 (1); u16 (1); u32 (1000000000u); u32 (1000000000u); u16 (1); u16 (8);
+            m.write ("data", 4); u32 (0xFFFFFFF0u);
+            for (int i = 0; i < 4096; ++i) m.writeByte ((char) 0x80);
+            const auto crafted = dir.getChildFile ("crafted.wav");
+            crafted.replaceWithData (m.getData(), m.getDataSize());
+
+            const auto r = loadSong (crafted, formats);
+            expect (r.error == LoadResult::Error::tooLong || r.error == LoadResult::Error::unsupported, "crafted header must be refused");
+            expect (r.audio == nullptr);
+        }
+
         beginTest ("cancel while loading");
         {
             const auto f = dir.getChildFile ("long.wav");

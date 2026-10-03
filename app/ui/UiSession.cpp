@@ -94,13 +94,18 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     if (file.isAChildOf (s.projectFolder))
         s.project.songPath = file.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
     else
+        copyIntoProject (file, "Audio/" + file.getFileName(), CopyTarget::song);
+    // 前に落ちた時の裏録りの残り（B7）を片付ける。消さない：使っているテイクはそのまま、ほかは Audio/Recovered/ へ
+    // （REC を押した後に落ちると、歌った声が .retro- の名前で残る。前は開くたびに全部消していた。監査 2026-10-03）
     {
-        s.project.songPath = "Audio/" + file.getFileName();
-        copyIntoProject (file, s.project.songPath);
+        juce::StringArray used;
+        if (pendingProject != nullptr)
+            for (auto& t : pendingProject->project.tracks)
+                for (auto& k : t.takes)
+                    used.add (k.path);
+        if (const auto moved = project::recoverRetroLeftovers (s.projectFolder, used); moved > 0)
+            postNotice (tr ("project.recovered", moved));
     }
-    // 前に落ちた時の裏録りの残り（B7。REC にならなかった分）を消す
-    for (auto& f : s.projectFolder.getChildFile ("Audio/Takes").findChildFiles (juce::File::findFiles, false, ".retro-*.wav"))
-        f.deleteFile();
     s.songOriginal = audio;
     s.songCurrent = audio;
 
@@ -220,20 +225,48 @@ void UiSession::restoreProject()
     }
 }
 
-void UiSession::copyIntoProject (const juce::File& source, const juce::String& relativePath)
+void UiSession::copyIntoProject (const juce::File& source, const juce::String& relativePath, CopyTarget target)
 {
-    // 裏でコピー（数十 MB）。同じ名前・同じ大きさのものが既にあれば何もしない
+    auto pathOf = [this] (CopyTarget c) -> juce::String& { return c == CopyTarget::song ? s.project.songPath : s.guidePath; };
+
+    // 同じ名前・同じ大きさのものが既にあれば、それを使う
     const auto dest = s.projectFolder.getChildFile (relativePath);
     if (dest.existsAsFile() && dest.getSize() == source.getSize())
+    {
+        pathOf (target) = relativePath;
         return;
-    juce::Thread::launch ([source, dest]
+    }
+
+    // コピーが終わるまでは元のファイルを指しておく。コピーに失敗した・途中で終えた時も、プロジェクトは開ける
+    // （前は先にコピー先を書いていたので、ディスクが一杯だと次から開けなくなっていた。監査 2026-10-03）
+    const auto original = source.getFullPathName();
+    pathOf (target) = original;
+
+    // 裏でコピー（数十 MB）
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, serial, source, dest, relativePath, target, original, pathOf]
     {
         dest.getParentDirectory().createDirectory();
         const auto temp = dest.getSiblingFile (dest.getFileName() + ".part");
-        if (source.copyFileTo (temp))
-            temp.moveFileTo (dest);
-        else
+        const bool ok = source.copyFileTo (temp) && temp.moveFileTo (dest);
+        if (! ok)
             temp.deleteFile();
+
+        juce::MessageManager::callAsync ([this, weak, serial, relativePath, target, original, ok, pathOf]
+        {
+            if (weak.expired() || serial != s.songSerial || pathOf (target) != original)
+                return;   // 別の曲・別のお手本にした
+            if (ok)
+            {
+                pathOf (target) = relativePath;   // ここからはプロジェクトの中のコピーを使う（持ち運べる）
+                markDirty();
+            }
+            else
+            {
+                postNotice (tr ("project.copyFailed", original));
+            }
+        });
     });
 }
 
@@ -295,6 +328,16 @@ void UiSession::flushSave()
 {
     if (dirty)
         saveProject();
+}
+
+void UiSession::closeForQuit()
+{
+    // 録音中に閉じられても、そこまでの声はテイクとして残す（前は保存だけして、テイクがプロジェクトから外れていた）
+    if (s.isRecording)
+        setRecording (false);
+    else
+        finishRecording();   // 裏録り（B7）だけなら消す
+    flushSave();
 }
 
 void UiSession::restoreRecentProjects (const juce::StringArray& list)
@@ -958,7 +1001,7 @@ void UiSession::finishRecording()
     if (res.file != target)
     {
         // 同じ名前があれば空いている名前へ（moveFileTo は先のファイルを消してしまう。録った声は上書きしない）。
-        // 移せなければ元の名前のまま使う（その時は .retro- の掃除から外れないので、知らせる）
+        // 移せなければ元の名前のまま使う（開いた時の .retro- の片付けは、使っているテイクには触らない。知らせる）
         const auto dest = target.exists() ? target.getNonexistentSibling (false) : target;
         if (dest.getParentDirectory().createDirectory().wasOk() && res.file.moveFileTo (dest))
             path = dest.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
@@ -1368,10 +1411,7 @@ void UiSession::loadGuide (const juce::File& file)
     if (file.isAChildOf (s.projectFolder))
         s.guidePath = file.getRelativePathFrom (s.projectFolder).replaceCharacter ('\\', '/');
     else
-    {
-        s.guidePath = "Audio/Guide/" + file.getFileName();
-        copyIntoProject (file, s.guidePath);
-    }
+        copyIntoProject (file, "Audio/Guide/" + file.getFileName(), CopyTarget::guide);
     markDirty();
     postNotice (tr ("guide.analysing", s.guideName));
     notify (change::view);
@@ -1706,13 +1746,18 @@ void UiSession::stopSeparation()
         separator->stop();
 }
 
+juce::String UiSession::cacheKey (const juce::File& guide, const juce::String& modelId)
+{
+    // 原曲のファイル名・大きさ・モデルで決める。場所と日時は入れない：原曲はプロジェクトへコピーし終わるまで元の場所を指すので、
+    // コピーの前と後（日時も変わる）で同じキーになるように（2026-10-03）
+    return juce::String::toHexString ((juce::int64) (guide.getFileName() + "|" + juce::String (guide.getSize()) + "|" + modelId).hashCode64());
+}
+
 juce::File UiSession::separationCacheFolder() const
 {
-    // キャッシュ（Cache/ は消しても作り直せる。DESIGN 8）：原曲のファイル・大きさ・日時・モデルが同じなら分離し直さない
+    // キャッシュ（Cache/ は消しても作り直せる。DESIGN 8）：原曲のファイル名・大きさ・モデルが同じなら分離し直さない
     const auto guide = s.projectFolder.getChildFile (s.guidePath);
-    const auto key = juce::String::toHexString ((juce::int64) (s.guidePath + "|" + juce::String (guide.getSize()) + "|"
-                                                               + juce::String (guide.getLastModificationTime().toMilliseconds()) + "|"
-                                                               + separation::SeparatorClient::modelId()).hashCode64());
+    const auto key = cacheKey (guide, separation::SeparatorClient::modelId());
     return s.projectFolder.getChildFile ("Cache/separation/" + key);
 }
 
@@ -1902,9 +1947,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
 juce::File UiSession::leadCacheFolder() const
 {
     const auto guide = s.projectFolder.getChildFile (s.guidePath);
-    const auto key = juce::String::toHexString ((juce::int64) (s.guidePath + "|" + juce::String (guide.getSize()) + "|"
-                                                               + juce::String (guide.getLastModificationTime().toMilliseconds()) + "|"
-                                                               + separation::SeparatorClient::karaokeModelId()).hashCode64());
+    const auto key = cacheKey (guide, separation::SeparatorClient::karaokeModelId());
     return s.projectFolder.getChildFile ("Cache/lead/" + key);
 }
 
@@ -2996,8 +3039,18 @@ void UiSession::goToStart()
 
 void UiSession::seek (int64 sample)
 {
+    // 録音中は動かさない。テイクのファイルは録り始めた位置から続けて書いているので、途中で飛ぶと
+    // 飛んだ後に歌った声が曲の違う位置に置かれる（監査 2026-10-03）。録り直すなら止めてから
+    if (s.isRecording)
+    {
+        postNotice (tr ("record.noSeek"));
+        return;
+    }
+    // 裏録り（B7）は捨てて録り直す（位置が変わると、ファイルの中の位置と曲の位置が合わなくなり、遡れない）
+    if (shadowActive)
+        finishRecording();
+
     s.playhead = juce::jlimit ((int64) 0, s.project.lengthSamples, sample);
-    if (s.isRecording) s.recordStart = s.playhead;
     if (s.lyricSyncing) s.lyricCursor = song::firstLineToSync (s.project.lyrics, s.playhead);   // 戻って合わせ直す（B4b）
     if (isEngineDriven()) engine->seek (s.playhead);
     keepPlayheadInView();
