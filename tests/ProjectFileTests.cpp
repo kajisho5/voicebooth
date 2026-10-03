@@ -173,6 +173,9 @@ public:
             // コピーし終える前に保存された元の場所（今は無い）→ プロジェクトの中のコピー
             const auto gone = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("VoiceBoothTests-gone/song.wav");
             expect (findMedia (dir, gone.getFullPathName(), "Audio") == copy);
+            // Windows で保存された元の場所（\ 区切り）・/ 区切りのどちらでも、名前でコピーを見つける
+            expect (findMedia (dir, "C:\\Users\\someone\\Music\\song.wav", "Audio") == copy);
+            expect (findMedia (dir, "C:/Users/someone/Music/song.wav", "Audio") == copy);
             // どちらにも無い：書いてある場所のまま（呼ぶ側が「見つからない」と知らせる）
             expect (! findMedia (dir, "Audio/none.wav", "Audio").existsAsFile());
             dir.deleteRecursively();
