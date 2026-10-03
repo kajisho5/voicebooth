@@ -346,11 +346,10 @@ struct NetProbe : juce::UnitTest
         auto http = makeHttpSource();
         for (auto u : { manifestUrl(), manifestUrl() + ".sig" })
         {
-            auto r = http->get (u, 0, {});
-            juce::MemoryBlock mb; juce::int64 n = -1; bool ex = false;
-            if (r.body) { juce::MemoryOutputStream m (mb, false); n = m.writeFromInputStream (*r.body, 2*1024*1024); ex = r.body->isExhausted(); }
-            std::cout << "NETPROBE " << (u + " status=" + juce::String (r.status) + " body=" + juce::String (r.body != nullptr ? 1 : 0) + " n=" + juce::String (n) + " exhausted=" + juce::String ((int) ex) + " len=" + juce::String (r.length)) << std::endl;
-            expectEquals (r.status, 200, u);
+            juce::MemoryBlock got;
+            const auto ok = fetchSmall (*http, u, got);
+            std::cout << "NETPROBE fetchSmall " << u << " ok=" << (int) ok << " size=" << got.getSize() << std::endl;
+            expect (ok, u);
         }
     }
 };
