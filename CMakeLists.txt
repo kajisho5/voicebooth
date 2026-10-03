@@ -159,7 +159,7 @@ juce_add_gui_app(VoiceBooth
     VERSION      ${PROJECT_VERSION}
     DOCUMENT_EXTENSIONS vbooth                      # プロジェクトファイル（B14）。Mac の Info.plist に入る
     MICROPHONE_PERMISSION_ENABLED TRUE
-    MICROPHONE_PERMISSION_TEXT "VoiceBooth はボーカル録音のためにマイクを使用します。")
+    MICROPHONE_PERMISSION_TEXT "VoiceBooth uses the microphone to record your vocals.")   # 言語ごとの文は下の InfoPlist.strings（#23）
 
 # 音声ファイルの読み込み（UI に依存しない。テストからも使う）
 set(VOICEBOOTH_AUDIO_SOURCES
@@ -206,7 +206,8 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/Rmvpe.cpp
     app/separation/SeparatorClient.cpp
     app/models/ModelManifest.cpp
-    app/models/ModelDownloader.cpp)
+    app/models/ModelDownloader.cpp
+    app/i18n/Reasons.cpp)
 
 # スキン（DESIGN 4.11：色・.vbskin の読み書き・見やすさの点検）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SKIN_SOURCES
@@ -450,6 +451,33 @@ if(VOICEBOOTH_SEPARATOR AND NOT VOICEBOOTH_UI_MOCK)
 endif()
 
 # ---------------------------------------------------------------------------
+# Mac のマイク許可の文を 12 言語に（#23）。翻訳表（resources/i18n/*.json）の system.microphonePermission から
+# <言語>.lproj/InfoPlist.strings を作り、VoiceBooth.app/Contents/Resources に置く。macOS は使う人の言語の物を表示する
+# （無い言語は Info.plist の英語）。書いた後に plutil で形を確かめる
+# ---------------------------------------------------------------------------
+if(APPLE)
+    set(vb_lproj_root "${CMAKE_BINARY_DIR}/lproj")
+    file(REMOVE_RECURSE "${vb_lproj_root}")
+    file(GLOB vb_i18n_tables "${CMAKE_SOURCE_DIR}/resources/i18n/*.json")
+    foreach(table ${vb_i18n_tables})
+        get_filename_component(lang "${table}" NAME_WE)
+        file(READ "${table}" vb_json)
+        string(JSON vb_mic GET "${vb_json}" "system.microphonePermission")
+        string(REPLACE "\\" "\\\\" vb_mic "${vb_mic}")
+        string(REPLACE "\"" "\\\"" vb_mic "${vb_mic}")
+        file(WRITE "${vb_lproj_root}/${lang}.lproj/InfoPlist.strings" "\"NSMicrophoneUsageDescription\" = \"${vb_mic}\";\n")
+    endforeach()
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${vb_i18n_tables})
+    add_custom_command(TARGET VoiceBooth POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_directory "${vb_lproj_root}" "$<TARGET_FILE_DIR:VoiceBooth>/../Resources")
+    foreach(table ${vb_i18n_tables})
+        get_filename_component(lang "${table}" NAME_WE)
+        add_custom_command(TARGET VoiceBooth POST_BUILD
+                           COMMAND plutil -lint "$<TARGET_FILE_DIR:VoiceBooth>/../Resources/${lang}.lproj/InfoPlist.strings")
+    endforeach()
+endif()
+
+# ---------------------------------------------------------------------------
 # テスト（ctest）。DESIGN 17：長さ・サンプル位置の正しさを機械で確かめる
 # ---------------------------------------------------------------------------
 if(VOICEBOOTH_TESTS)
@@ -457,6 +485,7 @@ if(VOICEBOOTH_TESTS)
     juce_add_console_app(VoiceBoothTests PRODUCT_NAME "VoiceBoothTests" NEEDS_CURL ${VB_NEEDS_CURL})
     target_sources(VoiceBoothTests PRIVATE
         tests/TestMain.cpp
+        tests/ReasonsTests.cpp
         tests/WaveformOverviewTests.cpp
         tests/SongLoaderTests.cpp
         tests/PlaybackCoreTests.cpp
