@@ -117,6 +117,8 @@ public:
     void nudgeGuide (double deltaMs);
     /** 原曲で聴く（オフボの代わりに、時間を合わせた原曲を同じ音量で鳴らす。聞き比べ。合わせた原曲がある時だけ） */
     void setListenOriginal (bool);
+    /** 「ここが同じ所」（DESIGN 7.1.1）：sample の前後 1.5 秒で原曲とカラオケの波形を比べ、ずれ（±250 ms まで）をお手本の位置の手直しに足す。裏で計算 */
+    void alignGuideAt (int64 sample);
     void resetGuideNudge();
     void setView (int64 start, int64 end);
     /** 横の拡大・縮小（ピッチと波形で共有）。anchor の位置は画面の同じ所に残す。factor < 1 で寄る。幅は 2 秒〜曲の長さ */

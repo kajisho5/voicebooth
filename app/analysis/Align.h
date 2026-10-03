@@ -61,6 +61,18 @@ KeyShiftResult estimateKeyShift (const float* reference, juce::int64 referenceLe
                                  const float* karaoke, juce::int64 karaokeLength,
                                  double sampleRate);
 
+/** 「ここが同じ所」（DESIGN 7.1.1）：center の前後 window サンプルで、b[i] と a[i + lag] が一番似る lag を ±maxLag の中から探す。
+    a = 合わせた原曲、b = カラオケ（同じ SR・同じ時間軸）。粗く（1/4 に間引いて）探してから、元の SR で ±8 サンプルを詰める。
+    見つからない（音が無い・範囲の外）なら found = false */
+struct LocalLag
+{
+    bool found = false;
+    juce::int64 lag = 0;
+    double correlation = 0.0;   // 正規化した相関（-1..1）
+};
+LocalLag localLag (const float* a, juce::int64 aLength, const float* b, juce::int64 bLength,
+                   juce::int64 center, juce::int64 window, juce::int64 maxLag);
+
 /** 音の立ち上がりの包絡（テスト・表示用に公開）。hop サンプルごとに 1 つ */
 std::vector<float> onsetEnvelope (const float* x, juce::int64 length, int frameSize, int hop);
 } // namespace vb::analysis

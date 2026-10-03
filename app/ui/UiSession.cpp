@@ -3213,6 +3213,55 @@ void UiSession::setListenOriginal (bool on)
     notify (change::monitor | change::view);
 }
 
+void UiSession::alignGuideAt (int64 sample)
+{
+    if (s.guideOriginal == nullptr || s.songOriginal == nullptr || s.sampleRate() <= 0.0 || s.guideBusy)
+        return;
+    const auto original = s.guideOriginal, karaoke = s.songOriginal;
+    const auto audioRate = original->sampleRate;
+    const auto centre = (int64) std::llround ((double) sample * audioRate / s.sampleRate());   // 原曲・カラオケは元の SR で持っている
+    const auto window = (int64) (1.5 * audioRate), maxLag = (int64) (0.25 * audioRate);
+    const auto serial = s.songSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Thread::launch ([this, weak, original, karaoke, audioRate, centre, window, maxLag, serial]
+    {
+        // 比べる所だけ切り出す（モノラル）
+        const auto lo = juce::jmax ((int64) 0, centre - window - maxLag - 64);
+        const auto hi = juce::jmin (karaoke->length(), centre + window + maxLag + 64);
+        std::vector<float> a, b;
+        for (auto i = lo; i < hi; ++i)
+        {
+            a.push_back (i < original->length() ? original->buffer.getSample (0, (int) i) : 0.0f);
+            float m = 0.0f;
+            for (int ch = 0; ch < karaoke->buffer.getNumChannels(); ++ch)
+                m += karaoke->buffer.getSample (ch, (int) i);
+            b.push_back (m / (float) juce::jmax (1, karaoke->buffer.getNumChannels()));
+        }
+        const auto r = analysis::localLag (a.data(), (juce::int64) a.size(), b.data(), (juce::int64) b.size(), centre - lo, window, maxLag);
+        juce::MessageManager::callAsync ([this, weak, r, audioRate, serial]
+        {
+            if (weak.expired() || serial != s.songSerial)
+                return;
+            if (! r.found || r.correlation < 0.3)
+            {
+                postNotice (tr ("guide.alignHere.failed"));
+                return;
+            }
+            // 原曲の中身が lag だけ遅れている → お手本をその分前へ
+            const auto ms = -(double) r.lag * 1000.0 / audioRate;
+            const auto rounded = std::round (ms);
+            const auto now = [this] { return (s.guideNudgeMs > 0 ? "+" : "") + juce::String (s.guideNudgeMs, 0); };
+            if (std::abs (rounded) < 1.0)
+            {
+                postNotice (tr ("guide.alignHere.same", now()));   // ずれていない（1 ms 未満）
+                return;
+            }
+            nudgeGuide (rounded);
+            postNotice (tr ("guide.alignHere.done", (rounded > 0 ? "+" : "") + juce::String (rounded, 0), now()));
+        });
+    });
+}
+
 void UiSession::resetGuideNudge()
 {
     nudgeGuide (-s.guideNudgeMs);

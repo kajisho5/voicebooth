@@ -121,6 +121,27 @@ public:
                         + juce::String (r.confidence, 2) + ", windows " + juce::String (r.windowsAgreeing) + "/" + juce::String (r.windowsUsed));
         }
 
+        beginTest ("local lag (here is the same spot): finds a small residual offset around a position");
+        {
+            // カラオケ b と、37 サンプル遅れた原曲 a（＋声の代わりの別の音）
+            const double rate = 44100.0;
+            juce::Random rnd (7);
+            std::vector<float> b ((size_t) (rate * 6.0));
+            for (auto& v : b) v = rnd.nextFloat() * 2.0f - 1.0f;
+            std::vector<float> a (b.size(), 0.0f);
+            for (size_t i = 37; i < a.size(); ++i)
+                a[i] = b[i - 37] + 0.3f * (float) std::sin (2.0 * 3.14159265358979323846 * 330.0 * (double) i / rate);
+            const auto r = localLag (a.data(), (juce::int64) a.size(), b.data(), (juce::int64) b.size(),
+                                     (juce::int64) (rate * 3.0), (juce::int64) (rate * 1.0), (juce::int64) (rate * 0.2));
+            expect (r.found);
+            expectEquals ((int) r.lag, 37);
+            expectGreaterThan (r.correlation, 0.8);
+            // 音が無い所は見つからない
+            std::vector<float> silent (b.size(), 0.0f);
+            expect (! localLag (silent.data(), (juce::int64) silent.size(), b.data(), (juce::int64) b.size(),
+                                (juce::int64) (rate * 3.0), (juce::int64) rate, 400).found);
+        }
+
         beginTest ("karaoke starts earlier than the original (negative offset)");
         {
             const auto plainOrig = original (band, 0.0, 11);

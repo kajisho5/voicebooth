@@ -208,14 +208,14 @@ void PitchLane::mouseDown (const juce::MouseEvent& e)
         menuGesture = e.mods.isPopupMenu();
         if (menuGesture)
         {
-            showGuideMenu();
+            showGuideMenu (map().sampleAt (e.position.x));
             return;
         }
         gesture.down (session, map(), e.position.x);
     }
 }
 
-void PitchLane::showGuideMenu()
+void PitchLane::showGuideMenu (int64 at)
 {
     const auto& s = state();
     juce::PopupMenu menu;
@@ -227,16 +227,20 @@ void PitchLane::showGuideMenu()
     for (int i = 0; i < 4; ++i)
         menu.addItem (i + 1, tr (keys[i]), hasGuide);
     menu.addItem (5, tr ("pitch.menu.nudgeReset"), hasGuide && s.guideNudgeMs != 0.0);
+    // 「ここが同じ所」：押した所の前後で原曲とカラオケを比べて合わせ直す（合わせた原曲がある時）
+    menu.addSeparator();
+    menu.addItem (6, tr ("pitch.menu.alignHere"), hasGuide && s.guideOriginal != nullptr && ! s.guideBusy);
     if (! hasGuide)
         menu.addItem (-1, tr ("pitch.menu.noGuide"), false);
 
     juce::Component::SafePointer<PitchLane> safe (this);
     menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition().withStandardItemHeight (28),
-                        [safe, steps] (int chosen)
+                        [safe, steps, at] (int chosen)
                         {
                             if (safe == nullptr) return;
                             if (chosen >= 1 && chosen <= 4) safe->session.nudgeGuide (steps[chosen - 1]);
                             if (chosen == 5)                safe->session.resetGuideNudge();
+                            if (chosen == 6)                safe->session.alignGuideAt (at);
                         });
 }
 
