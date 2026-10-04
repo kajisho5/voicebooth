@@ -459,6 +459,11 @@ private:
     // 保存（B14）
     bool dirty = false, restoring = false;
     juce::uint32 dirtySince = 0, lastBackupMs = 0;
+    project::RecMode recordingMode = project::RecMode::delivery;   // いまのテイクを録り始めた時の本番 / リハーサル
+    juce::String songHash;          // 開いている曲の音の中身のハッシュ（.vbooth に保存し、同じ名前・長さの別の曲と見分ける）
+    int guideSerial = 0;            // お手本を読み込むたびに増える（前のお手本のリード分離の結果を使わない）
+    bool saveFailed = false;        // 前の保存が書けなかった（試し直している。知らせは 1 回だけ）
+    juce::uint32 saveRetryAt = 0;   // 書けなかった時、次に試す時刻（getMillisecondCounter）
     bool awaitingRestore = false;
     bool timelineLocked = false;    // 開いたプロジェクトにテイクがある：時間軸の SR を保存した時のまま（機器の SR に合わせない）   // 続きから開くプロジェクトの中身をまだ戻していない（戻すまで保存しない）
     int64 savedPlayhead = -1;   // 最後に保存した時の再生位置（曲を替える・終わる時に動いていれば保存する）

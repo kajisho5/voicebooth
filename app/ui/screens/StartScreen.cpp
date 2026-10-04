@@ -119,7 +119,10 @@ StartScreen::~StartScreen()
 {
     // 画面を閉じたら読み込みも止める（結果を受け取る相手がいなくなるため）
     if (phase == Phase::loading)
+    {
         loader.cancel();
+        session.clearPendingProject();   // 開きかけのプロジェクトを、あとで開く同じ名前の別の曲に使わない（監査 2026-10-04）
+    }
     if (phase == Phase::separating)
         session.stopSeparation();
 }
@@ -271,6 +274,8 @@ void StartScreen::startFromOriginal (const juce::File& original)
     {
         if (safe == nullptr)
             return;
+        if (safe->phase != Phase::separating)
+            return;   // 待っている間に別の曲を開いた・画面を移った：作ったオフボは開かない（キャッシュには残る）
         if (made == juce::File())
         {
             if (why == tr ("separation.stopped")) { safe->fromOriginal = false; safe->setPhase (Phase::home); return; }
@@ -345,7 +350,8 @@ void StartScreen::loadFinished (audio::LoadResult r)
 //==============================================================================
 bool StartScreen::isInterestedInFileDrag (const juce::StringArray& files)
 {
-    return phase != Phase::loading && files.size() > 0;
+    // 原曲から分離している間は受けない（別の曲を落とすと分離が止まり、元の原曲が別の曲のお手本になっていた。監査 2026-10-04）
+    return phase != Phase::loading && phase != Phase::separating && files.size() > 0;
 }
 
 void StartScreen::fileDragEnter (const juce::StringArray&, int, int)

@@ -448,6 +448,7 @@ void RecordModule::onSessionChanged (juce::uint32 changes)
     if (changes & (change::practice | change::transport | change::mode))
     {
         recMode.setSelected ((int) state().recMode, juce::dontSendNotification);
+        recMode.setEnabled (! state().isRecording);   // 録音中は切り替えない（そのテイクの置き場所・採用が変わるため）
         repaint();
     }
 }
