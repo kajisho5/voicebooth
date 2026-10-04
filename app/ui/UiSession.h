@@ -297,6 +297,12 @@ public:
     static SeparationEstimate originalSeparationEstimate (const juce::File& original);
     /** リードとハモリを分けるモデルが入っている */
     bool leadModelInstalled() const { return separationService->karaokeInstalled(); }
+    /** 引き算でお手本が取れた後に、リードとハモリを分ける（#27。「ハモリの分離も続けますか？」で「続ける」を押したとき） */
+    void startLeadSplit() { extractLead(); }
+    /** その見込み（リードのモデル 1 つ分。お手本の長さが分からなければ known() が false） */
+    SeparationEstimate leadSplitEstimate() const;
+    /** 次にお手本が取れたら、確認せずにリードとハモリを分ける（原曲だけで始める流れ。始める前の確認で、続けて分けることを伝えてある） */
+    void agreeLeadSplit() { leadSplitAgreed = true; }
 
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
@@ -435,6 +441,9 @@ private:
     bool separationCached() const;
     juce::File leadCacheFolder() const;
     void extractLead();
+    /** 引き算でお手本が取れた後：前に分けた結果があれば使い、なければ「ハモリの分離も続けますか？」を出す（#27。黙って 15〜30 分の分離を始めない） */
+    void offerLeadSplit();
+    bool leadSplitAgreed = false;   // agreeLeadSplit：次のお手本では確認しない（曲を開き直すと戻る）
     void analyseLead (const juce::File& leadFile);
     std::unique_ptr<separation::Separator> separator;   // B16
     // 分離の 3 つの流れに共通の部分（UiSession.cpp。2026-10-04）
