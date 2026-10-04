@@ -69,7 +69,7 @@ Phiên bản hiện tại là **0.2.0 beta 6**. Thay đổi và các bản cũ c
 | Xử lý nặng | Tách giọng chạy khi bạn thêm giọng mẫu hoặc chọn "Bắt đầu chỉ với bản gốc" (chạy nền; bạn vẫn phát và thu được). Khi giọng mẫu được lấy bằng phép trừ, tách giọng cũng chạy tiếp để chia giọng chính và bè. Chỉ mở ứng dụng thì không bao giờ bắt đầu. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |
 | Bè | Bạn có thể thu các track bè. Khi tách giọng mẫu, giọng chính và bè được chia riêng và **giọng mẫu bè (đường và giọng)** cũng được hiển thị (track bè được so với nó). Giọng mẫu lấy bằng bản gốc − karaoke cũng được chia, bằng cách tách giọng chính từ bản gốc sau đó (mất một chút thời gian) |
 | Âm thanh đã tách | Giọng hát và nhạc đệm đã tách là **để bạn tự luyện tập**. VoiceBooth không thay đổi quyền đối với bài hát gốc. Chỉ phân phối hoặc đăng tải (kể cả chia sẻ làm beat để cover) trong phạm vi chủ sở hữu quyền gốc cho phép |
-| Giá | **Miễn phí.** Không thuê bao, không mua trong ứng dụng. Bạn có thể ủng hộ phát triển qua [GitHub Sponsors](https://github.com/sponsors/kajisho5) (tùy chọn; không thay đổi tính năng nào) |
+| Giá | **Miễn phí.** Không thuê bao, không mua trong ứng dụng. Bạn có thể ủng hộ phát triển qua [GitHub Sponsors](https://github.com/sponsors/kajisho5) (tùy chọn; không thay đổi tính năng nào). Nếu bạn phân phối bản đã chỉnh sửa, bạn cũng phải công bố mã nguồn (xem "Giấy phép" bên dưới) |
 | Ngôn ngữ | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## Ứng dụng làm được gì
