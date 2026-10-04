@@ -291,11 +291,12 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen && ! overlay.isShowing())
     {
         separationOfferSeen = state().separationOfferSerial;
-        const auto minutes = juce::jmax (1, juce::roundToInt (session.separationEstimateSeconds() / 60.0));
+        const auto estimate = session.separationEstimate();
         const auto key = state().guideKaraokeKey;
-        const auto message = key != 0 ? tr ("separation.confirm.messageKey", minutes,
-                                            (key > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (key)))
-                                      : tr ("separation.confirm.message", minutes);
+        const auto message = key != 0 ? tr ("separation.confirm.messageKey", estimate.lowMinutes(),
+                                            (key > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (key)),
+                                            estimate.highMinutes())
+                                      : tr ("separation.confirm.message", estimate.lowMinutes(), estimate.highMinutes());
         showConfirm (tr ("separation.confirm.title"), message,
                      {
                          { tr ("separation.confirm.yes"), DialogPanel::KeyRole::primary, [this] { session.separateGuide(); } },
@@ -584,7 +585,8 @@ bool MainComponent::songInfoKey (const juce::KeyPress& key)
 }
 
 //==============================================================================
-void MainComponent::showConfirm (const juce::String& title, const juce::String& message, std::vector<ConfirmDialog::Option> options)
+void MainComponent::showConfirm (const juce::String& title, const juce::String& message, std::vector<ConfirmDialog::Option> options,
+                                 std::function<void()> onDismiss)
 {
     // 選んだら閉じる
     for (auto& o : options)
@@ -594,7 +596,7 @@ void MainComponent::showConfirm (const juce::String& title, const juce::String& 
     }
 
     auto dlg = std::make_unique<ConfirmDialog> (title, message, std::move (options));
-    dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onCloseRequest = [this, onDismiss] { overlay.close(); if (onDismiss) onDismiss(); };
     overlay.show (std::move (dlg), false);
 }
 
@@ -696,6 +698,35 @@ StartScreen* MainComponent::openStart (bool firstRun)
             safe->pendingOriginal = original;
             safe->overlay.close();
             safe->session.requestSeparationModel();
+        });
+    };
+    screen->onConfirmOriginal = [safe] (const juce::File& original)
+    {
+        // 原曲だけで始める：分離は長い（4 分の曲で 15〜30 分）。始める前に見込みを表示して確認する（#27）。
+        // 確認は起動画面と入れ替わるので、選んだら（Esc で閉じても）起動画面に戻る
+        juce::MessageManager::callAsync ([safe, original]
+        {
+            if (safe == nullptr) return;
+            const auto e = safe->session.originalSeparationEstimate (original);
+            auto message = tr ("separation.original.message", e.lowMinutes(), e.highMinutes());
+            if (safe->session.leadModelInstalled())
+                message << "\n\n" << tr ("separation.original.leadNote", e.lowMinutes(), e.highMinutes());
+            auto back = [safe, original] (bool start)
+            {
+                juce::MessageManager::callAsync ([safe, original, start]
+                {
+                    if (safe == nullptr) return;
+                    auto* screen = safe->openStart();
+                    if (start) screen->startFromOriginal (original, true);
+                    else       screen->setGuide (original);
+                });
+            };
+            safe->showConfirm (tr ("separation.original.title"), message,
+                               {
+                                   { tr ("separation.original.yes"), DialogPanel::KeyRole::primary, [back] { back (true); } },
+                                   { tr ("common.cancel"), DialogPanel::KeyRole::normal, [back] { back (false); } },
+                               },
+                               [back] { back (false); });
         });
     };
     screen->onInstallModels = [safe]

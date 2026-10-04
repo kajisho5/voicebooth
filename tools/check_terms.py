@@ -4,6 +4,7 @@
 - 単独の「版」（「の版」「新しい版」「<版>」など）は使わない。「バージョン」と書く（持ち主の決まり）
   漢字・カタカナ・英字の後に付く言い方（ベータ版・スマホ版・欧文版・Windows 版 など）はよい
 - 日本語を書くファイルだけを見る（中国語の README・翻訳表は「版本」が正しいので見ない）
+- 「変更版」は「変更したもの」と書く（どのファイルも。下の ALL_RULES）
 - 使う人が読む日本語（アプリの文言・README・リリースノート）は、一般的なアプリの言葉づかいと
   「公用文作成の考え方」（文化審議会、2022。こと・とき・ところ・ものはひらがな）にそろえる（下の UI_RULES）
 
@@ -27,6 +28,11 @@ UI_RULES = [
     (re.compile(r"無い|無け|無し"), "「無い」は「ない」"),
     (re.compile(r"受け取り中"), "「受け取り中」は「ダウンロード中」"),
     (re.compile(r"申告"), "「申告値」は「機器の報告値」"),
+]
+
+# どのファイルにも当てる決まり（持ち主が直した言い方。--fix では置き換えない）
+ALL_RULES = [
+    (re.compile(r"変更版"), "「変更版」は「変更したもの」（持ち主の直し。2026-10-04）"),
 ]
 
 SKIP = re.compile(r"^(?:third_party/|CLAUDE\.md$|tools/check_terms\.py$|\.claude/reminder\.md$|"
@@ -65,6 +71,10 @@ def main():
             continue
         changed = False
         for n, line in enumerate(lines):
+            for rule, hint in ALL_RULES:
+                if rule.search(line):
+                    found += 1
+                    print(f"{path}:{n + 1}: {hint}: {line.strip()[:120]}")
             if USER_FACING.search(path):
                 for rule, hint in UI_RULES:
                     if rule.search(line):
