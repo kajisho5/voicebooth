@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Stereo",
   "analyze.sub": "Bir adım başarısız olsa da devam edebilirsiniz. Biten sonuçlar hemen kullanılabilir.",
+  "analyze.subDone": "Hazır. Şarkı söylemeye başlamak için “Ana ekrana git”e (Enter) basın. “SONRA” olarak işaretli adımlar ana ekranda arka planda yapılır.",
   "analyze.title": "“{0}” analiz ediliyor",
   "analyze.titleDone": "“{0}” yüklendi",
   "analyze.titleFailed": "“{0}” açılamadı",

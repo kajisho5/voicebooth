@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Stereo",
   "analyze.sub": "Anda bisa lanjut meski ada langkah yang gagal. Hasil yang sudah selesai bisa langsung dipakai.",
+  "analyze.subDone": "Siap. Tekan “Ke layar utama” (Enter) untuk mulai bernyanyi. Langkah bertanda “SETELAH” dianalisis di latar belakang di layar utama.",
   "analyze.title": "Menganalisis “{0}”",
   "analyze.titleDone": "“{0}” dimuat",
   "analyze.titleFailed": "Tidak bisa membuka “{0}”",

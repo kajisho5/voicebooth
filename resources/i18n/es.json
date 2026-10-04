@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Estéreo",
   "analyze.sub": "Puedes seguir aunque falle un paso. Lo que ya terminó se puede usar.",
+  "analyze.subDone": "Listo. Pulsa «Ir a la pantalla principal» (Intro) para empezar a cantar. Lo marcado como «DESPUÉS» se analiza en segundo plano en la pantalla principal.",
   "analyze.title": "Analizando “{0}”",
   "analyze.titleDone": "Se cargó “{0}”",
   "analyze.titleFailed": "No se pudo abrir “{0}”",

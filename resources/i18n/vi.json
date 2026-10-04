@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Stereo",
   "analyze.sub": "Bạn vẫn có thể đi tiếp dù có bước bị lỗi. Phần nào xong là dùng được ngay.",
+  "analyze.subDone": "Đã sẵn sàng. Bấm “Vào màn hình chính” (Enter) để bắt đầu hát. Các mục “SAU KHI MỞ” sẽ được phân tích ngầm ở màn hình chính.",
   "analyze.title": "Đang phân tích “{0}”",
   "analyze.titleDone": "Đã tải “{0}”",
   "analyze.titleFailed": "Không mở được “{0}”",
