@@ -251,6 +251,7 @@ struct Session
     bool separating = false;
     float separationProgress = 0.0f;      // 0..1
     double separationEta = -1.0;          // 残りの秒（分からなければ < 0）
+    double separationStartedMs = 0.0;     // 始めた時刻（Time::getMillisecondCounterHiRes）。残り時間が出るまでの「準備中」の経過に使う
     int64 myPitchLag = 0;                 // 自分のピッチの点が再生ヘッドより遅れて届く分（遅れ + 検出。今の音の点を出す許し幅。B8）
 
     int sampleRate() const { return project.sampleRate; }
