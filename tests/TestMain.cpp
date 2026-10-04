@@ -1,6 +1,10 @@
 #include <juce_events/juce_events.h>
 
-/*  VoiceBoothTests：UnitTest（カテゴリ "VoiceBooth"）をすべて回し、
+#ifndef VB_TEST_CATEGORY
+ #define VB_TEST_CATEGORY "VoiceBooth"   // VoiceBoothSessionTests は "VoiceBoothSession"
+#endif
+
+/*  VoiceBoothTests / VoiceBoothSessionTests：UnitTest（カテゴリ VB_TEST_CATEGORY）をすべて回し、
     失敗が 1 つでもあれば 1 を返す（ctest / CI 用） */
 
 namespace
@@ -24,7 +28,7 @@ int main()
 
     juce::UnitTestRunner runner;
     runner.setAssertOnFailure (false);
-    runner.runTestsInCategory ("VoiceBooth");
+    runner.runTestsInCategory (VB_TEST_CATEGORY);
 
     int failures = 0, passes = 0;
     for (int i = 0; i < runner.getNumResults(); ++i)
