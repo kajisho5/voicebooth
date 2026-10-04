@@ -6,7 +6,7 @@ Dropdown::Dropdown (juce::StringArray i, int sel)
     : items (std::move (i)), selected (sel), labelFont (sans (13.0f, Weight::medium))
 {
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
-    setWantsKeyboardFocus (false);
+    focus::tabOnly (*this);
 }
 
 void Dropdown::setSelected (int index, juce::NotificationType n)
@@ -16,6 +16,8 @@ void Dropdown::setSelected (int index, juce::NotificationType n)
 
     selected = index;
     repaint();
+    if (auto* h = getAccessibilityHandler())
+        h->notifyAccessibilityEvent (juce::AccessibilityEvent::valueChanged);   // 読み上げに新しい値を伝える（#28）
     if (n != juce::dontSendNotification && onChange)
         onChange (selected);
 }
@@ -41,9 +43,37 @@ void Dropdown::paint (juce::Graphics& g)
     g.setColour (colours::text);
     g.setFont (sansForLanguageName (items[selected], labelFont.getHeight(), Weight::medium));
     g.drawText (items[selected], r, juce::Justification::centredLeft, true);
+    ring.paint (g, *this, b, metrics::keyRadius);
 }
 
 void Dropdown::mouseDown (const juce::MouseEvent&)
+{
+    focus::handBack (*this);
+    showMenu();
+}
+
+bool Dropdown::keyPressed (const juce::KeyPress& key)
+{
+    if (key.getModifiers().isAnyModifierKeyDown())
+        return false;
+    if (key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey || key == juce::KeyPress::downKey)
+    {
+        showMenu();
+        return true;
+    }
+    return false;
+}
+
+std::unique_ptr<juce::AccessibilityHandler> Dropdown::createAccessibilityHandler()
+{
+    return std::make_unique<juce::AccessibilityHandler> (
+        *this, juce::AccessibilityRole::comboBox,
+        juce::AccessibilityActions().addAction (juce::AccessibilityActionType::press, [this] { showMenu(); }),
+        juce::AccessibilityHandler::Interfaces { std::make_unique<focus::ChoiceValue> (
+            [this] { return items; }, [this] { return selected; }, [this] (int i) { setSelected (i); }) });
+}
+
+void Dropdown::showMenu()
 {
     juce::PopupMenu menu;
     for (int i = 0; i < items.size(); ++i)

@@ -284,15 +284,17 @@ public:
     struct SeparationEstimate
     {
         double lowSeconds = 0.0, highSeconds = 0.0;
+        /** 見込みが出せた（曲の長さが分かり、回すモデルがある）。出せなければ時間を表示しない */
+        bool known() const      { return highSeconds > 0.0; }
         int lowMinutes() const  { return juce::jmax (1, juce::roundToInt (lowSeconds / 60.0)); }
         int highMinutes() const { return juce::jmax (lowMinutes() + 1, juce::roundToInt (highSeconds / 60.0)); }
     };
-    /** songSeconds の曲に models 個のモデル（声と伴奏・リード）を回すときの見込み。cores = CPU のコア数 */
-    static SeparationEstimate estimateSeparation (double songSeconds, int models, int cores);
-    /** 開いている曲のお手本を分離するとき（リードのモデルがあれば、同じ分離の中でリードも分ける） */
+    /** songSeconds の曲に models 個のモデル（声と伴奏・リード）を回すときの見込み。長さが分からない・モデルが 0 なら known() が false */
+    static SeparationEstimate estimateSeparation (double songSeconds, int models);
+    /** 開いている曲のお手本（原曲）を分離するとき。キャッシュにある段階は数えない（声と伴奏があればリードだけ） */
     SeparationEstimate separationEstimate() const;
-    /** 原曲だけで始めるとき（オフボを作る分。リードとハモリ分けは開いた後に別に動く） */
-    SeparationEstimate originalSeparationEstimate (const juce::File& original) const;
+    /** 原曲だけで始めるとき（オフボを作る分。リードとハモリ分けは開いた後に別に動く）。ファイルを読むので、バックグラウンドで呼ぶ */
+    static SeparationEstimate originalSeparationEstimate (const juce::File& original);
     /** リードとハモリを分けるモデルが入っている */
     bool leadModelInstalled() const { return separationService->karaokeInstalled(); }
 
@@ -463,6 +465,14 @@ private:
     void setGuideCovered (const std::vector<std::pair<int64, int64>>&, double songRate);
     /** 解析し直した直後のお手本に、保存してある手直しを当てる。当てたら true */
     bool applyGuideNudge();
+    /** 手直しの音のずらし（声・ハモリ・原曲）は、キーを続けて押している間はためておき、止まってから 1 回だけ当てる（#26。
+        前は押すたびに全長の音を 3 本写し、SR が違えばそろえ直していた）。線と判定はすぐ動かす */
+    void flushGuideShift();
+    /** お手本の音を作り直した（作り直した音には手直しを全部当てる）：ためていたずらしは捨てる */
+    void dropGuideShift() { pendingGuideShift = 0; ++guideShiftSerial; }
+    int64 pendingGuideShift = 0;
+    int guideShiftSerial = 0;
+    int pendingGuideShiftSong = -1;
     bool shadowActive = false;
     int recoveredTakes = 0;                // 開いた時に Audio/Recovered へ移したテイク（続きから開いた知らせの後に知らせる）
     juce::uint32 lastNoSeekNotice = 0;     // 録音中のシークの知らせ（ドラッグで出続けないように）
@@ -539,6 +549,8 @@ LatencyDisplay latencyDisplay (const dummy::Session&);
 
 /** 取り消しのキーの表記（Mac は ⌘Z、ほかは Ctrl+Z） */
 juce::String undoKeyName();
+/** Ctrl / ⌘ と 1 文字（Mac は「⌘E」、ほかは「Ctrl+E」）。ツールチップのショートカット（#28） */
+juce::String commandKeyName (char key);
 
 /** 機器の組み合わせ（ドライバ・入力・出力・SR・バッファ）の名前。遅れはこの組み合わせごとに覚える */
 juce::String latencyProfileKey (const dummy::Session&);
