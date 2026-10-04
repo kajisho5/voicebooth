@@ -238,6 +238,7 @@ set(VOICEBOOTH_UI_SOURCES
     app/ui/UiSession.cpp
     app/ui/UiSessionSong.cpp
     app/ui/UiSessionProject.cpp
+    app/ui/UiSessionModels.cpp
     app/ui/UiSessionUpdate.cpp
     # 画面
     app/ui/LaneCommon.cpp
