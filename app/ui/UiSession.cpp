@@ -1107,28 +1107,40 @@ bool UiSession::separationAvailable() const
     return engine != nullptr && separationService->available();
 }
 
-UiSession::SeparationEstimate UiSession::estimateSeparation (double songSeconds, int models, int cores)
+UiSession::SeparationEstimate UiSession::estimateSeparation (double songSeconds, int models)
 {
-    // 実測（どちらも 4 コアのクラウド。#27）：30 秒の曲で 109 秒（3.6 倍）、4 分の曲で 1 つのモデルが 1,750 秒（7.3 倍。2026-10-04、
-    // 声と伴奏・リードのどちらのモデルもほぼ同じ）。同じ 4 コアでも倍ほど違うので幅で伝える。コアが少なければ長くなる
-    const auto perModel = juce::jmax (0.0, songSeconds) * (double) juce::jmax (1, models) * (4.0 / (double) juce::jlimit (1, 4, cores));
-    return { perModel * 3.5, perModel * 8.0 };
+    // 実測（どちらも 4 コアのクラウド。分離は 2 スレッド。#27）：30 秒の曲で 109 秒（3.6 倍）、4 分の曲で 1 つのモデルが 1,750 秒
+    // （7.3 倍。2026-10-04、声と伴奏・リードのどちらのモデルもほぼ同じ）。同じ 4 コアでも倍ほど違うので幅で伝える（4 分の曲で 15〜30 分）。
+    // 分離のスレッドはコアが少なくても 2 本（SeparatorClient）なので、コア数では変えない。測っていない速いパソコンでも短くは言わない
+    if (songSeconds <= 0.0 || models <= 0)
+        return {};
+    const auto perModel = songSeconds * (double) models;
+    return { perModel * 3.75, perModel * 7.5 };
 }
 
 UiSession::SeparationEstimate UiSession::separationEstimate() const
 {
-    const auto seconds = s.sampleRate() > 0 ? (double) s.project.lengthSamples / s.sampleRate() : 0.0;
-    return estimateSeparation (seconds, separationService->karaokeInstalled() ? 2 : 1, juce::SystemStats::getNumCpus());
+    // 分離するのはお手本（原曲）。オフボと長さが違うこともある（イントロ・アウトロ）
+    double seconds = 0.0;
+    if (s.guideOriginal != nullptr && s.guideOriginal->sampleRate > 0.0)
+        seconds = (double) s.guideOriginal->length() / s.guideOriginal->sampleRate;
+    else if (s.sampleRate() > 0)
+        seconds = (double) s.project.lengthSamples / s.sampleRate();
+    // キャッシュにある段階は回さない（separateGuide と同じ判定）
+    const auto dir = separationCacheFolder();
+    const bool cached = dir.getChildFile ("vocals.wav").existsAsFile() && dir.getChildFile ("backing.wav").existsAsFile();
+    const bool leadToDo = separationService->karaokeInstalled() && ! dir.getChildFile ("lead.wav").existsAsFile();
+    return estimateSeparation (seconds, (cached ? 0 : 1) + (leadToDo ? 1 : 0));
 }
 
-UiSession::SeparationEstimate UiSession::originalSeparationEstimate (const juce::File& original) const
+UiSession::SeparationEstimate UiSession::originalSeparationEstimate (const juce::File& original)
 {
     juce::AudioFormatManager formats;
     audio::registerSongFormats (formats);
     double seconds = 0.0;
     if (std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (original)); reader != nullptr && reader->sampleRate > 0.0)
         seconds = (double) reader->lengthInSamples / reader->sampleRate;
-    return estimateSeparation (seconds, 1, juce::SystemStats::getNumCpus());
+    return estimateSeparation (seconds, 1);
 }
 
 void UiSession::stopSeparation()
