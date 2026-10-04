@@ -28,6 +28,15 @@ English follows Japanese.
 | 短い WAV を開いて録音する | まだ | まだ |
 | 書き出す | まだ | まだ |
 
+## beta.7 で直したもの（高い SR の曲・判定・動作の軽さ）
+
+- **192 / 384 kHz の機器で、練習のテンポ・キーを変えると音が途切れていた**：96 kHz を超えるときは軽い方式で伸び縮みさせます（手元の計測で、192 kHz の処理の重さが実時間の 117% → 34%）
+- **高い SR の曲を開くと、テンポ・キーの推定とお手本の時間合わせに時間がかかっていた**：48 kHz 前後まで下げてから解析します（176.4 kHz の曲で約 2 倍速く）
+- **「オクターブ合わせ」を切っても、オクターブ違いが点数では正解になっていた**：点数も画面の色と同じく切り替えに従います
+- **緑の幅を 50 セントにすると、黄（少しずれている）がなくなっていた**：黄の幅を残します
+- **解析や書き出しが重なると、録音・再生と CPU を取り合っていた**：バックグラウンドの作業は低い優先度で、同時に動く数に上限を付けました
+- そのほか：内部の整理（画面の状態の処理を分け、保存・分離のテストを追加）
+
 ## beta.6 で直したもの（調査で残した細かい不具合）
 
 beta.5 の見直しで後回しにした細かい不具合 8 件を直しました。
@@ -142,6 +151,15 @@ For each release, the results of the steps below on the author's Windows and Mac
 | Microphone input (the meter moves) | not yet | not yet |
 | Open a short WAV and record | not yet | not yet |
 | Export | not yet | not yet |
+
+## Fixed in beta 7 (high sample rates, judging and lighter background work)
+
+- **Practice tempo / key dropped out on 192 / 384 kHz devices**: above 96 kHz a lighter time-stretch mode is used (on our test machine 192 kHz went from 117% to 34% of real time)
+- **Opening high sample rate songs took long to estimate tempo / key and align the guide**: analysis now runs at about 48 kHz (about twice as fast for a 176.4 kHz song)
+- **With octave matching off, notes an octave away still counted as correct in the score**: the score now follows the switch like the colours do
+- **Setting the green band to 50 cents removed the yellow band**: the yellow band now stays
+- **Analysis and export could compete with recording and playback for CPU**: background work now runs at low priority with a limit on how many jobs run at once
+- Also: internal clean-up (the screen state code was split up, with new tests for saving and separation)
 
 ## Fixed in beta 6 (small issues left from the review)
 
