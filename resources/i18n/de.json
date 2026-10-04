@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Stereo",
   "analyze.sub": "Du kannst weitermachen, auch wenn ein Schritt fehlschlägt. Fertige Ergebnisse sind sofort nutzbar.",
+  "analyze.subDone": "Fertig. Drücke „Zum Hauptbildschirm“ (Enter), um zu singen. Die „DANACH“ markierten Schritte laufen im Hauptbildschirm im Hintergrund.",
   "analyze.title": "„{0}“ wird analysiert",
   "analyze.titleDone": "„{0}“ geladen",
   "analyze.titleFailed": "„{0}“ ließ sich nicht öffnen",

@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Stéréo",
   "analyze.sub": "Vous pouvez continuer même si une étape échoue. Les résultats terminés sont utilisables tout de suite.",
+  "analyze.subDone": "C'est prêt. Appuyez sur « Aller à l'écran principal » (Entrée) pour commencer à chanter. Les étapes « APRÈS » se font en arrière-plan dans l'écran principal.",
   "analyze.title": "Analyse de « {0} »",
   "analyze.titleDone": "« {0} » chargé",
   "analyze.titleFailed": "Impossible d'ouvrir « {0} »",

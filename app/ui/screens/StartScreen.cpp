@@ -79,6 +79,7 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     refreshRecents();
     addChildComponent (openFolder);
 
+    setWantsKeyboardFocus (true);   // 読み込みが終わったら Enter で進む
     continueKey.withLed (colours::signal).withToggle (false);
     continueKey.setToggleState (true, juce::dontSendNotification);
     continueKey.onClick = [this] { if (onDone) onDone(); };
@@ -126,6 +127,18 @@ void StartScreen::setPhase (Phase p)
     else                         stopTimer();
     resized();
     repaint();
+    if (phase == Phase::loaded && isShowing())
+        grabKeyboardFocus();   // Enter で［メイン画面へ進む］
+}
+
+bool StartScreen::keyPressed (const juce::KeyPress& k)
+{
+    if (phase == Phase::loaded && k == juce::KeyPress::returnKey && onDone != nullptr)
+    {
+        onDone();
+        return true;
+    }
+    return false;
 }
 
 void StartScreen::chooseFile (bool guide)
@@ -644,9 +657,11 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
                      : phase == Phase::loaded     ? tr ("analyze.titleDone", name)
                                                   : tr ("analyze.title", name);
     g.drawText (title, r.removeFromTop (30), juce::Justification::centredLeft, true);
-    g.setColour (colours::textDim);
-    g.setFont (sans (12.5f));
-    g.drawText (tr ("analyze.sub"), r.removeFromTop (24), juce::Justification::centredLeft, true);
+    // 終わったら、次に何をすればよいかを目立つ色で（［メイン画面へ進む］・Enter）
+    const bool ready = phase == Phase::loaded;
+    g.setColour (ready ? colours::signal : colours::textDim);
+    g.setFont (sans (ready ? 13.5f : 12.5f, ready ? Weight::medium : Weight::regular));
+    g.drawFittedText (tr (ready ? "analyze.subDone" : "analyze.sub"), r.removeFromTop (40), juce::Justification::topLeft, 2, 1.0f);
     if (fromOriginal)   // 分離した音の扱い（配ってよいか）を最初から一文で
     {
         g.setColour (colours::warn);

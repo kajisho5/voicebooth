@@ -48,6 +48,7 @@
   "analyze.step.tempo": "Tempo",
   "analyze.stereo": "Stereo",
   "analyze.sub": "You can go ahead even if a step fails. Finished results are ready to use.",
+  "analyze.subDone": "Ready. Press “Go to main screen” (Enter) to start singing. Items marked “AFTER OPEN” are analyzed in the background on the main screen.",
   "analyze.title": "Analyzing \"{0}\"",
   "analyze.titleDone": "Loaded \"{0}\"",
   "analyze.titleFailed": "Couldn't open \"{0}\"",
