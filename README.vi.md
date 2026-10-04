@@ -63,7 +63,7 @@ Phiên bản hiện tại là **0.2.0 beta 7**. Thay đổi và các bản cũ c
 | | |
 |---|---|
 | Hệ điều hành | **Cả Windows và Mac** (Mac: Apple silicon và Intel). **Không có bản cho điện thoại hay máy tính bảng** |
-| Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: mất khoảng 4 lần độ dài bài hát (đo trên CPU 4 nhân: khoảng 2 phút cho bài 30 giây, khoảng 15 phút cho bài 4 phút; CPU chậm hơn sẽ lâu hơn; ứng dụng hiển thị thời gian ước tính) |
+| Card đồ họa | **Không cần.** Chạy chỉ bằng CPU. Chỉ có tách giọng là nặng: mất khoảng 4–8 lần độ dài bài hát (đo trên CPU 4 nhân: 15–30 phút cho bài 4 phút, gấp đôi nếu tách cả giọng chính / bè; CPU chậm hơn sẽ lâu hơn; ứng dụng hiển thị thời gian ước tính trước khi bắt đầu) |
 | Âm thanh có thể mở | **Chỉ file âm thanh trên máy của bạn** (wav / flac / aiff / ogg / mp3 / m4a). Không thể mở trực tiếp bài hát từ Spotify, Apple Music, YouTube Music hay dịch vụ streaming khác |
 | Dung lượng | Bộ cài khoảng 13 MB trên Windows và khoảng 40 MB trên Mac. Nếu chưa có mô hình tách giọng và cao độ (khoảng 210 MB), ứng dụng sẽ hỏi khi khởi động và chỉ tải về **khi bạn bấm Tải về** (cũng có thể chọn Để sau). Ngoài ra ứng dụng chỉ kết nối mạng để kiểm tra danh sách mô hình và phiên bản mới (tối đa mỗi ngày một lần; có thể tắt trong Cài đặt) |
 | Xử lý nặng | Tách giọng chạy khi bạn thêm giọng mẫu hoặc chọn "Bắt đầu chỉ với bản gốc" (chạy nền; bạn vẫn phát và thu được). Khi giọng mẫu được lấy bằng phép trừ, tách giọng cũng chạy tiếp để chia giọng chính và bè. Chỉ mở ứng dụng thì không bao giờ bắt đầu. Hiển thị lời bài hát **tắt theo mặc định** (bật trong Cài đặt) |

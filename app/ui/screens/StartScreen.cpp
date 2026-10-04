@@ -242,7 +242,7 @@ void StartScreen::setGuide (const juce::File& f)
     repaint();
 }
 
-void StartScreen::startFromOriginal (const juce::File& original)
+void StartScreen::startFromOriginal (const juce::File& original, bool confirmed)
 {
     if (original == juce::File())
         return;
@@ -259,6 +259,11 @@ void StartScreen::startFromOriginal (const juce::File& original)
         fromOriginal = true;
         separationError = tr ("separation.noModelOriginal");
         setPhase (Phase::failed);
+        return;
+    }
+    if (! confirmed && onConfirmOriginal)
+    {
+        onConfirmOriginal (original);
         return;
     }
 

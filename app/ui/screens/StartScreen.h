@@ -25,13 +25,16 @@ public:
     std::function<void()> onDone;
     /** 原曲だけで始めたいが分離モデルが無い（入れられる）：呼び出し側がモデルの確認を出す（B16） */
     std::function<void (const juce::File& original)> onNeedModel;
+    /** 原曲だけで始める前に、分離の見込み時間を表示して確認する（#27）。確認したら startFromOriginal (original, true) で戻る */
+    std::function<void (const juce::File& original)> onConfirmOriginal;
     std::function<void()> onInstallModels;   // 「分離モデルを入れる」（起動画面は開いたまま。確かめたらダウンロードの確認に替わる）
     std::function<void()> onModeChosen;      // 初回のモードの質問に答えた
 
     /** その曲の読み込みを始める（解析画面へ） */
     void openFile (const juce::File&);
     /** 原曲だけ（B16。DESIGN 7.1.1）：原曲を分離してオフボを作り、それを開いて原曲をお手本に重ねる */
-    void startFromOriginal (const juce::File& original);
+    /** confirmed：見込み時間の確認が済んでいる（onConfirmOriginal が無ければ確認せずに始める） */
+    void startFromOriginal (const juce::File& original, bool confirmed = false);
     /** お手本（声入りの原曲）の枠に入れる（読むのはオフボを開いた後） */
     void setGuide (const juce::File&);
     /** お手本は開いた後に重ねる（--open と --guide を一緒に渡した時）。解析の「お手本ピッチ」を「開いた後」と出す */
