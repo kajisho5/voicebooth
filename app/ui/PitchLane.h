@@ -28,6 +28,7 @@ public:
     void mouseMove (const juce::MouseEvent&) override;
     void showGuideMenu (int64 at);
     void drawUncovered (juce::Graphics&, const TimeMap&);
+    void drawHarmonyHint (juce::Graphics&);
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     void mouseMagnify (const juce::MouseEvent&, float scaleFactor) override;
 

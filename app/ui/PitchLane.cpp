@@ -1,5 +1,6 @@
 #include "PitchLane.h"
 #include "SongMarks.h"
+#include "separation/SeparatorClient.h"
 
 namespace vb
 {
@@ -370,6 +371,7 @@ void PitchLane::paintStatic (juce::Graphics& g)
             drawMainGhost (g, m);
         drawReference (g, m);
         drawUncovered (g, m);
+        drawHarmonyHint (g);
 
         // お手本ピッチがまだない：解析中か、声入りの原曲をここにドロップする案内（B9）
         if (s.refPitch.empty())
@@ -526,6 +528,34 @@ void PitchLane::drawUncovered (juce::Graphics& g, const TimeMap& m)
         from = juce::jmax (from, b);
     }
     gap (from, s.project.lengthSamples);
+}
+
+void PitchLane::drawHarmonyHint (juce::Graphics& g)
+{
+    // ハモリのトラックを選んでいるのに、ハモリのお手本の線がない（2026-10-04）：
+    // メインの線をそのまま出していることと、その理由を線の上に表示する（黙ってメインの線を出すと、ハモリの線が無いのか分からない）
+    const auto& s = state();
+    if (! s.isHarmonySelected() || ! s.engineAttached || ! s.refPitchHarm.empty() || s.refPitch.empty())
+        return;
+    const char* key = (s.separating && s.separationKind == 2) || s.leadAnalysing ? "pitch.harmHint.running"     // リード・ハモリを分けている途中
+                    : ! separation::SeparatorClient::karaokeInstalled()           ? "pitch.harmHint.noModel"     // リードのモデルがない
+                    : s.guideHarmVocals != nullptr                                ? "pitch.harmHint.few"         // 分けたが、ハモリの声がほとんどない
+                                                                                  : "pitch.harmHint.none";
+    const auto plot = plotArea.toFloat();
+    const auto f = sans (12.5f);
+    const auto text = tr (key);
+    const auto w = juce::jmin (plot.getWidth() - 24.0f, textWidth (f, text) + 40.0f);
+    if (w < 80.0f)
+        return;
+    const auto lines = textWidth (f, text) + 40.0f > w ? 2 : 1;
+    const juce::Rectangle<float> chip (plot.getCentreX() - w * 0.5f, plot.getY() + 10.0f, w, lines == 1 ? 26.0f : 42.0f);
+    g.setColour (colours::panel.withAlpha (0.92f));
+    g.fillRoundedRectangle (chip, 6.0f);
+    g.setColour (colours::warn.withAlpha (0.6f));
+    g.drawRoundedRectangle (chip.reduced (0.5f), 6.0f, 1.0f);
+    g.setColour (colours::text);
+    g.setFont (f);
+    g.drawFittedText (text, chip.reduced (14.0f, 4.0f).toNearestInt(), juce::Justification::centred, lines, 1.0f);
 }
 
 void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)

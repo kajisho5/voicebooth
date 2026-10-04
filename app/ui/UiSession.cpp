@@ -2081,6 +2081,8 @@ void UiSession::analyseLead (const juce::File& leadFile)
     if (karaoke == nullptr || vocals == nullptr)
         return;
     const auto serial = s.songSerial;
+    s.leadAnalysing = true;
+    notify (change::view);
     std::weak_ptr<bool> weak = alive;
     juce::Thread::launch ([this, weak, leadFile, guide, karaoke, vocals, serial]
     {
@@ -2107,8 +2109,14 @@ void UiSession::analyseLead (const juce::File& leadFile)
         }
         juce::MessageManager::callAsync ([this, weak, out, serial, songRate = karaoke->sampleRate]
         {
-            if (weak.expired() || serial != s.songSerial || out->kind != GuideOutcome::Kind::ok)
+            if (weak.expired())
+                return;
+            s.leadAnalysing = false;
+            if (serial != s.songSerial || out->kind != GuideOutcome::Kind::ok)
+            {
+                notify (change::view);
                 return;   // 取れなければ今の（分けていない）お手本のまま
+            }
             const auto ratio = (double) s.sampleRate() / songRate;
             auto toRef = [ratio] (const std::vector<audio::PitchFrame>& points)
             {
