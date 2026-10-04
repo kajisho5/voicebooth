@@ -17,6 +17,22 @@ English follows Japanese.
 - **Windows**：「Windows によって PC が保護されました」→「詳細情報」→「実行」
 - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く →「開けません」と表示されたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」（開こうとしてから約 1 時間だけ表示されます）→ パスワード
 
+## beta.5 で直したもの（保存と録音の見直し）
+
+プロジェクトの保存・開き直し・録音・書き出しを全体で見直し、見つかった不具合を直しました。**beta.4 以前を使っている方は、更新をおすすめします。**
+
+- **開き直すたびに解析し直していた**：お手本の時間合わせと音程の線の結果をプロジェクトに保存し、2 回目からは数秒で開きます（前のバージョンで解析したプロジェクトは、最初の 1 回だけ解析し直します）
+- **プロジェクトが空で上書きされることがあった**：開いた直後（サンプリングレートを合わせている数秒間）に別の曲を開く・終了すると、中身が空のまま保存されていました
+- **別の曲が前のプロジェクトに上書きされることがあった**：開くのをやめた後や、名前と長さが同じ別の曲（キー違いのオフボなど）を開いたとき
+- **テイクの位置がずれたまま保存されることがあった**：録ったときと違うサンプリングレートの機器で開いたとき
+- **録ったテイクが外れることがあった**：オーディオ機器が外れたとき・保存に失敗したとき・録音中に同じプロジェクトを開き直したとき。録り終えたらすぐ保存し、失敗したら試し直します
+- **練習の速さ・キーで録った声が本番に入ることがあった**：録音中は本番／リハーサルを切り替えられないようにしました
+- **ループの頭で REC を押すと、前の周回の声がテイクになっていた**
+- **モードで隠れたダブル・ハモリが書き出しから外れていた**：録ってあれば一覧に表示して書き出します
+- **お手本を替えると、前のお手本の結果で線が上書きされることがあった**
+- **保存していなかった設定**：モニターの音量とミュート、範囲（IN / OUT）・ループ、選んでいるトラック、自分の声の +1oct、再生位置をプロジェクトに、判定の幅・オクターブ合わせ・音域の表示をアプリに保存します
+- そのほか：お手本のファイルが見つからないときに記録が消えていた、開くだけでバックアップの古い世代が押し出されていた、書き出しの失敗を成功と表示していた、ダウンロード途中の分離モデルを使っていた、など
+
 ## beta.4 で増えたもの・直したもの
 
 - **分離中の画面が分かりやすく**：分離を始めてから残り時間が表示されるまでの間は「準備中・経過時間」と動くバーを表示します。読み込みが終わると「メイン画面へ進む」の案内を表示し、Enter でも進めます
@@ -91,6 +107,22 @@ English follows Japanese.
 
 - **Windows**: "Windows protected your PC" → "More info" → "Run anyway"
 - **Mac**: move VoiceBooth from the DMG to Applications and open it once → if it says it can't be opened, go to System Settings → Privacy & Security → "Open Anyway" (shown for about an hour after the attempt) → enter your password
+
+## Fixed in beta 5 (saving and recording review)
+
+Saving, reopening, recording and exporting were reviewed as a whole and the problems found were fixed. **If you use beta 4 or earlier, please update.**
+
+- **Analysis ran again every time a project was reopened**: the guide alignment and pitch line results are now saved in the project, so reopening takes seconds (projects analysed by an older version are analysed once more the first time)
+- **A project could be overwritten empty**: opening another song or quitting right after opening (while the sample rate was being matched) saved an empty project
+- **Another song could overwrite the previous project**: after cancelling an open, or when opening a different song with the same name and length (such as a backing track in another key)
+- **Take positions could be saved shifted**: when opening on a device with a different sample rate than the recording
+- **Recorded takes could drop out of the project**: when the audio device was unplugged, when saving failed, or when reopening the same project during recording. Takes are now saved as soon as recording stops, and failed saves are retried
+- **Takes recorded at practice tempo or key could go into the final takes**: switching Final / Rehearsal is now disabled while recording
+- **Pressing REC right at the loop start kept the previous pass instead of what you sang**
+- **Double and harmony tracks hidden by the mode were left out of exports**: recorded tracks are now listed and exported
+- **Changing the guide could let the previous guide's result overwrite the line**
+- **Settings that were not saved**: monitor levels and mutes, range (IN / OUT) and loop, the selected track, octave up for your voice and the playhead are saved in the project; the pitch tolerance, octave matching and full range view are saved in the app
+- Also: the guide link was lost when its file was missing, just opening pushed out old backups, failed exports were reported as success, a partly downloaded separation model was used, and more
 
 ## New and fixed in beta 4
 
