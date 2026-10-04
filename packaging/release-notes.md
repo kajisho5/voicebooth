@@ -17,6 +17,19 @@ English follows Japanese.
 - **Windows**：「Windows によって PC が保護されました」→「詳細情報」→「実行」
 - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く →「開けません」と表示されたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」（開こうとしてから約 1 時間だけ表示されます）→ パスワード
 
+## beta.6 で直したもの（調査で残した細かい不具合）
+
+beta.5 の見直しで後回しにした細かい不具合 8 件を直しました。
+
+- **個別 WAV の書き出しが、同じ日の前の書き出しを上書きしていた**：同じ日の 2 回目は `export_YYYYMMDD_2` のように別のフォルダに書き出します
+- **ハモリのお手本が作られないままになることがあった**：リードボーカルのモデルを後からダウンロードしたときや、リードの分離を途中で止めたとき。次に開いたときにリードの部分だけ分離します
+- **オフボ作りの［キャンセル］が、準備中・仕上げ中に効かなかった**：押すと止まるようにしました
+- **ダウンロードのキャンセルで、画面が最大 20 秒止まることがあった**：回線が止まっているとき。キャンセルはすぐ戻ります
+- **分離の作業ファイル（数十 MB）がプロジェクトに残ることがあった**：失敗・中止のときに削除し、プロジェクトを開いたときにも削除します
+- **Ctrl / ⌘+Z で、ずっと前のテイクの採用が外れることがあった**：録った直後のままのときだけ戻します
+- **遅延の手入力が、Enter を押さずに閉じると使われなかった**
+- **「分離しますか？」の確認が、開いている書き出しや設定の画面を置き換えていた**：閉じるまで待ってから表示します
+
 ## beta.5 で直したもの（保存と録音の見直し）
 
 プロジェクトの保存・開き直し・録音・書き出しを全体で見直し、見つかった不具合を直しました。**beta.4 以前を使っている方は、更新をおすすめします。**
@@ -107,6 +120,19 @@ English follows Japanese.
 
 - **Windows**: "Windows protected your PC" → "More info" → "Run anyway"
 - **Mac**: move VoiceBooth from the DMG to Applications and open it once → if it says it can't be opened, go to System Settings → Privacy & Security → "Open Anyway" (shown for about an hour after the attempt) → enter your password
+
+## Fixed in beta 6 (small issues left from the review)
+
+Eight small problems left over from the beta 5 review were fixed.
+
+- **Exporting separate WAVs overwrote an earlier export from the same day**: the second export of a day now goes to a new folder such as `export_YYYYMMDD_2`
+- **The harmony guide could stay missing**: after downloading the lead vocal model later, or after stopping lead separation partway. The next time you open the project, only the lead part is separated
+- **Cancel did not work while preparing or finishing a backing track**: it now stops
+- **Cancelling a download could freeze the screen for up to 20 seconds**: when the connection had stalled. Cancel now returns at once
+- **Separation work files (tens of MB) could be left in the project**: they are deleted on failure or cancel, and when the project is opened
+- **Ctrl / ⌘+Z could undo a take chosen long before**: it now undoes only right after the take, while nothing else has changed
+- **A latency typed by hand was not used if you closed without pressing Enter**
+- **The "Separate the vocals?" question replaced an open export or settings screen**: it now waits until that screen is closed
 
 ## Fixed in beta 5 (saving and recording review)
 
