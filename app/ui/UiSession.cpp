@@ -1,4 +1,5 @@
 #include "UiSession.h"
+#include "system/Background.h"
 #include "i18n/Reasons.h"
 #include "audio/Retro.h"
 #include "audio/SongLoader.h"
@@ -630,7 +631,7 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
     const auto takeStart = take.startSample;
     const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, file, key, wantPitch, takeStart, serial]
+    background::run ([this, weak, file, key, wantPitch, takeStart, serial]
     {
         juce::AudioFormatManager formats;
         formats.registerBasicFormats();
@@ -990,7 +991,7 @@ void UiSession::loadGuide (const juce::File& file)
     const auto backing = s.songOriginal;
     const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, file, backing, serial]
+    background::run ([this, weak, file, backing, serial]
     {
         auto out = std::make_shared<GuideOutcome> (analyseGuide (file, *backing));
         juce::MessageManager::callAsync ([this, weak, out, serial, songRate = backing->sampleRate]
@@ -1368,7 +1369,7 @@ void UiSession::prepareSeparationInput (const juce::File& source, const juce::Fi
     // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
     std::weak_ptr<bool> weak = alive;
     const auto generation = separationGeneration;
-    juce::Thread::launch ([this, weak, source, mix, generation, next]
+    background::run ([this, weak, source, mix, generation, next]
     {
         bool ok = false;
         if (auto a = readAudio (source))
@@ -1535,7 +1536,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                 return;
             }
             // 原曲の SR・長さのまま、声を引いてオフボにする（バックグラウンドで）
-            juce::Thread::launch ([this, weak, original, vocals, out, finish, generation]
+            background::run ([this, weak, original, vocals, out, finish, generation]
             {
                 bool wrote = false;
                 auto a = readAudio (original);
@@ -1652,7 +1653,7 @@ void UiSession::analyseLead (const juce::File& leadFile)
     s.leadAnalysing = true;
     notify (change::view);
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, leadFile, guide, karaoke, vocals, serial, forGuide]
+    background::run ([this, weak, leadFile, guide, karaoke, vocals, serial, forGuide]
     {
         auto out = std::make_shared<GuideOutcome>();
         const auto rate = karaoke->sampleRate;
@@ -1718,7 +1719,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
     const auto serial = s.songSerial;
     const auto key = s.guideKaraokeKey;   // キー違いのカラオケ：お手本の声もカラオケのキーへずらして鳴らす
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, vocalsFile, backingFile, karaoke, serial, key]
+    background::run ([this, weak, vocalsFile, backingFile, karaoke, serial, key]
     {
         auto out = std::make_shared<GuideOutcome>();
         auto voc = readAudio (vocalsFile);
@@ -2449,7 +2450,7 @@ void UiSession::pollLatencyProbe()
     const auto key = latencyProfileKey (s);
     std::weak_ptr<bool> weak = alive;
     analysingLatency = true;
-    juce::Thread::launch ([this, weak, captured, plan, key]
+    background::run ([this, weak, captured, plan, key]
     {
         const auto r = audio::latency::analyse (captured->data(), (int64) captured->size(), plan);
         juce::MessageManager::callAsync ([this, weak, r, key]
@@ -2547,7 +2548,7 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, project, folder, dest, song, types, eo]
+    background::run ([this, weak, project, folder, dest, song, types, eo]
     {
         juce::StringArray failed;
         int written = 0;
@@ -2660,7 +2661,7 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, project, folder, o]
+    background::run ([this, weak, project, folder, o]
     {
         const auto r = exporter::DeliveryPack::write (project, folder, o);
         juce::MessageManager::callAsync ([this, weak, r]
@@ -2997,7 +2998,7 @@ void UiSession::alignGuideAt (int64 sample)
     const auto window = (int64) (1.5 * audioRate), maxLag = (int64) (0.25 * audioRate);
     const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, original, karaoke, audioRate, centre, window, maxLag, serial]
+    background::run ([this, weak, original, karaoke, audioRate, centre, window, maxLag, serial]
     {
         // 比べる所だけ切り出す（モノラル）
         const auto lo = juce::jmax ((int64) 0, centre - window - maxLag - 64);
@@ -3177,7 +3178,7 @@ void UiSession::renderStems()
     exporter::Options eo;
     eo.crossfadeMs = s.crossfadeMs;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, generation, project, folder, slots, eo]
+    background::run ([this, weak, generation, project, folder, slots, eo]
     {
         using Buffer = std::shared_ptr<const juce::AudioBuffer<float>>;
         auto made = std::make_shared<std::vector<std::pair<int, Buffer>>>();
@@ -3274,7 +3275,7 @@ void UiSession::syncGuideToEngine()
             continue;
         }
         std::weak_ptr<bool> weak = alive;
-        juce::Thread::launch ([this, weak, guide, rate, generation, slot = slot]
+        background::run ([this, weak, guide, rate, generation, slot = slot]
         {
             std::shared_ptr<const audio::SongAudio> r = audio::resampleSong (*guide, rate);
             juce::MessageManager::callAsync ([this, weak, r, generation, slot]
