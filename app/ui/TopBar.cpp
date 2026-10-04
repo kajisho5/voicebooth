@@ -30,6 +30,7 @@ TopBar::TopBar (UiSession& u, Actions& a)
       exportKey (tr ("topbar.export"))
 {
     mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
+    mode.setTitle (tr ("settings.mode"));   // 読み上げの名前（#28）
 
     device.setButtonText (inputDisplayName (state()));
     device.withIcon (Icon::mic).withFont (sans (12.0f));
@@ -42,10 +43,12 @@ TopBar::TopBar (UiSession& u, Actions& a)
 
     exportKey.withIcon (Icon::exportFile);
     exportKey.setTooltip (tr ("topbar.export.tooltip"));
+    exportKey.withShortcut (commandKeyName ('E'));
     exportKey.onClick = [this] { if (actions.openExport) actions.openExport(); };
 
     settings.withIcon (Icon::gear);
     settings.setTooltip (tr ("topbar.settings"));
+    settings.withShortcut (commandKeyName (','));
     settings.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &songInfo, &tally, &exportKey, &settings })
@@ -66,6 +69,7 @@ void TopBar::onSessionChanged (juce::uint32 changes)
         songInfo.setButtonText (tr ("topbar.songInfo",
                                     s.keyKnown() ? s.project.key.shortName() : juce::String ("-"),
                                     s.tempoKnown() ? song::formatBpm (s.bpm()) : juce::String ("-")));
+        songInfo.setTitle (songInfo.getButtonText().isEmpty() ? tr ("topbar.songInfo.tooltip") : juce::String());   // 読み上げ：表示中の KEY / BPM（#28）
         resized();
         repaint (songArea);
     }

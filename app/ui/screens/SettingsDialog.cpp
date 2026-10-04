@@ -187,7 +187,14 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     {
         r.baseWidth = r.controlWidth;
         if (r.control != nullptr)
+        {
+            // 読み上げ（#28）：選ぶ部品は行の見出しを名前に、キーは自分の文字のまま見出しを説明に
+            if (dynamic_cast<KeyButton*> (r.control) != nullptr)
+                r.control->setDescription (r.label);
+            else
+                r.control->setTitle (r.label);
             addAndMakeVisible (r.control);
+        }
         for (auto* k : r.extras)
             addAndMakeVisible (k);
     }

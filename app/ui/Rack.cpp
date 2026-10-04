@@ -440,6 +440,7 @@ RecordModule::RecordModule (UiSession& u)
       recMode ({ tr ("record.delivery"), tr ("record.practice") }, (int) u->recMode, colours::rec)
 {
     recMode.onChange = [this] (int i) { session.setRecMode ((project::RecMode) i); };
+    recMode.setTitle (tr ("rack.record"));   // 読み上げの名前（#28）
     addAndMakeVisible (recMode);
 }
 
