@@ -4,7 +4,7 @@
 
 /*  本物のモデルで分離の 3 つの流れを通す（手元だけ。VB_REAL_SONG に曲のパスを入れたときだけ動く）。
     VB_REAL_STEPS：a = 原曲からオフボ、b = 分離中の［キャンセル］、c = お手本（引き算）→ リード分け、d = お手本の分離（separateGuide）、
-    e = d の途中（声と伴奏を書いた後、リードの途中）でアプリが落ちたプロジェクトを開き直し、リードだけを分け直す（VB_REAL_PROJECT に .vbooth） */
+    e = d の途中（声と伴奏を書いた後、リードの途中）でアプリが落ちたプロジェクトを開き直し、リードだけを分け直す（VB_REAL_CACHE_FROM に残った声と伴奏のフォルダ） */
 
 namespace vb::test
 {
@@ -198,29 +198,51 @@ public:
         if (steps.contains ("e"))
         {
             beginTest ("real: reopen a project that stopped during the lead step; only the lead is separated again");
-            const juce::File vbooth (juce::SystemStats::getEnvironmentVariable ("VB_REAL_PROJECT", {}));
-            expect (vbooth.existsAsFile(), "VB_REAL_PROJECT: " + vbooth.getFullPathName());
-            if (! vbooth.existsAsFile())
+            // 落ちた後の状態を作る：プロジェクトを作って保存し、前に落ちたときの声と伴奏（VB_REAL_CACHE_FROM。リードはまだ）をキャッシュに置く
+            const juce::File leftover (juce::SystemStats::getEnvironmentVariable ("VB_REAL_CACHE_FROM", {}));
+            if (offVocal == juce::File())
+                for (auto& f : cache.findChildFiles (juce::File::findFiles, true, "*(off vocal).wav"))
+                    offVocal = f;
+            expect (leftover.getChildFile ("vocals.wav").existsAsFile() && offVocal.existsAsFile(), "VB_REAL_CACHE_FROM and step a");
+            if (! leftover.getChildFile ("vocals.wav").existsAsFile() || ! offVocal.existsAsFile())
                 return;
+            juce::File vbooth, dir;
+            {
+                FakeEngine engine;
+                UiSession ui;
+                ui.attachEngine (&engine);
+                ui.setCacheFolder (cache);
+                expect (openSong (ui, offVocal));
+                expect (pumpUntil ([&] { return ui.get().projectFolder.isDirectory(); }, 20000));
+                ui.loadGuide (song);
+                expect (pumpUntil ([&] { return ! ui.get().guideBusy && ! ui.get().refPitch.empty(); }, 10 * 60 * 1000));
+                if (ui.get().separating)
+                {
+                    ui.stopSeparation();   // 引き算のお手本の後に自動で始まるリード分け（ここでは使わない）
+                    expect (pumpUntil ([&] { return ! ui.get().separating; }, 30000));
+                }
+                ui.flushSave();
+                const auto folder = ui.get().projectFolder;
+                vbooth = folder.getChildFile (folder.getFileName() + project::fileExtension);
+                dir = folder.getChildFile ("Cache/separation/" + leftover.getFileName());   // キーは原曲の名前・大きさ・モデルで決まる（同じ原曲）
+                dir.createDirectory();
+                for (auto name : { "vocals.wav", "backing.wav" })
+                    expect (leftover.getChildFile (name).copyFileTo (dir.getChildFile (name)));
+                ui.attachEngine (nullptr);
+            }
+            expect (vbooth.existsAsFile(), vbooth.getFullPathName());
+
             FakeEngine engine;
             UiSession ui;
             ui.attachEngine (&engine);
             ui.setCacheFolder (cache);
             expect (reopenProject (ui, vbooth));
             expect (pumpUntil ([&] { return ! ui.get().guideBusy && ! ui.get().refPitch.empty(); }, 10 * 60 * 1000), "the guide comes back");
-            // 開き直すとリード分けが自動で始まる（引き算のお手本）。ここでは分離（separateGuide）の続きを確かめたいので、止めてから呼ぶ
             if (ui.get().separating)
             {
                 ui.stopSeparation();
                 expect (pumpUntil ([&] { return ! ui.get().separating; }, 30000));
             }
-            const auto dirs = ui.get().projectFolder.getChildFile ("Cache/separation").findChildFiles (juce::File::findDirectories, false);
-            expectEquals (dirs.size(), 1);
-            if (dirs.size() != 1)
-                return;
-            const auto dir = dirs[0];
-            expect (dir.getChildFile ("vocals.wav").existsAsFile() && dir.getChildFile ("backing.wav").existsAsFile(), "vocals and backing are left from before");
-            expect (! dir.getChildFile ("lead.wav").existsAsFile(), "the lead was not finished");
             const auto vocalsTime = dir.getChildFile ("vocals.wav").getLastModificationTime();
             const auto t0 = juce::Time::getMillisecondCounterHiRes();
             ui.separateGuide();
