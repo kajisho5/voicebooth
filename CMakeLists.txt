@@ -570,6 +570,7 @@ if(VOICEBOOTH_TESTS)
         tests/SeparationTests.cpp
         tests/ModelDownloadTests.cpp
         tests/TakeStatsTests.cpp
+        tests/PitchStyleTests.cpp
         tests/KeySuggestTests.cpp
         tests/GuideCleanTests.cpp
         tests/RmvpeTests.cpp
