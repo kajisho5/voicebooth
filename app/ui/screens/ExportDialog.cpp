@@ -81,6 +81,7 @@ ExportDialog::ExportDialog (UiSession& u)
     };
     addChildComponent (packMode);
     packMode.onChange (packMode.getSelected());
+    packMode.setTitle (tr ("export.pack.title"));   // 読み上げの名前（#28）
 
     // ビット数（既定は録音形式。依頼先が 16bit を指定する時など）。16bit はディザー付き
     bitKeys.setFont (mono (11.0f));
