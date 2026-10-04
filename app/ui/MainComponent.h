@@ -120,7 +120,8 @@ private:
     void requestTempo (int);
     void requestKey (int);
     void confirmDiscardRecording();
-    void showConfirm (const juce::String& title, const juce::String& message, std::vector<ConfirmDialog::Option>);
+    void showConfirm (const juce::String& title, const juce::String& message, std::vector<ConfirmDialog::Option>,
+                      std::function<void()> onDismiss = {});   // onDismiss：どれも選ばずに閉じた（Esc）
 
     /** 曲の情報のショートカット（T / M / Enter / ↑ ↓ / Delete / Backspace / Esc。B4b）。扱ったら true */
     bool songInfoKey (const juce::KeyPress&);

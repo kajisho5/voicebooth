@@ -1560,7 +1560,7 @@ Phase A だけやれ。音声デバイスは開くな。
 
 | 用途 | 候補 | 性能の目安 | ライセンス | 判断 |
 |---|---|---|---|---|
-| 分離：ボーカル / オフボ（B16） | **BS-RoFormer ft1（anvuew）を採用（2026-10-02）**：MUSDB18-HQ の 6 曲で Mel-Band RoFormer（int8 どうし）より vocals SDR +0.67 dB、int8 55 MB・ピーク RAM 約 1.6 GB。GPL-3.0（AGPL と合う。変更版として変換の手順と元の重みの場所を tools/separation に置く） | — | GPL-3.0 | 採用 |
+| 分離：ボーカル / オフボ（B16） | **BS-RoFormer ft1（anvuew）を採用（2026-10-02）**：MUSDB18-HQ の 6 曲で Mel-Band RoFormer（int8 どうし）より vocals SDR +0.67 dB、int8 55 MB・ピーク RAM 約 1.6 GB。GPL-3.0（AGPL と合う。変更したものとして変換の手順と元の重みの場所を tools/separation に置く） | — | GPL-3.0 | 採用 |
 | 〃（前の既定） | Mel-Band RoFormer（Kimberley Jensen） | vocals SDR 10.98（MSST の Multisong） | MIT（Hugging Face のモデルページに明記。モデルのコード・設定の MSST も MIT） | **第一候補**。ONNX Runtime（CPU）で動くことを確認済み（11.3） |
 | 〃 | BS PolarFormer（ZFTurbo） | 11.00 | 配布元リポジトリは MIT。重み単体の明記は未確認 | 確認できれば候補 |
 | 〃 | BS-RoFormer（viperx） | 10.87 | 明記なし | 使わない（許可待ち） |
