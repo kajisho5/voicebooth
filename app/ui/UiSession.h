@@ -456,19 +456,19 @@ private:
     bool analysingLatency = false;    // 録り終えた測定音を裏で解析している
 
     // 遡及録音（B7）：再生中、アームしたトラックがあれば裏で録っている（REC でテイクになる。押さずに止めたら消す）
-    /** お手本の線と声を d サンプル（時間軸）ずらす（手直しの分。データだけ。判定・エンジンは呼ぶ側） */
-    void shiftGuideData (int64 d, bool withOriginal = true);
+    /** お手本の線を d サンプル（時間軸）ずらす（手直しの分。判定は呼ぶ側） */
+    void shiftGuideLines (int64 d);
     void setGuideCovered (const std::vector<std::pair<int64, int64>>&, double songRate);
     /** 解析し直した直後のお手本に、保存してある手直しを当てる。当てたら true */
     bool applyGuideNudge();
     /** 手直しの音のずらし（声・ハモリ・原曲）は、キーを続けて押している間はためておき、止まってから 1 回だけ当てる（#26。
-        前は押すたびに全長の音を 3 本写し、SR が違えばそろえ直していた）。線と判定はすぐ動かす */
+        前は押すたびに全長の音を 3 本写し、SR が違えばそろえ直していた）。線と判定はすぐ動かす。
+        音に当てた手直しは ms で声と原曲それぞれ覚え、「今の手直し − 当てた分」を当てる */
     void flushGuideShift();
-    /** お手本の音を作り直した（作り直した音には手直しを全部当てる）：ためていたずらしは捨てる */
-    void dropGuideShift() { pendingGuideShift = 0; ++guideShiftSerial; }
-    int64 pendingGuideShift = 0;
+    void syncAppliedNudgeSong();
+    double appliedVocalNudgeMs = 0.0, appliedOriginalNudgeMs = 0.0;   // 声・ハモリ／原曲の音に当ててある手直し（ms）
+    int appliedNudgeSong = -1;
     int guideShiftSerial = 0;
-    int pendingGuideShiftSong = -1;
     bool shadowActive = false;
     int recoveredTakes = 0;                // 開いた時に Audio/Recovered へ移したテイク（続きから開いた知らせの後に知らせる）
     juce::uint32 lastNoSeekNotice = 0;     // 録音中のシークの知らせ（ドラッグで出続けないように）
