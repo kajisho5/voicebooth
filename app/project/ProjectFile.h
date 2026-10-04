@@ -33,6 +33,26 @@ struct ProjectExtras
     std::vector<TrackMix> trackMix;   // 空 = 既定のまま（古いファイル）
     int practiceTempo = 100;          // 練習のテンポ（%）・キー（半音）。B11
     int practiceKey = 0;
+
+    /** モニターの音量（フェーダー 0..1、0.75 = 0 dB）と M（2026-10-04。それまでは開き直すと既定に戻っていた）。
+        自分の声の M は入れない（スピーカーの時のハウリング対策は開くたびに判定する）。S も入れない（一時的な聴き比べ） */
+    struct Monitor
+    {
+        bool has = false;             // ファイルにあった（古いファイルは既定のまま）
+        float backing = 0.75f, guide = 0.72f, harmony = 0.40f, self = 0.64f, reverb = 0.25f;
+        bool backingMute = false, guideMute = false, harmonyMute = false;
+    } monitor;
+
+    /** 作業の続き（2026-10-04）：範囲（IN / OUT）・ループ・選んでいたトラック・自分の声を 1 オクターブ上げて重ねる・再生位置 */
+    struct Work
+    {
+        bool has = false;
+        juce::int64 rangeIn = -1, rangeOut = -1;   // -1 = 範囲なし
+        bool loop = false;
+        juce::String track;                        // trackKey（"main" など）。空 = 既定
+        bool octaveUp = false;
+        juce::int64 playhead = 0;
+    } work;
 };
 
 juce::String toJson (const Project&, const ProjectExtras& = {});

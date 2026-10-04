@@ -39,6 +39,7 @@
       updateLastCheck  最後に確かめられた時刻（ms。24 時間に 1 回まで）
       updateSkipped    「このバージョンを飛ばす」で飛ばしたバージョン
       updateFound      見つけたバージョン（JSON。次の起動でも知らせを出す）
+      pitchToleranceCents / octaveAlign / fullRange  判定の幅（セント）・オクターブ合わせ・音域を全部表示
       cacheFolder   アプリ共通のキャッシュの場所（空 = 既定のアプリのデータ/VoiceBooth/Cache。DESIGN 8） */
 
 namespace vb
@@ -256,6 +257,10 @@ public:
         if (savedMode == "pro")      session->setMode (project::Mode::pro);
         session->setShowLyrics (stored->getBoolValue ("showLyrics", false));
         session->setCrossfade (stored->getDoubleValue ("crossfadeMs", 8.0));
+        // 判定の幅・オクターブ合わせ（設定）と音域の表示（2026-10-04：保存していなかった）
+        session->setPitchTolerance ((float) stored->getDoubleValue ("pitchToleranceCents", 30.0));
+        session->setOctaveAlign (stored->getBoolValue ("octaveAlign", true));
+        session->setFullRange (stored->getBoolValue ("fullRange", false));
         // クリック・カウントイン（2026-10-02）。クリックの入り切りは、曲を開いてテンポが分かってから効く（setClick はテンポを見るので、値だけ戻す）
         session->setCountIn (stored->getIntValue ("countInBars", 1));
         session->setClickLevel ((float) stored->getDoubleValue ("clickLevel", 0.62));
@@ -418,6 +423,21 @@ private:
                 settings()->setValue ("updateFound", st.updateRelease.found ? st.updateRelease.toJson() : juce::String());
             settings()->setValue ("cacheFolder", st.cacheFolder.getFullPathName());
             settings()->saveIfNeeded();
+        }
+
+        // 判定の幅・オクターブ合わせ・音域の表示（change::view。スクロールでも来るので、値が変わった時だけ書く）
+        if (changes & change::view)
+        {
+            const auto& st = session->get();
+            if (std::abs (st.pitchToleranceCents - (float) settings()->getDoubleValue ("pitchToleranceCents", 30.0)) > 1.0e-3f
+                || st.octaveAlign != settings()->getBoolValue ("octaveAlign", true)
+                || st.fullRange != settings()->getBoolValue ("fullRange", false))
+            {
+                settings()->setValue ("pitchToleranceCents", st.pitchToleranceCents);
+                settings()->setValue ("octaveAlign", st.octaveAlign);
+                settings()->setValue ("fullRange", st.fullRange);
+                settings()->saveIfNeeded();
+            }
         }
 
         if ((changes & change::mode) == 0) return;
