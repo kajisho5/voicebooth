@@ -1,4 +1,5 @@
 #include "audio/PlaybackCore.h"
+#include <rubberband/RubberBandStretcher.h>
 
 namespace vb::audio
 {
@@ -342,6 +343,29 @@ public:
             const auto ms = juce::Time::getMillisecondCounterHiRes() - t0;
             logMessage ("    Rubber Band R3 stereo 48 kHz x0.8 -3: " + juce::String (ms / 5000.0 * 100.0, 1) + " % of real time");
             expect (ms < 5000.0, juce::String (ms) + " ms for 5 s");
+        }
+
+        beginTest ("practice at 192 kHz: the lighter engine keeps up and stays correct (#21)");
+        {
+            using RB = RubberBand::RubberBandStretcher;
+            expect (PlaybackCore::stretchEngineFor (48000.0) == (int) RB::OptionEngineFiner);
+            expect (PlaybackCore::stretchEngineFor (96000.0) == (int) RB::OptionEngineFiner);
+            expect (PlaybackCore::stretchEngineFor (192000.0) == (int) RB::OptionEngineFaster);
+            expect (PlaybackCore::stretchEngineFor (384000.0) == (int) RB::OptionEngineFaster);
+
+            constexpr double rate = 192000.0;
+            PlaybackCore core;
+            core.setSong (toneSong (440.0, 5.0, rate));
+            core.prepare (rate);
+            core.setPractice (0.8, 2);
+            core.play();
+            const auto t0 = juce::Time::getMillisecondCounterHiRes();
+            const auto out = play (core, (int) rate * 2, 512);   // 2 秒
+            const auto ms = juce::Time::getMillisecondCounterHiRes() - t0;
+            logMessage ("    Rubber Band 192 kHz x0.8 +2: " + juce::String (ms / 2000.0 * 100.0, 1) + " % of real time");
+            expect (ms < 2000.0, juce::String (ms) + " ms for 2 s");
+            expectWithinAbsoluteError ((double) core.getPosition(), rate * 2.0 * 0.8, 4.0);
+            expectWithinAbsoluteError (frequency (out, (int) rate / 2, rate), 440.0 * std::pow (2.0, 2.0 / 12.0), 4.0);
         }
 
         beginTest ("recorded tracks play at the same position as the song (B12)");

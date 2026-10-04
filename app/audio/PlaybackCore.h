@@ -114,6 +114,9 @@ public:
     /** フェーダーの位置（0..1）→ 倍率。0.75 で 0 dB、1.0 で +6 dB、0 で無音 */
     static float faderToGain (float position) noexcept;
 
+    /** 練習のテンポ・キーで使う Rubber Band のエンジン（RubberBandStretcher::Option…）。96 kHz を超えると軽い方（#21） */
+    static int stretchEngineFor (double sampleRate) noexcept;
+
 private:
     void rebuildStretcher();                        // 曲・出力の SR が決まった時（メッセージスレッド等。確保してよい所）
     Rendered renderSong (float* const* out, int numChannels, int numSamples, juce::int64 pos) noexcept;
