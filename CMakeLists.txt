@@ -170,6 +170,7 @@ set(VOICEBOOTH_AUDIO_SOURCES
     app/audio/Mp4Gapless.cpp
     app/audio/PlaybackCore.cpp
     app/audio/Metronome.cpp
+    app/audio/GameSounds.cpp
     app/audio/InputMeter.cpp
     app/audio/MonitorMixer.cpp
     app/audio/TakeRecorder.cpp
@@ -254,6 +255,7 @@ target_sources(VoiceBooth PRIVATE
     app/ui/MainComponent.cpp
     # ダイアログ / 起動画面
     app/ui/screens/StartScreen.cpp
+    app/ui/screens/WaitGame.cpp
     app/ui/screens/SetupWizard.cpp
     app/ui/screens/ExportDialog.cpp
     app/ui/screens/SettingsDialog.cpp
@@ -563,6 +565,7 @@ if(VOICEBOOTH_TESTS)
         tests/GuideCleanTests.cpp
         tests/RmvpeTests.cpp
         tests/ClickTests.cpp
+        tests/GameSoundsTests.cpp
         tests/UpdateCheckTests.cpp
         tests/TakeCompareTests.cpp
         tests/PitchShiftTests.cpp

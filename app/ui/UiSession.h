@@ -155,6 +155,18 @@ public:
     void startRangeMeasure();
     void stopRangeMeasure();
     const std::vector<float>& rangeSamples() const { return rangeNotes; }
+
+    // 待ち時間のゲーム（起動画面で分離を待つ間。WaitGame）
+    /** マイクの音程を曲の外で取る（曲を開く前でも）。止めるまで gameVoiceMidi が新しくなる */
+    void startGameVoice();
+    void stopGameVoice();
+    /** いまの声の音程（MIDI）。声が無い・0.25 秒より古ければ 0 */
+    float gameVoiceMidi() const;
+    /** ゲームのクリック（BPM。0 で止める）と目標の音。エンジンが無ければ何もしない */
+    void setGameBeat (double bpm);
+    void playGameTone (float midi, double seconds);
+    /** クリックを始めてから耳に届いている位置（秒）。鳴らせない（エンジン・出力が無い）なら < 0 */
+    double gameBeatClock() const;
     void setOctaveUp (bool);
     void setFullRange (bool);
 
@@ -434,6 +446,10 @@ private:
     void syncGuideToEngine();
     juce::uint32 guideGeneration = 0;
     bool rangeMeasuring = false;
+    bool gameVoice = false;
+    float gameMidi = 0.0f;
+    double gameMidiMs = 0.0;
+    void noteGameFrame (const audio::PitchFrame&);
     std::vector<float> rangeNotes;
     mutable juce::int64 songRangeKey = -1;
     mutable analysis::SongRange cachedSongRange;
