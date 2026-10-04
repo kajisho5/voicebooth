@@ -617,6 +617,8 @@ if(VOICEBOOTH_TESTS)
         tests/session/SessionSaveTests.cpp
         tests/session/SessionSeparationTests.cpp
         tests/session/PartsKeyboardTests.cpp
+        tests/session/SessionGuideTests.cpp
+        tests/session/SessionRealSeparationTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
