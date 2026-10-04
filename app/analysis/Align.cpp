@@ -1,4 +1,5 @@
 #include "Align.h"
+#include "Decimate.h"
 #include "Fft.h"
 #include <algorithm>
 #include <numeric>
@@ -167,7 +168,7 @@ std::vector<float> onsetEnvelope (const float* x, juce::int64 length, int frameS
     return env;
 }
 
-AlignResult alignReference (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
+static AlignResult alignReferenceAtRate (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
 {
     AlignResult r;
     auto envR = onsetEnvelope (ref, refLen, envFrame, envHop);
@@ -352,7 +353,7 @@ AlignResult alignReference (const float* ref, juce::int64 refLen, const float* k
     return r;
 }
 
-KeyShiftResult estimateKeyShift (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
+static KeyShiftResult estimateKeyShiftAtRate (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
 {
     auto chroma = [sampleRate] (const float* x, juce::int64 len)
     {
@@ -457,5 +458,33 @@ LocalLag localLag (const float* a, juce::int64 aLength, const float* b, juce::in
     out.lag = bestLag;
     out.correlation = best;
     return out;
+}
+//==============================================================================
+// 高い SR の曲は 48 kHz 前後まで下げてから合わせる（#21）。ずれ・区間は元の SR に戻す
+// （細かい合わせは下げた SR のサンプル単位になる：192 kHz で 4 サンプル＝0.02 ms。お手本の線は 10 ms ごとなので足りる）
+AlignResult alignReference (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
+{
+    const auto k = analysisFactor (sampleRate);
+    if (k <= 1)
+        return alignReferenceAtRate (ref, refLen, kar, karLen, sampleRate);
+    const auto r = decimate (ref, refLen, k), q = decimate (kar, karLen, k);
+    auto a = alignReferenceAtRate (r.data(), (juce::int64) r.size(), q.data(), (juce::int64) q.size(), sampleRate / k);
+    a.offsetSamples *= k;
+    for (auto& c : a.covered)
+    {
+        c.karaokeStart = juce::jmin (c.karaokeStart * k, karLen);
+        c.karaokeEnd = juce::jmin (c.karaokeEnd * k, karLen);
+        c.offsetSamples *= k;
+    }
+    return a;
+}
+
+KeyShiftResult estimateKeyShift (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
+{
+    const auto k = analysisFactor (sampleRate);
+    if (k <= 1)
+        return estimateKeyShiftAtRate (ref, refLen, kar, karLen, sampleRate);
+    const auto r = decimate (ref, refLen, k), q = decimate (kar, karLen, k);
+    return estimateKeyShiftAtRate (r.data(), (juce::int64) r.size(), q.data(), (juce::int64) q.size(), sampleRate / k);
 }
 } // namespace vb::analysis
