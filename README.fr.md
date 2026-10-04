@@ -32,16 +32,16 @@ Chantez sur un instrumental, voyez votre justesse à l'écran, réenregistrez se
 ## Téléchargement (gratuit)
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.5/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-T%C3%A9l%C3%A9charger-C6EE6A?style=for-the-badge&labelColor=141311" alt="Télécharger pour Windows"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.5/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-T%C3%A9l%C3%A9charger-C6EE6A?style=for-the-badge&labelColor=141311" alt="Télécharger pour Mac"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-T%C3%A9l%C3%A9charger-C6EE6A?style=for-the-badge&labelColor=141311" alt="Télécharger pour Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-T%C3%A9l%C3%A9charger-C6EE6A?style=for-the-badge&labelColor=141311" alt="Télécharger pour Mac"></a>
 </p>
 
 | Ordinateur | Fichier (cliquez pour enregistrer) | Taille |
 |---|---|---|
-| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.5/VoiceBooth-0.2.0-win-x64-setup.exe) | environ 13 Mo |
-| Mac (macOS 11 ou ultérieur, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.5/VoiceBooth-0.2.0-mac-universal.dmg) | environ 40 Mo |
+| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-win-x64-setup.exe) | environ 13 Mo |
+| Mac (macOS 11 ou ultérieur, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-mac-universal.dmg) | environ 40 Mo |
 
-La version actuelle est **0.2.0 bêta 5**. Les nouveautés et les anciennes versions sont sur la [page des versions](https://github.com/kajisho5/voicebooth/releases). Il n'y a pas de version pour téléphone ou tablette.
+La version actuelle est **0.2.0 bêta 6**. Les nouveautés et les anciennes versions sont sur la [page des versions](https://github.com/kajisho5/voicebooth/releases). Il n'y a pas de version pour téléphone ou tablette.
 
 ### Première fois ? Trois étapes
 
