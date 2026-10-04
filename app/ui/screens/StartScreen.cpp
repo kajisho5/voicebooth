@@ -1,6 +1,7 @@
 #include "StartScreen.h"
 #include "../TopBar.h"
 #include "../parts/LedMeter.h"
+#include "../Animator.h"
 #include "project/ProjectFile.h"
 #include "separation/SeparatorClient.h"
 #include "models/ModelManifest.h"
@@ -683,6 +684,11 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         g.setColour (c);
         g.setFont (mono (11.0f, Weight::medium));
         const auto eta = state().separationEta;
+        // 分離は「曲を読む → モデルを読む → 最初の部分を処理」まで進み具合も残り時間も届かない（数十秒）。
+        // その間は止まって見えないよう、経過時間と流れる棒を表示する
+        const bool preparing = sepRow && running && progress <= 0.0f && eta <= 0.0;
+        const auto startedMs = state().separationStartedMs;
+        const auto elapsed = startedMs > 0.0 ? (int) ((juce::Time::getMillisecondCounterHiRes() - startedMs) / 1000.0) : 0;
         // テンポ・キーは開いた後に裏で推定する（B9b）。お手本があれば、音程と分離（引き算で取れない時・リードとハモリ分け）も開いた後（B9 / B16）
         const bool withGuide = guideFile != juce::File() || guideAfterOpen;   // 分離（要る時・リードとハモリ分け）も開いた後
         const bool later = (i == 3) || (i == 2 && (withGuide || fromOriginal)) || (i == 1 && withGuide);
@@ -690,6 +696,7 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
                               : waiting ? tr ("analyze.wait")
                               : failed ? tr ("analyze.failed")
                               : done   ? tr ("analyze.done")
+                              : preparing ? tr ("analyze.preparing", juce::String (elapsed / 60) + ":" + juce::String (elapsed % 60).paddedLeft ('0', 2))
                               : sepRow && eta > 0.0 ? tr ("analyze.eta", juce::roundToInt (progress * 100.0f), juce::jmax (1, juce::roundToInt (eta / 60.0)))
                                        : juce::String (juce::roundToInt (progress * 100.0f)) + "%";
         g.drawText (statusText, status, juce::Justification::centredRight, false);
@@ -712,7 +719,20 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         }
 
         paint::inset (g, bar, 3.0f);
-        if (progress > 0.0f)
+        if (preparing)   // 終わりの分からない間：短い棒が左右に行き来する（動きを減らす設定では、薄い棒を全体に）
+        {
+            g.setColour (c.withAlpha (0.55f));
+            if (motion::prefersReducedMotion())
+                g.fillRoundedRectangle (bar, 3.0f);
+            else
+            {
+                const auto t = std::fmod (juce::Time::getMillisecondCounterHiRes() / 1600.0, 2.0);
+                const auto pos = (float) (t < 1.0 ? t : 2.0 - t);
+                const auto w = bar.getWidth() * 0.22f;
+                g.fillRoundedRectangle (bar.withWidth (w).withX (bar.getX() + (bar.getWidth() - w) * pos), 3.0f);
+            }
+        }
+        else if (progress > 0.0f)
         {
             g.setColour (c);
             g.fillRoundedRectangle (bar.withWidth (bar.getWidth() * progress), 3.0f);
