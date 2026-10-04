@@ -1,7 +1,6 @@
 #include "session/FakeEngine.h"
 #include "session/SessionTestUtil.h"
 #include "i18n/I18n.h"
-#include <cstdio>
 
 /*  本物のモデルで分離の 3 つの流れを通す（手元だけ。VB_REAL_SONG に曲のパスを入れたときだけ動く）。
     VB_REAL_STEPS：a = 原曲からオフボ、b = 分離中の［キャンセル］、c = お手本（引き算）→ リード分け、d = お手本の分離（separateGuide） */
@@ -13,14 +12,20 @@ class SessionRealSeparationTests : public juce::UnitTest
 public:
     SessionRealSeparationTests() : juce::UnitTest ("Session real separation", "VoiceBoothSession") {}
 
+    /** 動いている分離のプロセスの数（シェルを通さない。pgrep 自身のコマンド行には [/] の正規表現が一致しない） */
     static int separatorProcesses()
     {
+        juce::ChildProcess p;
+       #if JUCE_WINDOWS
+        if (! p.start (juce::StringArray { "tasklist", "/FI", "IMAGENAME eq VoiceBoothSeparator.exe", "/NH" }))
+            return -1;
+       #else
+        if (! p.start (juce::StringArray { "pgrep", "-f", "[/]VoiceBoothSeparator" }))
+            return -1;
+       #endif
         int n = 0;
-        if (auto* p = popen ("pgrep -c -f [/]VoiceBoothSeparator", "r"))
-        {
-            if (std::fscanf (p, "%d", &n) != 1) n = 0;
-            pclose (p);
-        }
+        for (auto& line : juce::StringArray::fromLines (p.readAllProcessOutput()))
+            n += line.contains ("VoiceBoothSeparator") || (line.trim().containsOnly ("0123456789") && line.trim().isNotEmpty()) ? 1 : 0;
         return n;
     }
 
