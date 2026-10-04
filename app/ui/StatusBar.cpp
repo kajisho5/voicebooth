@@ -190,7 +190,8 @@ void StatusBar::paint (juce::Graphics& g)
     if (s.separating)
     {
         const auto pct = juce::roundToInt (s.separationProgress * 100.0f);
-        chip (s.separationEta > 0.0 ? tr ("status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
+        chip (s.separationProgress <= 0.0f && s.separationEta <= 0.0 ? tr ("status.separatingPreparing")   // 最初の部分を処理するまで
+              : s.separationEta > 0.0 ? tr ("status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
                                     : tr ("status.separating", pct), colours::ref);
     }
 
