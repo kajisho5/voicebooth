@@ -64,7 +64,7 @@ public:
 
     /** folder にモデルのファイルを置く（無ければ作る）。動いていれば false */
     bool start (const ModelEntry&, const juce::File& folder, std::function<void (const DownloadStatus&)> onStatus);
-    void cancel();
+    void cancel();   // 止めるよう伝えるだけ（待たない）
     void setPaused (bool);
     bool isBusy() const { return isThreadRunning(); }
 
