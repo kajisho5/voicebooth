@@ -35,6 +35,7 @@ namespace
     const char* const stepKeys[] = {
         "analyze.step.format",
         "analyze.step.separation",
+        "analyze.step.lead",       // リードとハモリの分け（メイン画面に移ってから。分かれて見えるように 1 行）
         "analyze.step.pitch",
         "analyze.step.tempo",
         "analyze.step.range",
@@ -729,7 +730,9 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         const auto elapsed = startedMs > 0.0 ? (int) ((juce::Time::getMillisecondCounterHiRes() - startedMs) / 1000.0) : 0;
         // テンポ・キーは開いた後に裏で推定する（B9b）。お手本があれば、音程と分離（引き算で取れない時・リードとハモリ分け）も開いた後（B9 / B16）
         const bool withGuide = guideFile != juce::File() || guideAfterOpen;   // 分離（要る時・リードとハモリ分け）も開いた後
-        const bool later = (i == 3) || (i == 2 && (withGuide || fromOriginal)) || (i == 1 && withGuide);
+        // 0 形式 / 1 分離 / 2 リード・ハモリ / 3 お手本ピッチ / 4 テンポ / 5 声域。リード・ハモリはリードのモデルがある時だけ（開いた後）
+        const bool leadLater = (withGuide || fromOriginal) && separation::SeparatorClient::karaokeInstalled();
+        const bool later = (i == 4) || (i == 3 && (withGuide || fromOriginal)) || (i == 2 && leadLater) || (i == 1 && withGuide);
         const auto statusText = ! real ? tr (later ? "analyze.later" : "analyze.skip")
                               : waiting ? tr ("analyze.wait")
                               : failed ? tr ("analyze.failed")
