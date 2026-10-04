@@ -324,6 +324,7 @@ void UiSession::setRecording (bool r)
 
     if (! r)
     {
+        loopTakes = false;
         finishRecording();
         s.isRecording = false;
         notify (change::transport | change::practice);
@@ -372,7 +373,7 @@ void UiSession::setRecording (bool r)
     // 簡単モードは通し録りだけ（DESIGN 2「区間録り直し＝通しのみ」）：IN/OUT は練習のループにだけ使い、録音は今の位置から通しで
     const bool punch = s.hasRange() && s.mode != project::Mode::easy;
     const auto now = juce::jlimit ((int64) 0, s.project.lengthSamples, engine->getPlayheadSample());
-    if (punch && ! (s.isPlaying && shadowActive && now < s.rangeIn))
+    if (punch && ! continuingLoop && ! (s.isPlaying && shadowActive && now < s.rangeIn))
     {
         if (shadowActive)
             finishRecording();    // 裏録りは消す（範囲の前から録り直す）
@@ -387,6 +388,7 @@ void UiSession::setRecording (bool r)
     {
         shadowActive = false;
         loopBeforeRecording = s.loopOn && s.hasRange();
+        loopTakes = punch && loopBeforeRecording;
         engine->setLoop (s.rangeIn, s.rangeOut, false);
         s.recordingTake = id;
         s.recordingTrack = armed->type;
@@ -409,8 +411,13 @@ void UiSession::setRecording (bool r)
     if (s.playhead >= s.project.lengthSamples)
         seek (0);
 
-    // 録音中はループしない（通し録音。区間の録り直しは B10）
-    loopBeforeRecording = s.loopOn && s.hasRange();
+    // 録音中はエンジンをループさせない（テイクのファイルは続けて書くので、戻るとテイクが閉じる）。
+    // 範囲の録り直しでループが点いていれば、範囲の終わりで次のテイクへ移る（nextLoopTake。#29）
+    if (! continuingLoop)
+    {
+        loopBeforeRecording = s.loopOn && s.hasRange();
+        loopTakes = punch && loopBeforeRecording;
+    }
     engine->setLoop (s.rangeIn, s.rangeOut, false);
     const bool fromStop = ! s.isPlaying;   // 鳴っている途中から録る時は数えない（もう拍が聞こえている）
 
@@ -467,6 +474,23 @@ void UiSession::startWithCountIn (bool punch)
     const auto target = punch ? s.rangeIn : s.playhead;
     const auto from = song::countInStart (s.project.tempo, target, s.countInBars, s.sampleRate());
     engine->playWithCountIn (juce::jmax ((int64) 0, s.playhead - from), target);
+}
+
+void UiSession::nextLoopTake()
+{
+    // 範囲をループして録る（#29。DESIGN B10）：今のテイクを閉じて残し（採用は最後に録ったもの。テイク比較で選び直せる）、
+    // 範囲の少し前へ戻って、止めずに・数えずに次のテイクを録り始める。録れなければ（理由は知らせ済み）止める
+    finishRecording();
+    s.isRecording = false;
+    seek (juce::jmax ((int64) 0, s.rangeIn - prerollSamples()));
+    continuingLoop = true;
+    setRecording (true);
+    continuingLoop = false;
+    if (! s.isRecording)
+    {
+        loopTakes = false;
+        setPlaying (false);
+    }
 }
 
 juce::String UiSession::recordProblem() const
@@ -2592,9 +2616,13 @@ void UiSession::tick (double seconds)
         followPlayhead (seconds);
 
         // 区間の録り直し（B10）：範囲の終わりの 0.5 秒後で止める（歌い終わりの余韻もファイルに残す）
+        // ループが点いていれば止めずに、次のテイクを範囲の少し前から録り始める（#29）
         if (s.isRecording && s.recordEnd >= 0 && pos >= s.recordEnd + (int64) (0.5 * s.sampleRate()))
         {
-            setPlaying (false);
+            if (loopTakes)
+                nextLoopTake();
+            else
+                setPlaying (false);
             return;
         }
 
