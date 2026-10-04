@@ -14,6 +14,7 @@
 #include "screens/TakeCompareDialog.h"
 #include "SongMarks.h"
 #include "system/AppCache.h"
+#include "project/ProjectFile.h"
 
 namespace vb
 {
@@ -878,6 +879,34 @@ void MainComponent::openAbout()
     overlay.show (std::move (dlg), true);
 }
 
+namespace
+{
+    /** いまの曲か最近のプロジェクトが、folder の中のファイル（作ったオフボ・お手本）を曲として使っているか。
+        プロジェクトの中へのコピーが終わっていない（ディスクが一杯だった等）と、キャッシュを消すと開けなくなる（監査 2026-10-04） */
+    bool projectsUseFolder (const dummy::Session& st, const juce::File& folder)
+    {
+        auto inside = [&folder] (const juce::File& projectFolder, const juce::String& path)
+        {
+            if (path.isEmpty())
+                return false;
+            const auto f = juce::File::isAbsolutePath (path) ? juce::File (path) : projectFolder.getChildFile (path);
+            return f.isAChildOf (folder);
+        };
+        if (inside (st.projectFolder, st.project.songPath) || inside (st.projectFolder, st.guidePath))
+            return true;
+        for (auto& path : st.recentProjects)
+        {
+            const juce::File vbooth (path);
+            if (! vbooth.existsAsFile())
+                continue;
+            const auto l = project::fromJson (vbooth.loadFileAsString());
+            if (l.ok && (inside (vbooth.getParentDirectory(), l.project.songPath) || inside (vbooth.getParentDirectory(), l.extras.guidePath)))
+                return true;
+        }
+        return false;
+    }
+}
+
 void MainComponent::confirmClearCache()
 {
     // 消すのはアプリのキャッシュ（作ったオフボ）だけ。曲ごとの <プロジェクト>/Cache/ は消さない。どちらを選んでも設定に戻る
@@ -892,6 +921,8 @@ void MainComponent::confirmClearCache()
                            // 分離の途中（オフボを作っている）は消さない：作りかけのファイルを壊す
                            if (state().separating)
                                showToast (tr ("settings.cache.clear.busy"));
+                           else if (projectsUseFolder (state(), folder))
+                               showToast (tr ("settings.cache.clear.inUse"));
                            else
                                showToast (system::clearCache (folder) ? tr ("settings.cache.cleared")
                                                                       : tr ("settings.cache.clear.failed"));
