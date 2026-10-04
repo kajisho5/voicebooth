@@ -72,6 +72,10 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
 
     deviceLostSeen = state().deviceLostCount;
     noticeSeen = state().noticeSerial;
+    // 言語・スキンを変えると画面を作り直す。前の画面で出した確認・知らせを、もう一度出さない（監査 2026-10-04）
+    separationOfferSeen = state().separationOfferSerial;
+    modelDialogSeen = state().modelDl.dialogSerial;
+    modelStageBehind = state().modelDl.stage;
     lastTick = juce::Time::getMillisecondCounterHiRes();
     startTimerHz (30);
 }
@@ -170,6 +174,10 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
 //==============================================================================
 void MainComponent::timerCallback()
 {
+    // 画面を閉じるのを待っていた「分離しますか？」を出す
+    if (state().separationOfferSerial != separationOfferSeen && ! overlay.isShowing())
+        onSessionChanged (change::notice);
+
     const auto now = juce::Time::getMillisecondCounterHiRes();
     const auto dt = juce::jlimit (0.0, 0.1, (now - lastTick) / 1000.0);
     lastTick = now;
@@ -278,8 +286,9 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         }
     }
 
-    // 引き算では声が取れない：分離するか尋ねる（B16）
-    if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen)
+    // 引き算では声が取れない：分離するか尋ねる（B16）。ほかの画面（書き出し・設定など）を開いている間は、閉じるまで待つ
+    // （前は開いている画面を置き換えていた。監査 2026-10-04）
+    if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen && ! overlay.isShowing())
     {
         separationOfferSeen = state().separationOfferSerial;
         const auto minutes = juce::jmax (1, juce::roundToInt (session.separationEstimateSeconds() / 60.0));

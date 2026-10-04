@@ -409,6 +409,7 @@ private:
     std::unique_ptr<models::ModelEntry> modelEntry;              // 署名を確かめた一覧の中の分離モデル
     std::unique_ptr<models::ModelEntry> karaokeEntry;            // 同じ一覧のリードボーカルのモデル（ハモリのお手本。2026-10-02）
     std::unique_ptr<models::ModelEntry> pitchEntry;              // 同じ一覧の音程モデル（RMVPE。分離と続けて入れる。2026-10-02）
+    int downloadGeneration = 0;   // ダウンロードを始める・キャンセルするたびに進める（前の受け取りの遅れた知らせを使わない）
     std::vector<std::pair<models::ModelEntry, juce::File>> downloadQueue;   // まとめて入れる物（分離 → リード → 音程）
     std::vector<std::pair<models::ModelEntry, juce::File>> modelsToDownload() const;
     void startQueuedModel (size_t index, juce::int64 offset, juce::int64 total);
@@ -419,6 +420,7 @@ private:
     void extractLead();
     void analyseLead (const juce::File& leadFile);
     std::unique_ptr<separation::SeparatorClient> separator;   // B16
+    int separationGeneration = 0;   // stopSeparation で進める（準備中・引き算中に止めたら、次の段階へ進まない）
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
@@ -472,6 +474,7 @@ private:
 
     // 直前のテイクを採用する前の採用区間（Ctrl / ⌘+Z で戻す。B10）
     std::vector<project::CompSegment> compBeforeTake;
+    std::vector<project::CompSegment> compAfterTake;   // 採用した直後の採用区間（違っていたら、その後に変えている：戻さない）
     project::TrackType undoTrack = project::TrackType::main;   // どのトラックの採用区間を戻すか
     bool undoIsCompare = false;     // 戻すのがテイク比較の選び直し（知らせの言葉を変える。B18c）
 

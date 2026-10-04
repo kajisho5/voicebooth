@@ -55,6 +55,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     finishRecording();   // 録音中に別の曲を開いたら、そこまでのテイクは残す
     stopSeparation();    // 前の曲の分離は止める（B16）
     endTakeCompare (false);   // テイク比較の試聴中なら元の採用区間に戻す（B18c。範囲・ループも元へ）
+    s.canUndoTake = false;   // 前の曲のテイクの採用を、次の曲のプロジェクトで戻さない
     flushSave();         // 前の曲のプロジェクトを保存してから
     // 開く途中のプロジェクトが、いま開く曲のものでなければ捨てる（読み込みをやめた・失敗した後に別の曲を開いた時、
     // 前のプロジェクトのフォルダに別の曲を開いて上書きしていた。監査 2026-10-04）
@@ -127,6 +128,13 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         s.projectFile = folder.getChildFile (folder.getFileName() + project::fileExtension);
     }
     analysis::cache::setFolder (s.projectFolder.getChildFile ("Cache/analysis"));   // 解析の結果の保存先（開き直しで解析し直さない）
+    // 前に分離の途中でアプリを閉じた・落ちたときの作業ファイル（入力の写し・書きかけ。1 本で数十 MB）を削除する（監査 2026-10-04）。
+    // 分離の結果（vocals・backing・lead）は残す
+    if (s.projectFolder != juce::File())
+        for (auto* sub : { "Cache/separation", "Cache/lead" })
+            for (auto& dir : s.projectFolder.getChildFile (sub).findChildFiles (juce::File::findDirectories, false))
+                for (auto& f : dir.findChildFiles (juce::File::findFiles, false, "*.part;mix.wav;rest.wav"))
+                    f.deleteFile();
 
     // 曲はプロジェクトの中にコピーして持つ（持ち運べるように。元のファイルはそのまま）
     if (file.isAChildOf (s.projectFolder))
@@ -1240,6 +1248,7 @@ void UiSession::finishRecording()
         undoTrack = type;
         undoIsCompare = false;
         project::applyTake (*track, take, s.recordStart, s.recordEnd >= 0 ? s.recordEnd : take.endSample);
+        compAfterTake = track->comp;
         s.canUndoTake = true;
     }
     else
@@ -1736,17 +1745,27 @@ namespace
         file.getParentDirectory().createDirectory();
         const auto temp = file.getSiblingFile (file.getFileName() + ".part");
         temp.deleteFile();
+        bool wrote = false;
         {
             auto fs = std::make_unique<juce::FileOutputStream> (temp);
-            if (! fs->openedOk()) return false;
-            std::unique_ptr<juce::OutputStream> stream (fs.release());
-            juce::WavAudioFormat wav;
-            auto w = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (b.getNumChannels())
-                                                    .withBitsPerSample (32).withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
-            if (w == nullptr || ! w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples())) return false;
+            if (fs->openedOk())
+            {
+                std::unique_ptr<juce::OutputStream> stream (fs.release());
+                juce::WavAudioFormat wav;
+                auto w = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (b.getNumChannels())
+                                                        .withBitsPerSample (32).withSampleFormat (juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));
+                wrote = w != nullptr && w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
+            }
         }
-        file.deleteFile();
-        return temp.moveFileTo (file);
+        // 書けなかった（ディスクがいっぱい など）ときは書きかけ（数十 MB）を残さない（監査 2026-10-04）
+        if (wrote)
+        {
+            file.deleteFile();
+            wrote = temp.moveFileTo (file);
+        }
+        if (! wrote)
+            temp.deleteFile();
+        return wrote;
     }
 
     std::shared_ptr<audio::SongAudio> readAudio (const juce::File& f)
@@ -1899,8 +1918,11 @@ void UiSession::startModelDownload()
         return;
     if (modelDownloader == nullptr)
         modelDownloader = std::make_unique<models::ModelDownloader> (models::makeHttpSource());
-    if (modelDownloader->isBusy())
-        return;
+    // キャンセルした前の受け取りがまだ終わっていない（回線が止まっていると最大 20 秒）：終わるのを待ってから始める
+    const bool stillStopping = modelDownloader->isBusy();
+    if (stillStopping && s.modelDl.stage >= 0)
+        return;   // 受け取り中
+    ++downloadGeneration;
     s.modelDl.stage = (int) models::DownloadStatus::Stage::downloading;
     s.modelDl.received = 0;
     s.modelDl.error = {};
@@ -1911,7 +1933,10 @@ void UiSession::startModelDownload()
     juce::int64 total = 0;
     for (auto& q : downloadQueue)
         total += q.first.totalSize();
-    startQueuedModel (0, 0, total);
+    if (stillStopping)
+        startQueuedModelWhenFree (0, 0, total);
+    else
+        startQueuedModel (0, 0, total);
     notify (change::view | change::notice);
 }
 
@@ -1921,10 +1946,11 @@ void UiSession::startQueuedModel (size_t index, juce::int64 offset, juce::int64 
         return;
     std::weak_ptr<bool> weak = alive;
     const bool more = index + 1 < downloadQueue.size();
+    const auto generation = downloadGeneration;
     modelDownloader->start (downloadQueue[index].first, downloadQueue[index].second,
-                            [this, weak, index, offset, total, more] (const models::DownloadStatus& st)
+                            [this, weak, index, offset, total, more, generation] (const models::DownloadStatus& st)
     {
-        if (weak.expired()) return;
+        if (weak.expired() || generation != downloadGeneration) return;   // キャンセルした受け取りの知らせ（遅れて届く）は使わない
         const auto before = s.modelDl.stage;
         auto stage = st.stage;
         // 1 つ終わっても次が残っていれば、まだ「受け取り中」
@@ -1949,9 +1975,10 @@ void UiSession::startQueuedModelWhenFree (size_t index, juce::int64 offset, juce
 {
     // 前の物を受け取ったスレッドが終わるのを待ってから始める（終わる前は start が断る）
     std::weak_ptr<bool> weak = alive;
-    juce::Timer::callAfterDelay (100, [this, weak, index, offset, total]
+    const auto generation = downloadGeneration;
+    juce::Timer::callAfterDelay (100, [this, weak, index, offset, total, generation]
     {
-        if (weak.expired() || modelDownloader == nullptr || s.modelDl.stage < 0)
+        if (weak.expired() || modelDownloader == nullptr || s.modelDl.stage < 0 || generation != downloadGeneration)
             return;   // 消えた・やめた
         if (modelDownloader->isBusy())
             startQueuedModelWhenFree (index, offset, total);
@@ -1964,12 +1991,16 @@ void UiSession::cancelModelDownload()
 {
     if (modelDownloader != nullptr)
         modelDownloader->cancel();   // 届いた分（.part）は残す。次は続きから
+    ++downloadGeneration;
     s.modelDl.stage = -1;
     notify (change::view | change::notice);
 }
 
 void UiSession::stopSeparation()
 {
+    // 準備（入力の書き出し）中・引き算中は分離プロセスがまだ・もう動いていない：止めたことを覚えておき、次の段階へ進ませない（監査 2026-10-04）
+    if (s.separating)
+        ++separationGeneration;
     if (separator != nullptr)
         separator->stop();
 }
@@ -2008,7 +2039,11 @@ void UiSession::separateGuide()
     const auto dir = separationCacheFolder();
     const auto vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav"), mix = dir.getChildFile ("mix.wav"),
                lead = dir.getChildFile ("lead.wav");   // リードボーカル（karaoke のモデルが入っていれば。ハモリのお手本）
-    if (vocals.existsAsFile() && backing.existsAsFile())
+    // 声と伴奏は分けてあるがリードがない（リードのモデルを後からダウンロードした・リードの段階で止めた・失敗した）：
+    // リードの段階だけを回す。前は lead.wav がないまま解析し、Cache を手で削除するまでハモリのお手本を作らなかった（監査 2026-10-04）
+    const bool cached = vocals.existsAsFile() && backing.existsAsFile();
+    const bool leadOnly = cached && ! lead.existsAsFile() && separation::SeparatorClient::karaokeInstalled();
+    if (cached && ! leadOnly)
     {
         analyseSeparated (vocals, backing);
         return;
@@ -2018,15 +2053,16 @@ void UiSession::separateGuide()
     s.separationProgress = 0.0f;
     s.separationEta = -1.0;
     s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
-    s.separationKind = 0;
+    s.separationKind = leadOnly ? 2 : 0;
     s.guideBusy = true;
-    postNotice (tr ("separation.started"));
+    postNotice (tr (leadOnly ? "separation.leadStarted" : "separation.started"));
     notify (change::view);
 
     // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
     std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
-    juce::Thread::launch ([this, weak, guide, mix, vocals, backing, lead, serial]
+    const auto generation = separationGeneration;
+    juce::Thread::launch ([this, weak, guide, mix, vocals, backing, lead, serial, generation, leadOnly]
     {
         bool ok = false;
         if (auto a = readAudio (guide))
@@ -2036,18 +2072,23 @@ void UiSession::separateGuide()
                 at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
             ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
         }
-        juce::MessageManager::callAsync ([this, weak, ok, mix, vocals, backing, lead, serial]
+        juce::MessageManager::callAsync ([this, weak, ok, mix, vocals, backing, lead, serial, generation, leadOnly]
         {
             if (weak.expired())
-                return;
-            auto fail = [this] (const juce::String& why)
             {
+                mix.deleteFile();
+                return;
+            }
+            auto fail = [this, mix] (const juce::String& why)
+            {
+                mix.deleteFile();   // 入力の写し（4 分の曲で約 85 MB）を Cache に残さない（監査 2026-10-04）
                 s.separating = false;
                 s.guideBusy = false;
                 postNotice (why);
                 notify (change::view);
             };
             if (serial != s.songSerial) { fail ({}); return; }
+            if (generation != separationGeneration) { fail (tr ("separation.stopped")); return; }
             if (! ok) { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
 
             if (separator == nullptr)
@@ -2060,20 +2101,28 @@ void UiSession::separateGuide()
                 s.separationEta = eta;
                 notify (change::view);
             };
-            cb.done = [this, weak, mix, vocals, backing, serial, fail] (bool done, const juce::String& error)
+            cb.done = [this, weak, mix, vocals, backing, lead, serial, fail, leadOnly] (bool done, const juce::String& error)
             {
+                mix.deleteFile();   // 入力の写しは消す（結果だけ残す。アプリを閉じて止まったときも）
                 if (weak.expired()) return;
-                mix.deleteFile();   // 入力の写しは消す（結果だけ残す）
+                if (leadOnly)
+                    lead.getSiblingFile ("rest.wav").deleteFile();   // リード以外（声の残り＋伴奏）は使わない
                 s.separating = false;
                 if (serial != s.songSerial) { s.guideBusy = false; return; }
-                if (! done)
+                if (! done && (! leadOnly || error == "stopped"))
                 {
                     fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
                     return;
                 }
+                // リードだけ失敗：声全体をお手本にする（ハモリは分けない。次に開いたときにまた試す）
+                if (! done)
+                    postNotice (tr ("separation.failed", reasonText (error)));
                 analyseSeparated (vocals, backing);
             };
-            if (! separator->start (mix, vocals, backing, std::move (cb), lead))
+            const bool started = leadOnly ? separator->start (mix, lead, lead.getSiblingFile ("rest.wav"), std::move (cb), {},
+                                                              separation::SeparatorClient::karaokeModelFolder())
+                                          : separator->start (mix, vocals, backing, std::move (cb), lead);
+            if (! started)
                 fail (tr ("separation.failed", reasonText ("busy")));
         });
     });
@@ -2107,10 +2156,11 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
     notify (change::view);
 
     std::weak_ptr<bool> weak = alive;
+    const auto generation = separationGeneration;
     auto finish = [this, weak, done, mix, vocals, backing] (const juce::File& made, const juce::String& error)
     {
-        if (weak.expired()) return;
         mix.deleteFile();
+        if (weak.expired()) return;
         vocals.deleteFile();   // 声は残さない（お手本の線は開いた後に「原曲 − オフボ」で出す）
         backing.deleteFile();
         s.separating = false;
@@ -2119,7 +2169,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
     };
 
     // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
-    juce::Thread::launch ([this, weak, original, mix, vocals, backing, out, finish]
+    juce::Thread::launch ([this, weak, original, mix, vocals, backing, out, finish, generation]
     {
         bool ok = false;
         if (auto a = readAudio (original))
@@ -2129,9 +2179,11 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                 at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
             ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
         }
-        juce::MessageManager::callAsync ([this, weak, ok, original, mix, vocals, backing, out, finish]
+        juce::MessageManager::callAsync ([this, weak, ok, original, mix, vocals, backing, out, finish, generation]
         {
-            if (weak.expired()) return;
+            if (weak.expired()) { mix.deleteFile(); return; }
+            // 準備の間に「キャンセル」を押していた：分離を始めない（前は押しても数分の分離が始まり、最後にオフボを開いていた。監査 2026-10-04）
+            if (generation != separationGeneration) { finish ({}, tr ("separation.stopped")); return; }
             if (! ok) { finish ({}, tr ("separation.failed", reasonText ("can't read the original"))); return; }
 
             if (separator == nullptr)
@@ -2144,7 +2196,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                 s.separationEta = eta;
                 notify (change::view);
             };
-            cb.done = [weak, original, vocals, out, finish] (bool separated, const juce::String& error)
+            cb.done = [this, weak, original, vocals, out, finish, generation] (bool separated, const juce::String& error)
             {
                 if (weak.expired()) return;
                 if (! separated)
@@ -2153,17 +2205,23 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                     return;
                 }
                 // 原曲の SR・長さのまま、声を引いてオフボにする（裏で）
-                juce::Thread::launch ([original, vocals, out, finish]
+                juce::Thread::launch ([this, weak, original, vocals, out, finish, generation]
                 {
                     bool wrote = false;
                     auto a = readAudio (original);
                     auto v = readAudio (vocals);
                     if (a != nullptr && v != nullptr)
                         wrote = writeFloatWav (out, analysis::offVocalFrom (*a, *v), a->sampleRate);
-                    juce::MessageManager::callAsync ([wrote, out, finish]
+                    juce::MessageManager::callAsync ([this, weak, wrote, out, finish, generation]
                     {
-                        if (wrote) finish (out, {});
-                        else       finish ({}, tr ("separation.failed", reasonText ("can't write the off vocal")));
+                        // 引き算の間に「キャンセル」を押していた：作ったオフボは開かない（残すと次は押さなくても開く）
+                        if (! weak.expired() && generation != separationGeneration)
+                        {
+                            out.deleteFile();
+                            finish ({}, tr ("separation.stopped"));
+                        }
+                        else if (wrote) finish (out, {});
+                        else            finish ({}, tr ("separation.failed", reasonText ("can't write the off vocal")));
                     });
                 });
             };
@@ -2211,7 +2269,8 @@ void UiSession::extractLead()
     std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
     const auto forGuide = guideSerial;   // 途中でお手本を替えたら、この結果は使わない（監査 2026-10-04）
-    juce::Thread::launch ([this, weak, guide, mix, lead, rest, serial, forGuide]
+    const auto generation = separationGeneration;
+    juce::Thread::launch ([this, weak, guide, mix, lead, rest, serial, forGuide, generation]
     {
         bool ok = false;
         if (auto a = readAudio (guide))
@@ -2222,18 +2281,31 @@ void UiSession::extractLead()
             mix.getParentDirectory().createDirectory();
             ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
         }
-        juce::MessageManager::callAsync ([this, weak, ok, mix, lead, rest, serial, forGuide]
+        juce::MessageManager::callAsync ([this, weak, ok, mix, lead, rest, serial, forGuide, generation]
         {
             if (weak.expired())
-                return;
-            auto fail = [this] (const juce::String& why)
             {
+                mix.deleteFile();
+                return;
+            }
+            auto fail = [this, mix] (const juce::String& why)
+            {
+                mix.deleteFile();   // 入力の写しを Cache に残さない（監査 2026-10-04）
                 s.separating = false;
                 if (why.isNotEmpty())
                     postNotice (why);
                 notify (change::view);
             };
             if (serial != s.songSerial) { fail ({}); return; }
+            if (forGuide != guideSerial)
+            {
+                // 準備の間にお手本を替えた：前のお手本は分けない。新しいお手本の解析が終わっていれば、そのリードを分け始める
+                fail ({});
+                if (! s.guideBusy)
+                    extractLead();
+                return;
+            }
+            if (generation != separationGeneration) { fail (tr ("separation.stopped")); return; }
             if (! ok) { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
             if (separator == nullptr)
                 separator = std::make_unique<separation::SeparatorClient>();
@@ -2247,9 +2319,9 @@ void UiSession::extractLead()
             };
             cb.done = [this, weak, mix, lead, rest, serial, fail, forGuide] (bool done, const juce::String& error)
             {
-                if (weak.expired()) return;
                 mix.deleteFile();
                 rest.deleteFile();   // リード以外（声の残り＋伴奏）は使わない
+                if (weak.expired()) return;
                 s.separating = false;
                 if (serial != s.songSerial) return;
                 if (forGuide != guideSerial)
@@ -2711,6 +2783,7 @@ bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::Strin
     undoTrack = type;
     undoIsCompare = false;
     project::applyTake (*track, take, from, to);
+    compAfterTake = track->comp;
     s.canUndoTake = true;
     s.takeWaves.erase (oldWave);
     loadTakeWave (type, take);
@@ -2724,13 +2797,25 @@ bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::Strin
     return true;
 }
 
+static bool sameComp (const std::vector<project::CompSegment>& a, const std::vector<project::CompSegment>& b)
+{
+    return std::equal (a.begin(), a.end(), b.begin(), b.end(), [] (const auto& x, const auto& y)
+                       { return x.startSample == y.startSample && x.endSample == y.endSample && x.takeId == y.takeId; });
+}
+
 bool UiSession::undoTake()
 {
     if (! s.canUndoTake || s.isRecording)
         return false;
     auto* track = const_cast<project::Track*> (s.project.findTrack (undoTrack));
-    if (track == nullptr)
+    // そのテイクの後に採用区間を変えていたら戻さない（区間の削除・別のトラックの録音・曲の情報の直しの後に、
+    // ずっと前のテイクの採用を外して、その後の編集まで消していた。監査 2026-10-04）
+    if (track == nullptr || ! sameComp (track->comp, compAfterTake))
+    {
+        s.canUndoTake = false;
+        notify (change::takes);
         return false;
+    }
     track->comp = compBeforeTake;   // テイクとファイルは残す（採用から外すだけ）
     s.canUndoTake = false;
     postNotice (tr (undoIsCompare ? "compare.undone" : "record.undone"));
@@ -2873,6 +2958,7 @@ void UiSession::endTakeCompare (bool commit)
             compBeforeTake = std::move (*before);
             undoTrack = type;
             undoIsCompare = true;
+            compAfterTake = track->comp;
             s.canUndoTake = true;
             used = true;
         }
@@ -3163,7 +3249,8 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
     if (bitDepth == 16 || bitDepth == 24 || bitDepth == 32)
         project.bitDepthExport = bitDepth;   // この書き出しだけ（録音形式は変えない）
     const auto folder = s.projectFolder;
-    const auto dest = folder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d"));
+    // 納品パックと同じ決め方（同じ日の 2 回目は export_YYYYMMDD_2 …）。前の書き出しを確認なしで上書きしない（監査 2026-10-04）
+    const auto dest = exporter::DeliveryPack::nextFolder (folder, juce::Time::getCurrentTime());
     const auto song = s.songName;
     exporter::Options eo;
     eo.crossfadeMs = s.crossfadeMs;
