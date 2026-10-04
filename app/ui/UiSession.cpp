@@ -1043,13 +1043,14 @@ void UiSession::loadGuide (const juce::File& file)
             if (weak.expired() || serial != s.songSerial)
                 return;   // 消えた・別の曲を開いた
             s.guideBusy = false;
-            dropGuideShift();   // 原曲・声は作り直した物に手直しを全部当てる（ためていた分は捨てる）
             using Kind = GuideOutcome::Kind;
             // 聞き比べ用の原曲（合わせられた時）。保存してある手直しもここで当てる
             s.guideOriginal = out->original;
             s.guideAlignRough = out->alignRough;
             setGuideCovered (out->covered, songRate);
             s.guideOriginal = shiftedAudio (s.guideOriginal, (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate()), s.sampleRate());
+            syncAppliedNudgeSong();
+            appliedOriginalNudgeMs = s.guideNudgeMs;   // 作り直した原曲には手直しを全部当てた
             if (s.guideOriginal == nullptr)
                 s.listenOriginal = false;
             syncGuideToEngine();
@@ -1098,6 +1099,8 @@ void UiSession::loadGuide (const juce::File& file)
                     }
                     break;
             }
+            if (out->kind != Kind::ok)
+                flushGuideShift();   // 声は作り直していない：解析の間に押した手直しを当てる（線はもう動いている）
             notify (change::view);
         });
     });
@@ -1443,7 +1446,6 @@ juce::File UiSession::leadCacheFolder() const
 
 void UiSession::extractLead()
 {
-    flushGuideShift();   // 手直しのずらしをためていれば、先に音へ当てる（#26）
     if (engine == nullptr || ! separationService->executableExists() || ! separationService->karaokeInstalled() || s.guidePath.isEmpty()
         || s.guideVocals == nullptr || s.songOriginal == nullptr || s.separating)
         return;
@@ -1514,9 +1516,11 @@ void UiSession::extractLead()
 
 void UiSession::analyseLead (const juce::File& leadFile)
 {
-    flushGuideShift();   // 手直しのずらしをためていれば、先に音へ当てる（#26）
+    flushGuideShift();   // 手直しを声に当て終えてから（#26）
     const auto karaoke = s.songOriginal;
-    const auto vocals = s.guideVocals;   // 取り出した声（オフボの時間・オフボの元の SR）
+    // 取り出した声（オフボの時間・オフボの元の SR）。手直しの分を戻してから使う：リード（leadOnBacking）はずらしていないので、
+    // ずらしたまま引くとリードが消えずにハモリに残っていた。できたリードとハモリには、あとで applyGuideNudge が手直しを当てる
+    const auto vocals = shiftedAudio (s.guideVocals, -(int64) std::llround (appliedVocalNudgeMs * 0.001 * s.sampleRate()), s.sampleRate());
     const auto guide = s.projectFolder.getChildFile (s.guidePath);
     if (karaoke == nullptr || vocals == nullptr)
         return;
@@ -2815,7 +2819,7 @@ void UiSession::setRangeOutAtPlayhead()
 }
 
 //==============================================================================
-void UiSession::shiftGuideData (int64 d, bool withOriginal)
+void UiSession::shiftGuideLines (int64 d)
 {
     if (d == 0)
         return;
@@ -2823,34 +2827,50 @@ void UiSession::shiftGuideData (int64 d, bool withOriginal)
         for (auto& p : *ref)
             p.sample += d;
     ++s.refPitchSerial;
+}
 
-    const auto rate = s.sampleRate();
-    s.guideVocals = shiftedAudio (s.guideVocals, d, rate);
-    s.guideHarmVocals = shiftedAudio (s.guideHarmVocals, d, rate);
-    if (withOriginal)
-        s.guideOriginal = shiftedAudio (s.guideOriginal, d, rate);
+void UiSession::syncAppliedNudgeSong()
+{
+    // 別の曲：前の曲のお手本に当てた分は関係ない（お手本の音は作り直す時に手直しを全部当てる）
+    if (appliedNudgeSong != s.songSerial)
+    {
+        appliedNudgeSong = s.songSerial;
+        appliedVocalNudgeMs = appliedOriginalNudgeMs = 0.0;
+    }
 }
 
 void UiSession::flushGuideShift()
 {
-    const auto d = pendingGuideShift;
-    const bool sameSong = pendingGuideShiftSong == s.songSerial;
-    pendingGuideShift = 0;
-    ++guideShiftSerial;
-    if (d == 0 || ! sameSong)
-        return;
+    // 音（声・ハモリ・原曲）に「今の手直し − もう当てた分」を当てる。ms で覚えておき、今の時間軸の SR で数える
+    // （サンプル数でためると、途中で SR をそろえ直した時にずれた。お手本を作り直した時に捨てると、作り直していない原曲・声がずれたまま残った）
+    ++guideShiftSerial;   // 待っているタイマーは取り消す
+    syncAppliedNudgeSong();
     const auto rate = s.sampleRate();
-    s.guideVocals = shiftedAudio (s.guideVocals, d, rate);
-    s.guideHarmVocals = shiftedAudio (s.guideHarmVocals, d, rate);
-    s.guideOriginal = shiftedAudio (s.guideOriginal, d, rate);
+    if (rate <= 0.0)
+        return;
+    auto samples = [rate] (double ms) { return (int64) std::llround (ms * 0.001 * rate); };
+    const auto dv = samples (s.guideNudgeMs) - samples (appliedVocalNudgeMs);
+    const auto dor = samples (s.guideNudgeMs) - samples (appliedOriginalNudgeMs);
+    appliedVocalNudgeMs = appliedOriginalNudgeMs = s.guideNudgeMs;
+    if (dv == 0 && dor == 0)
+        return;
+    s.guideVocals = shiftedAudio (s.guideVocals, dv, rate);
+    s.guideHarmVocals = shiftedAudio (s.guideHarmVocals, dv, rate);
+    s.guideOriginal = shiftedAudio (s.guideOriginal, dor, rate);
     syncGuideToEngine();
 }
 
 bool UiSession::applyGuideNudge()
 {
-    dropGuideShift();   // 作り直した音には手直しを全部当てる。ためていた分を後から足さない
+    // 解析し直した直後の線と声（まだずらしていない）に、保存してある手直しを全部当てる。原曲は作り直していないので、残りだけ当てる
+    syncAppliedNudgeSong();
     const auto d = (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate());
-    shiftGuideData (d, false);   // 原曲は合わせた時にもう当ててある
+    shiftGuideLines (d);
+    const auto rate = s.sampleRate();
+    s.guideVocals = shiftedAudio (s.guideVocals, d, rate);
+    s.guideHarmVocals = shiftedAudio (s.guideHarmVocals, d, rate);
+    appliedVocalNudgeMs = s.guideNudgeMs;
+    flushGuideShift();
     return d != 0;
 }
 
@@ -2862,21 +2882,15 @@ void UiSession::nudgeGuide (double deltaMs)
     const auto oldMs = s.guideNudgeMs;
     const auto newMs = juce::jlimit (-500.0, 500.0, oldMs + deltaMs);
     const auto d = (int64) std::llround (newMs * 0.001 * rate) - (int64) std::llround (oldMs * 0.001 * rate);
+    syncAppliedNudgeSong();
     s.guideNudgeMs = newMs;
-    // 線はすぐずらす。音は押し終わってから 1 回だけ（flushGuideShift）
-    for (auto* ref : { &s.refPitch, &s.refPitchHarm })
-        for (auto& p : *ref)
-            p.sample += d;
-    ++s.refPitchSerial;
-    if (pendingGuideShiftSong != s.songSerial)
-        pendingGuideShift = 0;
-    pendingGuideShift += d;
-    pendingGuideShiftSong = s.songSerial;
+    // 線はすぐずらす。音は押し終わってから 1 回だけ（flushGuideShift）。解析中（guideBusy）は終わった時に当てる
+    shiftGuideLines (d);
     const auto serial = ++guideShiftSerial;
     std::weak_ptr<bool> weak = alive;
     juce::Timer::callAfterDelay (350, [this, weak, serial]
     {
-        if (! weak.expired() && serial == guideShiftSerial)
+        if (! weak.expired() && serial == guideShiftSerial && ! s.guideBusy)
             flushGuideShift();
     });
     rejudgeAll();
