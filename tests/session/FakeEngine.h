@@ -22,10 +22,10 @@ public:
     void  play() override                          { playing = true; }
     void  stop() override                          { playing = false; }
     bool  isPlaying() const override               { return playing; }
-    void  seek (audio::int64 sample) override      { playhead = sample; }
+    void  seek (audio::int64 sample) override      { if (recording) recordedTo = juce::jmax (recordedTo, playhead); playhead = sample; }
     audio::int64 getPlayheadSample() const override { return playhead; }
     bool  consumeReachedEnd() override             { return false; }
-    void  setLoop (audio::int64, audio::int64, bool) override {}
+    void  setLoop (audio::int64, audio::int64, bool enabled) override { loopEnabled = enabled; if (enabled) ++loopEnables; }
 
     void setBackingLevel (float, bool) override {}
 
@@ -56,6 +56,7 @@ public:
     {
         recordFile = f;
         recordStart = playhead;
+        recordedTo = playhead;
         recording = true;
         ++recordingsStarted;
         return {};
@@ -68,7 +69,7 @@ public:
         recording = false;
         r.file = recordFile;
         r.startSample = recordStart;
-        r.length = juce::jmax ((audio::int64) 0, playhead - recordStart);
+        r.length = juce::jmax ((audio::int64) 0, juce::jmax (recordedTo, playhead) - recordStart);   // 録音中に戻っても、それまでに録った分
         recordFile.getParentDirectory().createDirectory();
         juce::AudioBuffer<float> b (1, (int) r.length);
         b.clear();
@@ -86,7 +87,9 @@ public:
     audio::int64 playhead = 0;
     bool playing = false;
     bool recording = false;
-    audio::int64 recordStart = 0;
+    audio::int64 recordStart = 0, recordedTo = 0;
+    bool loopEnabled = false;
+    int loopEnables = 0;   // エンジンのループを点けた回数（録音の周回の切れ目で点けない）
     juce::File recordFile;
     int recordingsStarted = 0;
 };

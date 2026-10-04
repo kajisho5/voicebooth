@@ -2,7 +2,8 @@
 #include "session/SessionTestUtil.h"
 
 /*  範囲をループして何回も録る（#29。DESIGN B10）：範囲とループを点けて録ると、範囲の終わり（＋余韻 0.5 秒）で今のテイクを閉じ、
-    範囲の少し前へ戻って、止めずに次のテイクを録る。止めた時の途中のテイクも残す。ループを消していれば今までどおり範囲の終わりで止まる。
+    範囲の少し前へ戻って、止めずに次のテイクを録る。止めた時の途中のテイクは残すが、採用は前の周回のまま。
+    ループを消していれば（録音中に消しても）範囲の終わりで止まる。範囲に届く前に止めたテイクは採用を変えない。
     偽のエンジン（tests/session/FakeEngine.h）の録音は、止めた時に録った長さの無音の WAV を書く */
 
 namespace vb::test
@@ -54,8 +55,11 @@ public:
             const auto preroll = engine.playhead;
             expect (preroll < in, "it starts a little before the range");
 
+            const auto enablesBefore = engine.loopEnables;
             pass (ui, engine, out + rate / 2 + 10);   // 範囲の終わり＋余韻
             expect (ui.get().isRecording && engine.recording && engine.playing, "it goes on without stopping");
+            expectEquals (engine.loopEnables, enablesBefore, "the engine loop is not turned on between passes (the range head would sound)");
+            expect (! engine.loopEnabled);
             expectEquals (engine.recordingsStarted, 2, "the next take starts");
             expectEquals (engine.playhead, preroll, "back to a little before the range");
             expectEquals ((int) mainTakes (ui).size(), 1);
@@ -76,17 +80,18 @@ public:
             for (auto& t : takes)
                 expect (ui.get().projectFolder.getChildFile (t.path).existsAsFile(), t.path);
 
-            // 採用：範囲の前半は最後（take3）、take3 が録れていない後半は take2
+            // 採用：途中で止めた周回（take3）は残すだけで、採用は前の周回（take2）のまま（範囲の頭を切れ端で上書きしない）
             const auto& comp = ui.get().project.findTrack (project::TrackType::main)->comp;
             juce::String compText;
             for (auto& c : comp)
                 compText << c.takeId << "[" << juce::String (c.startSample / (double) rate, 1) << "-" << juce::String (c.endSample / (double) rate, 1) << "] ";
-            expect (comp.size() == 2 && comp[0].takeId == "take3" && comp[1].takeId == "take2", compText);
-            if (comp.size() == 2)
+            expect (comp.size() == 1 && comp[0].takeId == "take2", compText);
+            if (comp.size() == 1)
             {
                 expectEquals (comp[0].startSample, in);
-                expectEquals (comp[1].endSample, out);
+                expectEquals (comp[0].endSample, out);
             }
+            expectEquals (ui.get().noticeText, tr ("record.loopPartial", "take3"));
 
             // もう一度 REC：ループの続きではなく、ふつうに範囲の前から録る
             ui.setRecording (true);
@@ -107,6 +112,68 @@ public:
             expect (! ui.get().isRecording && ! engine.recording && ! engine.playing, "it stops at the end of the range");
             expectEquals (engine.recordingsStarted, 1);
             expectEquals ((int) mainTakes (ui).size(), before + 1);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("turning the loop off while recording stops at the end of this pass, and that pass is used");
+        {
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, true);
+            const auto before = (int) mainTakes (ui).size();
+            ui.setRecording (true);
+            pass (ui, engine, out + rate / 2 + 10);
+            expectEquals (engine.recordingsStarted, 2);
+            ui.setLoop (false);
+            pass (ui, engine, out + rate / 2 + 10);
+            expect (! ui.get().isRecording && ! engine.playing, "it stops at the end of the range");
+            expectEquals (engine.recordingsStarted, 2, "no third pass");
+            expectEquals ((int) mainTakes (ui).size(), before + 2);
+            const auto& comp = ui.get().project.findTrack (project::TrackType::main)->comp;
+            expect (! comp.empty() && comp.back().takeId == mainTakes (ui).back().id, "the last full pass is used");
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("stopping before the range keeps the take but does not change what is used, and Ctrl+Z still works");
+        {
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, false);
+            ui.setRecording (true);
+            pass (ui, engine, out + rate / 2 + 10);   // 1 本録って採用
+            const auto compAfter = ui.get().project.findTrack (project::TrackType::main)->comp;
+            expect (ui.get().canUndoTake);
+            ui.setRecording (true);
+            pass (ui, engine, in - rate / 4);          // 範囲の手前で止める
+            ui.setPlaying (false);
+            const auto& comp = ui.get().project.findTrack (project::TrackType::main)->comp;
+            expect (comp.size() == compAfter.size() && (comp.empty() || comp.back().takeId == compAfter.back().takeId), "what is used does not change");
+            expectEquals (ui.get().noticeText, tr ("record.notReached", mainTakes (ui).back().id));
+            expect (ui.get().canUndoTake, "Ctrl+Z still undoes the take before");
+            const auto usedId = compAfter.empty() ? juce::String() : compAfter.back().takeId;
+            ui.undoTake();
+            bool stillUsed = false;
+            for (auto& c : ui.get().project.findTrack (project::TrackType::main)->comp)
+                stillUsed = stillUsed || c.takeId == usedId;
+            expect (! stillUsed, "undo takes the previous take out of what is used");
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("a range that ends at the end of the song still goes on to the next pass");
+        {
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, true);
+            const auto length = ui.get().project.lengthSamples;
+            ui.setRange (length - 2 * rate, length);
+            ui.setRecording (true);
+            pass (ui, engine, length);   // 位置は曲の終わりで止まる
+            expect (ui.get().isRecording, "still recording");
+            expectEquals (engine.recordingsStarted, 2, "the next pass starts");
+            ui.setPlaying (false);
             ui.attachEngine (nullptr);
         }
 
