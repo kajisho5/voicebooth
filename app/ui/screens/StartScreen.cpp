@@ -710,7 +710,8 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         // 0 形式 / 1 分離 / 2 リード・ハモリ / 3 お手本ピッチ / 4 テンポ / 5 声域。リード・ハモリはリードのモデルがある時だけ（開いた後）
         const bool leadLater = (withGuide || fromOriginal) && separation::SeparatorClient::karaokeInstalled();
         const bool later = (i == 4) || (i == 3 && (withGuide || fromOriginal)) || (i == 2 && leadLater) || (i == 1 && withGuide);
-        const auto statusText = ! real ? tr (later ? "analyze.later" : "analyze.skip")
+        const bool noLeadModel = i == 2 && (withGuide || fromOriginal) && ! leadLater;   // リードのモデルが無い：分けられない
+        const auto statusText = ! real ? tr (later ? "analyze.later" : (noLeadModel ? "analyze.noModel" : "analyze.skip"))
                               : waiting ? tr ("analyze.wait")
                               : failed ? tr ("analyze.failed")
                               : done   ? tr ("analyze.done")
