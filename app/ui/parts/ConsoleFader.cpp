@@ -11,7 +11,7 @@ ConsoleFader::ConsoleFader (double value, colours::Tone line)
     setValue (value, juce::dontSendNotification);
     setSliderSnapsToMousePosition (false);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
-    setWantsKeyboardFocus (false);
+    focus::tabOnly (*this);   // Tab で移って ← → ↑ ↓ で動かす（#28）
     shown.snap ((float) value);
     unityGlow = isAtUnity() ? 1.0f : 0.0f;
 }
@@ -166,6 +166,7 @@ void ConsoleFader::paint (juce::Graphics& g)
         paint::glow (g, lineRect.expanded (7.0f, 6.0f), capLine.get().withAlpha (0.55f * unityGlow));
     g.setColour (capLine.get().withMultipliedAlpha (0.78f + 0.22f * unityGlow).brighter (0.25f * unityGlow));
     g.fillRect (lineRect);
+    ring.paint (g, *this, getLocalBounds().toFloat(), metrics::keyRadius);
 }
 
 //==============================================================================
@@ -181,6 +182,11 @@ ChannelStrip::ChannelStrip (const juce::String& n, double value, float meterLeve
     solo.withLatch (colours::signal).withFont (mono (10.5f, Weight::semibold));
     mute.setTooltip (tr ("monitor.mute"));
     solo.setTooltip (tr ("monitor.solo"));
+    // 読み上げの名前（#28）：フェーダーはチャンネルの名前、M / S は「チャンネル + ミュート / ソロ」
+    const auto spoken = name.replace ("\n", " ").trim();
+    slider.setTitle (spoken);
+    mute.setTitle (spoken + " " + tr ("monitor.mute"));
+    solo.setTitle (spoken + " " + tr ("monitor.solo"));
     addChildComponent (mute);
     addChildComponent (solo);
     mute.setVisible (ms);

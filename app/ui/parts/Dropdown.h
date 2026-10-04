@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Icons.h"
+#include "Focus.h"
 
 namespace vb
 {
@@ -22,8 +23,15 @@ public:
     void mouseEnter (const juce::MouseEvent&) override { repaint(); }
     void mouseExit (const juce::MouseEvent&) override  { repaint(); }
     void mouseDown (const juce::MouseEvent&) override;
+    /** Enter・Space・↓ で開く（Tab で移ってきたとき。#28） */
+    bool keyPressed (const juce::KeyPress&) override;
+    void focusGained (FocusChangeType c) override { ring.gained (*this, c); }
+    void focusLost (FocusChangeType) override     { ring.lost (*this); }
+    std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override;
 
 private:
+    void showMenu();
+    focus::Ring ring;
     juce::StringArray items;
     int selected = 0;
     bool open = false;

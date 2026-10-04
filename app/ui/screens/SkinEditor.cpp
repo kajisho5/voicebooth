@@ -109,6 +109,7 @@ SkinEditor::SkinEditor (skin::Library& lib, const skin::Skin& active, const skin
 {
     addAndMakeVisible (templatePicker);
     templatePicker.onChange = [this] (int i) { setTemplate (i); };
+    templatePicker.setTitle (tr ("skinEditor.template"));   // 読み上げの名前（#28）
 
     for (auto* f : { &nameField, &authorField, &hexField })
     {

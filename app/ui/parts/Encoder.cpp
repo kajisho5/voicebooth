@@ -19,7 +19,7 @@ Encoder::Encoder (double min, double max, double value, double step, bool bi, co
     setValue (value, juce::dontSendNotification);
     setRotaryParameters (startAngle + juce::MathConstants<float>::twoPi, endAngle + juce::MathConstants<float>::twoPi, true);
     setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
-    setWantsKeyboardFocus (false);
+    focus::tabOnly (*this);   // Tab で移って ← → ↑ ↓ で動かす（#28）
     shown.snap ((float) value);
 }
 
@@ -169,6 +169,7 @@ void Encoder::paint (juce::Graphics& g)
     const auto ang = startAngle + pos * (endAngle - startAngle);
     g.setColour (colours::text);
     g.drawLine ({ c.getPointOnCircumference (bodyR * 0.30f, ang), c.getPointOnCircumference (bodyR * 0.78f, ang) }, 2.2f);
+    ring.paint (g, *this, getLocalBounds().toFloat(), metrics::keyRadius);
 }
 
 //==============================================================================
@@ -177,6 +178,7 @@ EncoderBlock::EncoderBlock (const juce::String& l, double min, double max, doubl
                             bool bipolar, colours::Tone led)
     : label (l), unit (u), format (std::move (fmt)), enc (min, max, value, step, bipolar, led)
 {
+    enc.setTitle (label);   // 読み上げの名前（#28）
     enc.onValueChange = [this] { repaint(); if (onChange) onChange (enc.getValue()); };
     enc.onShownChange = [this] { repaint (valueArea.getUnion (captionArea)); };
     addAndMakeVisible (enc);

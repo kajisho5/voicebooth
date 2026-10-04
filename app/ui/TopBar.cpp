@@ -30,6 +30,7 @@ TopBar::TopBar (UiSession& u, Actions& a)
       exportKey (tr ("topbar.export"))
 {
     mode.onChange = [this] (int i) { session.setMode ((project::Mode) i); };
+    mode.setTitle (tr ("settings.mode"));   // 読み上げの名前（#28）
 
     device.setButtonText (inputDisplayName (state()));
     device.withIcon (Icon::mic).withFont (sans (12.0f));
