@@ -32,16 +32,16 @@ Canta sobre una pista instrumental, mira tu afinación en pantalla, vuelve a gra
 ## Descarga (gratis)
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Descargar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Descargar para Windows"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Descargar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Descargar para Mac"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.7/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Descargar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Descargar para Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.7/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Descargar-C6EE6A?style=for-the-badge&labelColor=141311" alt="Descargar para Mac"></a>
 </p>
 
 | Ordenador | Archivo (haz clic para guardar) | Tamaño |
 |---|---|---|
-| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-win-x64-setup.exe) | unos 13 MB |
-| Mac (macOS 11 o posterior, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.6/VoiceBooth-0.2.0-mac-universal.dmg) | unos 40 MB |
+| Windows 10 / 11 (64 bits) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.7/VoiceBooth-0.2.0-win-x64-setup.exe) | unos 13 MB |
+| Mac (macOS 11 o posterior, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.7/VoiceBooth-0.2.0-mac-universal.dmg) | unos 40 MB |
 
-La versión actual es **0.2.0 beta 6**. Los cambios y las versiones anteriores están en la [página de versiones](https://github.com/kajisho5/voicebooth/releases). No hay versión para móvil ni tableta.
+La versión actual es **0.2.0 beta 7**. Los cambios y las versiones anteriores están en la [página de versiones](https://github.com/kajisho5/voicebooth/releases). No hay versión para móvil ni tableta.
 
 ### ¿Primera vez? Tres pasos
 
