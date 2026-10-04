@@ -128,6 +128,12 @@ public:
     /** 横に送る（表示の幅に対する割合。+ で右へ） */
     void scrollView (double fraction);
     void setOctaveAlign (bool);
+    /** 1 文字のショートカット（#28）：a に key を付ける。同じキーが付いていた操作はなしになり、その操作を返す（知らせに使う） */
+    std::optional<shortcuts::Action> setShortcut (shortcuts::Action a, juce::juce_wchar key);
+    void clearShortcut (shortcuts::Action a);
+    void resetShortcuts();
+    /** アプリの設定から戻す（起動時。保存は change::prefs で Main が書く） */
+    void restoreShortcuts (const juce::String& saved) { s.shortcuts = shortcuts::Map::fromString (saved); }
     /** 歌詞レーンを出すか（設定。既定は出さない） */
     void setShowLyrics (bool);
     void setCrossfade (double ms);   // 0 / 5 / 8 / 20 ms

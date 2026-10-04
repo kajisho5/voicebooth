@@ -92,6 +92,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
       cacheKey (tr ("settings.cache.change")),
       modelKey (tr ("model.getButton")),
       supportKey (tr ("settings.support.open")),
+      shortcutsKey (tr ("settings.shortcuts.open")),
       cacheOpen (tr ("settings.cache.open")),
       cacheClear (tr ("settings.cache.clear")),
       updateAuto (tr ("common.on")),
@@ -116,6 +117,8 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
     showLyrics.onClick = [this] { session.setShowLyrics (! state().showLyrics); };
     openSetup.withIcon (Icon::mic);
     openSetup.onClick = [this] { if (onOpenSetup) onOpenSetup(); };
+    shortcutsKey.withIcon (Icon::edit);
+    shortcutsKey.onClick = [this] { if (onShortcuts) onShortcuts(); };
     // 分離モデル：どこからでも入れられるように（ダウンロードは押した時だけ。11.7）
     modelKey.withIcon (Icon::download).withLed().withToggle (false);
     modelKey.onClick = [this] { if (onInstallModels) onInstallModels(); };
@@ -175,6 +178,7 @@ SettingsDialog::SettingsDialog (UiSession& u, std::vector<skin::Skin> skinList, 
         { tr ("settings.countIn"),    tr ("settings.countIn.note"),    &countIn,     290 },
         { tr ("settings.crossfade"),  tr ("settings.crossfade.note"),  &crossfade,   360 },
         { tr ("settings.device"),     tr ("settings.device.note"),     &openSetup,   0 },
+        { tr ("settings.shortcuts"),  tr ("settings.shortcuts.note"),  &shortcutsKey, 0 },
         { tr ("settings.models"),     tr ("settings.models.note"),     &modelKey,    0 },
         { tr ("settings.cache"),      {},                              &cacheKey,    0, {}, {}, { &cacheOpen, &cacheClear } },
         { tr ("settings.update"),     {},                              &updateAuto,  0, {}, {}, { &updateBetas, &updateNow } },
@@ -222,7 +226,7 @@ void SettingsDialog::applyScale (float k)
     mode.setFont (sansExact (sansH (keyPx), Weight::medium));
     for (auto* d : { &language, &skinPicker })
         d->setFont (sansExact (sansH (keyPx), Weight::medium));
-    for (auto* key : { &octaveAlign, &showLyrics, &openSetup, &cacheKey, &supportKey, &cacheOpen, &cacheClear,
+    for (auto* key : { &octaveAlign, &showLyrics, &openSetup, &cacheKey, &supportKey, &shortcutsKey, &cacheOpen, &cacheClear,
                        &updateAuto, &updateBetas, &updateNow, &editSkin, &newSkin, &modelKey, closeFooter, aboutFooter })
         key->withFont (sansExact (sansH (keyPx), Weight::medium));
 
