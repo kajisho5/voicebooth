@@ -2,6 +2,7 @@
 
 #include "../UiSession.h"
 #include "../parts/KeyButton.h"
+#include "WaitGame.h"
 #include "audio/SongLoader.h"
 
 namespace vb
@@ -88,6 +89,8 @@ private:
     std::vector<juce::Rectangle<int>> recentRows;
     juce::OwnedArray<KeyButton> firstRunKeys;
     KeyButton openFolder, continueKey, cancelKey, anotherKey, originalKey, modelKey;
+    WaitGame game { session };                 // 原曲から分離している間に遊べる（音程あて・リズムタップ）
+    int analyzingRowsTop() const;              // 解析画面の 1 行目の上端（描画と部品の置き場所をそろえる）
     bool canInstallModels() const;
 };
 } // namespace vb

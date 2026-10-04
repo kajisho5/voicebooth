@@ -7,6 +7,7 @@
 #include "MonitorMixer.h"
 #include "TakeRecorder.h"
 #include "DeviceRules.h"
+#include "GameSounds.h"
 
 /*  デバイスを開いて PlaybackCore を鳴らし、入力をメーターとモニターに通す（Phase B2 / B3 / B4）
     - 入力は 1 ch（モノラル、既定 L）。メーターに通し、自分の声として出力の L / R に返す（MonitorMixer。録音は B5）
@@ -86,6 +87,10 @@ public:
     void popPitch (std::vector<PitchFrame>& out) override { pitch.pop (out); }
     void setPitchFreeRun (bool on) override { pitch.setFreeRun (on); }
 
+    void setGameBeat (double bpm) override { game.setBeat (bpm); }
+    void playGameTone (float midi, double seconds) override { game.playTone (midi, seconds); }
+    double gameBeatClock() const override;
+
     juce::String startLatencyProbe() override;
     void cancelLatencyProbe() override              { probe.cancel(); }
     bool isLatencyProbeRunning() const override     { return probe.isRunning(); }
@@ -125,6 +130,10 @@ private:
     TakeRecorder recorder;
     latency::Probe probe;
     PitchTracker pitch;
+    GameSounds game;
+    std::atomic<double> gameBlockMs { 0.0 };          // ゲームの音を書いたブロックの時刻（Time::getMillisecondCounterHiRes）
+    std::atomic<int> gameBlockSamples { 0 };          // そのブロックの長さ
+    std::atomic<int> outputLatencySamples { 0 };
     juce::String openError, inputError;
     double songRate = 0.0;
     int wantedChannel = 0;                                  // 選んだ入力チャンネル（0 = L）
