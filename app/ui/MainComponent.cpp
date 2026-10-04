@@ -671,6 +671,9 @@ void MainComponent::openWelcome()
 
 StartScreen* MainComponent::openStart (bool firstRun)
 {
+    // 録音中に起動画面を開いたら、先に録音を止めてテイクを残す（開き直しで録っていたテイクが外れていた。監査 2026-10-04）
+    if (state().isRecording)
+        session.setRecording (false);
     auto screen = std::make_unique<StartScreen> (session, songLoader, firstRun);
     auto* raw = screen.get();
     screen->onDone = [this] { overlay.close(); };
