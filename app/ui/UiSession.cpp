@@ -1827,6 +1827,7 @@ void UiSession::separateGuide()
     s.separationProgress = 0.0f;
     s.separationEta = -1.0;
     s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
+    s.separationKind = 0;
     s.guideBusy = true;
     postNotice (tr ("separation.started"));
     notify (change::view);
@@ -1911,6 +1912,7 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
     s.separationProgress = 0.0f;
     s.separationEta = -1.0;
     s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
+    s.separationKind = 1;
     notify (change::view);
 
     std::weak_ptr<bool> weak = alive;
@@ -2011,6 +2013,7 @@ void UiSession::extractLead()
     s.separationProgress = 0.0f;
     s.separationEta = -1.0;
     s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
+    s.separationKind = 2;
     postNotice (tr ("separation.leadStarted"));
     notify (change::view);
 
