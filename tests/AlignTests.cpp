@@ -1,4 +1,5 @@
 #include "analysis/Align.h"
+#include "audio/Resample.h"
 
 /*  原曲とカラオケの時間合わせ（DESIGN 7.1.1）。自作の合成音で確かめる
     「伴奏」＝ばらばらな間隔の打音（雑音の立ち上がり）＋和音の進行。原曲＝前奏を足した伴奏＋声（ビブラート付きの旋律） */
@@ -95,6 +96,17 @@ namespace
         for (auto& v : x) v += 0.001f * (rnd.nextFloat() * 2.0f - 1.0f);
         return x;
     }
+
+    /** 4 倍の SR（176.4 kHz）にする（高い SR の曲の解析を確かめる。#21） */
+    std::vector<float> upsample4 (const std::vector<float>& x)
+    {
+        audio::SongAudio a;
+        a.sampleRate = sr;
+        a.buffer.setSize (1, (int) x.size());
+        a.buffer.copyFrom (0, 0, x.data(), (int) x.size());
+        const auto b = audio::resampleSong (a, sr * 4.0);
+        return std::vector<float> (b->buffer.getReadPointer (0), b->buffer.getReadPointer (0) + b->buffer.getNumSamples());
+    }
 }
 
 class AlignTests : public juce::UnitTest
@@ -119,6 +131,21 @@ public:
             expectEquals ((int) r.covered.size(), 1);
             logMessage ("  offset " + juce::String (r.offsetSamples) + " (expected " + juce::String (expected) + "), confidence "
                         + juce::String (r.confidence, 2) + ", windows " + juce::String (r.windowsAgreeing) + "/" + juce::String (r.windowsUsed));
+        }
+
+        beginTest ("at 176.4 kHz: the offset comes back in the original rate, within a few samples (#21)");
+        {
+            const auto kar = karaoke (band, 0.5, 1.0, 13);
+            const auto origHi = upsample4 (orig), karHi = upsample4 (kar);
+            const auto r = alignReference (origHi.data(), (juce::int64) origHi.size(), karHi.data(), (juce::int64) karHi.size(), sr * 4.0);
+            const auto expected = (juce::int64) (1.5 * sr * 4.0);
+            expect (r.quality == AlignResult::Quality::good);
+            expect (std::llabs (r.offsetSamples - expected) <= 8, juce::String (r.offsetSamples) + " vs " + juce::String (expected));
+            expectEquals ((int) r.covered.size(), 1);
+            if (! r.covered.empty())
+                expect (r.covered[0].karaokeEnd <= (juce::int64) karHi.size());
+            const auto k = estimateKeyShift (origHi.data(), (juce::int64) origHi.size(), karHi.data(), (juce::int64) karHi.size(), sr * 4.0);
+            expectEquals (k.semitones, 0);
         }
 
         beginTest ("local lag (here is the same spot): finds a small residual offset around a position");
