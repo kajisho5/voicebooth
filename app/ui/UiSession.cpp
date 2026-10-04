@@ -9,6 +9,7 @@
 #include "analysis/OffVocal.h"
 #include "analysis/TakeStats.h"
 #include "analysis/Rmvpe.h"
+#include "analysis/AnalysisCache.h"
 #include "Animator.h"
 #include "audio/DeviceRules.h"
 #include "audio/InputMeter.h"
@@ -100,6 +101,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         s.projectFolder = folder;
         s.projectFile = folder.getChildFile (folder.getFileName() + project::fileExtension);
     }
+    analysis::cache::setFolder (s.projectFolder.getChildFile ("Cache/analysis"));   // 解析の結果の保存先（開き直しで解析し直さない）
 
     // 曲はプロジェクトの中にコピーして持つ（持ち運べるように。元のファイルはそのまま）
     if (file.isAChildOf (s.projectFolder))
@@ -251,7 +253,7 @@ void UiSession::restoreProject()
     restoring = false;
     notify (change::takes | change::tracks | change::songInfo | change::view);
 
-    // お手本（声入りの原曲）はもう一度合わせ直す（数秒〜。結果は知らせで）
+    // お手本（声入りの原曲）はもう一度合わせ直す（結果は知らせで）。時間合わせと RMVPE の線は Cache/analysis/ に保存した結果を使うので数秒
     s.guideNudgeMs = loaded->extras.guideNudgeMs;   // お手本の位置の手直し（合わせ直した後に当てる）
     if (loaded->extras.guidePath.isNotEmpty())
     {
@@ -1240,13 +1242,9 @@ namespace
         return spans;
     }
 
-    /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
-        伴奏の残りに強く、オクターブの誤りがほぼ無い（Rmvpe.h）。モデルが無い・失敗したら false（YIN の線のまま） */
-    bool pitchWithModel (const std::vector<float>& vocals, double rate, std::vector<audio::PitchFrame>& points,
-                         const std::vector<float>* loudFrom = nullptr)
+    /** RMVPE を回して生の出力を取り、保存する（pitchWithModel から） */
+    bool runPitchModel (const std::vector<float>& vocals, double rate, std::vector<std::pair<float, float>>& raw, juce::uint64 key)
     {
-        if (vocals.empty() || ! separation::SeparatorClient::pitchAvailable())
-            return false;
         const auto wav = juce::File::createTempFile (".wav");
         {
             auto fs = std::make_unique<juce::FileOutputStream> (wav);
@@ -1263,10 +1261,40 @@ namespace
                 return false;
             }
         }
-        std::vector<std::pair<float, float>> raw;
         const bool ok = separation::SeparatorClient::runPitch (wav, raw);
         wav.deleteFile();
-        if (! ok)
+        if (ok)
+            analysis::cache::savePitch (key, raw);
+        return ok;
+    }
+
+    /** 時間合わせ。同じ原曲・オフボなら前の結果を使う（4 分の曲で数秒。AnalysisCache.h） */
+    analysis::AlignResult alignCached (const std::vector<float>& ref, const std::vector<float>& kar, double rate)
+    {
+        namespace ac = analysis::cache;
+        const auto key = ac::mix (ac::mix (ac::hashSamples (kar.data(), (juce::int64) kar.size(),
+                                                            ac::hashSamples (ref.data(), (juce::int64) ref.size())), rate), "align|1");
+        analysis::AlignResult a;
+        if (ac::loadAlign (key, a))
+            return a;
+        a = analysis::alignReference (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
+        ac::saveAlign (key, a);
+        return a;
+    }
+
+    /** お手本の声（オフボの時間、モノラル）から RMVPE で音程を取り直す（分離プロセスの --pitch）。
+        伴奏の残りに強く、オクターブの誤りがほぼ無い（Rmvpe.h）。モデルが無い・失敗したら false（YIN の線のまま） */
+    bool pitchWithModel (const std::vector<float>& vocals, double rate, std::vector<audio::PitchFrame>& points,
+                         const std::vector<float>* loudFrom = nullptr)
+    {
+        if (vocals.empty() || ! separation::SeparatorClient::pitchAvailable())
+            return false;
+        // 同じ声・同じモデルなら前の結果を使う（開き直すたびに 10〜30 秒かけない。AnalysisCache.h）
+        namespace ac = analysis::cache;
+        const auto key = ac::mix (ac::mix (ac::hashSamples (vocals.data(), (juce::int64) vocals.size()), rate),
+                                  "rmvpe|" + separation::SeparatorClient::pitchModelId());
+        std::vector<std::pair<float, float>> raw;
+        if (! ac::loadPitch (key, raw) && ! runPitchModel (vocals, rate, raw, key))
             return false;
         std::vector<analysis::rmvpe::Frame> frames;
         frames.reserve (raw.size());
@@ -1377,7 +1405,7 @@ namespace
 
         const auto ref = mono (*guide), kar = mono (backing);
         const auto rate = backing.sampleRate;
-        const auto align = analysis::alignReference (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
+        const auto align = alignCached (ref, kar, rate);
         if (! align.found())
             return out;   // notAligned
         out.offsetSeconds = (double) align.offsetSamples / rate;
@@ -2094,7 +2122,7 @@ void UiSession::analyseLead (const juce::File& leadFile)
         if (l != nullptr && g != nullptr)
         {
             const auto ref = mono (*g), kar = mono (*karaoke), leadMono = mono (*l);
-            const auto align = analysis::alignReference (ref.data(), (juce::int64) ref.size(), kar.data(), (juce::int64) kar.size(), rate);
+            const auto align = alignCached (ref, kar, rate);
             std::vector<float> leadOnBacking;
             auto r = analysis::pitchFromVocals (leadMono.data(), (juce::int64) leadMono.size(), (juce::int64) kar.size(), rate, align, {}, &leadOnBacking);
             if (align.found() && r.status == analysis::RefPitchResult::Status::ok)
@@ -2167,7 +2195,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
         {
             const auto rate = karaoke->sampleRate;
             const auto backMono = mono (*b), kar = mono (*karaoke), vm = mono (*v);
-            const auto align = analysis::alignReference (backMono.data(), (juce::int64) backMono.size(), kar.data(), (juce::int64) kar.size(), rate);
+            const auto align = alignCached (backMono, kar, rate);
             if (align.found())
             {
                 out->offsetSeconds = (double) align.offsetSamples / rate;
