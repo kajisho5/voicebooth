@@ -37,6 +37,7 @@ void Encoder::valueChanged()
 
 void Encoder::mouseDown (const juce::MouseEvent& e)
 {
+    focus::handBack (*this);   // Tab で移っていたフォーカスはメイン画面へ返す（#28）
     if (! isEnabled()) return;
     raw = motion::encoder::detent (defaultValue, range()).toRaw (getValue());   // 掴んだ所から相対
     lastY = e.position.y;

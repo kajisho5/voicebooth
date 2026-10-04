@@ -180,7 +180,7 @@ SongInfoDialog::SongInfoDialog (UiSession& u, Actions& a)
     // 読み上げの名前（#28）
     signature.setTitle (tr ("songInfo.signature"));
     tonic.setTitle (tr ("songInfo.key"));
-    keyMode.setTitle (tr ("songInfo.key"));
+    keyMode.setTitle (tr ("songInfo.key.major") + " / " + tr ("songInfo.key.minor"));
 
     // 区間
     addSectionKey.withIcon (Icon::plus);

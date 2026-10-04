@@ -41,8 +41,14 @@ juce::String KeyButton::getTooltip()
 void KeyButton::setTooltip (const juce::String& tip)
 {
     juce::Button::setTooltip (tip);
-    // 読み上げの名前：文字のあるキーは文字のまま。アイコンだけ・1〜2 文字（M / S など）は説明の文
-    setTitle (getButtonText().trim().length() <= 2 ? tip : juce::String());
+    // 読み上げの名前：文字のあるキーは文字のまま（オン / オフのように変わる文字もそのまま読ませる）。アイコンだけのキーは説明の文
+    setTitle (getButtonText().trim().isEmpty() ? tip : juce::String());
+}
+
+void KeyButton::mouseDown (const juce::MouseEvent& e)
+{
+    juce::Button::mouseDown (e);
+    focus::handBack (*this);
 }
 
 void KeyButton::buttonStateChanged()
@@ -240,6 +246,8 @@ void SegmentedKeys::setSelected (int index, juce::NotificationType n)
     else
         slide.snap ((float) index);
     repaint();
+    if (auto* h = getAccessibilityHandler())
+        h->notifyAccessibilityEvent (juce::AccessibilityEvent::valueChanged);   // 読み上げに新しい値を伝える（#28）
     if (n != juce::dontSendNotification && onChange)
         onChange (selected);
 }
@@ -345,6 +353,8 @@ void SegmentedKeys::paint (juce::Graphics& g)
 
 bool SegmentedKeys::keyPressed (const juce::KeyPress& key)
 {
+    if (key.getModifiers().isAnyModifierKeyDown())
+        return false;   // Ctrl / ⌘ / Alt と矢印はメイン画面へ（スライダーと同じ）
     if (key == juce::KeyPress::leftKey || key == juce::KeyPress::upKey)
     {
         setSelected (juce::jmax (0, selected - 1));
@@ -369,5 +379,5 @@ std::unique_ptr<juce::AccessibilityHandler> SegmentedKeys::createAccessibilityHa
 
 void SegmentedKeys::mouseMove (const juce::MouseEvent& e) { hover = indexAt (e.getPosition()); repaint(); }
 void SegmentedKeys::mouseExit (const juce::MouseEvent&)   { hover = -1; repaint(); }
-void SegmentedKeys::mouseDown (const juce::MouseEvent& e) { setSelected (indexAt (e.getPosition())); }
+void SegmentedKeys::mouseDown (const juce::MouseEvent& e) { focus::handBack (*this); setSelected (indexAt (e.getPosition())); }
 } // namespace vb

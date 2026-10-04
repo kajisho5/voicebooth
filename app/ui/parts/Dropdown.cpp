@@ -16,6 +16,8 @@ void Dropdown::setSelected (int index, juce::NotificationType n)
 
     selected = index;
     repaint();
+    if (auto* h = getAccessibilityHandler())
+        h->notifyAccessibilityEvent (juce::AccessibilityEvent::valueChanged);   // 読み上げに新しい値を伝える（#28）
     if (n != juce::dontSendNotification && onChange)
         onChange (selected);
 }
@@ -46,11 +48,14 @@ void Dropdown::paint (juce::Graphics& g)
 
 void Dropdown::mouseDown (const juce::MouseEvent&)
 {
+    focus::handBack (*this);
     showMenu();
 }
 
 bool Dropdown::keyPressed (const juce::KeyPress& key)
 {
+    if (key.getModifiers().isAnyModifierKeyDown())
+        return false;
     if (key == juce::KeyPress::returnKey || key == juce::KeyPress::spaceKey || key == juce::KeyPress::downKey)
     {
         showMenu();

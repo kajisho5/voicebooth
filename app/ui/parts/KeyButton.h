@@ -42,8 +42,9 @@ public:
     /** ショートカット（"Space" "R" など）。ツールチップの右にキーの形で添える */
     KeyButton& withShortcut (const juce::String& keyName) { shortcut = keyName; return *this; }
     juce::String getTooltip() override;
-    /** アイコンだけのキーと「M」「S」のような短いキーは、ツールチップの文を読み上げの名前にする（#28） */
+    /** 文字のないキー（アイコンだけ）は、ツールチップの文を読み上げの名前にする（#28）。M / S などの短いキーは使う側で名前を付ける */
     void setTooltip (const juce::String&) override;
+    void mouseDown (const juce::MouseEvent&) override;
 
     /** ギャラリー用：状態を固定して描く */
     void setPreview (std::optional<KeyState> s) { preview = s; repaint(); }

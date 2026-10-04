@@ -15,6 +15,21 @@ inline void tabOnly (juce::Component& c)
     c.setMouseClickGrabsKeyboardFocus (false);
 }
 
+/** マウスで押したら、Tab で移っていたフォーカスを親（メイン画面・ダイアログ）へ返す。
+    返さないと Enter（歌詞を合わせる）・↑ ↓ などのショートカットを部品が取り続ける */
+inline void handBack (juce::Component& c)
+{
+    if (! c.hasKeyboardFocus (true))
+        return;
+    for (auto* p = c.getParentComponent(); p != nullptr; p = p->getParentComponent())
+        if (p->getWantsKeyboardFocus())
+        {
+            p->grabKeyboardFocus();
+            return;
+        }
+    c.giveAwayKeyboardFocus();
+}
+
 /** Tab で移ってきたときだけ描くフォーカスの枠 */
 struct Ring
 {
