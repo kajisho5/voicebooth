@@ -30,6 +30,8 @@ class SessionRecordTests : public juce::UnitTest
 public:
     SessionRecordTests() : juce::UnitTest ("Session recording", "VoiceBoothSession") {}
 
+    static constexpr juce::int64 rate = 48000;   // 曲（writeTone）の SR。ラムダから捕まえずに使うのでクラスに置く（MSVC）
+
     void runTest() override
     {
         const auto tag = juce::String::toHexString (juce::Random::getSystemRandom().nextInt64()).substring (0, 8);
@@ -38,7 +40,6 @@ public:
         const auto song = writeTone (work.getChildFile (songName + ".wav"), 440.0, 12.0);
         const auto projectFolder = UiSession::projectFolderFor (songName);
         const auto vbooth = projectFolder.getChildFile (projectFolder.getFileName() + project::fileExtension);
-        constexpr juce::int64 rate = 48000;
 
         auto prepare = [&] (UiSession& ui, project::Mode mode = project::Mode::standard)
         {
