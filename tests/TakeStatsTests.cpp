@@ -107,6 +107,23 @@ public:
             expectWithinAbsoluteError (a.inBand, 1.0f, 0.001f);
         }
 
+        beginTest ("pitch accuracy follows octave matching: off, an octave down is wrong (#25)");
+        {
+            const auto guide = frames (melody);
+            auto a = pitchAccuracy (guide, frames (melody, 0.0, -12.0f), rate, 0, ms (12000), 30.0f, false);
+            expectWithinAbsoluteError (a.inBand, 0.0f, 0.001f);
+            expectWithinAbsoluteError (a.meanAbsCents, 1200.0f, 1.0f);
+            a = pitchAccuracy (guide, frames (melody, 0.0, 0.2f), rate, 0, ms (12000), 30.0f, false);   // オクターブが同じなら変わらない
+            expectWithinAbsoluteError (a.inBand, 1.0f, 0.001f);
+        }
+
+        beginTest ("the yellow band stays wider than the green band (#25)");
+        {
+            expectEquals (pitchWarnLimitCents (20.0f), 50.0f);
+            expectEquals (pitchWarnLimitCents (30.0f), 50.0f);   // 既定（30）は今までどおり ±50 まで黄
+            expectEquals (pitchWarnLimitCents (50.0f), 70.0f);   // 50 にしても黄が残る
+        }
+
         beginTest ("vibrato: 6 Hz, 40 cents on the long note only");
         {
             const auto v = vibratos (frames ({ { 1000, 300, 64 }, { 5500, 1200, 67 } }, 0.0, 0.0f, 6.0f, 40.0f), rate);

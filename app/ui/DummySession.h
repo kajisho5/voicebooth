@@ -73,7 +73,7 @@ struct Session
     bool octaveUp = false;                // 自分の声を 1 オクターブ上げて重ねる
     bool fullRange = false;
     int lowMidi = 48, highMidi = 84;      // C3–C6
-    float pitchToleranceCents = 30.0f;    // 緑の範囲（設定 20/30/50、既定 30）。黄は ±50 まで
+    float pitchToleranceCents = 30.0f;    // 緑の範囲（設定 20/30/50、既定 30）。黄は ±50 まで（50 のときは ±70。pitchWarnLimitCents）
 
     // 練習コントロール
     int tempoPercent = 100;
