@@ -165,6 +165,24 @@ public:
             ui.attachEngine (nullptr);
         }
 
+        beginTest ("the time estimate covers the measured times (4 cores: 4-minute song, one model, 1,750 s / 30-second song, 109 s)");
+        {
+            const auto four = UiSession::estimateSeparation (240.0, 1, 4);
+            expect (four.lowSeconds < 1750.0 && 1750.0 < four.highSeconds, juce::String (four.lowSeconds) + " - " + juce::String (four.highSeconds));
+            expectEquals (four.lowMinutes(), 14);
+            expectEquals (four.highMinutes(), 32);
+            const auto short30 = UiSession::estimateSeparation (30.0, 1, 4);
+            expect (short30.lowSeconds < 109.0 && 109.0 < short30.highSeconds);
+            // リードも分けると倍、コアが半分なら倍。コアが多くても短くは見積もらない（測っていない）
+            expectWithinAbsoluteError (UiSession::estimateSeparation (240.0, 2, 4).highSeconds, four.highSeconds * 2.0, 0.01);
+            expectWithinAbsoluteError (UiSession::estimateSeparation (240.0, 1, 2).highSeconds, four.highSeconds * 2.0, 0.01);
+            expectWithinAbsoluteError (UiSession::estimateSeparation (240.0, 1, 16).highSeconds, four.highSeconds, 0.01);
+            // 長さが分からない（読めない）ときも 1 分〜2 分と表示する（0 分と表示しない）
+            const auto unknown = UiSession::estimateSeparation (0.0, 1, 4);
+            expectEquals (unknown.lowMinutes(), 1);
+            expectEquals (unknown.highMinutes(), 2);
+        }
+
         work.deleteRecursively();
     }
 };
