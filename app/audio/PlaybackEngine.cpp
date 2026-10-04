@@ -533,6 +533,24 @@ void PlaybackEngine::audioDeviceIOCallbackWithContext (const float* const* input
 
     // 自分の声（とモニターリバーブ）を足す
     monitor.process (input, outputs, numOutputs, numSamples);
+
+    // 待ち時間のゲームの音（鳴らしていなければ何もしない）。時計のために書いた時刻を覚える
+    game.process (outputs, numOutputs, numSamples);
+    gameBlockSamples.store (numSamples, std::memory_order_relaxed);
+    gameBlockMs.store (juce::Time::getMillisecondCounterHiRes(), std::memory_order_release);
+}
+
+double PlaybackEngine::gameBeatClock() const
+{
+    const auto rendered = game.samplesRendered();
+    if (rendered < 0)
+        return -1.0;
+    // このブロックの頭は（ほぼ）コールバックの時刻に出力へ渡り、出力の遅延の後に耳に届く。
+    // その後の経過時間を足して、いま耳に届いている位置にする
+    const auto sr = game.getSampleRate();
+    const auto blockStart = (double) (rendered - gameBlockSamples.load (std::memory_order_relaxed)) / sr;
+    const auto since = (juce::Time::getMillisecondCounterHiRes() - gameBlockMs.load (std::memory_order_acquire)) / 1000.0;
+    return blockStart + since - (double) outputLatencySamples.load (std::memory_order_relaxed) / sr;
 }
 
 void PlaybackEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
@@ -540,6 +558,8 @@ void PlaybackEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     core.prepare (device->getCurrentSampleRate());
     meter.prepare (device->getCurrentSampleRate());
     monitor.prepare (device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
+    game.prepare (device->getCurrentSampleRate());
+    outputLatencySamples.store (device->getOutputLatencyInSamples() + device->getCurrentBufferSizeSamples());
 }
 
 void PlaybackEngine::audioDeviceStopped()
