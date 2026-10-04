@@ -262,6 +262,8 @@ public:
         進み具合は separating / separationProgress）。終わったら done（作ったファイル、失敗なら空と理由）。stopSeparation で中止 */
     void makeOffVocal (const juce::File& original, std::function<void (juce::File, juce::String)> done);
     void stopSeparation();
+    /** 分離の入口を差し替える（テスト用。偽の分離で、準備中の中止・失敗の片付けなどを確かめる） */
+    void setSeparationService (std::unique_ptr<separation::Service> service) { stopSeparation(); separator.reset(); separationService = std::move (service); }
     // --- テイクの解析（B18） ---------------------------------------------------
     /** お手本と比べた結果を作り直す（onlyKey があればそのテイクだけ） */
     void updateTakeStats (const juce::String& onlyKey = {});
@@ -419,7 +421,17 @@ private:
     juce::File leadCacheFolder() const;
     void extractLead();
     void analyseLead (const juce::File& leadFile);
-    std::unique_ptr<separation::SeparatorClient> separator;   // B16
+    std::unique_ptr<separation::Separator> separator;   // B16
+    // 分離の 3 つの流れに共通の部分（UiSession.cpp。2026-10-04）
+    enum class SeparationPrep { ready, failed, stopped };
+    void beginSeparation (int kind);
+    /** source を 44.1 kHz ステレオの mix に書き（バックグラウンド）、メッセージスレッドで next を呼ぶ（アプリを閉じていれば mix を削除するだけ） */
+    void prepareSeparationInput (const juce::File& source, const juce::File& mix, std::function<void (SeparationPrep)> next);
+    /** 分離プロセスを始める。終わったら mix と scratch を削除してから done（アプリを閉じていれば削除だけ） */
+    bool startSeparator (const juce::File& mix, const juce::File& outA, const juce::File& outB, const juce::File& lead,
+                         const juce::File& model, std::vector<juce::File> scratch, std::function<void (bool ok, const juce::String& error)> done);
+    static juce::String separationError (const juce::String& error);
+    std::unique_ptr<separation::Service> separationService = std::make_unique<separation::Service>();   // 分離が使えるか・分離を作る（テストは偽物）
     int separationGeneration = 0;   // stopSeparation で進める（準備中・引き算中に止めたら、次の段階へ進まない）
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
