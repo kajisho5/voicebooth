@@ -292,6 +292,11 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     {
         separationOfferSeen = state().separationOfferSerial;
         const auto estimate = session.separationEstimate();
+        if (! estimate.known())
+        {
+            session.separateGuide();   // 回す段階がない（キャッシュにある）：すぐ解析する
+            return;
+        }
         const auto key = state().guideKaraokeKey;
         const auto message = key != 0 ? tr ("separation.confirm.messageKey", estimate.lowMinutes(),
                                             (key > 0 ? juce::String ("+") : juce::String (juce::CharPointer_UTF8 ("\xe2\x88\x92"))) + juce::String (std::abs (key)),
@@ -437,6 +442,12 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
                 compare->cancel();
             else
                 compare->keyPressed (key);
+            return true;
+        }
+        // 確認ダイアログの Esc は × と同じ（閉じた後の処理を通す。原曲だけで始める確認は起動画面に戻る。#27）
+        if (auto* confirm = dynamic_cast<ConfirmDialog*> (overlay.getContent()); confirm != nullptr && key == juce::KeyPress::escapeKey && confirm->onCloseRequest)
+        {
+            confirm->onCloseRequest();
             return true;
         }
         // 曲を開く前の起動画面は Esc で閉じない（閉じても使える画面が無い）
@@ -703,30 +714,39 @@ StartScreen* MainComponent::openStart (bool firstRun)
     screen->onConfirmOriginal = [safe] (const juce::File& original)
     {
         // 原曲だけで始める：分離は長い（4 分の曲で 15〜30 分）。始める前に見込みを表示して確認する（#27）。
-        // 確認は起動画面と入れ替わるので、選んだら（Esc で閉じても）起動画面に戻る
-        juce::MessageManager::callAsync ([safe, original]
+        // 長さはバックグラウンドで読む（タグのない mp3 は全部のフレームを数えるので、画面が止まる）。
+        // 確認は起動画面と入れ替わるので、選んだら（Esc・× で閉じても）起動画面に戻る。長さが読めなければ確認せずに始める（読めない理由は分離が知らせる）
+        juce::Thread::launch ([safe, original]
         {
-            if (safe == nullptr) return;
-            const auto e = safe->session.originalSeparationEstimate (original);
-            auto message = tr ("separation.original.message", e.lowMinutes(), e.highMinutes());
-            if (safe->session.leadModelInstalled())
-                message << "\n\n" << tr ("separation.original.leadNote", e.lowMinutes(), e.highMinutes());
-            auto back = [safe, original] (bool start)
+            const auto e = UiSession::originalSeparationEstimate (original);
+            juce::MessageManager::callAsync ([safe, original, e]
             {
-                juce::MessageManager::callAsync ([safe, original, start]
+                if (safe == nullptr) return;
+                auto back = [safe, original] (bool start)
                 {
-                    if (safe == nullptr) return;
-                    auto* screen = safe->openStart();
-                    if (start) screen->startFromOriginal (original, true);
-                    else       screen->setGuide (original);
-                });
-            };
-            safe->showConfirm (tr ("separation.original.title"), message,
-                               {
-                                   { tr ("separation.original.yes"), DialogPanel::KeyRole::primary, [back] { back (true); } },
-                                   { tr ("common.cancel"), DialogPanel::KeyRole::normal, [back] { back (false); } },
-                               },
-                               [back] { back (false); });
+                    juce::MessageManager::callAsync ([safe, original, start]
+                    {
+                        if (safe == nullptr) return;
+                        auto* screen = safe->openStart();
+                        if (start) screen->startFromOriginal (original, true);
+                        else       screen->setGuide (original);
+                    });
+                };
+                if (! e.known())
+                {
+                    back (true);
+                    return;
+                }
+                auto message = tr ("separation.original.message", e.lowMinutes(), e.highMinutes());
+                if (safe->session.leadModelInstalled())
+                    message << "\n\n" << tr ("separation.original.leadNote", e.lowMinutes(), e.highMinutes());
+                safe->showConfirm (tr ("separation.original.title"), message,
+                                   {
+                                       { tr ("separation.original.yes"), DialogPanel::KeyRole::primary, [back] { back (true); } },
+                                       { tr ("common.cancel"), DialogPanel::KeyRole::normal, [back] { back (false); } },
+                                   },
+                                   [back] { back (false); });
+            });
         });
     };
     screen->onInstallModels = [safe]
