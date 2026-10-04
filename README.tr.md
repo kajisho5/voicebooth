@@ -69,7 +69,7 @@ Güncel sürüm **0.2.0 beta 6**. Değişiklikler ve eski sürümler [sürümler
 | Ağır işlemler | Ayırma, bir referans eklediğinizde veya "Yalnızca orijinalle başla"yı seçtiğinizde çalışır (arka planda; çalmaya ve kayda devam edebilirsiniz). Referans vokal çıkarma ile elde edildiğinde de ana vokal ile armonileri ayırmak için ardından çalışır. Uygulamayı açmak tek başına onu asla başlatmaz. Şarkı sözü gösterimi **varsayılan olarak kapalıdır** (Ayarlar'dan açın) |
 | Armoniler | Armoni kanalları kaydedebilirsiniz. Referans ayrıldığında ana vokal ve armoniler ayrılır ve **bir armoni referansı (çizgi ve ses)** da gösterilir (armoni kanalları onunla karşılaştırılır). Orijinal − karaoke ile alınan referans da, ardından orijinalden ana vokal çıkarılarak ayrılır (biraz sürer) |
 | Ayrılan ses | Ayrılan vokal ve eşlik **kişisel pratiğiniz içindir**. VoiceBooth orijinal şarkının haklarını değiştirmez. Yalnızca orijinal hak sahiplerinin izin verdiği ölçüde dağıtın veya yayınlayın (cover için altyapı olarak paylaşmak dahil) |
-| Fiyat | **Ücretsiz.** Abonelik yok, uygulama içi satın alma yok. Geliştirmeyi [GitHub Sponsors](https://github.com/sponsors/kajisho5) üzerinden destekleyebilirsiniz (isteğe bağlı; hiçbir özelliği değiştirmez) |
+| Fiyat | **Ücretsiz.** Abonelik yok, uygulama içi satın alma yok. Geliştirmeyi [GitHub Sponsors](https://github.com/sponsors/kajisho5) üzerinden destekleyebilirsiniz (isteğe bağlı; hiçbir özelliği değiştirmez). Değiştirilmiş bir sürümü dağıtırsanız kaynak kodunu da yayınlamanız gerekir (aşağıdaki "Lisans" bölümüne bakın) |
 | Diller | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## Neler yapar
