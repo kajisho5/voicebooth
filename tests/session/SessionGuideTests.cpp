@@ -75,7 +75,12 @@ public:
             expect (ui.get().guideVocals != nullptr && ! ui.get().refPitch.empty(), "the guide is made by subtraction: " + ui.get().noticeText
                     + " / needsSeparation " + juce::String ((int) ui.get().guideNeedsSeparation));
             if (ui.get().guideVocals == nullptr || ui.get().refPitch.empty())
+            {
+                ui.attachEngine (nullptr);
+                UiSession::projectFolderFor (songName).deleteRecursively();
+                work.deleteRecursively();
                 return;
+            }
             pump (500);
 
             const auto rate = ui.get().sampleRate();
@@ -109,6 +114,40 @@ public:
             expect (pumpUntil ([&] { return ui.get().guideVocals != after; }, 3000));
             if (auto back = ui.get().guideVocals; back != nullptr && before != nullptr)
                 expectWithinAbsoluteError (back->buffer.getSample (0, 50000), before->buffer.getSample (0, 50000), 1.0e-6f);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("a nudge pressed while the guide is analysed again ends up on both the voice and the original, once");
+        {
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            expect (openSong (ui, karaoke));
+            ui.loadGuide (original);
+            expect (pumpUntil ([&] { return ! ui.get().guideBusy; }, 120000));
+            const auto v0 = ui.get().guideVocals;
+            const auto o0 = ui.get().guideOriginal;
+            expect (v0 != nullptr && o0 != nullptr);
+            if (v0 != nullptr && o0 != nullptr)
+            {
+                const auto rate = ui.get().sampleRate();
+                ui.loadGuide (original);          // 合わせ直している間に
+                ui.nudgeGuide (5.0);              // 手直しを押す（前はここでためた分が、解析の終わりで捨てられたり二重になったりした）
+                expect (pumpUntil ([&] { return ! ui.get().guideBusy; }, 120000));
+                pump (600);                       // タイマーが残っていても何も起きないこと
+                const auto v1 = ui.get().guideVocals;
+                const auto o1 = ui.get().guideOriginal;
+                const auto da = (int) std::llround (0.005 * rate * v0->sampleRate / rate);
+                auto maxDiff = [da] (const audio::SongAudio& shifted, const audio::SongAudio& base)
+                {
+                    float m = 0.0f;
+                    for (int i = 1000; i < 100000; ++i)
+                        m = juce::jmax (m, std::abs (shifted.buffer.getSample (0, i + da) - base.buffer.getSample (0, i)));
+                    return m;
+                };
+                expect (v1 != nullptr && maxDiff (*v1, *v0) < 1.0e-6f, "the voice is shifted by the nudge once");
+                expect (o1 != nullptr && maxDiff (*o1, *o0) < 1.0e-6f, "the original is shifted by the nudge once");
+            }
             ui.attachEngine (nullptr);
         }
 
