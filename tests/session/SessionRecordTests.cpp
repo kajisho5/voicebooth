@@ -8,6 +8,23 @@
 
 namespace vb::test
 {
+/** 遡及録音（B7）の試し用：録っている間の 10 ms ごとのピークを返す。エンジンの位置で voiceAt から先は声（-10 dB）、その前は無音 */
+class RetroEngine final : public FakeEngine
+{
+public:
+    int recordingEnvelope (std::vector<float>& env) const override
+    {
+        constexpr int hop = 480;
+        env.clear();
+        if (! recording)
+            return 0;
+        for (auto at = recordStart; at < juce::jmax (playhead, recordedTo); at += hop)
+            env.push_back (voiceAt >= 0 && at >= voiceAt ? 0.3f : 0.0001f);
+        return hop;
+    }
+    audio::int64 voiceAt = -1;
+};
+
 class SessionRecordTests : public juce::UnitTest
 {
 public:
@@ -255,6 +272,88 @@ public:
             const auto& t = mainTrack (ui);
             if (t.takes.size() == 1)
                 expectEquals (compText (t), "take1[1.00-" + sec (8 * rate - t.takes[0].latencySamples) + "]");
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("pressing REC late while playing takes the phrase from where the singing started (retro recording)");
+        {
+            projectFolder.deleteRecursively();
+            RetroEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui);
+            ui.seek (1 * rate);
+            ui.setPlaying (true);
+            ui.tick (0.02);
+            expect (engine.recording, "playing with an armed track records in the background");
+            const auto shadow = engine.recordFile;
+            expect (shadow.getFileName().startsWith (".retro-"), shadow.getFileName());
+
+            // 3 秒から歌い始め（入力に届くのは往復の遅延の後）、4 秒で REC を押す
+            const auto latency = ui.get().recordingLatency;
+            engine.voiceAt = 3 * rate + latency;
+            engine.playhead = 4 * rate;
+            ui.tick (0.02);
+            ui.setRecording (true);
+            expect (ui.get().isRecording);
+            expectEquals (engine.recordingsStarted, 1, "the background recording becomes the take (no new file)");
+            const auto head = 3 * rate - rate / 20;   // フレーズの頭の 50 ms 手前（子音・息）
+            expectWithinAbsoluteError ((double) ui.get().recordStart, (double) head, 2.0 * 480.0,
+                                       "the take is used from the start of the phrase, not from the press");
+
+            engine.playhead = 6 * rate;
+            ui.setRecording (false);
+            const auto& t = mainTrack (ui);
+            expectEquals ((int) t.takes.size(), 1);
+            if (t.takes.size() == 1)
+            {
+                expectEquals (t.takes[0].path, juce::String ("Audio/Takes/main_take1.wav"), "renamed to the take's name");
+                expect (projectFolder.getChildFile (t.takes[0].path).existsAsFile());
+                expectEquals (t.takes[0].startSample, 1 * rate - latency, "the file keeps what was recorded before the press");
+            }
+            expect (! shadow.exists(), "the background file was moved, not left behind");
+            expect (t.comp.size() == 1 && std::abs (t.comp[0].startSample - head) <= 2 * 480, compText (t));
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("pressing REC late with nothing sung yet takes from the press");
+        {
+            projectFolder.deleteRecursively();
+            RetroEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui);
+            ui.seek (1 * rate);
+            ui.setPlaying (true);
+            ui.tick (0.02);
+            engine.playhead = 4 * rate;
+            ui.tick (0.02);
+            ui.setRecording (true);
+            expectEquals (ui.get().recordStart, 4 * rate);
+            engine.playhead = 6 * rate;
+            ui.setRecording (false);
+            const auto& t = mainTrack (ui);
+            expect (t.comp.size() == 1 && t.comp[0].startSample == 4 * rate, compText (t));
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("stopping without pressing REC leaves no file from the background recording");
+        {
+            projectFolder.deleteRecursively();
+            RetroEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui);
+            ui.setPlaying (true);
+            ui.tick (0.02);
+            const auto shadow = engine.recordFile;
+            expect (engine.recording);
+            engine.playhead = 3 * rate;
+            ui.setPlaying (false);
+            ui.tick (0.02);
+            expect (! engine.recording);
+            expect (! shadow.exists(), shadow.getFullPathName());
+            expect (mainTrack (ui).takes.empty());
             ui.attachEngine (nullptr);
         }
 

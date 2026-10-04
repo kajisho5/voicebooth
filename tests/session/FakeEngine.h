@@ -8,7 +8,7 @@
 
 namespace vb::test
 {
-class FakeEngine final : public audio::AudioEngine
+class FakeEngine : public audio::AudioEngine   // 遡及録音のテストで派生させる（SessionRecordTests）
 {
 public:
     void setSong (std::shared_ptr<const audio::SongAudio> a) override
