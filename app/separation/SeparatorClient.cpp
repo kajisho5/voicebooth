@@ -264,4 +264,9 @@ void SeparatorClient::run()
     else if (doneSeen)           finish (vocals.existsAsFile() && backing.existsAsFile(), "missing output");
     else                         finish (false, error.isNotEmpty() ? error : juce::String ("the separator stopped unexpectedly"));
 }
+//==============================================================================
+bool Service::available() const        { return SeparatorClient::available(); }
+bool Service::karaokeInstalled() const { return SeparatorClient::karaokeInstalled(); }
+bool Service::executableExists() const { return SeparatorClient::executable().existsAsFile(); }
+std::unique_ptr<Separator> Service::create() { return std::make_unique<SeparatorClient>(); }
 } // namespace vb::separation
