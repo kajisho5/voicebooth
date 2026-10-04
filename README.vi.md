@@ -32,16 +32,16 @@ Hát theo beat, xem cao độ của bạn trên màn hình, chỉ thu lại nh�
 ## Tải về (miễn phí)
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-T%E1%BA%A3i%20v%E1%BB%81-C6EE6A?style=for-the-badge&labelColor=141311" alt="Tải về cho Windows"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-T%E1%BA%A3i%20v%E1%BB%81-C6EE6A?style=for-the-badge&labelColor=141311" alt="Tải về cho Mac"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-T%E1%BA%A3i%20v%E1%BB%81-C6EE6A?style=for-the-badge&labelColor=141311" alt="Tải về cho Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-T%E1%BA%A3i%20v%E1%BB%81-C6EE6A?style=for-the-badge&labelColor=141311" alt="Tải về cho Mac"></a>
 </p>
 
 | Máy tính | Tệp (bấm để lưu) | Dung lượng |
 |---|---|---|
-| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | khoảng 13 MB |
-| Mac (macOS 11 trở lên, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | khoảng 40 MB |
+| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe) | khoảng 13 MB |
+| Mac (macOS 11 trở lên, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg) | khoảng 40 MB |
 
-Phiên bản hiện tại là **0.2.0 beta 3**. Thay đổi và các bản cũ có ở [trang phát hành](https://github.com/kajisho5/voicebooth/releases). Không có bản cho điện thoại hay máy tính bảng.
+Phiên bản hiện tại là **0.2.0 beta 4**. Thay đổi và các bản cũ có ở [trang phát hành](https://github.com/kajisho5/voicebooth/releases). Không có bản cho điện thoại hay máy tính bảng.
 
 ### Lần đầu dùng? Ba bước
 

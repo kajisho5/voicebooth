@@ -32,16 +32,16 @@
 ## ダウンロード（無料）
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows 版をダウンロード"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac 版をダウンロード"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows 版をダウンロード"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac 版をダウンロード"></a>
 </p>
 
 | パソコン | ファイル（押すと保存） | 大きさ |
 |---|---|---|
-| Windows 10 / 11（64bit） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
-| Mac（macOS 11 以降。Apple シリコン / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
+| Windows 10 / 11（64bit） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
+| Mac（macOS 11 以降。Apple シリコン / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
 
-いまのバージョンは **0.2.0 ベータ 3**。変更点・前のバージョンは [リリースのページ](https://github.com/kajisho5/voicebooth/releases) にあります。スマホ・タブレット版はありません。
+いまのバージョンは **0.2.0 ベータ 4**。変更点・前のバージョンは [リリースのページ](https://github.com/kajisho5/voicebooth/releases) にあります。スマホ・タブレット版はありません。
 
 ### はじめての人へ（3 ステップ）
 

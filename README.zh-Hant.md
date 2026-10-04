@@ -32,16 +32,16 @@
 ## 下載（免費）
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Windows 版"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Mac 版"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Windows 版"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E4%B8%8B%E8%BC%89-C6EE6A?style=for-the-badge&labelColor=141311" alt="下載 Mac 版"></a>
 </p>
 
 | 電腦 | 檔案（點擊儲存） | 大小 |
 |---|---|---|
-| Windows 10 / 11（64 位元） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
-| Mac（macOS 11 以上，Apple 晶片 / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
+| Windows 10 / 11（64 位元） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe) | 約 13 MB |
+| Mac（macOS 11 以上，Apple 晶片 / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg) | 約 40 MB |
 
-目前版本為 **0.2.0 beta 3**。更新內容與舊版本請見[發布頁面](https://github.com/kajisho5/voicebooth/releases)。沒有手機、平板版本。
+目前版本為 **0.2.0 beta 4**。更新內容與舊版本請見[發布頁面](https://github.com/kajisho5/voicebooth/releases)。沒有手機、平板版本。
 
 ### 第一次使用（3 步驟）
 
