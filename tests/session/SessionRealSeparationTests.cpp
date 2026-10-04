@@ -3,7 +3,8 @@
 #include "i18n/I18n.h"
 
 /*  本物のモデルで分離の 3 つの流れを通す（手元だけ。VB_REAL_SONG に曲のパスを入れたときだけ動く）。
-    VB_REAL_STEPS：a = 原曲からオフボ、b = 分離中の［キャンセル］、c = お手本（引き算）→ リード分け、d = お手本の分離（separateGuide） */
+    VB_REAL_STEPS：a = 原曲からオフボ、b = 分離中の［キャンセル］、c = お手本（引き算）→ リード分け、d = お手本の分離（separateGuide）、
+    e = d の途中（声と伴奏を書いた後、リードの途中）でアプリが落ちたプロジェクトを開き直し、リードだけを分け直す（VB_REAL_PROJECT に .vbooth） */
 
 namespace vb::test
 {
@@ -191,6 +192,47 @@ public:
                 expectEquals (separatorProcesses(), 0);
                 dir.getChildFile ("vocals.wav").copyFileTo (outDir.getChildFile ("vocals.wav"));
             }
+            ui.attachEngine (nullptr);
+        }
+
+        if (steps.contains ("e"))
+        {
+            beginTest ("real: reopen a project that stopped during the lead step; only the lead is separated again");
+            const juce::File vbooth (juce::SystemStats::getEnvironmentVariable ("VB_REAL_PROJECT", {}));
+            expect (vbooth.existsAsFile(), "VB_REAL_PROJECT: " + vbooth.getFullPathName());
+            if (! vbooth.existsAsFile())
+                return;
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            ui.setCacheFolder (cache);
+            expect (reopenProject (ui, vbooth));
+            expect (pumpUntil ([&] { return ! ui.get().guideBusy && ! ui.get().refPitch.empty(); }, 10 * 60 * 1000), "the guide comes back");
+            // 開き直すとリード分けが自動で始まる（引き算のお手本）。ここでは分離（separateGuide）の続きを確かめたいので、止めてから呼ぶ
+            if (ui.get().separating)
+            {
+                ui.stopSeparation();
+                expect (pumpUntil ([&] { return ! ui.get().separating; }, 30000));
+            }
+            const auto dirs = ui.get().projectFolder.getChildFile ("Cache/separation").findChildFiles (juce::File::findDirectories, false);
+            expectEquals (dirs.size(), 1);
+            if (dirs.size() != 1)
+                return;
+            const auto dir = dirs[0];
+            expect (dir.getChildFile ("vocals.wav").existsAsFile() && dir.getChildFile ("backing.wav").existsAsFile(), "vocals and backing are left from before");
+            expect (! dir.getChildFile ("lead.wav").existsAsFile(), "the lead was not finished");
+            const auto vocalsTime = dir.getChildFile ("vocals.wav").getLastModificationTime();
+            const auto t0 = juce::Time::getMillisecondCounterHiRes();
+            ui.separateGuide();
+            expect (ui.get().separating && ui.get().separationKind == 2, "only the lead step runs (kind " + juce::String (ui.get().separationKind) + ")");
+            expect (pumpUntil ([&] { return ! ui.get().separating && ! ui.get().guideBusy && ! ui.get().leadAnalysing; }, 90 * 60 * 1000), "finished");
+            pump (1000);
+            logMessage ("  lead only: " + juce::String (seconds (t0), 1) + " s, harmony points " + juce::String ((int) ui.get().refPitchHarm.size()));
+            expect (dir.getChildFile ("lead.wav").existsAsFile(), "lead.wav is written");
+            expect (dir.getChildFile ("vocals.wav").getLastModificationTime() == vocalsTime, "vocals.wav is not made again");
+            expect (! dir.getChildFile ("mix.wav").existsAsFile() && ! dir.getChildFile ("rest.wav").existsAsFile(), "work files are removed");
+            expect (ui.get().guideHarmVocals != nullptr, "the harmony guide is made");
+            expectEquals (separatorProcesses(), 0);
             ui.attachEngine (nullptr);
         }
     }
