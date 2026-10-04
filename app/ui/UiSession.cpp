@@ -1107,11 +1107,28 @@ bool UiSession::separationAvailable() const
     return engine != nullptr && separationService->available();
 }
 
-double UiSession::separationEstimateSeconds() const
+UiSession::SeparationEstimate UiSession::estimateSeparation (double songSeconds, int models, int cores)
 {
-    // 4 コアの Xeon で 30 秒の曲が 109 秒（11.3）。手元のパソコンでは最初の区間を測ってから出し直す
+    // 実測（どちらも 4 コアのクラウド。#27）：30 秒の曲で 109 秒（3.6 倍）、4 分の曲で 1 つのモデルが 1,750 秒（7.3 倍。2026-10-04、
+    // 声と伴奏・リードのどちらのモデルもほぼ同じ）。同じ 4 コアでも倍ほど違うので幅で伝える。コアが少なければ長くなる
+    const auto perModel = juce::jmax (0.0, songSeconds) * (double) juce::jmax (1, models) * (4.0 / (double) juce::jlimit (1, 4, cores));
+    return { perModel * 3.5, perModel * 8.0 };
+}
+
+UiSession::SeparationEstimate UiSession::separationEstimate() const
+{
     const auto seconds = s.sampleRate() > 0 ? (double) s.project.lengthSamples / s.sampleRate() : 0.0;
-    return seconds * 3.7;
+    return estimateSeparation (seconds, separationService->karaokeInstalled() ? 2 : 1, juce::SystemStats::getNumCpus());
+}
+
+UiSession::SeparationEstimate UiSession::originalSeparationEstimate (const juce::File& original) const
+{
+    juce::AudioFormatManager formats;
+    audio::registerSongFormats (formats);
+    double seconds = 0.0;
+    if (std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (original)); reader != nullptr && reader->sampleRate > 0.0)
+        seconds = (double) reader->lengthInSamples / reader->sampleRate;
+    return estimateSeparation (seconds, 1, juce::SystemStats::getNumCpus());
 }
 
 void UiSession::stopSeparation()
