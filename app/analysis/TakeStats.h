@@ -43,8 +43,12 @@ struct PitchAccuracy
     float meanAbsCents = 0.0f;
 };
 
+/** foldOctave：オクターブ違いを同じ音として数える（画面の「オクターブ合わせ」と同じにする。#25） */
 PitchAccuracy pitchAccuracy (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& take,
-                             double sampleRate, juce::int64 from, juce::int64 to, float toleranceCents);
+                             double sampleRate, juce::int64 from, juce::int64 to, float toleranceCents, bool foldOctave = true);
+
+/** 黄（少しずれている）の上限。緑の幅（20 / 30 / 50 セント）より必ず広い：50 にしても黄が残る（#25） */
+inline float pitchWarnLimitCents (float toleranceCents) { return juce::jmax (50.0f, toleranceCents + 20.0f); }
 
 struct Vibrato
 {

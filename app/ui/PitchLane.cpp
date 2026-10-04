@@ -149,8 +149,8 @@ float PitchLane::yForMidi (float midi) const
 juce::Colour PitchLane::colourForCents (float cents) const
 {
     const auto a = std::abs (cents);
-    if (a <= state().pitchToleranceCents) return colours::signal;
-    if (a <= 50.0f)                       return colours::warn;
+    if (a <= state().pitchToleranceCents)                                     return colours::signal;
+    if (a <= analysis::pitchWarnLimitCents (state().pitchToleranceCents)) return colours::warn;
     return colours::bad;
 }
 

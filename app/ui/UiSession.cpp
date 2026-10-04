@@ -2578,10 +2578,11 @@ namespace
 
     /** テイクの音程を [from, to) の中だけお手本と比べる（札はテイク全体、テイク比較は比べる範囲。B18 / B18c） */
     dummy::Session::TakeStats statsFor (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& frames,
-                                        double rate, int64 from, int64 to, float toleranceCents)
+                                        double rate, int64 from, int64 to, float toleranceCents, bool foldOctave)
     {
         const auto onset = analysis::onsetStats (guide, frames, rate, from, to);
-        const auto acc = analysis::pitchAccuracy (guide, frames, rate, from, to, toleranceCents);
+        // 点数も画面の色と同じく「オクターブ合わせ」に従う（切っているのに、赤い線が点数では正解になっていた。#25）
+        const auto acc = analysis::pitchAccuracy (guide, frames, rate, from, to, toleranceCents, foldOctave);
         dummy::Session::TakeStats st;
         st.entries = onset.entries;
         st.matched = (int) onset.items.size();
@@ -2621,7 +2622,7 @@ void UiSession::updateTakeStats (const juce::String& onlyKey)
         const bool harm = key.startsWith (juce::String (project::trackKey (project::TrackType::harm1)) + "/")
                        || key.startsWith (juce::String (project::trackKey (project::TrackType::harm2)) + "/");
         const auto from = frames->front().songSample, to = frames->back().songSample + 1;
-        s.takeStats[key] = statsFor (harm && ! harmGuide.empty() ? harmGuide : guide, *frames, rate, from, to, s.pitchToleranceCents);
+        s.takeStats[key] = statsFor (harm && ! harmGuide.empty() ? harmGuide : guide, *frames, rate, from, to, s.pitchToleranceCents, s.octaveAlign);
     }
 }
 
@@ -3040,7 +3041,7 @@ std::optional<dummy::Session::TakeStats> UiSession::takeStatsIn (project::TrackT
     const auto it = s.takePitch.find (key);
     if (s.refPitch.empty() || it == s.takePitch.end() || it->second == nullptr || it->second->empty())
         return std::nullopt;
-    return statsFor (guideFrames (s.refFor (type)), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents);
+    return statsFor (guideFrames (s.refFor (type)), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents, s.octaveAlign);
 }
 
 juce::String undoKeyName()
@@ -3807,7 +3808,7 @@ void UiSession::setShowLyrics (bool b)
     notify (change::mode);   // 画面の並びが変わる（設定にも保存する）
 }
 
-void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; rejudgeAll(); notify (change::view); }
+void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; rejudgeAll(); updateTakeStats(); notify (change::view); }
 void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; markDirty(); notify (change::view); }   // プロジェクトに入る（2026-10-04）
 
 void UiSession::setFullRange (bool b)
