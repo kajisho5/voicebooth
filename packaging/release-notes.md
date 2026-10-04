@@ -17,6 +17,17 @@ English follows Japanese.
 - **Windows**：「Windows によって PC が保護されました」→「詳細情報」→「実行」
 - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く →「開けません」と表示されたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」（開こうとしてから約 1 時間だけ表示されます）→ パスワード
 
+## 作者の手元での確認
+
+リリースのたびに、作者の Windows / Mac で次を通した結果を書きます（「まだ」は確認していないという意味です）。
+
+| 確認すること | Windows | Mac |
+|---|---|---|
+| インストールして起動する | まだ | まだ |
+| マイクの入力（メーターが動く） | まだ | まだ |
+| 短い WAV を開いて録音する | まだ | まだ |
+| 書き出す | まだ | まだ |
+
 ## beta.6 で直したもの（調査で残した細かい不具合）
 
 beta.5 の見直しで後回しにした細かい不具合 8 件を直しました。
@@ -120,6 +131,17 @@ beta.5 の見直しで後回しにした細かい不具合 8 件を直しまし�
 
 - **Windows**: "Windows protected your PC" → "More info" → "Run anyway"
 - **Mac**: move VoiceBooth from the DMG to Applications and open it once → if it says it can't be opened, go to System Settings → Privacy & Security → "Open Anyway" (shown for about an hour after the attempt) → enter your password
+
+## Checked on the author's computers
+
+For each release, the results of the steps below on the author's Windows and Mac are listed here ("not yet" means it has not been checked).
+
+| Step | Windows | Mac |
+|---|---|---|
+| Install and start | not yet | not yet |
+| Microphone input (the meter moves) | not yet | not yet |
+| Open a short WAV and record | not yet | not yet |
+| Export | not yet | not yet |
 
 ## Fixed in beta 6 (small issues left from the review)
 
