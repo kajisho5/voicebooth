@@ -28,6 +28,15 @@ void PlaybackCore::setSong (std::shared_ptr<const SongAudio> newSong)
     rebuildStretcher();
 }
 
+int PlaybackCore::stretchEngineFor (double sampleRate) noexcept
+{
+    // 高い SR では軽いエンジンにする（#21）。きれいなエンジンは SR に比例して重く、手元の 4 コアの計測で
+    // 実時間の 48 kHz 17%・96 kHz 56%・192 kHz 117%（途切れる）・384 kHz 233%（このエンジンは 192 kHz まで）。
+    // 軽いエンジンは 192 kHz 34%・384 kHz 76%。練習の音なので、96 kHz を超えるときだけ切り替える
+    using RB = RubberBand::RubberBandStretcher;
+    return sampleRate > 96000.0 + 1.0 ? (int) RB::OptionEngineFaster : (int) RB::OptionEngineFiner;
+}
+
 void PlaybackCore::rebuildStretcher()
 {
     double songRate = 0.0;
@@ -48,7 +57,7 @@ void PlaybackCore::rebuildStretcher()
     {
         using RB = RubberBand::RubberBandStretcher;
         fresh = std::make_unique<RB> ((size_t) std::lround (songRate), (size_t) channels,
-                                      RB::OptionProcessRealTime | RB::OptionEngineFiner | RB::OptionThreadingNever
+                                      RB::OptionProcessRealTime | stretchEngineFor (songRate) | RB::OptionThreadingNever
                                     | RB::OptionChannelsTogether | RB::OptionPitchHighConsistency);
         fresh->setMaxProcessSize ((size_t) stretchBlock);
         in.setSize (channels, stretchBlock);
