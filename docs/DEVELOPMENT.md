@@ -142,7 +142,7 @@ docs/DESIGN.md        仕様（唯一の正）
 docs/UI_STATES.md     画面状態一覧
 app/Main.cpp          アプリ / ウィンドウ（既定 1440x900、最小 1280x800）/ 起動オプション / 設定保存
 app/i18n/             多言語対応 tr("key")（12 言語）
-app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）。曲の情報の操作は UiSessionSong.cpp（B4b）
+app/ui/UiSession.*    画面の状態と変更通知（音声エンジンにつなぐ）。曲の情報の操作は UiSessionSong.cpp（B4b）、開く・保存は UiSessionProject.cpp（B14）
 app/ui/SongMarks.*    区間の名前・区間とルーラーのメニュー（B4b）
 app/audio/            曲の読み込み（SongLoader / mp3・m4a の読み手）、波形の概形（WaveformOverview）、再生（PlaybackCore / PlaybackEngine）、入力メーター（InputMeter）、自分の声のモニターとリバーブ（MonitorMixer）、通し録音（TakeRecorder）、往復の遅れの実測（LatencyProbe）、遡及録音のフレーズの頭（Retro）、自分の声のピッチ（PitchTracker）、伴奏の SR 変換（Resample）、デバイスの決まりごと（DeviceRules）、Mac のマイク許可（MicPermission）
 app/analysis/         お手本（DESIGN 7.1.1）：原曲とカラオケの時間合わせ・キー違い（Align）、原曲 − カラオケで声を取り出したお手本の音程（RefPitch）、テンポ・1 小節目・キーの推定（MusicInfo）、解析用 FFT（Fft.h）

@@ -86,6 +86,48 @@ public:
             expectEquals (vbooth.loadFileAsString(), before);
         }
 
+        beginTest ("a recorded take and its comp survive reopening and saving again");
+        {
+            // 録ったテイクがある .vbooth を作る（録音の流れの代わりに、テイクの WAV と採用区間を書き込む）
+            auto l = project::fromJson (vbooth.loadFileAsString());
+            expect (l.ok);
+            const auto takeFile = projectFolder.getChildFile ("Audio/Takes/take1.wav");
+            writeTone (takeFile, 330.0, 1.0, 1);
+            project::Take take;
+            take.id = "take1";
+            take.path = "Audio/Takes/take1.wav";
+            take.startSample = 48000;
+            take.endSample = 96000;
+            take.created = juce::Time::getCurrentTime();
+            auto* main = const_cast<project::Track*> (l.project.findTrack (project::TrackType::main));
+            if (main == nullptr)
+            {
+                l.project.tracks.push_back ({});
+                l.project.tracks.back().type = project::TrackType::main;
+                main = &l.project.tracks.back();
+            }
+            main->takes = { take };
+            main->comp = { { 48000, 96000, "take1" } };
+            expect (vbooth.replaceWithText (project::toJson (l.project, l.extras)));
+
+            {
+                FakeEngine engine;
+                UiSession ui;
+                ui.attachEngine (&engine);
+                expect (reopen (ui, vbooth));
+                const auto* t = ui.get().project.findTrack (project::TrackType::main);
+                expect (t != nullptr && t->takes.size() == 1 && t->comp.size() == 1, "the take is restored");
+                ui.setBackingLevel (0.5f);   // 何か変えて保存させる
+                ui.flushSave();
+                ui.attachEngine (nullptr);
+            }
+            const auto again = project::fromJson (vbooth.loadFileAsString());
+            const auto* t = again.project.findTrack (project::TrackType::main);
+            expect (t != nullptr && t->takes.size() == 1 && t->takes[0].id == "take1", "the take is still in the saved project");
+            expect (t != nullptr && t->comp.size() == 1 && t->comp[0].startSample == 48000 && t->comp[0].endSample == 96000);
+            expect (takeFile.existsAsFile(), "the take file is not moved to Recovered");
+        }
+
         beginTest ("another song with the same name and length gets its own project; the first is untouched");
         {
             const auto before = vbooth.loadFileAsString();
@@ -107,23 +149,23 @@ public:
     }
 
 private:
-    /** 正弦波の WAV（48 kHz ステレオ 24bit） */
-    static juce::File writeTone (const juce::File& f, double hz, double seconds)
+    /** 正弦波の WAV（48 kHz・24bit。既定はステレオ） */
+    static juce::File writeTone (const juce::File& f, double hz, double seconds, int channels = 2)
     {
         f.getParentDirectory().createDirectory();
         f.deleteFile();
         constexpr double rate = 48000.0;
         const auto n = (int) (seconds * rate);
-        juce::AudioBuffer<float> b (2, n);
+        juce::AudioBuffer<float> b (channels, n);
         for (int i = 0; i < n; ++i)
         {
             const auto v = 0.3f * (float) std::sin (juce::MathConstants<double>::twoPi * hz * i / rate);
-            b.setSample (0, i, v);
-            b.setSample (1, i, v);
+            for (int c = 0; c < channels; ++c)
+                b.setSample (c, i, v);
         }
         std::unique_ptr<juce::OutputStream> out (f.createOutputStream().release());
         juce::WavAudioFormat wav;
-        if (auto w = wav.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (2).withBitsPerSample (24)))
+        if (auto w = wav.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (channels).withBitsPerSample (24)))
             w->writeFromAudioSampleBuffer (b, 0, n);
         return f;
     }
