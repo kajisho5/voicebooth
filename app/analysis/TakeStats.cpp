@@ -163,7 +163,7 @@ OnsetStats onsetStats (const std::vector<audio::PitchFrame>& guide, const std::v
 }
 
 PitchAccuracy pitchAccuracy (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& take,
-                             double sampleRate, int64 from, int64 to, float toleranceCents)
+                             double sampleRate, int64 from, int64 to, float toleranceCents, bool foldOctave)
 {
     PitchAccuracy out;
     const auto within = (int64) (0.006 * sampleRate);   // 同じ時刻とみなす（点は 10 ms ごと）
@@ -176,7 +176,7 @@ PitchAccuracy pitchAccuracy (const std::vector<audio::PitchFrame>& guide, const 
         const auto* g = frameNear (guide, t.songSample, within);
         if (g == nullptr || ! voiced (*g))
             continue;
-        const auto c = std::abs (centsApart (t.midi, g->midi));
+        const auto c = std::abs (foldOctave ? centsApart (t.midi, g->midi) : (t.midi - g->midi) * 100.0f);
         ++out.frames;
         sumAbs += c;
         inBand += c <= toleranceCents ? 1 : 0;
