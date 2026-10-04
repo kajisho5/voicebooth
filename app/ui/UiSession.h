@@ -535,6 +535,8 @@ LatencyDisplay latencyDisplay (const dummy::Session&);
 
 /** 取り消しのキーの表記（Mac は ⌘Z、ほかは Ctrl+Z） */
 juce::String undoKeyName();
+/** Ctrl / ⌘ と 1 文字（Mac は「⌘E」、ほかは「Ctrl+E」）。ツールチップのショートカット（#28） */
+juce::String commandKeyName (char key);
 
 /** 機器の組み合わせ（ドライバ・入力・出力・SR・バッファ）の名前。遅れはこの組み合わせごとに覚える */
 juce::String latencyProfileKey (const dummy::Session&);

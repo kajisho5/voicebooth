@@ -86,6 +86,7 @@ ExportDialog::ExportDialog (UiSession& u)
     // ビット数（既定は録音形式。依頼先が 16bit を指定する時など）。16bit はディザー付き
     bitKeys.setFont (mono (11.0f));
     bitKeys.onChange = [this] (int) { repaint(); };
+    bitKeys.setTitle (tr ("export.format"));   // 読み上げの名前（#28）
     addAndMakeVisible (bitKeys);
 
     addFooterKey (tr ("export.do"), KeyRole::primary, [this] { if (onExport) onExport(); });

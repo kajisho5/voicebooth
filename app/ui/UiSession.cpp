@@ -2153,6 +2153,15 @@ std::optional<dummy::Session::TakeStats> UiSession::takeStatsIn (project::TrackT
     return statsFor (guideFrames (s.refFor (type)), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents, s.octaveAlign);
 }
 
+juce::String commandKeyName (char key)
+{
+   #if JUCE_MAC
+    return juce::String::fromUTF8 ("\xe2\x8c\x98") + juce::String::charToString ((juce::juce_wchar) key);   // ⌘E
+   #else
+    return "Ctrl+" + juce::String::charToString ((juce::juce_wchar) key);
+   #endif
+}
+
 juce::String undoKeyName()
 {
    #if JUCE_MAC
