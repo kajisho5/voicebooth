@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Öffne zuerst das Instrumental (Karaoke) und füge dann die Referenz hinzu (das Original mit Gesang)",
   "guide.problem.notAligned": "Original und Instrumental ließen sich nicht ausrichten (vielleicht ein anderer Song). Es wird keine Referenzlinie angezeigt",
   "guide.problem.tempo": "Original und Playback scheinen unterschiedlich schnell zu laufen (Original = {0}% des Playbacks). Timing und Tonhöhe würden abdriften, daher keine Referenzlinie. Bitte gleich schnelle Versionen verwenden",
+  "harmony.mainDucked": "Solange eine Harmonie-Spur scharf geschaltet ist, spielt Main leiser (etwa -8 dB). Fader und Export-Pegel bleiben gleich",
   "input.channel.left": "L",
   "input.channel.n": "In {0}",
   "input.channel.right": "R",

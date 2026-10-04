@@ -392,6 +392,10 @@ private:
     void saveProject();
     void renderStems();            // 録ったトラックを裏で作り直す（B12）
     void syncStemGains();          // トラックの音量・M / S・録音中を再生に反映
+    /** ハモリのトラックをアームしている（Main を薄く鳴らす。#30） */
+    bool harmonyArmed() const;
+    static constexpr float harmonyMainDuck = 0.4f;   // 約 -8 dB
+    bool mainDuckNoticed = false;
     void restoreProject();
     void markDirty();
     static juce::String cacheKey (const juce::File& guide, const juce::String& modelId);

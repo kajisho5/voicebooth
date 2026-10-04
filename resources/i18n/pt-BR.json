@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Abra primeiro o instrumental (karaokê) e depois adicione a guia (a original com voz)",
   "guide.problem.notAligned": "Não foi possível alinhar a original com o instrumental (talvez seja outra música). Nenhuma linha de guia é mostrada",
   "guide.problem.tempo": "O original e o playback parecem ter velocidades diferentes (o original é {0}% do playback). Tempo e afinação iriam se desviar, então a linha guia não é mostrada. Use versões na mesma velocidade",
+  "harmony.mainDucked": "Enquanto uma faixa de harmonia está armada, a Main toca mais baixo (cerca de -8 dB). O fader e o nível de exportação não mudam",
   "input.channel.left": "L",
   "input.channel.n": "Entrada {0}",
   "input.channel.right": "R",

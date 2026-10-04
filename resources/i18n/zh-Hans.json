@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "请先打开伴奏（卡拉OK），再加入范唱（带人声的原曲）",
   "guide.problem.notAligned": "原曲与伴奏的时间对不上（可能是不同的歌）。不显示范唱线",
   "guide.problem.tempo": "原曲和伴奏的速度似乎不同（原曲为伴奏的 {0}%）。时间和音高会逐渐错开，因此不显示范唱线。请使用相同速度的版本",
+  "harmony.mainDucked": "录和声期间，Main 会以较小音量（约 -8 dB）播放。推子数值和导出音量不变",
   "input.channel.left": "L",
   "input.channel.n": "输入 {0}",
   "input.channel.right": "R",
