@@ -1,4 +1,6 @@
 #include "analysis/MusicInfo.h"
+#include "analysis/Decimate.h"
+#include "audio/Resample.h"
 
 /*  テンポ・1 小節目・キーの自動推定（B9b）。自作の合成音（キック・ハイハット・和音の進行）で確かめる */
 
@@ -125,6 +127,17 @@ namespace
         }
         return x;
     }
+
+    /** 4 倍の SR（176.4 kHz）にする（高い SR の曲の解析を確かめる。#21） */
+    std::vector<float> upsample4 (const std::vector<float>& x)
+    {
+        audio::SongAudio a;
+        a.sampleRate = sr;
+        a.buffer.setSize (1, (int) x.size());
+        a.buffer.copyFrom (0, 0, x.data(), (int) x.size());
+        const auto b = audio::resampleSong (a, sr * 4.0);
+        return std::vector<float> (b->buffer.getReadPointer (0), b->buffer.getReadPointer (0) + b->buffer.getNumSamples());
+    }
 }
 
 class MusicInfoTests : public juce::UnitTest
@@ -173,6 +186,32 @@ public:
             expectEquals (estimateTempo (silence.data(), (juce::int64) silence.size(), sr).bpm, 0.0);
             const auto shortSong = song (120.0, 0.0, 5.0, cMajor);
             expectEquals (estimateTempo (shortSong.data(), (juce::int64) shortSong.size(), sr).bpm, 0.0);
+        }
+
+        beginTest ("tempo and key at 176.4 kHz: the same result as at 44.1 kHz, and not slower (#21)");
+        {
+            expectEquals (analysisFactor (44100.0), 1);
+            expectEquals (analysisFactor (48000.0), 1);
+            expectEquals (analysisFactor (96000.0), 2);
+            expectEquals (analysisFactor (176400.0), 3);
+            expectEquals (analysisFactor (192000.0), 4);
+            expectEquals (analysisFactor (384000.0), 8);
+
+            const auto x = song (128.0, 0.73, 45.0, cMajor);
+            const auto hi = upsample4 (x);
+            auto t0 = juce::Time::getMillisecondCounterHiRes();
+            const auto lo = estimateTempo (x.data(), (juce::int64) x.size(), sr);
+            const auto msLo = juce::Time::getMillisecondCounterHiRes() - t0;
+            t0 = juce::Time::getMillisecondCounterHiRes();
+            const auto h = estimateTempo (hi.data(), (juce::int64) hi.size(), sr * 4.0);
+            const auto msHi = juce::Time::getMillisecondCounterHiRes() - t0;
+            logMessage ("    tempo 44.1 kHz " + juce::String (msLo, 0) + " ms, 176.4 kHz " + juce::String (msHi, 0) + " ms");
+            expectWithinAbsoluteError (h.bpm, lo.bpm, 0.05);
+            expectWithinAbsoluteError ((double) h.downbeatSample / (sr * 4.0), 0.73, 0.015);
+            expect (msHi < msLo * 3.0 + 200.0, juce::String (msHi) + " ms");
+            const auto k = estimateKey (hi.data(), (juce::int64) hi.size(), sr * 4.0);
+            expectEquals (k.tonic, 0);
+            expect (! k.minor);
         }
 
         beginTest ("key: C major, A minor, and a transposed song");
