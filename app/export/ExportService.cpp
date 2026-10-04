@@ -238,6 +238,18 @@ ExportResult ExportService::exportTrackDry (const project::Project& project, pro
         result.message = "write failed or cancelled";
         return result;
     }
+    // 最後のブロックとヘッダーは閉じる時に書かれ、失敗しても分からない。読み直して長さを確かめる
+    // （ディスクが一杯・書き出し中にドライブが外れた時に、壊れた WAV を「書き出しました」としていた。監査 2026-10-04）
+    {
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::AudioFormatReader> check (wav.createReaderFor (temp.createInputStream().release(), true));
+        if (check == nullptr || (juce::int64) check->lengthInSamples != (juce::int64) length)
+        {
+            temp.deleteFile();
+            result.message = "write failed (the file is incomplete)";
+            return result;
+        }
+    }
 
     destination.deleteFile();
     if (! temp.moveFileTo (destination))

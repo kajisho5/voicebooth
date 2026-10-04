@@ -22,10 +22,13 @@ ExportDialog::ExportDialog (UiSession& u)
     const bool real = s.backingWave != nullptr;
     auto add = [&] (TrackType t, bool clip, const char* peak)
     {
-        if (! session.isTrackVisible (t)) return;
         const auto* tr_ = s.project.findTrack (t);
         const bool recorded = tr_ != nullptr && ! tr_->comp.empty();
+        // いまのモードで隠れているトラックでも、録ってあれば出す（モードを下げると、録ったダブル・ハモリが知らせなしに納品から抜けていた。監査 2026-10-04）
+        const bool visible = session.isTrackVisible (t);
+        if (! visible && ! (real && recorded)) return;
         FileRow row { t, exporter::ExportService::dryFileName (s.songName, t), recorded, clip && recorded, recorded ? peak : "", {}, false, {} };
+        row.hiddenByMode = ! visible;
         row.packFile = exporter::DeliveryPack::packFileName (t);
         if (real && recorded)
         {
@@ -169,6 +172,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
             else if (! f.available)  chip (tr ("export.status.unrecorded"), colours::textMute, Icon::warning);
             else if (f.clip)    chip (f.clipTakes.isNotEmpty() ? tr ("export.status.clipTakes", f.clipTakes) : tr ("export.status.clip"),
                                       colours::bad, Icon::warning);
+            else if (f.hiddenByMode) chip (tr ("export.status.hiddenMode"), colours::warn, Icon::warning);
             else                chip (tr ("export.status.ok"), colours::signal, Icon::check);
         }
     }

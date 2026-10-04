@@ -206,6 +206,18 @@ public:
             expect (dir.getChildFile ("Audio/Recovered/Main_take2.wav").existsAsFile());
 
             expectEquals (recoverUnusedTakes (dir, inUse), 0);   // 2 回目は何もしない
+
+            // リハーサル（Practice/）：使っているものは残し、落ちて .vbooth に入らなかったものは Recovered へ（監査 2026-10-04）
+            const auto practice = dir.getChildFile ("Practice");
+            expect (practice.createDirectory().wasOk());
+            const auto usedPractice = practice.getChildFile ("Main_take3.wav");
+            const auto lostPractice = practice.getChildFile ("Main_take4.wav");
+            for (auto& f : { usedPractice, lostPractice })
+                expect (f.replaceWithText ("x"));
+            const juce::StringArray inUse2 { "Audio/Takes/.retro-1-100.wav", "Audio/Takes/Main_take1.wav", "Practice/Main_take3.wav" };
+            expectEquals (recoverUnusedTakes (dir, inUse2), 1);
+            expect (usedPractice.existsAsFile() && ! lostPractice.exists());
+            expect (dir.getChildFile ("Audio/Recovered/Main_take4.wav").existsAsFile());
             dir.deleteRecursively();
         }
 

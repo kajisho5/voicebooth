@@ -58,11 +58,24 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     flushSave();         // 前の曲のプロジェクトを保存してから
     // 開く途中のプロジェクトが、いま開く曲のものでなければ捨てる（読み込みをやめた・失敗した後に別の曲を開いた時、
     // 前のプロジェクトのフォルダに別の曲を開いて上書きしていた。監査 2026-10-04）
-    if (pendingProject != nullptr
-        && ! juce::File (pendingProject->project.songPath).getFileName().equalsIgnoreCase (file.getFileName()))
-        clearPendingProject();
+    if (pendingProject != nullptr)
+    {
+        const auto& lp = pendingProject->project;
+        const auto len = lp.sampleRate > 0 ? (double) lp.lengthSamples * sampleRate / lp.sampleRate : -1.0;
+        if (! juce::File (lp.songPath).getFileName().equalsIgnoreCase (file.getFileName()) || std::abs (len - (double) lengthSamples) > 2.0)
+            clearPendingProject();
+        // 今のプロジェクトを開き直す時は、いま保存した中身で戻す（開く画面を出した時に読んだ中身では、その後に録ったテイク・
+        // 変えた所が古い中身で上書きされていた。監査 2026-10-04）
+        else if (pendingProjectFile == s.projectFile && pendingProjectFile.existsAsFile())
+            if (auto fresh = project::fromJson (pendingProjectFile.loadFileAsString()); fresh.ok)
+                *pendingProject = std::move (fresh);
+    }
     awaitingRestore = false;
     timelineLocked = false;
+    // 曲の中身のハッシュ（1 ch 目。数十 ms）。同じ名前・同じ長さの別の曲（キー違い・ミックスを直した差し替え）を、前のプロジェクトとして開かない
+    songHash = audio != nullptr && audio->buffer.getNumChannels() > 0
+                 ? juce::String::toHexString ((juce::int64) analysis::cache::hashSamples (audio->buffer.getReadPointer (0), audio->buffer.getNumSamples()))
+                 : juce::String();
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
     s.songRate = sampleRate;
@@ -97,6 +110,8 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
             const auto len = (double) l.project.lengthSamples * sampleRate / l.project.sampleRate;
             if (juce::File (l.project.songPath).getFileName() != file.getFileName() || std::abs (len - (double) lengthSamples) > 2.0)
                 return false;
+            if (l.extras.songHash.isNotEmpty() && songHash.isNotEmpty() && l.extras.songHash != songHash)
+                return false;   // 名前と長さは同じでも別の音（監査 2026-10-04）
             pendingProject = std::make_unique<project::LoadedProject> (std::move (l));
             awaitingRestore = true;
             return true;
@@ -140,6 +155,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     if (engine != nullptr)
     {
         engine->setSong (std::move (audio));   // 止まって頭へ。出力の SR を曲に合わせる（録ったトラックも外れる）
+        { const auto g = ++stemGeneration; for (auto& sg : stemSlotGeneration) sg = g; }   // 前の曲で作りかけのトラックの音を入れない（監査 2026-10-04）
         for (auto& sig : stemSignature) sig.clear();
         stemsDirty = true;
         syncBackingLevel();
@@ -252,11 +268,22 @@ void UiSession::restoreProject()
     if (outside > 0)
         postNotice (tr ("project.outsideTakes", outside));
 
-    // 曲の情報（推定のままの値も戻す。あとから届く自動推定は確定した値を上書きしない）
-    if (lp.tempo.known()) s.project.tempo = lp.tempo;
+    // 曲の情報（推定のままの値も戻す。あとから届く自動推定は確定した値を上書きしない）。
+    // 保存した時と時間軸の SR が違えば（テイクのないプロジェクトで、録音形式の SR が変わった等）、位置を今の SR に直してから戻す
+    // （前はそのまま戻し、歌詞・区間・拍がずれたまま保存されていた。監査 2026-10-04）
+    const double toNow = lp.sampleRate > 0 ? (double) s.sampleRate() / (double) lp.sampleRate : 1.0;
+    auto scaled = [toNow] (int64 v) { return v >= 0 ? (int64) std::llround ((double) v * toNow) : v; };
+    if (lp.tempo.known())
+    {
+        s.project.tempo = lp.tempo;
+        s.project.tempo.downbeatSample = scaled (s.project.tempo.downbeatSample);
+        for (auto& b : s.project.tempo.beats) b = scaled (b);
+    }
     if (lp.key.known())   s.project.key = lp.key;
     s.project.sections = lp.sections;
+    for (auto& sec : s.project.sections) sec.startSample = scaled (sec.startSample);
     s.project.lyrics = lp.lyrics;
+    for (auto& l : s.project.lyrics.lines) { l.startSample = scaled (l.startSample); l.endSample = scaled (l.endSample); }
     song::updateLineEnds (s.project.lyrics, s.project.lengthSamples, s.sampleRate());
 
     // 録ったトラックの音量・M・S と練習のテンポ・キー（古いファイルには無い：既定のまま）
@@ -284,24 +311,27 @@ void UiSession::restoreProject()
     }
     if (const auto& w = loaded->extras.work; w.has)
     {
-        if (w.rangeIn >= 0 && w.rangeOut > w.rangeIn && w.rangeOut <= s.project.lengthSamples)
-            setRange (w.rangeIn, w.rangeOut);
+        if (w.rangeIn >= 0 && w.rangeOut > w.rangeIn && scaled (w.rangeOut) <= s.project.lengthSamples)
+            setRange (scaled (w.rangeIn), scaled (w.rangeOut));
         setLoop (w.loop);
         for (int i = 0; i < (int) s.trackUi.size(); ++i)
             if (w.track == project::trackKey (s.trackUi[(size_t) i].type))
                 selectTrack (i);   // いまのモードで見えないトラックなら選ばない（selectTrack が見る）
         setOctaveUp (w.octaveUp);
-        if (w.playhead > 0 && w.playhead < s.project.lengthSamples)
-            seek (w.playhead);
+        if (w.playhead > 0 && scaled (w.playhead) < s.project.lengthSamples)
+            seek (scaled (w.playhead));
     }
 
     if (lp.sampleRate != s.sampleRate())
     {
-        postNotice (tr ("project.rateChanged", formatKhz (lp.sampleRate), formatKhz (s.sampleRate())));
         // テイクの位置は保存した時の SR のサンプル。そろえられなかった（伴奏の SR 変換に失敗した）まま保存すると、
-        // ずれた位置で上書きしてしまうので、この曲では保存しない（.vbooth は前のまま残る。監査 2026-10-04）
+        // ずれた位置で上書きしてしまうので、この曲では保存も録音もしない（.vbooth は前のまま残る。監査 2026-10-04）
         if (takes > 0)
+        {
             awaitingRestore = true;
+            postNotice (tr ("project.rateChangedNotSaved", formatKhz (lp.sampleRate), formatKhz (s.sampleRate())));
+        }
+        // テイクが無ければ位置を今の SR に直して戻したので、知らせることはない
     }
     else if (takes > 0)
         postNotice (tr ("project.resumed", takes));
@@ -333,29 +363,33 @@ void UiSession::copyIntoProject (const juce::File& source, const juce::String& r
 {
     auto pathOf = [this] (CopyTarget c) -> juce::String& { return c == CopyTarget::song ? s.project.songPath : s.guidePath; };
 
-    // 同じ名前・同じ大きさのものが既にあれば、それを使う
     const auto dest = s.projectFolder.getChildFile (relativePath);
-    if (dest.existsAsFile() && dest.getSize() == source.getSize())
-    {
-        pathOf (target) = relativePath;
-        return;
-    }
 
     // コピーが終わるまでは元のファイルを指しておく。コピーに失敗した・途中で終えた時も、プロジェクトは開ける
     // （前は先にコピー先を書いていたので、ディスクが一杯だと次から開けなくなっていた。監査 2026-10-03）
     const auto original = source.getFullPathName();
     pathOf (target) = original;
 
-    // 裏でコピー（数十 MB）
+    // 裏で比べてコピー（数十 MB）。同じ名前のものが既にあっても、中身が同じ時だけそれを使う。違えば上書きせず「名前 (2)」でコピーする
+    // （前は大きさだけで比べていて、同じ名前で書き出し直したオフボが入らず、開き直すと古い音に戻っていた。監査 2026-10-04）
     const auto serial = s.songSerial;
+    const auto folder = s.projectFolder;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, serial, source, dest, relativePath, target, original, pathOf]
+    juce::Thread::launch ([this, weak, serial, source, dest, folder, target, original, pathOf]
     {
-        dest.getParentDirectory().createDirectory();
-        const auto temp = dest.getSiblingFile (dest.getFileName() + ".part");
-        const bool ok = source.copyFileTo (temp) && temp.moveFileTo (dest);
+        auto finalDest = dest;
+        bool ok = dest.existsAsFile() && dest.getSize() == source.getSize() && dest.hasIdenticalContentTo (source);
         if (! ok)
-            temp.deleteFile();
+        {
+            if (dest.existsAsFile())
+                finalDest = dest.getNonexistentSibling (true);
+            finalDest.getParentDirectory().createDirectory();
+            const auto temp = finalDest.getSiblingFile (finalDest.getFileName() + ".part");
+            ok = source.copyFileTo (temp) && temp.moveFileTo (finalDest);
+            if (! ok)
+                temp.deleteFile();
+        }
+        const auto relativePath = finalDest.getRelativePathFrom (folder).replaceCharacter ('\\', '/');
 
         juce::MessageManager::callAsync ([this, weak, serial, relativePath, target, original, ok, pathOf]
         {
@@ -397,6 +431,7 @@ void UiSession::saveProject()
     }
     for (auto& tu : s.trackUi)   // 録ったトラックの音量・M・S（B12）と練習のテンポ・キー（B11）も覚える
         ex.trackMix.push_back ({ tu.type, tu.monitorGain, tu.mute, tu.solo });
+    ex.songHash = songHash;
     ex.practiceTempo = s.tempoPercent;
     ex.practiceKey = s.keyShift;
     // モニターの音量と M、作業の続き（2026-10-04。それまでは開き直すと既定に戻っていた）
@@ -441,13 +476,19 @@ void UiSession::saveProject()
     // テイク比較の試聴中（B18c）は、選んでいない差し替えを書かない（確定している採用区間で保存する）
     auto committed = s.project;
     audition.restoreCommitted (committed);
-    savedPlayhead = s.playhead;
     if (! project::writeAtomically (s.projectFile, project::toJson (committed, ex)))
     {
-        postNotice (tr ("project.saveFailed", s.projectFile.getFullPathName()));
-        dirty = false;   // 何度も出さない（次の変更でまた試す）
+        // 失敗したら変更ありのまま残し、5 秒ごとに試し直す（終了時も）。知らせは続けて失敗した最初の 1 回だけ。
+        // 前は dirty を下ろしていて、次に何か変えるまで・終了時も保存し直さず、録ったテイクが .vbooth に入らなかった（監査 2026-10-04）
+        if (! saveFailed)
+            postNotice (tr ("project.saveFailed", s.projectFile.getFullPathName()));
+        saveFailed = true;
+        dirty = true;
+        saveRetryAt = juce::Time::getMillisecondCounter() + 5000;
         return;
     }
+    saveFailed = false;
+    savedPlayhead = s.playhead;
     dirty = false;
 
     // 最近のプロジェクト（新しい順、8 件まで）
@@ -655,6 +696,7 @@ void UiSession::conformSong()
             if (engine != nullptr)
             {
                 engine->setSong (audio);   // デバイスもこの SR に切り替える（対応していれば）
+                { const auto g = ++stemGeneration; for (auto& sg : stemSlotGeneration) sg = g; }
                 for (auto& sig : stemSignature) sig.clear();
                 stemsDirty = true;
                 syncBackingLevel();
@@ -670,6 +712,9 @@ void UiSession::conformSong()
                 postNotice (tr ("format.conformed", formatKhz (target), formatBits (s.project.bitDepthExport)));
             restoreProject();   // 続きから開くプロジェクト（B14）は、時間軸の SR がそろってから戻す
             notify (change::all);
+            // そろえている間に録音形式の SR を選び直していたら、もう一度そろえる（前は 1 回目の SR のまま残り、保存する SR と食い違っていた）
+            if (s.targetRate() != s.sampleRate() && ! hasTakes())
+                conformSong();
         });
     });
 }
@@ -1008,7 +1053,8 @@ void UiSession::setRecording (bool r)
     }
 
     // 再生中で裏で録っていれば（B7）、それをこのテイクにする。押す前に歌い始めていれば、フレーズの頭から採る
-    if (shadowActive && s.isPlaying && engine->isRecording() && engine->recordingStartSample() >= 0)
+    // ループが頭に戻って終わった裏録り（recordingEnded）は昇格しない：前の周回の声がテイクになり、いま歌っている声が捨てられていた（監査 2026-10-04）
+    if (shadowActive && s.isPlaying && engine->isRecording() && engine->recordingStartSample() >= 0 && ! engine->recordingEnded())
     {
         shadowActive = false;
         loopBeforeRecording = s.loopOn && s.hasRange();
@@ -1018,6 +1064,7 @@ void UiSession::setRecording (bool r)
         s.recordingPath = rel();
         s.recordingTempo = s.tempoPercent;   // 裏録りは原速・原キーの時だけ（updateShadow）
         s.recordingKey = s.keyShift;
+        recordingMode = s.recMode;
         s.isRecording = true;
         s.recordStart = punch ? s.rangeIn : retroStart (now);
         s.recordEnd = punch ? s.rangeOut : -1;
@@ -1054,6 +1101,7 @@ void UiSession::setRecording (bool r)
     s.recordingPath = rel();
     s.recordingTempo = s.tempoPercent;
     s.recordingKey = s.keyShift;
+    recordingMode = s.recMode;   // 本番 / リハーサルは録り始めた時のもの（録音中に切り替えても、置き場所・採用は変えない）
     s.isRecording = true;
     s.isPlaying = true;
     s.recordStart = punch ? s.rangeIn : s.playhead;
@@ -1100,6 +1148,8 @@ juce::String UiSession::recordProblem() const
     for (auto& t : s.trackUi) armed = armed || t.armed;
     if (! armed)                                      return "record.problem.noArm";
     if (s.conforming)                                 return "record.problem.conforming";
+    // 開いたプロジェクトの中身を、SR が合わないため戻せていない（保存しない状態）。録っても .vbooth に入らない（監査 2026-10-04）
+    if (awaitingRestore && pendingProject == nullptr) return "record.problem.notSaved";
     if (s.latencyMeasuring)                           return "record.problem.measuring";
     if (! s.output.open || s.output.converting)       return "record.problem.sampleRate";
     return {};
@@ -1177,7 +1227,8 @@ void UiSession::finishRecording()
     take.created = juce::Time::getCurrentTime();
     take.clip = res.clipped;
     take.peak = res.peak;
-    take.recMode = s.recMode;
+    // 録り始めた時のモード（録音中に「本番」へ切り替えても、練習の速さ・キーで録った声を本番の採用区間に入れない。監査 2026-10-04）
+    take.recMode = recordingMode;
     take.latencySamples = s.recordingLatency;
 
     // 練習録音は納品の採用区間に入れない（DESIGN 6.1 / 13）
@@ -1586,6 +1637,10 @@ void UiSession::loadGuide (const juce::File& file)
     if (s.guideBusy)
         return;
 
+    // お手本を替える：前のお手本のリード分離・解析の結果は捨てる（終わった時に新しいお手本の線を上書きしていた。監査 2026-10-04）
+    ++guideSerial;
+    if (s.separating && s.separationKind == 2)
+        stopSeparation();
     s.guideBusy = true;
     s.guideName = file.getFileName();
     s.guideKaraokeKey = 0;
@@ -2155,7 +2210,8 @@ void UiSession::extractLead()
 
     std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
-    juce::Thread::launch ([this, weak, guide, mix, lead, rest, serial]
+    const auto forGuide = guideSerial;   // 途中でお手本を替えたら、この結果は使わない（監査 2026-10-04）
+    juce::Thread::launch ([this, weak, guide, mix, lead, rest, serial, forGuide]
     {
         bool ok = false;
         if (auto a = readAudio (guide))
@@ -2166,7 +2222,7 @@ void UiSession::extractLead()
             mix.getParentDirectory().createDirectory();
             ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
         }
-        juce::MessageManager::callAsync ([this, weak, ok, mix, lead, rest, serial]
+        juce::MessageManager::callAsync ([this, weak, ok, mix, lead, rest, serial, forGuide]
         {
             if (weak.expired())
                 return;
@@ -2189,13 +2245,21 @@ void UiSession::extractLead()
                 s.separationEta = eta;
                 notify (change::view);
             };
-            cb.done = [this, weak, mix, lead, rest, serial, fail] (bool done, const juce::String& error)
+            cb.done = [this, weak, mix, lead, rest, serial, fail, forGuide] (bool done, const juce::String& error)
             {
                 if (weak.expired()) return;
                 mix.deleteFile();
                 rest.deleteFile();   // リード以外（声の残り＋伴奏）は使わない
                 s.separating = false;
                 if (serial != s.songSerial) return;
+                if (forGuide != guideSerial)
+                {
+                    // お手本を替えた（loadGuide で止めた）：前のお手本の結果は使わない。新しいお手本の解析が終わっていれば、そのリードを分け始める
+                    notify (change::view);
+                    if (! s.guideBusy)
+                        extractLead();
+                    return;
+                }
                 if (! done)
                 {
                     fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
@@ -2217,10 +2281,11 @@ void UiSession::analyseLead (const juce::File& leadFile)
     if (karaoke == nullptr || vocals == nullptr)
         return;
     const auto serial = s.songSerial;
+    const auto forGuide = guideSerial;
     s.leadAnalysing = true;
     notify (change::view);
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, leadFile, guide, karaoke, vocals, serial]
+    juce::Thread::launch ([this, weak, leadFile, guide, karaoke, vocals, serial, forGuide]
     {
         auto out = std::make_shared<GuideOutcome>();
         const auto rate = karaoke->sampleRate;
@@ -2243,12 +2308,12 @@ void UiSession::analyseLead (const juce::File& leadFile)
                 splitHarmony (all, leadOnBacking, rate, *out);
             }
         }
-        juce::MessageManager::callAsync ([this, weak, out, serial, songRate = karaoke->sampleRate]
+        juce::MessageManager::callAsync ([this, weak, out, serial, forGuide, songRate = karaoke->sampleRate]
         {
             if (weak.expired())
                 return;
             s.leadAnalysing = false;
-            if (serial != s.songSerial || out->kind != GuideOutcome::Kind::ok)
+            if (serial != s.songSerial || forGuide != guideSerial || out->kind != GuideOutcome::Kind::ok)
             {
                 notify (change::view);
                 return;   // 取れなければ今の（分けていない）お手本のまま
@@ -2957,6 +3022,8 @@ void UiSession::measureLatency()
 
     // 測定音は出力を占有する：再生・録音は止める
     setPlaying (false);
+    if (shadowActive)
+        finishRecording();   // 再生中の裏録り（B7）を閉じる（残っていると測定が「録音中」で失敗していた。監査 2026-10-04）
     if (const auto error = engine->startLatencyProbe(); error.isNotEmpty())
     {
         postNotice (tr ("latency.problem.failed", reasonText (error)));
@@ -3307,7 +3374,8 @@ void UiSession::tick (double seconds)
         modelDownloader->setPaused (s.isPlaying || s.isRecording);
 
     // 自動保存（B14）：変更から 1.5 秒たったら。録音中・SR をそろえている間は待つ
-    if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500)
+    if (dirty && ! s.isRecording && ! s.conforming && juce::Time::getMillisecondCounter() - dirtySince > 1500
+        && (! saveFailed || (juce::int32) (juce::Time::getMillisecondCounter() - saveRetryAt) >= 0))
         saveProject();
 
     // カウントイン中（2026-10-02）：BAR.BEAT は数えている拍を出す（曲の位置は数え終わるまで動かない）
@@ -4027,7 +4095,12 @@ void UiSession::setPractice (int tempoPercent, int keyShift)
     syncPracticeToEngine();
     notify (change::practice);
 }
-void UiSession::setRecMode (project::RecMode m) { s.recMode = m; notify (change::practice); }
+void UiSession::setRecMode (project::RecMode m)
+{
+    if (! s.isRecording)   // 録音中は変えない（表示を戻すだけ）
+        s.recMode = m;
+    notify (change::practice);
+}
 void UiSession::setPitchTolerance (float c)   { s.pitchToleranceCents = c; updateTakeStats(); notify (change::view); }
 
 void UiSession::setMode (project::Mode m)

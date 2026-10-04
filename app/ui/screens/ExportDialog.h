@@ -42,6 +42,7 @@ private:
         juce::String clipTakes;   // クリップしたテイク（"take2, take4"。曲を開いた時）
         bool packOnly = false;    // 納品パックにだけ入る（確認用ミックス）
         juce::String packFile;    // パックの中の名前（vocal_dry.wav など）
+        bool hiddenByMode = false;   // いまのモードでは隠れているが、録ってある（入れる。監査 2026-10-04）
     };
 
     std::vector<FileRow> rows;
