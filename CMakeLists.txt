@@ -215,13 +215,9 @@ set(VOICEBOOTH_SONG_SOURCES
 set(VOICEBOOTH_SKIN_SOURCES
     app/skin/Skin.cpp)
 
-target_sources(VoiceBooth PRIVATE
-    app/Main.cpp
+# 画面と状態（UI）。アプリと、UiSession を音声なしで動かすテスト（VoiceBoothSessionTests）で使う
+set(VOICEBOOTH_UI_SOURCES
     app/i18n/I18n.cpp
-    ${VOICEBOOTH_AUDIO_SOURCES}
-    ${VOICEBOOTH_RECORD_SOURCES}
-    ${VOICEBOOTH_SONG_SOURCES}
-    ${VOICEBOOTH_SKIN_SOURCES}
     # テーマ・動き（DESIGN 4.10：共通の時計は 1 つ）
     app/ui/Theme.cpp
     app/ui/VoiceBoothLookAndFeel.cpp
@@ -269,6 +265,20 @@ target_sources(VoiceBooth PRIVATE
     app/ui/screens/LyricsDialog.cpp
     app/ui/screens/RangeDialog.cpp
     app/ui/screens/TakeCompareDialog.cpp)
+# OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
+if(APPLE)
+    list(APPEND VOICEBOOTH_UI_SOURCES app/ui/ReducedMotion.mm)
+else()
+    list(APPEND VOICEBOOTH_UI_SOURCES app/ui/ReducedMotion.cpp)
+endif()
+
+target_sources(VoiceBooth PRIVATE
+    app/Main.cpp
+    ${VOICEBOOTH_AUDIO_SOURCES}
+    ${VOICEBOOTH_RECORD_SOURCES}
+    ${VOICEBOOTH_SONG_SOURCES}
+    ${VOICEBOOTH_SKIN_SOURCES}
+    ${VOICEBOOTH_UI_SOURCES})
 
 target_include_directories(VoiceBooth PRIVATE app)
 
@@ -313,12 +323,6 @@ if(NOT VOICEBOOTH_UI_MOCK)
     endif()
 endif()
 
-# OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
-if(APPLE)
-    target_sources(VoiceBooth PRIVATE app/ui/ReducedMotion.mm)
-else()
-    target_sources(VoiceBooth PRIVATE app/ui/ReducedMotion.cpp)
-endif()
 
 # Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
 if(WIN32)
@@ -599,4 +603,45 @@ if(VOICEBOOTH_TESTS)
         target_link_libraries(VoiceBoothTests PRIVATE mfplat mfreadwrite mfuuid ole32)
     endif()
     add_test(NAME VoiceBoothTests COMMAND VoiceBoothTests)
+
+    # UiSession（状態・保存・開く）を音声の機器なしで動かすテスト（2026-10-04）。偽のエンジン（tests/session/FakeEngine.h）をつなぎ、
+    # 「開く → 変える → 保存 → 開き直す」で中身が戻るかを確かめる。UI のソースを全部入れるので別の実行ファイルにする
+    juce_add_console_app(VoiceBoothSessionTests PRODUCT_NAME "VoiceBoothSessionTests" NEEDS_CURL ${VB_NEEDS_CURL})
+    target_sources(VoiceBoothSessionTests PRIVATE
+        tests/TestMain.cpp
+        tests/session/SessionSaveTests.cpp
+        ${VOICEBOOTH_AUDIO_SOURCES}
+        ${VOICEBOOTH_RECORD_SOURCES}
+        ${VOICEBOOTH_SONG_SOURCES}
+        ${VOICEBOOTH_SKIN_SOURCES}
+        ${VOICEBOOTH_UI_SOURCES})
+    target_include_directories(VoiceBoothSessionTests PRIVATE app tests)
+    target_compile_definitions(VoiceBoothSessionTests PRIVATE
+        VOICEBOOTH_UI_MOCK=0
+        VB_TEST_CATEGORY="VoiceBoothSession"
+        JUCE_WEB_BROWSER=0
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JUCE_APPLICATION_NAME_STRING="VoiceBooth"
+        JUCE_APPLICATION_VERSION_STRING="${PROJECT_VERSION}"
+        VOICEBOOTH_VERSION_STRING="${VB_FULL_VERSION}")
+    if(MSVC)
+        target_compile_options(VoiceBoothSessionTests PRIVATE /utf-8)
+    endif()
+    target_link_libraries(VoiceBoothSessionTests
+        PRIVATE
+            VoiceBoothFonts
+            VoiceBoothI18n
+            vb_rubberband
+            vb_monocypher
+            juce::juce_cryptography
+            juce::juce_gui_basics
+            juce::juce_audio_formats
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+    if(WIN32)
+        target_link_libraries(VoiceBoothSessionTests PRIVATE mfplat mfreadwrite mfuuid ole32)
+    endif()
+    add_test(NAME VoiceBoothSessionTests COMMAND VoiceBoothSessionTests)
 endif()
