@@ -236,6 +236,7 @@ set(VOICEBOOTH_UI_SOURCES
     app/ui/DummySession.cpp
     app/ui/UiSession.cpp
     app/ui/UiSessionSong.cpp
+    app/ui/UiSessionProject.cpp
     app/ui/UiSessionUpdate.cpp
     # 画面
     app/ui/LaneCommon.cpp
