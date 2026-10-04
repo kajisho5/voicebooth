@@ -205,6 +205,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/KeySuggest.cpp
     app/analysis/GuideClean.cpp
     app/analysis/Rmvpe.cpp
+    app/analysis/AnalysisCache.cpp
     app/separation/SeparatorClient.cpp
     app/models/ModelManifest.cpp
     app/models/ModelDownloader.cpp
@@ -564,6 +565,7 @@ if(VOICEBOOTH_TESTS)
         tests/KeySuggestTests.cpp
         tests/GuideCleanTests.cpp
         tests/RmvpeTests.cpp
+        tests/AnalysisCacheTests.cpp
         tests/ClickTests.cpp
         tests/GameSoundsTests.cpp
         tests/UpdateCheckTests.cpp
