@@ -22,6 +22,8 @@ public:
     void setPreviewHover (bool h) { previewHover = h; repaint(); }
 
     void paint (juce::Graphics&) override;
+    void focusGained (FocusChangeType c) override { ring.gained (*this, c); }
+    void focusLost (FocusChangeType) override     { ring.lost (*this); }
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -34,6 +36,7 @@ public:
     bool isAtUnity() const { return juce::exactlyEqual (getValue(), motion::fader::unity); }
 
 private:
+    focus::Ring ring;
     bool advanceAnimation (float dt) override;
     float travel() const { return juce::jmax (1.0f, (float) getHeight() - capH); }
 

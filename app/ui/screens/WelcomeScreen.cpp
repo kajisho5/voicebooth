@@ -79,6 +79,7 @@ WelcomeScreen::WelcomeScreen()
 {
     language.setFont (sans (15.0f, Weight::medium));
     language.onChange = [this] (int i) { if (onLanguage) onLanguage (i18n::available()[(size_t) i].id); };
+    language.setTitle (tr ("settings.language"));   // 読み上げの名前（#28）
     addAndMakeVisible (language);
 
     continueKey.withLed (colours::signal).withToggle (false).withFont (sans (14.0f, Weight::semibold));

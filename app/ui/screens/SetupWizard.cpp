@@ -440,6 +440,7 @@ void SetupWizard::rebuildDeviceControls()
     if (devices.types.size() > 1)
     {
         driverPick = std::make_unique<Dropdown> (devices.types, juce::jmax (0, devices.types.indexOf (devices.currentType)));
+        driverPick->setTitle (tr ("setup.device.driver"));   // 読み上げの名前（#28）
         driverPick->setFont (sans (12.0f, Weight::medium));
         const auto types = devices.types;
         driverPick->onChange = [this, types] (int i)
@@ -463,6 +464,7 @@ void SetupWizard::rebuildDeviceControls()
         if (in.numChannels <= 8)
         {
             channelKeys = std::make_unique<SegmentedKeys> (labels, in.channel);
+            channelKeys->setTitle (tr ("setup.device.channel"));   // 読み上げの名前（#28）
             channelKeys->setFont (sans (12.0f, Weight::medium));
             channelKeys->onChange = choose;
             addChildComponent (*channelKeys);
@@ -470,6 +472,7 @@ void SetupWizard::rebuildDeviceControls()
         else
         {
             channelPick = std::make_unique<Dropdown> (labels, in.channel);
+            channelPick->setTitle (tr ("setup.device.channel"));   // 読み上げの名前（#28）
             channelPick->setFont (sans (12.0f, Weight::medium));
             channelPick->onChange = choose;
             addChildComponent (*channelPick);
@@ -484,6 +487,7 @@ void SetupWizard::rebuildDeviceControls()
         for (auto b : devices.bufferSizes)
             items.add (juce::String (b) + " smp");
         bufferPick = std::make_unique<Dropdown> (items, juce::jmax (0, devices.bufferSizes.indexOf (devices.bufferSize)));
+        bufferPick->setTitle (tr ("setup.device.buffer"));   // 読み上げの名前（#28）
         bufferPick->setFont (mono (12.0f));
         const auto sizes = devices.bufferSizes;
         bufferPick->onChange = [this, sizes] (int i)
@@ -515,6 +519,7 @@ void SetupWizard::rebuildDeviceControls()
             if (std::abs (rateChoices[i] - s.recordRate) < 0.5)
                 current = i;
         ratePick = std::make_unique<Dropdown> (items, current);
+        ratePick->setTitle (tr ("setup.device.rate"));   // 読み上げの名前（#28）
         ratePick->setFont (mono (12.0f));
         const auto choices = rateChoices;
         ratePick->onChange = [this, choices] (int i)
@@ -525,6 +530,8 @@ void SetupWizard::rebuildDeviceControls()
         addChildComponent (*ratePick);
 
         bitKeys = std::make_unique<SegmentedKeys> (juce::StringArray { "24bit", "32bit float" }, s.recordFloat ? 1 : 0);
+
+        bitKeys->setTitle (tr ("setup.device.format"));   // 読み上げの名前（#28）
         bitKeys->setFont (mono (11.5f));
         bitKeys->onChange = [this] (int i)
         {

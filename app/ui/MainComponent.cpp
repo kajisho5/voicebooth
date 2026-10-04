@@ -454,6 +454,21 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         session.undoTake();
         return true;
     }
+    // Ctrl / ⌘ で画面を開く（#28）：E 書き出し・, 設定・O 曲を開く（起動画面）。録音中は開かない
+    if (key.getModifiers().isCommandDown() && ! key.getModifiers().isAltDown() && ! key.getModifiers().isShiftDown())
+    {
+        const auto k = juce::CharacterFunctions::toLowerCase ((juce::juce_wchar) key.getKeyCode());
+        if (k == 'e' || k == ',' || k == 'o')
+        {
+            if (! s.isRecording)
+            {
+                if (k == 'e')      openExport();
+                else if (k == ',') openSettings();
+                else               openStart();
+            }
+            return true;
+        }
+    }
 
     if (key == juce::KeyPress::spaceKey)
     {
