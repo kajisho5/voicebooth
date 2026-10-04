@@ -32,16 +32,16 @@
 ## 下载（免费）
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E4%B8%8B%E8%BD%BD-C6EE6A?style=for-the-badge&labelColor=141311" alt="下载 Windows 版"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E4%B8%8B%E8%BD%BD-C6EE6A?style=for-the-badge&labelColor=141311" alt="下载 Mac 版"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%E4%B8%8B%E8%BD%BD-C6EE6A?style=for-the-badge&labelColor=141311" alt="下载 Windows 版"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%E4%B8%8B%E8%BD%BD-C6EE6A?style=for-the-badge&labelColor=141311" alt="下载 Mac 版"></a>
 </p>
 
 | 电脑 | 文件（点击保存） | 大小 |
 |---|---|---|
-| Windows 10 / 11（64 位） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | 约 13 MB |
-| Mac（macOS 11 及以上，Apple 芯片 / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | 约 40 MB |
+| Windows 10 / 11（64 位） | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-win-x64-setup.exe) | 约 13 MB |
+| Mac（macOS 11 及以上，Apple 芯片 / Intel） | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.4/VoiceBooth-0.2.0-mac-universal.dmg) | 约 40 MB |
 
-当前版本为 **0.2.0 beta 3**。更新内容和旧版本见[发布页面](https://github.com/kajisho5/voicebooth/releases)。没有手机、平板版本。
+当前版本为 **0.2.0 beta 4**。更新内容和旧版本见[发布页面](https://github.com/kajisho5/voicebooth/releases)。没有手机、平板版本。
 
 ### 第一次使用（3 步）
 
