@@ -167,6 +167,7 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
 
     countIn.setFont (mono (11.5f, Weight::medium));
     countIn.onChange = [this] (int i) { session.setCountIn (i); };
+    countIn.setTitle (tr ("settings.countIn"));   // 読み上げの名前（#28）
 
     click.withIcon (Icon::metronome).withLed().withToggle (false);
     click.onClick = [this] { session.setClick (! state().clickOn); };

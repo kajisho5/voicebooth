@@ -1043,6 +1043,7 @@ void UiSession::loadGuide (const juce::File& file)
             if (weak.expired() || serial != s.songSerial)
                 return;   // 消えた・別の曲を開いた
             s.guideBusy = false;
+            dropGuideShift();   // 原曲・声は作り直した物に手直しを全部当てる（ためていた分は捨てる）
             using Kind = GuideOutcome::Kind;
             // 聞き比べ用の原曲（合わせられた時）。保存してある手直しもここで当てる
             s.guideOriginal = out->original;
@@ -1150,28 +1151,40 @@ bool UiSession::separationAvailable() const
     return engine != nullptr && separationService->available();
 }
 
-UiSession::SeparationEstimate UiSession::estimateSeparation (double songSeconds, int models, int cores)
+UiSession::SeparationEstimate UiSession::estimateSeparation (double songSeconds, int models)
 {
-    // 実測（どちらも 4 コアのクラウド。#27）：30 秒の曲で 109 秒（3.6 倍）、4 分の曲で 1 つのモデルが 1,750 秒（7.3 倍。2026-10-04、
-    // 声と伴奏・リードのどちらのモデルもほぼ同じ）。同じ 4 コアでも倍ほど違うので幅で伝える。コアが少なければ長くなる
-    const auto perModel = juce::jmax (0.0, songSeconds) * (double) juce::jmax (1, models) * (4.0 / (double) juce::jlimit (1, 4, cores));
-    return { perModel * 3.5, perModel * 8.0 };
+    // 実測（どちらも 4 コアのクラウド。分離は 2 スレッド。#27）：30 秒の曲で 109 秒（3.6 倍）、4 分の曲で 1 つのモデルが 1,750 秒
+    // （7.3 倍。2026-10-04、声と伴奏・リードのどちらのモデルもほぼ同じ）。同じ 4 コアでも倍ほど違うので幅で伝える（4 分の曲で 15〜30 分）。
+    // 分離のスレッドはコアが少なくても 2 本（SeparatorClient）なので、コア数では変えない。測っていない速いパソコンでも短くは言わない
+    if (songSeconds <= 0.0 || models <= 0)
+        return {};
+    const auto perModel = songSeconds * (double) models;
+    return { perModel * 3.75, perModel * 7.5 };
 }
 
 UiSession::SeparationEstimate UiSession::separationEstimate() const
 {
-    const auto seconds = s.sampleRate() > 0 ? (double) s.project.lengthSamples / s.sampleRate() : 0.0;
-    return estimateSeparation (seconds, separationService->karaokeInstalled() ? 2 : 1, juce::SystemStats::getNumCpus());
+    // 分離するのはお手本（原曲）。オフボと長さが違うこともある（イントロ・アウトロ）
+    double seconds = 0.0;
+    if (s.guideOriginal != nullptr && s.guideOriginal->sampleRate > 0.0)
+        seconds = (double) s.guideOriginal->length() / s.guideOriginal->sampleRate;
+    else if (s.sampleRate() > 0)
+        seconds = (double) s.project.lengthSamples / s.sampleRate();
+    // キャッシュにある段階は回さない（separateGuide と同じ判定）
+    const auto dir = separationCacheFolder();
+    const bool cached = dir.getChildFile ("vocals.wav").existsAsFile() && dir.getChildFile ("backing.wav").existsAsFile();
+    const bool leadToDo = separationService->karaokeInstalled() && ! dir.getChildFile ("lead.wav").existsAsFile();
+    return estimateSeparation (seconds, (cached ? 0 : 1) + (leadToDo ? 1 : 0));
 }
 
-UiSession::SeparationEstimate UiSession::originalSeparationEstimate (const juce::File& original) const
+UiSession::SeparationEstimate UiSession::originalSeparationEstimate (const juce::File& original)
 {
     juce::AudioFormatManager formats;
     audio::registerSongFormats (formats);
     double seconds = 0.0;
     if (std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (original)); reader != nullptr && reader->sampleRate > 0.0)
         seconds = (double) reader->lengthInSamples / reader->sampleRate;
-    return estimateSeparation (seconds, 1, juce::SystemStats::getNumCpus());
+    return estimateSeparation (seconds, 1);
 }
 
 void UiSession::stopSeparation()
@@ -1430,6 +1443,7 @@ juce::File UiSession::leadCacheFolder() const
 
 void UiSession::extractLead()
 {
+    flushGuideShift();   // 手直しのずらしをためていれば、先に音へ当てる（#26）
     if (engine == nullptr || ! separationService->executableExists() || ! separationService->karaokeInstalled() || s.guidePath.isEmpty()
         || s.guideVocals == nullptr || s.songOriginal == nullptr || s.separating)
         return;
@@ -1500,6 +1514,7 @@ void UiSession::extractLead()
 
 void UiSession::analyseLead (const juce::File& leadFile)
 {
+    flushGuideShift();   // 手直しのずらしをためていれば、先に音へ当てる（#26）
     const auto karaoke = s.songOriginal;
     const auto vocals = s.guideVocals;   // 取り出した声（オフボの時間・オフボの元の SR）
     const auto guide = s.projectFolder.getChildFile (s.guidePath);
@@ -2197,6 +2212,15 @@ std::optional<dummy::Session::TakeStats> UiSession::takeStatsIn (project::TrackT
     return statsFor (guideFrames (s.refFor (type)), *it->second, (double) s.sampleRate(), from, to, s.pitchToleranceCents, s.octaveAlign);
 }
 
+juce::String commandKeyName (char key)
+{
+   #if JUCE_MAC
+    return juce::String::fromUTF8 ("\xe2\x8c\x98") + juce::String::charToString ((juce::juce_wchar) key);   // ⌘E
+   #else
+    return "Ctrl+" + juce::String::charToString ((juce::juce_wchar) key);
+   #endif
+}
+
 juce::String undoKeyName()
 {
    #if JUCE_MAC
@@ -2807,8 +2831,24 @@ void UiSession::shiftGuideData (int64 d, bool withOriginal)
         s.guideOriginal = shiftedAudio (s.guideOriginal, d, rate);
 }
 
+void UiSession::flushGuideShift()
+{
+    const auto d = pendingGuideShift;
+    const bool sameSong = pendingGuideShiftSong == s.songSerial;
+    pendingGuideShift = 0;
+    ++guideShiftSerial;
+    if (d == 0 || ! sameSong)
+        return;
+    const auto rate = s.sampleRate();
+    s.guideVocals = shiftedAudio (s.guideVocals, d, rate);
+    s.guideHarmVocals = shiftedAudio (s.guideHarmVocals, d, rate);
+    s.guideOriginal = shiftedAudio (s.guideOriginal, d, rate);
+    syncGuideToEngine();
+}
+
 bool UiSession::applyGuideNudge()
 {
+    dropGuideShift();   // 作り直した音には手直しを全部当てる。ためていた分を後から足さない
     const auto d = (int64) std::llround (s.guideNudgeMs * 0.001 * s.sampleRate());
     shiftGuideData (d, false);   // 原曲は合わせた時にもう当ててある
     return d != 0;
@@ -2823,10 +2863,24 @@ void UiSession::nudgeGuide (double deltaMs)
     const auto newMs = juce::jlimit (-500.0, 500.0, oldMs + deltaMs);
     const auto d = (int64) std::llround (newMs * 0.001 * rate) - (int64) std::llround (oldMs * 0.001 * rate);
     s.guideNudgeMs = newMs;
-    shiftGuideData (d);
+    // 線はすぐずらす。音は押し終わってから 1 回だけ（flushGuideShift）
+    for (auto* ref : { &s.refPitch, &s.refPitchHarm })
+        for (auto& p : *ref)
+            p.sample += d;
+    ++s.refPitchSerial;
+    if (pendingGuideShiftSong != s.songSerial)
+        pendingGuideShift = 0;
+    pendingGuideShift += d;
+    pendingGuideShiftSong = s.songSerial;
+    const auto serial = ++guideShiftSerial;
+    std::weak_ptr<bool> weak = alive;
+    juce::Timer::callAfterDelay (350, [this, weak, serial]
+    {
+        if (! weak.expired() && serial == guideShiftSerial)
+            flushGuideShift();
+    });
     rejudgeAll();
     updateTakeStats();
-    syncGuideToEngine();
     markDirty();
     notify (change::takes | change::monitor | change::view);
     postNotice (tr ("guide.nudged", (newMs > 0 ? "+" : "") + juce::String (newMs, 0)));
@@ -2854,6 +2908,7 @@ void UiSession::setListenOriginal (bool on)
 
 void UiSession::alignGuideAt (int64 sample)
 {
+    flushGuideShift();   // 手直しのずらしをためていれば、先に音へ当てる（#26）
     if (s.guideOriginal == nullptr || s.songOriginal == nullptr || s.sampleRate() <= 0.0 || s.guideBusy)
         return;
     const auto original = s.guideOriginal, karaoke = s.songOriginal;

@@ -13,7 +13,7 @@ KeyButton::KeyButton (const juce::String& label, Kind k)
     : juce::Button (label), kind (k), labelFont (sans (12.0f, Weight::medium))
 {
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
-    setWantsKeyboardFocus (false);   // ショートカットはメイン画面が受ける
+    focus::tabOnly (*this);   // Tab で移れて Enter で押せる。マウスで押してもフォーカスは取らない（ショートカットはメイン画面が受ける。#28）
     if (kind == Kind::rec)
         setClickingTogglesState (true);
 }
@@ -36,6 +36,19 @@ juce::String KeyButton::getTooltip()
     // 「説明\tショートカット」：LookAndFeel がショートカットをキーの形で描く（DESIGN 4.10.1 TT）
     const auto tip = juce::Button::getTooltip();
     return shortcut.isEmpty() || tip.isEmpty() ? tip : tip + "\t" + shortcut;
+}
+
+void KeyButton::setTooltip (const juce::String& tip)
+{
+    juce::Button::setTooltip (tip);
+    // 読み上げの名前：文字のあるキーは文字のまま（オン / オフのように変わる文字もそのまま読ませる）。アイコンだけのキーは説明の文
+    setTitle (getButtonText().trim().isEmpty() ? tip : juce::String());
+}
+
+void KeyButton::mouseDown (const juce::MouseEvent& e)
+{
+    juce::Button::mouseDown (e);
+    focus::handBack (*this);
 }
 
 void KeyButton::buttonStateChanged()
@@ -219,7 +232,7 @@ SegmentedKeys::SegmentedKeys (juce::StringArray opts, int sel, colours::Tone led
       slide ((float) sel)
 {
     setMouseCursor (juce::MouseCursor::PointingHandCursor);
-    setWantsKeyboardFocus (false);
+    focus::tabOnly (*this);
 }
 
 void SegmentedKeys::setSelected (int index, juce::NotificationType n)
@@ -233,6 +246,8 @@ void SegmentedKeys::setSelected (int index, juce::NotificationType n)
     else
         slide.snap ((float) index);
     repaint();
+    if (auto* h = getAccessibilityHandler())
+        h->notifyAccessibilityEvent (juce::AccessibilityEvent::valueChanged);   // 読み上げに新しい値を伝える（#28）
     if (n != juce::dontSendNotification && onChange)
         onChange (selected);
 }
@@ -333,9 +348,36 @@ void SegmentedKeys::paint (juce::Graphics& g)
             g.drawText (options[i], seg, juce::Justification::centred, false);
         }
     }
+    ring.paint (g, *this, frame, metrics::keyRadius + 1.0f);
+}
+
+bool SegmentedKeys::keyPressed (const juce::KeyPress& key)
+{
+    if (key.getModifiers().isAnyModifierKeyDown())
+        return false;   // Ctrl / ⌘ / Alt と矢印はメイン画面へ（スライダーと同じ）
+    if (key == juce::KeyPress::leftKey || key == juce::KeyPress::upKey)
+    {
+        setSelected (juce::jmax (0, selected - 1));
+        return true;
+    }
+    if (key == juce::KeyPress::rightKey || key == juce::KeyPress::downKey)
+    {
+        setSelected (juce::jmin (options.size() - 1, selected + 1));
+        return true;
+    }
+    return false;   // Space（再生）などはメイン画面へ
+}
+
+std::unique_ptr<juce::AccessibilityHandler> SegmentedKeys::createAccessibilityHandler()
+{
+    // 択一：「名前（setTitle）・今の値」と読ませ、値の文字で選び直せる
+    return std::make_unique<juce::AccessibilityHandler> (
+        *this, juce::AccessibilityRole::comboBox, juce::AccessibilityActions{},
+        juce::AccessibilityHandler::Interfaces { std::make_unique<focus::ChoiceValue> (
+            [this] { return options; }, [this] { return selected; }, [this] (int i) { setSelected (i); }) });
 }
 
 void SegmentedKeys::mouseMove (const juce::MouseEvent& e) { hover = indexAt (e.getPosition()); repaint(); }
 void SegmentedKeys::mouseExit (const juce::MouseEvent&)   { hover = -1; repaint(); }
-void SegmentedKeys::mouseDown (const juce::MouseEvent& e) { setSelected (indexAt (e.getPosition())); }
+void SegmentedKeys::mouseDown (const juce::MouseEvent& e) { focus::handBack (*this); setSelected (indexAt (e.getPosition())); }
 } // namespace vb

@@ -2,6 +2,7 @@
 
 #include "../Theme.h"
 #include "../Animator.h"
+#include "Focus.h"
 
 namespace vb
 {
@@ -34,6 +35,8 @@ public:
     std::function<void()> onShownChange;
 
     void paint (juce::Graphics&) override;
+    void focusGained (FocusChangeType c) override { ring.gained (*this, c); }
+    void focusLost (FocusChangeType) override     { ring.lost (*this); }
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
@@ -41,6 +44,7 @@ public:
     void valueChanged() override;
 
 private:
+    focus::Ring ring;
     bool advanceAnimation (float dt) override;
     double range() const { return getMaximum() - getMinimum(); }
 

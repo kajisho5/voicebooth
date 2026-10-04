@@ -2,6 +2,7 @@
 
 #include "Icons.h"
 #include "../Animator.h"
+#include "Focus.h"
 #include <optional>
 
 namespace vb
@@ -41,6 +42,9 @@ public:
     /** ショートカット（"Space" "R" など）。ツールチップの右にキーの形で添える */
     KeyButton& withShortcut (const juce::String& keyName) { shortcut = keyName; return *this; }
     juce::String getTooltip() override;
+    /** 文字のないキー（アイコンだけ）は、ツールチップの文を読み上げの名前にする（#28）。M / S などの短いキーは使う側で名前を付ける */
+    void setTooltip (const juce::String&) override;
+    void mouseDown (const juce::MouseEvent&) override;
 
     /** ギャラリー用：状態を固定して描く */
     void setPreview (std::optional<KeyState> s) { preview = s; repaint(); }
@@ -92,6 +96,11 @@ public:
     void mouseMove (const juce::MouseEvent&) override;
     void mouseExit (const juce::MouseEvent&) override;
     void mouseDown (const juce::MouseEvent&) override;
+    /** ← → で選び直す（Tab で移ってきたとき。#28） */
+    bool keyPressed (const juce::KeyPress&) override;
+    void focusGained (FocusChangeType c) override { ring.gained (*this, c); }
+    void focusLost (FocusChangeType) override     { ring.lost (*this); }
+    std::unique_ptr<juce::AccessibilityHandler> createAccessibilityHandler() override;
 
 private:
     bool advanceAnimation (float dt) override;
@@ -105,5 +114,6 @@ private:
 
     motion::Spring slide;          // キーキャップの位置（区画の番号。途中は小数）
     float ledLevel = 1.0f;
+    focus::Ring ring;
 };
 } // namespace vb
