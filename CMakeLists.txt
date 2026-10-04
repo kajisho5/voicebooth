@@ -197,6 +197,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/system/AppCache.cpp
     app/update/UpdateCheck.cpp
     app/analysis/Align.cpp
+    app/analysis/Decimate.cpp
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
     app/analysis/Separation.cpp
