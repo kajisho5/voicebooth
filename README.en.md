@@ -69,7 +69,7 @@ The current version is **0.2.0 beta 6**. Changes and older versions are on the [
 | Heavy processing | Separation runs when you add a guide or choose "Start from the original only" (it runs in the background; you can keep playing and recording). When the guide vocal is taken out by subtraction, separation also runs afterwards to split the lead and harmonies. Just opening the app never starts it. Lyrics display is **off by default** (turn it on in Settings) |
 | Harmonies | You can record harmony tracks. When the guide is separated, the lead vocal and harmonies are split and **a harmony guide (line and voice)** is shown too (a harmony track is compared against it). A guide taken as original − karaoke is split too, by extracting the lead from the original afterwards (takes a little while) |
 | Separated audio | Separated vocals and accompaniment are **for your personal practice**. VoiceBooth does not change the rights to the original song. Only distribute or publish them (including sharing them as an instrumental for covers) as far as the original rights holders allow |
-| Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features) |
+| Price | **Free.** No subscription, no in-app purchases. You can support development through [GitHub Sponsors](https://github.com/sponsors/kajisho5) (optional; it does not change any features). If you share a modified version, you must also publish its source (see "License" below) |
 | Languages | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## What it does

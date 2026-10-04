@@ -69,7 +69,7 @@ A versão atual é **0.2.0 beta 6**. As mudanças e versões anteriores estão n
 | Processamento pesado | A separação roda quando você adiciona uma guia ou escolhe "Começar só com a original" (em segundo plano; você pode continuar tocando e gravando). Quando a voz guia é obtida por subtração, a separação também roda depois para dividir a voz principal e as harmonias. Só abrir o app nunca a inicia. A letra fica **desligada por padrão** (ative em Ajustes) |
 | Harmonias | Você pode gravar faixas de harmonia. Quando a guia é separada, a voz principal e as harmonias são divididas e **uma guia de harmonias (linha e voz)** também aparece (as faixas de harmonia são comparadas com ela). Uma guia obtida como original − karaokê também é dividida, extraindo depois a voz principal da original (leva um tempinho) |
 | Áudio separado | A voz e o acompanhamento separados são **para o seu treino pessoal**. O VoiceBooth não muda os direitos da música original. Distribua ou publique (inclusive compartilhar como instrumental para covers) só até onde os detentores dos direitos originais permitirem |
-| Preço | **Grátis.** Sem assinatura, sem compras no app. Você pode apoiar o desenvolvimento pelo [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opcional; não muda nenhum recurso) |
+| Preço | **Grátis.** Sem assinatura, sem compras no app. Você pode apoiar o desenvolvimento pelo [GitHub Sponsors](https://github.com/sponsors/kajisho5) (opcional; não muda nenhum recurso). Se você distribuir uma versão modificada, também precisa publicar o código-fonte (veja "Licença" abaixo) |
 | Idiomas | 日本語 / English / 한국어 / 简体中文 / 繁體中文 / Español / Português (Brasil) / Bahasa Indonesia / Tiếng Việt / Türkçe / Deutsch / Français |
 
 ## O que ele faz
