@@ -1,7 +1,5 @@
 #include "session/FakeEngine.h"
-#include "ui/UiSession.h"
-#include "project/ProjectFile.h"
-#include "audio/SongLoader.h"
+#include "session/SessionTestUtil.h"
 
 /*  UiSession の保存・開き直し（2026-10-04。分ける前の 1 段目）：偽のエンジンをつなぎ、本物の流れ
     （曲を開く → 変える → 保存 → 起動画面と同じ手順で .vbooth から開き直す）で、中身が戻るかを確かめる。
@@ -29,7 +27,7 @@ public:
             FakeEngine engine;
             UiSession ui;
             ui.attachEngine (&engine);
-            expect (open (ui, song));
+            expect (openSong (ui, song));
             ui.flushSave();
             expect (vbooth.existsAsFile(), vbooth.getFullPathName());
             expect (projectFolder.getChildFile ("Audio/" + song.getFileName()).existsAsFile(), "the song is copied into Audio/");
@@ -42,7 +40,7 @@ public:
                 FakeEngine engine;
                 UiSession ui;
                 ui.attachEngine (&engine);
-                expect (reopen (ui, vbooth));
+                expect (reopenProject (ui, vbooth));
                 ui.setBackingLevel (0.31f);
                 ui.setBackingMuted (true);
                 ui.setGuideLevel (0.42f);
@@ -58,7 +56,7 @@ public:
             FakeEngine engine;
             UiSession ui;
             ui.attachEngine (&engine);
-            expect (reopen (ui, vbooth));
+            expect (reopenProject (ui, vbooth));
             const auto& s = ui.get();
             expectWithinAbsoluteError (s.offVocalGain, 0.31f, 0.001f);
             expect (s.backingMuted);
@@ -80,7 +78,7 @@ public:
             FakeEngine engine;
             UiSession ui;
             ui.attachEngine (&engine);
-            expect (reopen (ui, vbooth));
+            expect (reopenProject (ui, vbooth));
             ui.flushSave();
             ui.attachEngine (nullptr);
             expectEquals (vbooth.loadFileAsString(), before);
@@ -114,7 +112,7 @@ public:
                 FakeEngine engine;
                 UiSession ui;
                 ui.attachEngine (&engine);
-                expect (reopen (ui, vbooth));
+                expect (reopenProject (ui, vbooth));
                 const auto* t = ui.get().project.findTrack (project::TrackType::main);
                 expect (t != nullptr && t->takes.size() == 1 && t->comp.size() == 1, "the take is restored");
                 ui.setBackingLevel (0.5f);   // 何か変えて保存させる
@@ -135,7 +133,7 @@ public:
             FakeEngine engine;
             UiSession ui;
             ui.attachEngine (&engine);
-            expect (open (ui, other));
+            expect (openSong (ui, other));
             ui.flushSave();
             ui.attachEngine (nullptr);
             expectEquals (vbooth.loadFileAsString(), before);
@@ -148,61 +146,6 @@ public:
         work.deleteRecursively();
     }
 
-private:
-    /** 正弦波の WAV（48 kHz・24bit。既定はステレオ） */
-    static juce::File writeTone (const juce::File& f, double hz, double seconds, int channels = 2)
-    {
-        f.getParentDirectory().createDirectory();
-        f.deleteFile();
-        constexpr double rate = 48000.0;
-        const auto n = (int) (seconds * rate);
-        juce::AudioBuffer<float> b (channels, n);
-        for (int i = 0; i < n; ++i)
-        {
-            const auto v = 0.3f * (float) std::sin (juce::MathConstants<double>::twoPi * hz * i / rate);
-            for (int c = 0; c < channels; ++c)
-                b.setSample (c, i, v);
-        }
-        std::unique_ptr<juce::OutputStream> out (f.createOutputStream().release());
-        juce::WavAudioFormat wav;
-        if (auto w = wav.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (channels).withBitsPerSample (24)))
-            w->writeFromAudioSampleBuffer (b, 0, n);
-        return f;
-    }
-
-    /** バックグラウンドの作業（曲のコピー・解析）の知らせを受ける */
-    static void pump (int ms)
-    {
-        const auto until = juce::Time::getMillisecondCounter() + (juce::uint32) ms;
-        while (juce::Time::getMillisecondCounter() < until)
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
-    }
-
-    /** 起動画面で曲を開くのと同じ（読み終わったら loadSong） */
-    static bool open (UiSession& ui, const juce::File& song)
-    {
-        juce::AudioFormatManager formats;
-        audio::registerSongFormats (formats);
-        auto r = audio::loadSong (song, formats);
-        if (! r.ok())
-            return false;
-        ui.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview, r.audio);
-        pump (600);
-        return true;
-    }
-
-    /** 起動画面で .vbooth を開くのと同じ（StartScreen::openProject → 曲のコピーを読む） */
-    static bool reopen (UiSession& ui, const juce::File& vboothFile)
-    {
-        const auto l = project::fromJson (vboothFile.loadFileAsString());
-        if (! l.ok)
-            return false;
-        const auto song = project::findMedia (vboothFile.getParentDirectory(), l.project.songPath, "Audio");
-        if (! song.existsAsFile())
-            return false;
-        ui.setPendingProject (vboothFile, l);
-        return open (ui, song);
-    }
 };
 
 static SessionSaveTests sessionSaveTests;

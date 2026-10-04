@@ -611,6 +611,7 @@ if(VOICEBOOTH_TESTS)
     target_sources(VoiceBoothSessionTests PRIVATE
         tests/TestMain.cpp
         tests/session/SessionSaveTests.cpp
+        tests/session/SessionSeparationTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
