@@ -1030,7 +1030,7 @@ void UiSession::loadGuide (const juce::File& file)
                     syncGuideToEngine();
                     notify (change::takes | change::monitor);
                     postNotice (tr (s.guideAlignRough ? "guide.doneRough" : "guide.done", juce::String (out->offsetSeconds, 2)));
-                    extractLead();
+                    offerLeadSplit();
                     break;
                 }
                 case Kind::loadFailed:      postNotice (tr (out->error.toRawUTF8(), s.guideName)); break;
@@ -1056,7 +1056,10 @@ void UiSession::loadGuide (const juce::File& file)
                     break;
             }
             if (out->kind != Kind::ok)
+            {
+                leadSplitAgreed = false;   // 取れなかったお手本の分の了承を、あとで読む別のお手本に使わない
                 flushGuideShift();   // 声は作り直していない：解析の間に押した手直しを当てる（線はもう動いている）
+            }
             notify (change::view);
         });
     });
@@ -1398,6 +1401,30 @@ juce::File UiSession::leadCacheFolder() const
     const auto guide = s.projectFolder.getChildFile (s.guidePath);
     const auto key = cacheKey (guide, separation::SeparatorClient::karaokeModelId());
     return s.projectFolder.getChildFile ("Cache/lead/" + key);
+}
+
+void UiSession::offerLeadSplit()
+{
+    const bool agreed = std::exchange (leadSplitAgreed, false);
+    if (engine == nullptr || ! separationService->executableExists() || ! separationService->karaokeInstalled() || s.guidePath.isEmpty()
+        || s.guideVocals == nullptr || s.songOriginal == nullptr || s.separating)
+        return;
+    // 前に分けた結果がある（数秒で済む）・原曲だけで始めて、始める前に伝えてある：聞かずに進める
+    if (agreed || leadCacheFolder().getChildFile ("lead.wav").existsAsFile())
+    {
+        extractLead();
+        return;
+    }
+    ++s.leadOfferSerial;
+    notify (change::notice);
+}
+
+UiSession::SeparationEstimate UiSession::leadSplitEstimate() const
+{
+    double seconds = 0.0;
+    if (s.guideOriginal != nullptr && s.guideOriginal->sampleRate > 0.0)
+        seconds = (double) s.guideOriginal->length() / s.guideOriginal->sampleRate;
+    return estimateSeparation (seconds, 1);
 }
 
 void UiSession::extractLead()
