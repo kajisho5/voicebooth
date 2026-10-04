@@ -2980,6 +2980,16 @@ void UiSession::setShowLyrics (bool b)
 }
 
 void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; rejudgeAll(); updateTakeStats(); notify (change::view); }
+std::optional<shortcuts::Action> UiSession::setShortcut (shortcuts::Action a, juce::juce_wchar key)
+{
+    const auto displaced = s.shortcuts.assign (a, key);
+    notify (change::prefs);
+    return displaced;
+}
+
+void UiSession::clearShortcut (shortcuts::Action a) { s.shortcuts.clear (a); notify (change::prefs); }
+void UiSession::resetShortcuts()                    { s.shortcuts = shortcuts::Map::defaults(); notify (change::prefs); }
+
 void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; markDirty(); notify (change::view); }   // プロジェクトに入る（2026-10-04）
 
 void UiSession::setFullRange (bool b)

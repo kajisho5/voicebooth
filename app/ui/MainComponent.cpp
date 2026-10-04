@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "screens/StartScreen.h"
 #include "screens/AboutDialog.h"
+#include "screens/ShortcutsDialog.h"
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
@@ -133,6 +134,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
     if (o.screen == "about")        openAbout();
+    if (o.screen == "shortcuts")    openShortcuts();
     if (o.screen == "range" && actions.openVoiceRange) actions.openVoiceRange();
     if (o.screen == "skin-templates") openSkinTemplates();
     if (o.screen == "skin-editor" || o.screen == "skin-editor-borrow")
@@ -487,36 +489,18 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         session.setPlaying (! s.isPlaying);
         return true;
     }
-    if (c == 'r' || c == 'R')
+    // 1 文字のショートカット（#28。設定で別のキーに変えたり、なしにしたりできる）。Ctrl / ⌘ との組み合わせは上で見たので通さない
+    if (! key.getModifiers().isCommandDown() && ! key.getModifiers().isCtrlDown())
     {
-        transport.recKey().flash();
-        toggleRecord();
-        return true;
-    }
-    if (c == 'l' || c == 'L')
-    {
-        transport.loopKey().flash();
-        if (s.hasRange()) session.setLoop (! s.loopOn);
-        return true;
-    }
-    if (c == '[')
-    {
-        transport.rangeInKey().flash();
-        session.setRangeInAtPlayhead();
-        return true;
-    }
-    if (c == ']')
-    {
-        transport.rangeOutKey().flash();
-        session.setRangeOutAtPlayhead();
-        return true;
-    }
-    if (c >= '1' && c <= '4')
-    {
-        const auto index = (int) (c - '1');
-        if (juce::isPositiveAndBelow (index, (int) s.trackUi.size()) && session.isTrackVisible (s.trackUi[(size_t) index].type))
-            session.selectTrack (index);
-        return true;
+        auto typed = juce::CharacterFunctions::toLowerCase (c);
+        // Alt / Option と一緒だと別の文字になる（Mac の Option+M は µ）：キーの場所で見る（M の「小節線に吸い付かない」など）
+        if (! s.shortcuts.actionFor (typed) && key.getModifiers().isAltDown())
+            typed = juce::CharacterFunctions::toLowerCase ((juce::juce_wchar) key.getKeyCode());
+        if (const auto action = s.shortcuts.actionFor (typed))
+        {
+            runShortcut (*action, key);
+            return true;
+        }
     }
     if (songInfoKey (key))
         return true;
@@ -543,26 +527,51 @@ void MainComponent::tapTempo()
                       : tr ("songInfo.tap.count", n, song::TapTempo::minTaps));
 }
 
+void MainComponent::runShortcut (shortcuts::Action action, const juce::KeyPress& key)
+{
+    const auto& s = state();
+    using shortcuts::Action;
+    switch (action)
+    {
+        case Action::record:
+            transport.recKey().flash();
+            toggleRecord();
+            break;
+        case Action::loop:
+            transport.loopKey().flash();
+            if (s.hasRange()) session.setLoop (! s.loopOn);
+            break;
+        case Action::rangeIn:
+            transport.rangeInKey().flash();
+            session.setRangeInAtPlayhead();
+            break;
+        case Action::rangeOut:
+            transport.rangeOutKey().flash();
+            session.setRangeOutAtPlayhead();
+            break;
+        case Action::tapTempo:   // タップテンポ（4 回以上。DESIGN 7.5.1）
+            tapTempo();
+            break;
+        case Action::addSection: // 今の位置に区間の頭（小節線に吸い付く。Alt / Option で吸い付かない。DESIGN 7.5.2）
+        {
+            const auto index = session.addSectionAtPlayhead (! key.getModifiers().isAltDown());
+            notice (tr ("section.added", marks::sectionName (state().project.sections, index)));
+            break;
+        }
+        case Action::track1: case Action::track2: case Action::track3: case Action::track4:
+        {
+            const auto index = (int) action - (int) Action::track1;
+            if (juce::isPositiveAndBelow (index, (int) s.trackUi.size()) && session.isTrackVisible (s.trackUi[(size_t) index].type))
+                session.selectTrack (index);
+            break;
+        }
+    }
+}
+
 bool MainComponent::songInfoKey (const juce::KeyPress& key)
 {
     const auto& s = state();
-    const auto c = juce::CharacterFunctions::toLowerCase (key.getTextCharacter());
     const auto code = key.getKeyCode();
-
-    // T：タップテンポ（4 回以上。DESIGN 7.5.1）
-    if (c == 't')
-    {
-        tapTempo();
-        return true;
-    }
-
-    // M：今の位置に区間の頭（小節線に吸い付く。Alt / Option で吸い付かない。DESIGN 7.5.2）
-    if (c == 'm')
-    {
-        const auto index = session.addSectionAtPlayhead (! key.getModifiers().isAltDown());
-        notice (tr ("section.added", marks::sectionName (state().project.sections, index)));
-        return true;
-    }
 
     // 歌詞：タップで合わせる（Enter で行の歌い出し、Backspace で 1 行戻す、Esc で終わる。DESIGN 7.5.3）
     if (code == juce::KeyPress::returnKey && s.showLyrics && ! s.project.lyrics.empty())
@@ -935,6 +944,11 @@ void MainComponent::openSettings()
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openAbout(); });
     };
+    dlg->onShortcuts = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openShortcuts(); });
+    };
     dlg->onInstallModels = [this, safe]
     {
         // 設定を閉じてから一覧を見に行く（確かめたらダウンロードの確認を出す。B16）
@@ -948,6 +962,19 @@ void MainComponent::openAbout()
 {
     // 閉じたら設定に戻る（設定から開くので）
     auto dlg = std::make_unique<AboutDialog>();
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onCloseRequest = [this, safe]
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openShortcuts()
+{
+    // 1 文字のショートカットを変える（#28）。閉じたら設定に戻る（設定から開くので）
+    auto dlg = std::make_unique<ShortcutsDialog> (session);
     juce::Component::SafePointer<MainComponent> safe (this);
     dlg->onCloseRequest = [this, safe]
     {
