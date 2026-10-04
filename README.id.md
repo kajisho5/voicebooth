@@ -32,16 +32,16 @@ Bernyanyilah mengikuti instrumental, lihat pitch Anda di layar, rekam ulang hany
 ## Unduh (gratis)
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Unduh-C6EE6A?style=for-the-badge&labelColor=141311" alt="Unduh untuk Windows"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Unduh-C6EE6A?style=for-the-badge&labelColor=141311" alt="Unduh untuk Mac"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-Unduh-C6EE6A?style=for-the-badge&labelColor=141311" alt="Unduh untuk Windows"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-Unduh-C6EE6A?style=for-the-badge&labelColor=141311" alt="Unduh untuk Mac"></a>
 </p>
 
 | Komputer | File (klik untuk menyimpan) | Ukuran |
 |---|---|---|
-| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | sekitar 13 MB |
-| Mac (macOS 11 atau lebih baru, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | sekitar 40 MB |
+| Windows 10 / 11 (64-bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | sekitar 13 MB |
+| Mac (macOS 11 atau lebih baru, Apple silicon / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | sekitar 40 MB |
 
-Versi saat ini **0.2.0 beta 2**. Perubahan dan versi lama ada di [halaman rilis](https://github.com/kajisho5/voicebooth/releases). Tidak ada versi ponsel atau tablet.
+Versi saat ini **0.2.0 beta 3**. Perubahan dan versi lama ada di [halaman rilis](https://github.com/kajisho5/voicebooth/releases). Tidak ada versi ponsel atau tablet.
 
 ### Pertama kali? Tiga langkah
 

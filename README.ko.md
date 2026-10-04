@@ -32,16 +32,16 @@ MR에 맞춰 노래하면서 음정을 화면으로 보고 고치고, 고치고 
 ## 다운로드 (무료)
 
 <p align="center">
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows용 다운로드"></a>
-  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac용 다운로드"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe"><img src="https://img.shields.io/badge/Windows-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-C6EE6A?style=for-the-badge&labelColor=141311" alt="Windows용 다운로드"></a>
+  <a href="https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg"><img src="https://img.shields.io/badge/Mac-%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C-C6EE6A?style=for-the-badge&labelColor=141311" alt="Mac용 다운로드"></a>
 </p>
 
 | 컴퓨터 | 파일 (누르면 저장) | 크기 |
 |---|---|---|
-| Windows 10 / 11 (64bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-win-x64-setup.exe) | 약 13 MB |
-| Mac (macOS 11 이상, Apple 실리콘 / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.2/VoiceBooth-0.2.0-mac-universal.dmg) | 약 40 MB |
+| Windows 10 / 11 (64bit) | [VoiceBooth-0.2.0-win-x64-setup.exe](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-win-x64-setup.exe) | 약 13 MB |
+| Mac (macOS 11 이상, Apple 실리콘 / Intel) | [VoiceBooth-0.2.0-mac-universal.dmg](https://github.com/kajisho5/voicebooth/releases/download/v0.2.0-beta.3/VoiceBooth-0.2.0-mac-universal.dmg) | 약 40 MB |
 
-현재 버전은 **0.2.0 베타 2**입니다. 변경 사항과 이전 버전은 [릴리스 페이지](https://github.com/kajisho5/voicebooth/releases)에 있습니다. 스마트폰·태블릿 버전은 없습니다.
+현재 버전은 **0.2.0 베타 3**입니다. 변경 사항과 이전 버전은 [릴리스 페이지](https://github.com/kajisho5/voicebooth/releases)에 있습니다. 스마트폰·태블릿 버전은 없습니다.
 
 ### 처음이신 분께 (3단계)
 
