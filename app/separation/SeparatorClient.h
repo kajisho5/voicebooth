@@ -3,6 +3,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_events/juce_events.h>
 #include <functional>
+#include "Separator.h"
 
 /*  分離プロセス VoiceBoothSeparator を本体から動かす（DESIGN 11.3 / B16）
     子プロセスで起動し、標準出力の ready / chunk / progress / done / error を読む。結果は WAV（44.1 kHz ステレオ float）。
@@ -11,7 +12,7 @@
 
 namespace vb::separation
 {
-class SeparatorClient : private juce::Thread
+class SeparatorClient : public Separator, private juce::Thread
 {
 public:
     SeparatorClient();
@@ -42,17 +43,13 @@ public:
         wav はモノラル、frames は 10 ms ごとの（セント、強さ）。失敗・モデルが無ければ false */
     static bool runPitch (const juce::File& wav, std::vector<std::pair<float, float>>& frames);
 
-    struct Callbacks
-    {
-        std::function<void (float progress, double etaSeconds)> progress;   // etaSeconds < 0 = まだ分からない
-        std::function<void (bool ok, const juce::String& error)> done;      // error は英語の短い文（"stopped" = 止めた）
-    };
+    using Callbacks = separation::Callbacks;
 
     /** 始める（動いていれば false）。lead を渡し、リードのモデルが入っていれば、続けてリードボーカルも書く */
     bool start (const juce::File& input, const juce::File& vocals, const juce::File& backing, Callbacks,
-                const juce::File& lead = {}, const juce::File& modelOverride = {});
-    void stop();
-    bool isBusy() const { return isThreadRunning(); }
+                const juce::File& lead = {}, const juce::File& modelOverride = {}) override;
+    void stop() override;
+    bool isBusy() const override { return isThreadRunning(); }
 
 private:
     void run() override;

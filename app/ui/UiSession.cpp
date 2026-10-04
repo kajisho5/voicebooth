@@ -1102,7 +1102,7 @@ namespace
 bool UiSession::separationAvailable() const
 {
     // 本物のアプリ（UI_MOCK でない）で、分離プロセスとモデルがある。曲はまだ無くてよい（原曲だけで始める時）
-    return engine != nullptr && separation::SeparatorClient::available();
+    return engine != nullptr && separationService->available();
 }
 
 double UiSession::separationEstimateSeconds() const
@@ -1348,6 +1348,81 @@ bool UiSession::separationCached() const
     return dir.getChildFile ("vocals.wav").existsAsFile() && dir.getChildFile ("backing.wav").existsAsFile();
 }
 
+//==============================================================================
+// 分離の 3 つの流れ（お手本の分離・原曲からオフボ・リード分け）に共通の部分（2026-10-04、UiSession を分ける 3 段目）。
+// どれも「始めた印 → 入力を 44.1 kHz ステレオの mix.wav に書く（バックグラウンド）→ 分離プロセス → 作業ファイルを削除」。
+// 準備中・引き算中の［キャンセル］（separationGeneration）と、作業ファイルの片付けをここで 1 回だけ書く。
+// 確かめるテスト：tests/session/SessionSeparationTests.cpp（偽の分離）
+
+void UiSession::beginSeparation (int kind)
+{
+    s.separating = true;
+    s.separationProgress = 0.0f;
+    s.separationEta = -1.0;
+    s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
+    s.separationKind = kind;
+}
+
+void UiSession::prepareSeparationInput (const juce::File& source, const juce::File& mix, std::function<void (SeparationPrep)> next)
+{
+    // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
+    std::weak_ptr<bool> weak = alive;
+    const auto generation = separationGeneration;
+    juce::Thread::launch ([this, weak, source, mix, generation, next]
+    {
+        bool ok = false;
+        if (auto a = readAudio (source))
+        {
+            std::shared_ptr<const audio::SongAudio> at44 = a;
+            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
+                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
+            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
+        }
+        juce::MessageManager::callAsync ([this, weak, ok, mix, generation, next]
+        {
+            if (weak.expired())
+            {
+                mix.deleteFile();
+                return;
+            }
+            // 準備の間に［キャンセル］を押していた（stopSeparation）：分離を始めない（監査 2026-10-04）
+            next (generation != separationGeneration ? SeparationPrep::stopped : ok ? SeparationPrep::ready : SeparationPrep::failed);
+        });
+    });
+}
+
+bool UiSession::startSeparator (const juce::File& mix, const juce::File& outA, const juce::File& outB, const juce::File& lead,
+                                const juce::File& model, std::vector<juce::File> scratch,
+                                std::function<void (bool ok, const juce::String& error)> done)
+{
+    if (separator == nullptr)
+        separator = separationService->create();
+    std::weak_ptr<bool> weak = alive;
+    separation::Callbacks cb;
+    cb.progress = [this, weak] (float p, double eta)
+    {
+        if (weak.expired()) return;
+        s.separationProgress = p;
+        s.separationEta = eta;
+        notify (change::view);
+    };
+    scratch.push_back (mix);
+    cb.done = [weak, scratch, done] (bool ok, const juce::String& error)
+    {
+        for (auto& f : scratch)
+            f.deleteFile();   // 入力の写し（4 分の曲で約 85 MB）と使わない出力は残さない（アプリを閉じて止まったときも）
+        if (weak.expired()) return;
+        done (ok, error);
+    };
+    return separator->start (mix, outA, outB, std::move (cb), lead, model);
+}
+
+juce::String UiSession::separationError (const juce::String& error)
+{
+    return error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error));
+}
+
+//==============================================================================
 void UiSession::separateGuide()
 {
     if (! separationAvailable() || s.guidePath.isEmpty() || s.separating || s.songOriginal == nullptr)
@@ -1358,101 +1433,63 @@ void UiSession::separateGuide()
 
     const auto dir = separationCacheFolder();
     const auto vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav"), mix = dir.getChildFile ("mix.wav"),
-               lead = dir.getChildFile ("lead.wav");   // リードボーカル（karaoke のモデルが入っていれば。ハモリのお手本）
+               lead = dir.getChildFile ("lead.wav"), rest = dir.getChildFile ("rest.wav");   // リードボーカル（karaoke のモデルが入っていれば。ハモリのお手本）
     // 声と伴奏は分けてあるがリードがない（リードのモデルを後からダウンロードした・リードの段階で止めた・失敗した）：
     // リードの段階だけを回す。前は lead.wav がないまま解析し、Cache を手で削除するまでハモリのお手本を作らなかった（監査 2026-10-04）
     const bool cached = vocals.existsAsFile() && backing.existsAsFile();
-    const bool leadOnly = cached && ! lead.existsAsFile() && separation::SeparatorClient::karaokeInstalled();
+    const bool leadOnly = cached && ! lead.existsAsFile() && separationService->karaokeInstalled();
     if (cached && ! leadOnly)
     {
         analyseSeparated (vocals, backing);
         return;
     }
 
-    s.separating = true;
-    s.separationProgress = 0.0f;
-    s.separationEta = -1.0;
-    s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
-    s.separationKind = leadOnly ? 2 : 0;
+    beginSeparation (leadOnly ? 2 : 0);
     s.guideBusy = true;
     postNotice (tr (leadOnly ? "separation.leadStarted" : "separation.started"));
     notify (change::view);
 
-    // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
-    std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
-    const auto generation = separationGeneration;
-    juce::Thread::launch ([this, weak, guide, mix, vocals, backing, lead, serial, generation, leadOnly]
+    auto fail = [this, mix] (const juce::String& why)
     {
-        bool ok = false;
-        if (auto a = readAudio (guide))
+        mix.deleteFile();
+        s.separating = false;
+        s.guideBusy = false;
+        postNotice (why);
+        notify (change::view);
+    };
+    prepareSeparationInput (guide, mix, [this, mix, vocals, backing, lead, rest, serial, leadOnly, fail] (SeparationPrep prep)
+    {
+        if (serial != s.songSerial)               { fail ({}); return; }
+        if (prep == SeparationPrep::stopped)      { fail (tr ("separation.stopped")); return; }
+        if (prep == SeparationPrep::failed)       { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
+
+        auto done = [this, vocals, backing, serial, leadOnly, fail] (bool ok, const juce::String& error)
         {
-            std::shared_ptr<const audio::SongAudio> at44 = a;
-            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
-                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
-            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
-        }
-        juce::MessageManager::callAsync ([this, weak, ok, mix, vocals, backing, lead, serial, generation, leadOnly]
-        {
-            if (weak.expired())
+            s.separating = false;
+            if (serial != s.songSerial) { s.guideBusy = false; return; }
+            if (! ok && (! leadOnly || error == "stopped"))
             {
-                mix.deleteFile();
+                fail (separationError (error));
                 return;
             }
-            auto fail = [this, mix] (const juce::String& why)
-            {
-                mix.deleteFile();   // 入力の写し（4 分の曲で約 85 MB）を Cache に残さない（監査 2026-10-04）
-                s.separating = false;
-                s.guideBusy = false;
-                postNotice (why);
-                notify (change::view);
-            };
-            if (serial != s.songSerial) { fail ({}); return; }
-            if (generation != separationGeneration) { fail (tr ("separation.stopped")); return; }
-            if (! ok) { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
-
-            if (separator == nullptr)
-                separator = std::make_unique<separation::SeparatorClient>();
-            separation::SeparatorClient::Callbacks cb;
-            cb.progress = [this, weak] (float p, double eta)
-            {
-                if (weak.expired()) return;
-                s.separationProgress = p;
-                s.separationEta = eta;
-                notify (change::view);
-            };
-            cb.done = [this, weak, mix, vocals, backing, lead, serial, fail, leadOnly] (bool done, const juce::String& error)
-            {
-                mix.deleteFile();   // 入力の写しは消す（結果だけ残す。アプリを閉じて止まったときも）
-                if (weak.expired()) return;
-                if (leadOnly)
-                    lead.getSiblingFile ("rest.wav").deleteFile();   // リード以外（声の残り＋伴奏）は使わない
-                s.separating = false;
-                if (serial != s.songSerial) { s.guideBusy = false; return; }
-                if (! done && (! leadOnly || error == "stopped"))
-                {
-                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
-                    return;
-                }
-                // リードだけ失敗：声全体をお手本にする（ハモリは分けない。次に開いたときにまた試す）
-                if (! done)
-                    postNotice (tr ("separation.failed", reasonText (error)));
-                analyseSeparated (vocals, backing);
-            };
-            const bool started = leadOnly ? separator->start (mix, lead, lead.getSiblingFile ("rest.wav"), std::move (cb), {},
-                                                              separation::SeparatorClient::karaokeModelFolder())
-                                          : separator->start (mix, vocals, backing, std::move (cb), lead);
-            if (! started)
-                fail (tr ("separation.failed", reasonText ("busy")));
-        });
+            // リードだけ失敗：声全体をお手本にする（ハモリは分けない。次に開いたときにまた試す）
+            if (! ok)
+                postNotice (tr ("separation.failed", reasonText (error)));
+            analyseSeparated (vocals, backing);
+        };
+        const bool started = leadOnly ? startSeparator (mix, lead, rest, {}, separation::SeparatorClient::karaokeModelFolder(), { rest }, done)
+                                      : startSeparator (mix, vocals, backing, lead, {}, {}, done);
+        if (! started)
+            fail (tr ("separation.failed", reasonText ("busy")));
     });
 }
 
 void UiSession::makeOffVocal (const juce::File& original, std::function<void (juce::File, juce::String)> done)
 {
-    auto fail = [done] (const juce::String& why) { if (done) done ({}, why); };
-    if (! separationAvailable()) { fail (tr ("separation.noModelOriginal")); return; }
-    if (s.separating)            { fail (tr ("separation.failed", reasonText ("busy"))); return; }
+    auto refuse = [done] (const juce::String& why) { if (done) done ({}, why); };
+    if (! separationAvailable()) { refuse (tr ("separation.noModelOriginal")); return; }
+    if (s.separating)            { refuse (tr ("separation.failed", reasonText ("busy"))); return; }
 
     // 作ったオフボはアプリ共通のキャッシュ（設定の「キャッシュの場所」）の offvocal/ に置く（曲を開くとプロジェクトの中にコピーされる）。
     // 同じ原曲・モデルなら作り直さない
@@ -1468,15 +1505,10 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
     }
     const auto mix = dir.getChildFile ("mix.wav"), vocals = dir.getChildFile ("vocals.wav"), backing = dir.getChildFile ("backing.wav");
 
-    s.separating = true;
-    s.separationProgress = 0.0f;
-    s.separationEta = -1.0;
-    s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
-    s.separationKind = 1;
+    beginSeparation (1);
     notify (change::view);
 
     std::weak_ptr<bool> weak = alive;
-    const auto generation = separationGeneration;
     auto finish = [this, weak, done, mix, vocals, backing] (const juce::File& made, const juce::String& error)
     {
         mix.deleteFile();
@@ -1488,66 +1520,43 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
         if (done) done (made, error);
     };
 
-    // 44.1 kHz ステレオにそろえて渡す（モデルの約束。11.3）
-    juce::Thread::launch ([this, weak, original, mix, vocals, backing, out, finish, generation]
+    prepareSeparationInput (original, mix, [this, weak, original, mix, vocals, backing, out, finish] (SeparationPrep prep)
     {
-        bool ok = false;
-        if (auto a = readAudio (original))
-        {
-            std::shared_ptr<const audio::SongAudio> at44 = a;
-            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
-                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
-            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
-        }
-        juce::MessageManager::callAsync ([this, weak, ok, original, mix, vocals, backing, out, finish, generation]
-        {
-            if (weak.expired()) { mix.deleteFile(); return; }
-            // 準備の間に「キャンセル」を押していた：分離を始めない（前は押しても数分の分離が始まり、最後にオフボを開いていた。監査 2026-10-04）
-            if (generation != separationGeneration) { finish ({}, tr ("separation.stopped")); return; }
-            if (! ok) { finish ({}, tr ("separation.failed", reasonText ("can't read the original"))); return; }
+        if (prep == SeparationPrep::stopped) { finish ({}, tr ("separation.stopped")); return; }
+        if (prep == SeparationPrep::failed)  { finish ({}, tr ("separation.failed", reasonText ("can't read the original"))); return; }
 
-            if (separator == nullptr)
-                separator = std::make_unique<separation::SeparatorClient>();
-            separation::SeparatorClient::Callbacks cb;
-            cb.progress = [this, weak] (float p, double eta)
+        const auto generation = separationGeneration;
+        const bool started = startSeparator (mix, vocals, backing, {}, {}, {},
+                                             [this, weak, original, vocals, out, finish, generation] (bool separated, const juce::String& error)
+        {
+            if (! separated)
             {
-                if (weak.expired()) return;
-                s.separationProgress = p;
-                s.separationEta = eta;
-                notify (change::view);
-            };
-            cb.done = [this, weak, original, vocals, out, finish, generation] (bool separated, const juce::String& error)
+                finish ({}, separationError (error));
+                return;
+            }
+            // 原曲の SR・長さのまま、声を引いてオフボにする（バックグラウンドで）
+            juce::Thread::launch ([this, weak, original, vocals, out, finish, generation]
             {
-                if (weak.expired()) return;
-                if (! separated)
+                bool wrote = false;
+                auto a = readAudio (original);
+                auto v = readAudio (vocals);
+                if (a != nullptr && v != nullptr)
+                    wrote = writeFloatWav (out, analysis::offVocalFrom (*a, *v), a->sampleRate);
+                juce::MessageManager::callAsync ([this, weak, wrote, out, finish, generation]
                 {
-                    finish ({}, error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
-                    return;
-                }
-                // 原曲の SR・長さのまま、声を引いてオフボにする（裏で）
-                juce::Thread::launch ([this, weak, original, vocals, out, finish, generation]
-                {
-                    bool wrote = false;
-                    auto a = readAudio (original);
-                    auto v = readAudio (vocals);
-                    if (a != nullptr && v != nullptr)
-                        wrote = writeFloatWav (out, analysis::offVocalFrom (*a, *v), a->sampleRate);
-                    juce::MessageManager::callAsync ([this, weak, wrote, out, finish, generation]
+                    // 引き算の間に「キャンセル」を押していた：作ったオフボは開かない（残すと次は押さなくても開く）
+                    if (! weak.expired() && generation != separationGeneration)
                     {
-                        // 引き算の間に「キャンセル」を押していた：作ったオフボは開かない（残すと次は押さなくても開く）
-                        if (! weak.expired() && generation != separationGeneration)
-                        {
-                            out.deleteFile();
-                            finish ({}, tr ("separation.stopped"));
-                        }
-                        else if (wrote) finish (out, {});
-                        else            finish ({}, tr ("separation.failed", reasonText ("can't write the off vocal")));
-                    });
+                        out.deleteFile();
+                        finish ({}, tr ("separation.stopped"));
+                    }
+                    else if (wrote) finish (out, {});
+                    else            finish ({}, tr ("separation.failed", reasonText ("can't write the off vocal")));
                 });
-            };
-            if (! separator->start (mix, vocals, backing, std::move (cb)))
-                finish ({}, tr ("separation.failed", reasonText ("busy")));
+            });
         });
+        if (! started)
+            finish ({}, tr ("separation.failed", reasonText ("busy")));
     });
 }
 
@@ -1563,8 +1572,7 @@ juce::File UiSession::leadCacheFolder() const
 
 void UiSession::extractLead()
 {
-    using SC = separation::SeparatorClient;
-    if (engine == nullptr || ! SC::executable().existsAsFile() || ! SC::karaokeInstalled() || s.guidePath.isEmpty()
+    if (engine == nullptr || ! separationService->executableExists() || ! separationService->karaokeInstalled() || s.guidePath.isEmpty()
         || s.guideVocals == nullptr || s.songOriginal == nullptr || s.separating)
         return;
     const auto guide = s.projectFolder.getChildFile (s.guidePath);
@@ -1578,90 +1586,57 @@ void UiSession::extractLead()
         return;
     }
 
-    s.separating = true;
-    s.separationProgress = 0.0f;
-    s.separationEta = -1.0;
-    s.separationStartedMs = juce::Time::getMillisecondCounterHiRes();
-    s.separationKind = 2;
+    beginSeparation (2);
     postNotice (tr ("separation.leadStarted"));
     notify (change::view);
 
-    std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
     const auto forGuide = guideSerial;   // 途中でお手本を替えたら、この結果は使わない（監査 2026-10-04）
-    const auto generation = separationGeneration;
-    juce::Thread::launch ([this, weak, guide, mix, lead, rest, serial, forGuide, generation]
+    auto fail = [this, mix] (const juce::String& why)
     {
-        bool ok = false;
-        if (auto a = readAudio (guide))
+        mix.deleteFile();
+        s.separating = false;
+        if (why.isNotEmpty())
+            postNotice (why);
+        notify (change::view);
+    };
+    prepareSeparationInput (guide, mix, [this, mix, lead, rest, serial, forGuide, fail] (SeparationPrep prep)
+    {
+        if (serial != s.songSerial) { fail ({}); return; }
+        if (forGuide != guideSerial)
         {
-            std::shared_ptr<const audio::SongAudio> at44 = a;
-            if (std::abs (a->sampleRate - analysis::separation::sampleRate) > 0.5)
-                at44 = audio::resampleSong (*a, analysis::separation::sampleRate);
-            mix.getParentDirectory().createDirectory();
-            ok = at44 != nullptr && writeFloatWav (mix, at44->buffer, analysis::separation::sampleRate);
+            // 準備の間にお手本を替えた：前のお手本は分けない。新しいお手本の解析が終わっていれば、そのリードを分け始める
+            fail ({});
+            if (! s.guideBusy)
+                extractLead();
+            return;
         }
-        juce::MessageManager::callAsync ([this, weak, ok, mix, lead, rest, serial, forGuide, generation]
+        if (prep == SeparationPrep::stopped) { fail (tr ("separation.stopped")); return; }
+        if (prep == SeparationPrep::failed)  { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
+
+        // rest.wav：リード以外（声の残り＋伴奏）は使わない
+        const bool started = startSeparator (mix, lead, rest, {}, separation::SeparatorClient::karaokeModelFolder(), { rest },
+                                             [this, lead, serial, forGuide, fail] (bool ok, const juce::String& error)
         {
-            if (weak.expired())
-            {
-                mix.deleteFile();
-                return;
-            }
-            auto fail = [this, mix] (const juce::String& why)
-            {
-                mix.deleteFile();   // 入力の写しを Cache に残さない（監査 2026-10-04）
-                s.separating = false;
-                if (why.isNotEmpty())
-                    postNotice (why);
-                notify (change::view);
-            };
-            if (serial != s.songSerial) { fail ({}); return; }
+            s.separating = false;
+            if (serial != s.songSerial) return;
             if (forGuide != guideSerial)
             {
-                // 準備の間にお手本を替えた：前のお手本は分けない。新しいお手本の解析が終わっていれば、そのリードを分け始める
-                fail ({});
+                // お手本を替えた（loadGuide で止めた）：前のお手本の結果は使わない。新しいお手本の解析が終わっていれば、そのリードを分け始める
+                notify (change::view);
                 if (! s.guideBusy)
                     extractLead();
                 return;
             }
-            if (generation != separationGeneration) { fail (tr ("separation.stopped")); return; }
-            if (! ok) { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
-            if (separator == nullptr)
-                separator = std::make_unique<separation::SeparatorClient>();
-            separation::SeparatorClient::Callbacks cb;
-            cb.progress = [this, weak] (float p, double eta)
+            if (! ok)
             {
-                if (weak.expired()) return;
-                s.separationProgress = p;
-                s.separationEta = eta;
-                notify (change::view);
-            };
-            cb.done = [this, weak, mix, lead, rest, serial, fail, forGuide] (bool done, const juce::String& error)
-            {
-                mix.deleteFile();
-                rest.deleteFile();   // リード以外（声の残り＋伴奏）は使わない
-                if (weak.expired()) return;
-                s.separating = false;
-                if (serial != s.songSerial) return;
-                if (forGuide != guideSerial)
-                {
-                    // お手本を替えた（loadGuide で止めた）：前のお手本の結果は使わない。新しいお手本の解析が終わっていれば、そのリードを分け始める
-                    notify (change::view);
-                    if (! s.guideBusy)
-                        extractLead();
-                    return;
-                }
-                if (! done)
-                {
-                    fail (error == "stopped" ? tr ("separation.stopped") : tr ("separation.failed", reasonText (error)));
-                    return;
-                }
-                analyseLead (lead);
-            };
-            if (! separator->start (mix, lead, rest, std::move (cb), {}, separation::SeparatorClient::karaokeModelFolder()))
-                fail (tr ("separation.failed", reasonText ("busy")));
+                fail (separationError (error));
+                return;
+            }
+            analyseLead (lead);
         });
+        if (! started)
+            fail (tr ("separation.failed", reasonText ("busy")));
     });
 }
 
