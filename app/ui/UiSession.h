@@ -284,15 +284,17 @@ public:
     struct SeparationEstimate
     {
         double lowSeconds = 0.0, highSeconds = 0.0;
+        /** 見込みが出せた（曲の長さが分かり、回すモデルがある）。出せなければ時間を表示しない */
+        bool known() const      { return highSeconds > 0.0; }
         int lowMinutes() const  { return juce::jmax (1, juce::roundToInt (lowSeconds / 60.0)); }
         int highMinutes() const { return juce::jmax (lowMinutes() + 1, juce::roundToInt (highSeconds / 60.0)); }
     };
-    /** songSeconds の曲に models 個のモデル（声と伴奏・リード）を回すときの見込み。cores = CPU のコア数 */
-    static SeparationEstimate estimateSeparation (double songSeconds, int models, int cores);
-    /** 開いている曲のお手本を分離するとき（リードのモデルがあれば、同じ分離の中でリードも分ける） */
+    /** songSeconds の曲に models 個のモデル（声と伴奏・リード）を回すときの見込み。長さが分からない・モデルが 0 なら known() が false */
+    static SeparationEstimate estimateSeparation (double songSeconds, int models);
+    /** 開いている曲のお手本（原曲）を分離するとき。キャッシュにある段階は数えない（声と伴奏があればリードだけ） */
     SeparationEstimate separationEstimate() const;
-    /** 原曲だけで始めるとき（オフボを作る分。リードとハモリ分けは開いた後に別に動く） */
-    SeparationEstimate originalSeparationEstimate (const juce::File& original) const;
+    /** 原曲だけで始めるとき（オフボを作る分。リードとハモリ分けは開いた後に別に動く）。ファイルを読むので、バックグラウンドで呼ぶ */
+    static SeparationEstimate originalSeparationEstimate (const juce::File& original);
     /** リードとハモリを分けるモデルが入っている */
     bool leadModelInstalled() const { return separationService->karaokeInstalled(); }
 
@@ -543,6 +545,8 @@ LatencyDisplay latencyDisplay (const dummy::Session&);
 
 /** 取り消しのキーの表記（Mac は ⌘Z、ほかは Ctrl+Z） */
 juce::String undoKeyName();
+/** Ctrl / ⌘ と 1 文字（Mac は「⌘E」、ほかは「Ctrl+E」）。ツールチップのショートカット（#28） */
+juce::String commandKeyName (char key);
 
 /** 機器の組み合わせ（ドライバ・入力・出力・SR・バッファ）の名前。遅れはこの組み合わせごとに覚える */
 juce::String latencyProfileKey (const dummy::Session&);
