@@ -616,6 +616,7 @@ if(VOICEBOOTH_TESTS)
         tests/TestMain.cpp
         tests/session/SessionSaveTests.cpp
         tests/session/SessionSeparationTests.cpp
+        tests/session/SessionLoopRecordTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

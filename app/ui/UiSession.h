@@ -449,6 +449,10 @@ private:
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
+    /** 範囲をループして録っている（#29）：範囲の終わりで今のテイクを閉じ、範囲の少し前へ戻って次のテイクを録る。止めるまで続ける */
+    bool loopTakes = false;
+    bool continuingLoop = false;   // nextLoopTake の中（止めずに、数えずに、次のテイクを録り始める）
+    void nextLoopTake();
     juce::uint32 tailWaitStart = 0;
     juce::uint32 latencyStartMs = 0;  // 測定音を鳴らし始めた時刻
     bool analysingLatency = false;    // 録り終えた測定音を裏で解析している
