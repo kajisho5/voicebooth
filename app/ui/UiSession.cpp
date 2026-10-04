@@ -2368,7 +2368,18 @@ void UiSession::rejudgeAll()
 void UiSession::pollPitch()
 {
     if (! isEngineDriven())
+    {
+        // 曲を開く前の待ち時間のゲーム（WaitGame）：曲の外の点だけを取る
+        if (engine != nullptr && gameVoice)
+        {
+            pitchFrames.clear();
+            engine->popPitch (pitchFrames);
+            for (auto& f : pitchFrames)
+                if (f.songSample >= audio::PitchTracker::freeRunBase)
+                    noteGameFrame (f);
+        }
         return;
+    }
     pitchFrames.clear();
     engine->popPitch (pitchFrames);
     if (pitchFrames.empty())
@@ -2382,6 +2393,9 @@ void UiSession::pollPitch()
             for (auto it = firstFree; it != pitchFrames.end(); ++it)
                 if (it->midi > 0.0f && it->confidence >= 0.6f && rangeNotes.size() < 6000)
                     rangeNotes.push_back (it->midi);
+        if (gameVoice)
+            for (auto it = firstFree; it != pitchFrames.end(); ++it)
+                noteGameFrame (*it);
         pitchFrames.erase (firstFree, pitchFrames.end());
         if (pitchFrames.empty())
             return;
@@ -3796,7 +3810,43 @@ void UiSession::startRangeMeasure()
 void UiSession::stopRangeMeasure()
 {
     rangeMeasuring = false;
-    if (engine != nullptr) engine->setPitchFreeRun (false);
+    if (engine != nullptr && ! gameVoice) engine->setPitchFreeRun (false);
+}
+
+//==============================================================================
+void UiSession::startGameVoice()
+{
+    gameVoice = true;
+    gameMidi = 0.0f;
+    if (engine != nullptr) engine->setPitchFreeRun (true);
+}
+
+void UiSession::stopGameVoice()
+{
+    gameVoice = false;
+    if (engine != nullptr && ! rangeMeasuring) engine->setPitchFreeRun (false);
+}
+
+void UiSession::noteGameFrame (const audio::PitchFrame& f)
+{
+    // はっきりした声だけ（息・物音で目標が動かない）
+    if (f.midi > 0.0f && f.confidence >= 0.5f && f.levelDb > -55.0f)
+    {
+        gameMidi = f.midi;
+        gameMidiMs = juce::Time::getMillisecondCounterHiRes();
+    }
+}
+
+float UiSession::gameVoiceMidi() const
+{
+    return gameVoice && juce::Time::getMillisecondCounterHiRes() - gameMidiMs < 250.0 ? gameMidi : 0.0f;
+}
+
+void UiSession::setGameBeat (double bpm)                 { if (engine != nullptr) engine->setGameBeat (bpm); }
+void UiSession::playGameTone (float midi, double sec)    { if (engine != nullptr) engine->playGameTone (midi, sec); }
+double UiSession::gameBeatClock() const
+{
+    return engine != nullptr && s.output.open ? engine->gameBeatClock() : -1.0;
 }
 
 void UiSession::setMute (int i, bool m) { if (juce::isPositiveAndBelow (i, (int) s.trackUi.size())) { s.trackUi[(size_t) i].mute = m; notify (change::tracks); } }

@@ -181,6 +181,12 @@ public:
     /** 曲が止まっていても音程を取る（声域を測る）。その点の位置は PitchTracker::freeRunBase 以上（曲の線に入れない） */
     virtual void setPitchFreeRun (bool) {}
 
+    // 待ち時間のゲーム（起動画面で分離を待つ間。GameSounds）：曲とは別に鳴らすクリックと目標の音
+    virtual void setGameBeat (double /*bpm*/) {}
+    virtual void playGameTone (float /*midi*/, double /*seconds*/) {}
+    /** ゲームのクリックを始めてから、いま耳に届いている位置（秒。出力の遅延を引く）。鳴らしていなければ < 0 */
+    virtual double gameBeatClock() const { return -1.0; }
+
     // 往復の遅れの実測（B6）。出力を測定音に置き換え（曲・自分の声は鳴らさない）、入力を録る。約 3.6 秒。
     // 終わったら latencyProbeFinished() が true。録った入力を取り出して latency::analyse に渡す（重いので裏で）
     virtual juce::String startLatencyProbe() { return "not supported"; }

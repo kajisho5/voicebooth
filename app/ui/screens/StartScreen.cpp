@@ -80,6 +80,8 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     addChildComponent (openFolder);
 
     setWantsKeyboardFocus (true);   // 読み込みが終わったら Enter で進む
+    addChildComponent (game);
+    game.onOpenChanged = [this] { resized(); repaint(); };
     continueKey.withLed (colours::signal).withToggle (false);
     continueKey.setToggleState (true, juce::dontSendNotification);
     continueKey.onClick = [this] { if (onDone) onDone(); };
@@ -123,6 +125,8 @@ StartScreen::~StartScreen()
 void StartScreen::setPhase (Phase p)
 {
     phase = p;
+    if (phase != Phase::separating)
+        game.close();   // 分離が終わった：ゲーム中でも次へ（音・マイクの取り込みも止める）
     if (phase == Phase::loading || phase == Phase::separating) startTimerHz (30);
     else                         stopTimer();
     resized();
@@ -395,6 +399,16 @@ void StartScreen::resized()
             k->setBounds (f.removeFromRight (w).withSizeKeepingCentre (w, 36));
             f.removeFromRight (10);
         }
+        // 原曲から分離している間だけ：閉じている時はボタンの行の左に 1 行、遊んでいる時は分離の行の下いっぱい
+        const bool withGame = phase == Phase::separating && fromOriginal;
+        game.setVisible (withGame);
+        if (withGame)
+        {
+            if (game.isOpen())
+                game.setBounds (panel.reduced (40, 0).withTop (analyzingRowsTop() + 46 + 16).withBottom (f.getY() - 4));
+            else
+                game.setBounds (f.withSizeKeepingCentre (f.getWidth(), 36));
+        }
         return;
     }
 
@@ -644,6 +658,12 @@ juce::String StartScreen::errorText() const
     return tr (audio::errorKey (error), name, audio::maxSongMinutes);
 }
 
+int StartScreen::analyzingRowsTop() const
+{
+    // paintAnalyzing と同じ：上 120・題 30・説明 40・（原曲から）分離した音の扱い 34・あき 20
+    return panel.getY() + 120 + 30 + 40 + (fromOriginal ? 34 : 0) + 20;
+}
+
 void StartScreen::paintAnalyzing (juce::Graphics& g)
 {
     auto r = panel.reduced (40, 0).withTrimmedTop (120).withTrimmedBottom (100);
@@ -670,8 +690,11 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
     }
     r.removeFromTop (20);
 
+    const bool gameOpen = game.isVisible() && game.isOpen();   // 遊んでいる間は分離の行だけ（下はゲーム）
     for (size_t i = 0; i < std::size (stepKeys); ++i)
     {
+        if (gameOpen && i != 1)
+            continue;
         auto row = r.removeFromTop (46).toFloat();
         r.removeFromTop (6);
 
@@ -754,6 +777,8 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         }
     }
 
+    if (gameOpen)
+        return;
     r.removeFromTop (8);
     g.setColour (colours::textMute);
     g.setFont (sans (11.5f));
