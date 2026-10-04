@@ -17,6 +17,14 @@ English follows Japanese.
 - **Windows**：「Windows によって PC が保護されました」→「詳細情報」→「実行」
 - **Mac**：DMG の VoiceBooth をアプリケーションフォルダへ入れて一度開く →「開けません」と表示されたら、システム設定 →「プライバシーとセキュリティ」→「このまま開く」（開こうとしてから約 1 時間だけ表示されます）→ パスワード
 
+## beta.4 で増えたもの・直したもの
+
+- **分離中の画面が分かりやすく**：分離を始めてから残り時間が表示されるまでの間は「準備中・経過時間」と動くバーを表示します。読み込みが終わると「メイン画面へ進む」の案内を表示し、Enter でも進めます
+- **リードとハモリの分離を別の行に**：起動画面で、声 / オフボの分離と、リード / ハモリの分離を分けて表示します。メイン画面に移ってから自動で始まる項目は「メイン画面で自動」と表示し、状態バーでも「リード・ハモリを分離中」と表示します
+- **待っている間に遊べるゲーム**：原曲から分離している間に、［音程あて］（表示された音を声で当てる）・［リズムタップ］（クリックに合わせて Space）・［おまかせ］で遊べます。遊ぶかは自由です
+- **ハモリの線がないときの理由**：ハモリのトラックを選んでもハモリの線がないとき、「作成中」「リードボーカルのモデルが必要」「ハモリの声がほとんど見つからない」などの理由を表示します（それまではメインの線を表示します）
+- **状態バーのずれ**：左下の音量（dBFS）の数字で状態バー全体が左右に動いていたのを直しました
+
 ## beta.3 で直したもの
 
 - **分離モデルをダウンロードできなかった（Windows・Mac）**：beta.2 では「分離モデルの一覧を読めませんでした」と表示されて先に進めませんでした。一覧が最後まで届いたかどうかの判定を直しました
@@ -83,6 +91,14 @@ English follows Japanese.
 
 - **Windows**: "Windows protected your PC" → "More info" → "Run anyway"
 - **Mac**: move VoiceBooth from the DMG to Applications and open it once → if it says it can't be opened, go to System Settings → Privacy & Security → "Open Anyway" (shown for about an hour after the attempt) → enter your password
+
+## New and fixed in beta 4
+
+- **Clearer separation screen**: between starting separation and the first time estimate, it now shows "Preparing" with the elapsed time and a moving bar. When loading is done it shows how to continue to the main screen, and Enter also continues
+- **Lead / harmony separation in its own row**: the start screen shows voice / backing separation and lead / harmony separation separately. Items that start automatically on the main screen are marked as such, and the status bar says when lead / harmony separation is running
+- **Games while you wait**: while separating from the original song you can play Pitch match (sing the note shown), Rhythm tap (press Space with the click) or Random. Playing is optional
+- **Why there is no harmony line**: when a harmony track is selected but there is no harmony line, the pitch lane says why (still building, lead vocal model needed, almost no harmony found). The main line is shown until then
+- **Status bar shift**: the level (dBFS) number at the bottom left no longer shifts the whole status bar
 
 ## Fixed in beta 3
 
