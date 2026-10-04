@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Hãy mở beat (karaoke) trước, rồi thêm bản mẫu (bản gốc có giọng hát)",
   "guide.problem.notAligned": "Không căn được bản gốc với beat (có thể là bài khác). Không hiển thị đường mẫu",
   "guide.problem.tempo": "Bản gốc và bản beat có vẻ khác tốc độ (bản gốc bằng {0}% bản beat). Thời gian và cao độ sẽ lệch dần nên không hiện đường mẫu. Hãy dùng các bản cùng tốc độ",
+  "harmony.mainDucked": "Khi đang chọn thu bè, Main phát nhỏ hơn (khoảng -8 dB). Giá trị fader và âm lượng xuất không đổi",
   "input.channel.left": "L",
   "input.channel.n": "Vào {0}",
   "input.channel.right": "R",

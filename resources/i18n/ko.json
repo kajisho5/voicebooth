@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "먼저 반주(MR)를 연 뒤 가이드(보컬이 있는 원곡)를 넣어 주세요",
   "guide.problem.notAligned": "원곡과 반주의 시간이 맞지 않았습니다(다른 곡일 수 있습니다). 가이드 선은 표시하지 않습니다",
   "guide.problem.tempo": "원곡과 반주의 빠르기가 다른 것 같습니다 (원곡은 반주의 {0}%). 시간과 음정이 점점 어긋나므로 가이드 선을 표시하지 않습니다. 같은 빠르기의 버전을 사용해 주세요",
+  "harmony.mainDucked": "하모니 트랙을 녹음 대기로 둔 동안 Main을 작게(약 -8 dB) 재생합니다. 페이더 값과 내보내기 음량은 바뀌지 않습니다",
   "input.channel.left": "L",
   "input.channel.n": "입력 {0}",
   "input.channel.right": "R",

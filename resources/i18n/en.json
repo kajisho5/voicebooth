@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Open the backing (karaoke) first, then add the guide (the original with vocals)",
   "guide.problem.notAligned": "Couldn't line up the original with the backing (maybe a different song). No guide line is shown",
   "guide.problem.tempo": "The original and the backing track seem to run at different speeds (the original is {0}% of the backing). Timing and pitch would drift, so no guide line is shown. Please use versions at the same speed",
+  "harmony.mainDucked": "While a harmony track is armed, Main plays quieter (about -8 dB). The fader and the export level stay the same",
   "input.channel.left": "L",
   "input.channel.n": "In {0}",
   "input.channel.right": "R",

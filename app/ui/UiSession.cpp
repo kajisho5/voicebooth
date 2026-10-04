@@ -2937,6 +2937,14 @@ void UiSession::armTrack (int index)
     for (auto& t : s.trackUi) t.armed = false;
     s.trackUi[(size_t) index].armed = ! wasArmed;
     if (! wasArmed) s.selectedTrack = index;   // アームしたトラックを前面に
+    const bool ducking = harmonyArmed();
+    syncStemGains();   // ハモリをアームしたら Main を薄く（#30）
+    if (ducking && ! mainDuckNoticed && s.project.findTrack (project::TrackType::main) != nullptr
+        && ! s.project.findTrack (project::TrackType::main)->comp.empty())
+    {
+        mainDuckNoticed = true;   // 1 回だけ知らせる（気付かずに Main が小さいと戸惑わないように）
+        postNotice (tr ("harmony.mainDucked"));
+    }
     notify (change::tracks);
 }
 
@@ -3019,6 +3027,14 @@ void UiSession::renderStems()
     });
 }
 
+bool UiSession::harmonyArmed() const
+{
+    for (auto& t : s.trackUi)
+        if (t.armed && (t.type == project::TrackType::harm1 || t.type == project::TrackType::harm2))
+            return true;
+    return false;
+}
+
 void UiSession::syncStemGains()
 {
     if (engine == nullptr)
@@ -3037,6 +3053,9 @@ void UiSession::syncStemGains()
                 const bool audible = ! t.mute && (! anySolo || t.solo) && ! recordingHere && isTrackVisible (t.type)
                                   && ! anyMonitorSolo();   // モニターの S（お手本・オフボ・自分だけを聴く）
                 gain = audible ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
+                // ハモリを録る（アームしている）間は Main を薄く鳴らす（DESIGN A5・B12。#30）。モニターだけで、書き出しの音量は変えない
+                if (t.type == project::TrackType::main && harmonyArmed())
+                    gain *= harmonyMainDuck;
             }
         engine->setVocalGain (k, gain);
     }

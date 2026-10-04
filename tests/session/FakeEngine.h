@@ -2,6 +2,7 @@
 
 #include "audio/AudioEngine.h"
 #include "audio/SongLoader.h"
+#include <array>
 
 /*  UiSession のテスト用の偽のエンジン（音声の機器なし）。曲を持ち、再生位置を覚えるだけ。
     出力はいつも「開いている・曲の SR のまま鳴らせる」 */
@@ -26,6 +27,7 @@ public:
     audio::int64 getPlayheadSample() const override { return playhead; }
     bool  consumeReachedEnd() override             { return false; }
     void  setLoop (audio::int64, audio::int64, bool) override {}
+    void  setVocalGain (int slot, float g) override { if (slot >= 0 && slot < 4) vocalGains[(size_t) slot] = g; }   // 0 = Main
 
     void setBackingLevel (float, bool) override {}
 
@@ -42,5 +44,6 @@ public:
     std::shared_ptr<const audio::SongAudio> song;
     audio::int64 playhead = 0;
     bool playing = false;
+    std::array<float, 4> vocalGains { -1.0f, -1.0f, -1.0f, -1.0f };
 };
 } // namespace vb::test

@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Ouvrez d'abord l'instrumental (karaoké), puis ajoutez le guide (l'original avec la voix)",
   "guide.problem.notAligned": "Impossible d'aligner l'original sur l'instrumental (peut-être un autre titre). Aucune ligne guide n'est affichée",
   "guide.problem.tempo": "L'original et l'instrumental semblent avoir des vitesses différentes (l'original = {0} % de l'instrumental). Le temps et la hauteur dériveraient : pas de ligne guide. Utilisez des versions à la même vitesse",
+  "harmony.mainDucked": "Tant qu'une piste d'harmonie est armée, Main est joué plus bas (environ -8 dB). Le fader et le niveau d'export ne changent pas",
   "input.channel.left": "L",
   "input.channel.n": "Entrée {0}",
   "input.channel.right": "R",

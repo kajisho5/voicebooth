@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Buka dulu instrumental (karaoke), lalu tambahkan panduan (lagu asli dengan vokal)",
   "guide.problem.notAligned": "Lagu asli tidak bisa diselaraskan dengan instrumental (mungkin lagu lain). Garis panduan tidak ditampilkan",
   "guide.problem.tempo": "Lagu asli dan instrumental tampaknya berbeda kecepatan (lagu asli {0}% dari instrumental). Waktu dan nada akan bergeser, jadi garis panduan tidak ditampilkan. Gunakan versi dengan kecepatan yang sama",
+  "harmony.mainDucked": "Selama trek harmoni disiapkan untuk rekam, Main diputar lebih pelan (sekitar -8 dB). Fader dan level ekspor tidak berubah",
   "input.channel.left": "L",
   "input.channel.n": "In {0}",
   "input.channel.right": "R",

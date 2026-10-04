@@ -186,6 +186,7 @@
   "guide.problem.noBacking": "Önce altyapıyı (karaoke) açın, sonra referansı (vokalli orijinal) ekleyin",
   "guide.problem.notAligned": "Orijinal altyapıyla hizalanamadı (başka bir şarkı olabilir). Referans çizgisi gösterilmiyor",
   "guide.problem.tempo": "Orijinal ve altyapı farklı hızda görünüyor (orijinal altyapının %{0}'i). Zaman ve perde kayacağı için referans çizgisi gösterilmiyor. Aynı hızdaki sürümleri kullanın",
+  "harmony.mainDucked": "Bir armoni kanalı kayda hazırken Main daha kısık (yaklaşık -8 dB) çalar. Fader ve dışa aktarma seviyesi değişmez",
   "input.channel.left": "L",
   "input.channel.n": "Giriş {0}",
   "input.channel.right": "R",
