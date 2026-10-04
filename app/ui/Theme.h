@@ -53,7 +53,7 @@ namespace colours
     inline Token lineHi   {  7, 0xff4a463e };
     inline Token text     {  8, 0xfff2ede3 };   // 暖かい白
     inline Token textDim  {  9, 0xffa9a295 };
-    inline Token textMute { 10, 0xff6f6a60 };
+    inline Token textMute { 10, 0xff878278 };   // 小さい字にも使う。地・表示窓・パネルの上で 4.5:1 以上（#28）
     inline Token signal   { 11, 0xffc6ee6a };   // ライム：自分ピッチ OK / 再生ヘッド / 点灯 LED / 選択
     inline Token ref      { 12, 0xff8cc1ee };   // アイスブルー：お手本
     inline Token warn     { 13, 0xfff4b942 };   // アンバー
