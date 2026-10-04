@@ -109,13 +109,15 @@ void StatusBar::paint (juce::Graphics& g)
     r.removeFromLeft ((float) meterArea.getWidth() + 10.0f);
 
     const auto vf = mono (11.0f, Weight::medium);
-    auto item = [&] (const juce::String& label, const juce::String& value, juce::Colour vc)
+    // minWidth：値で幅が変わると後ろの項目が左右に動く（入力のピーク）。その欄は一番広い値の幅で取り、右にそろえる
+    auto item = [&] (const juce::String& label, const juce::String& value, juce::Colour vc, float minWidth = 0.0f)
     {
         if (label.isNotEmpty())
             paint::microLabel (g, r.removeFromLeft (textWidth (lf, label) + 8.0f), label, colours::textMute);
         g.setColour (vc);
         g.setFont (vf);
-        g.drawText (value, r.removeFromLeft (textWidth (vf, value) + 4.0f), juce::Justification::centredLeft, false);
+        const auto w = juce::jmax (minWidth, textWidth (vf, value));
+        g.drawText (value, r.removeFromLeft (w + 4.0f), minWidth > 0.0f ? juce::Justification::centredRight : juce::Justification::centredLeft, false);
         r.removeFromLeft (12.0f);
         paint::vline (g, r.getX(), r.getY() + 8.0f, r.getBottom() - 8.0f);
         r.removeFromLeft (13.0f);
@@ -128,7 +130,8 @@ void StatusBar::paint (juce::Graphics& g)
                        : ld.manual   ? tr ("status.latency.manual", juce::String (ld.ms, 1))
                                      : juce::String (ld.ms, 1) + " ms";
 
-    item ({}, formatDb (s.inputPeakDb) + " dBFS", colours::text);
+    const auto peakWidth = juce::jmax (textWidth (vf, "-inf dBFS"), textWidth (vf, "-88.8 dBFS"), textWidth (vf, "+88.8 dBFS"));
+    item ({}, formatDb (s.inputPeakDb) + " dBFS", colours::text, peakWidth);
     item (tr ("status.latency"), latency, colours::text);
     item (tr ("status.recTo"), s.recMode == project::RecMode::delivery ? tr ("status.recTo.delivery") : tr ("status.recTo.practice"),
           s.isRecording ? colours::rec : colours::text);
@@ -190,8 +193,11 @@ void StatusBar::paint (juce::Graphics& g)
     if (s.separating)
     {
         const auto pct = juce::roundToInt (s.separationProgress * 100.0f);
-        chip (s.separationEta > 0.0 ? tr ("status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
-                                    : tr ("status.separating", pct), colours::ref);
+        // リードとハモリの分離（お手本の声が出た後に続けて走る）は、そうと分かる言い方で
+        const bool lead = s.separationKind == 2;
+        chip (s.separationProgress <= 0.0f && s.separationEta <= 0.0 ? tr (lead ? "status.leadPreparing" : "status.separatingPreparing")   // 最初の部分を処理するまで
+              : s.separationEta > 0.0 ? tr (lead ? "status.leadSeparatingEta" : "status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
+                                    : tr (lead ? "status.leadSeparating" : "status.separating", pct), colours::ref);
     }
 
     // 分離モデルのダウンロード（B16。画面を閉じても裏で続く）
