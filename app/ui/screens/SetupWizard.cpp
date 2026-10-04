@@ -275,6 +275,7 @@ SetupWizard::SetupWizard (UiSession& u, int initialStep)
     manualField.setInputRestrictions (6, "0123456789.,");
     manualField.setTextToShowWhenEmpty ("-", colours::textMute);
     manualField.onReturnKey = [this] { commitManual(); };
+    manualField.onFocusLost = [this] { if (manualEdited()) commitManual(); };   // Enter・［使う］を押さずに離れても使う（監査 2026-10-04）
     manualField.setTooltip (tr ("setup.latency.manual.tooltip"));
     addChildComponent (manualField);
     manualUse.onClick = [this] { commitManual(); };
@@ -293,7 +294,21 @@ SetupWizard::SetupWizard (UiSession& u, int initialStep)
     setStep (initialStep);
 }
 
-SetupWizard::~SetupWizard() = default;
+SetupWizard::~SetupWizard()
+{
+    // 手入力したまま閉じた（［完了］・外側のクリック）：捨てずに使う（監査 2026-10-04）
+    if (manualEdited() && live())
+        session.setLatencyManualMs (manualField.getText().trim().replace (",", ".").getDoubleValue());
+}
+
+bool SetupWizard::manualEdited() const
+{
+    const auto text = manualField.getText().trim().replace (",", ".");
+    if (text.isEmpty() || text.getDoubleValue() <= 0.0)
+        return false;
+    const auto ld = latencyDisplay (state());
+    return ! ld.manual || std::abs (text.getDoubleValue() - ld.ms) > 0.05;
+}
 
 void SetupWizard::later (std::function<void (SetupWizard&)> f)
 {

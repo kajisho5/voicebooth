@@ -262,8 +262,7 @@ void ExportDialog::paintBody (juce::Graphics& g, juce::Rectangle<int> r)
         g.setColour (colours::textDim);
         g.setFont (mono (11.0f));
         const auto dest = s.backingWave != nullptr && s.projectFolder != juce::File()
-                        ? (packSelected() ? exporter::DeliveryPack::nextFolder (s.projectFolder, juce::Time::getCurrentTime())
-                                          : s.projectFolder.getChildFile ("export_" + juce::Time::getCurrentTime().formatted ("%Y%m%d"))).getFullPathName()
+                        ? exporter::DeliveryPack::nextFolder (s.projectFolder, juce::Time::getCurrentTime()).getFullPathName()
                                 + juce::File::getSeparatorString()
                         : "Projects/" + s.songName + "/export_20261001/";
         g.drawText (dest, d, juce::Justification::centredLeft, true);

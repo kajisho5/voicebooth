@@ -124,6 +124,7 @@ ModelDownloader::~ModelDownloader()
 {
     *alive = false;
     cancel();
+    stopThread (25000);   // 回線が止まっていると読み込みは接続の待ち時間（20 秒）まで戻らない：それより長く待つ（途中で強制終了しない）
 }
 
 bool ModelDownloader::installed (const ModelEntry& e, const juce::File& dir)
@@ -149,9 +150,10 @@ bool ModelDownloader::start (const ModelEntry& e, const juce::File& dir, std::fu
 
 void ModelDownloader::cancel()
 {
+    // 待たない（メッセージスレッドから呼ぶ。回線が止まっていると最大 20 秒、画面が固まっていた。監査 2026-10-04）。
+    // 終わると cancelled が届く。終わるまでは isBusy() が true で、次の start は断る
     signalThreadShouldExit();
     notify();
-    stopThread (20000);
 }
 
 void ModelDownloader::setPaused (bool p)

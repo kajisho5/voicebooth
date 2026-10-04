@@ -47,6 +47,7 @@ private:
     juce::TextEditor manualField;               // 手入力（ms）
     KeyButton manualUse, manualClear;
     void commitManual();
+    bool manualEdited() const;   // 手入力の欄が保存した値と違う（入れたまま使っていない）
     void refreshLatencyControls();
     KeyButton* back = nullptr;
     KeyButton* next = nullptr;
