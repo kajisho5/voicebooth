@@ -21,8 +21,12 @@ namespace
     {
         int layers = 6;
         if (auto* o = juce::JSON::parse (dir.getChildFile ("parts.json")).getDynamicObject())
+        {
             if (const int n = o->getProperty ("layers"); n > 0)
                 layers = juce::jmin (64, n);
+        }
+        else if (dir.getChildFile ("layer6.onnx").existsAsFile())
+            return false;   // 7 層以上のモデルなのに parts.json が無い：ダウンロードの途中（一覧の最後が parts.json）。入っているとみなさない（監査 2026-10-04）
         juce::StringArray names { "front", "head" };
         for (int i = 0; i < layers; ++i)
             names.add ("layer" + juce::String (i));

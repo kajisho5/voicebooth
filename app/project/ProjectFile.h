@@ -31,6 +31,7 @@ struct ProjectExtras
         bool mute = false, solo = false;
     };
     std::vector<TrackMix> trackMix;   // 空 = 既定のまま（古いファイル）
+    juce::String songHash;            // 曲の音の中身のハッシュ（同じ名前・同じ長さの別の曲を、前のプロジェクトとして開かないため。空 = 古いファイル）
     int practiceTempo = 100;          // 練習のテンポ（%）・キー（半音）。B11
     int practiceKey = 0;
 
@@ -70,7 +71,7 @@ LoadedProject fromJson (const juce::String&);
 /** 一時ファイルに書いてから置き換える（途中で落ちても前のファイルが壊れない） */
 bool writeAtomically (const juce::File&, const juce::String& text);
 
-/** 開いた時、Audio/Takes/ のうちプロジェクトが使っていない WAV を片付ける。消さずに Audio/Recovered/ へ移す。
+/** 開いた時、Audio/Takes/ と Practice/ のうちプロジェクトが使っていない WAV を片付ける。消さずに Audio/Recovered/ へ移す。
     前に落ちた・終わった時に残った裏録り（.retro-*.wav。B7）と、録音中に落ちて .vbooth に入らなかったテイクが当たる。
     使っているもの（usedPaths：プロジェクトフォルダ相対）はそのまま。移した数を返す */
 int recoverUnusedTakes (const juce::File& projectFolder, const juce::StringArray& usedPaths);

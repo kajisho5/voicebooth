@@ -66,6 +66,8 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
     set (root, "sr", p.sampleRate);
     set (root, "bit_depth_export", p.bitDepthExport);
     set (root, "length_samples", p.lengthSamples);
+    if (extras.songHash.isNotEmpty())
+        set (root, "song_hash", extras.songHash);
 
     if (extras.guidePath.isNotEmpty())
     {
@@ -316,6 +318,7 @@ LoadedProject fromJson (const juce::String& text)
         out.extras.practiceTempo = juce::jlimit (50, 150, getInt (pr, "tempo_percent", 100));
         out.extras.practiceKey = juce::jlimit (-6, 6, getInt (pr, "key_shift", 0));
     }
+    out.extras.songHash = getString (root, "song_hash");
     if (const auto mo = root.getProperty ("monitor", var()); mo.isObject())
     {
         auto& m = out.extras.monitor;
@@ -444,14 +447,24 @@ bool writeAtomically (const juce::File& file, const juce::String& text)
     juce::TemporaryFile temp (file);
     if (! temp.getFile().replaceWithText (text, false, false, "\n"))
         return false;
-    return temp.overwriteTargetFileWithTemporary();
+    // 同期ソフト・ウイルス対策が一瞬つかんでいて置き換えに失敗することがあるので、少し待って 3 回まで試す（監査 2026-10-04）
+    for (int attempt = 0; attempt < 3; ++attempt)
+    {
+        if (temp.overwriteTargetFileWithTemporary())
+            return true;
+        juce::Thread::sleep (100);
+    }
+    return false;
 }
 
 int recoverUnusedTakes (const juce::File& projectFolder, const juce::StringArray& usedPaths)
 {
-    const auto takes = projectFolder.getChildFile ("Audio/Takes");
     int moved = 0;
-    for (auto& f : takes.findChildFiles (juce::File::findFiles, false, "*.wav", juce::File::FollowSymlinks::no))
+    // リハーサルのテイク（Practice/）も見る：録音中に落ちたリハーサルの WAV が、どこからも見えないまま残っていた（監査 2026-10-04）
+    juce::Array<juce::File> files;
+    for (auto* folder : { "Audio/Takes", "Practice" })
+        files.addArray (projectFolder.getChildFile (folder).findChildFiles (juce::File::findFiles, false, "*.wav", juce::File::FollowSymlinks::no));
+    for (auto& f : files)
     {
         const auto rel = f.getRelativePathFrom (projectFolder).replaceCharacter ('\\', '/');
         if (usedPaths.contains (rel))
