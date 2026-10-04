@@ -2,6 +2,7 @@
 #include "ui/parts/Dropdown.h"
 #include "ui/parts/Encoder.h"
 #include "ui/parts/ConsoleFader.h"
+#include "ui/Overlay.h"
 #include "session/SessionTestUtil.h"
 
 /*  キーボードと画面読み上げ（#28）：部品は Tab で移れて、マウスで押してもフォーカスを取らない。
@@ -30,9 +31,9 @@ public:
             expectEquals (icon.getTitle(), juce::String ("Play"), "an icon-only key is read by its tooltip");
             expectTabOnly (*this, icon, "a key");
 
-            KeyButton mute ("M");
-            mute.setTooltip ("Mute");
-            expectEquals (mute.getTitle(), juce::String ("Mute"), "a one-letter key is read by its tooltip");
+            KeyButton toggle ("On");
+            toggle.setTooltip ("Check for updates");
+            expect (toggle.getTitle().isEmpty(), "a key with a short word (On / Off) is read by its word, which changes with the state");
 
             KeyButton text ("Export");
             text.setTooltip ("Write the files");
@@ -64,6 +65,8 @@ public:
             expect (seg.keyPressed (juce::KeyPress (juce::KeyPress::leftKey)));
             expectEquals (seg.getSelected(), 1);
             expect (! seg.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey)), "Space goes on to play / stop");
+            expect (! seg.keyPressed (juce::KeyPress (juce::KeyPress::rightKey, juce::ModifierKeys::commandModifier, 0)), "Ctrl / Cmd + arrow goes on");
+            expectEquals (seg.getSelected(), 1);
 
             auto handler = seg.createAccessibilityHandler();
             expect (handler != nullptr && handler->getRole() == juce::AccessibilityRole::comboBox);
@@ -95,6 +98,20 @@ public:
                 expectEquals (dd.getSelected(), 0);
             }
             expect (! dd.keyPressed (juce::KeyPress ('r', {}, 'r')), "letters go on to the shortcuts");
+        }
+
+        beginTest ("a dialog keeps Tab inside itself and takes the keyboard (keys behind it cannot be pressed with Enter)");
+        {
+            OverlayHost overlay;
+            overlay.setSize (800, 600);
+            auto panel = std::make_unique<juce::Component>();
+            panel->setSize (300, 200);
+            auto* raw = panel.get();
+            overlay.show (std::move (panel), false);
+            expect (raw->isKeyboardFocusContainer(), "Tab goes round inside the dialog");
+            expect (raw->getWantsKeyboardFocus(), "the dialog takes the keyboard even if it did not ask for it");
+            overlay.close();
+            pump (50);
         }
 
         beginTest ("faders and knobs: reachable with Tab, arrows move them, they have names");

@@ -69,6 +69,7 @@ void TopBar::onSessionChanged (juce::uint32 changes)
         songInfo.setButtonText (tr ("topbar.songInfo",
                                     s.keyKnown() ? s.project.key.shortName() : juce::String ("-"),
                                     s.tempoKnown() ? song::formatBpm (s.bpm()) : juce::String ("-")));
+        songInfo.setTitle (songInfo.getButtonText().isEmpty() ? tr ("topbar.songInfo.tooltip") : juce::String());   // 読み上げ：表示中の KEY / BPM（#28）
         resized();
         repaint (songArea);
     }

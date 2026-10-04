@@ -27,6 +27,7 @@ void ConsoleFader::valueChanged()
 
 void ConsoleFader::mouseDown (const juce::MouseEvent& e)
 {
+    focus::handBack (*this);   // Tab で移っていたフォーカスはメイン画面へ返す（#28）
     if (! isEnabled()) return;
     springing = false;
     shown.snap ((float) getValue());
