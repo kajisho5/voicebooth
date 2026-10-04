@@ -125,6 +125,7 @@ void LyricsDialog::rebuildEncodingPicker()
 
     encodingPicker = std::make_unique<Dropdown> (items, selected);
     encodingPicker->setFont (mono (12.0f, Weight::medium));
+    encodingPicker->setTitle (tr ("lyrics.dialog.encoding"));   // 読み上げの名前（#28）
     encodingPicker->onChange = [this] (int i)
     {
         if (juce::isPositiveAndBelow (i, (int) encodingChoices.size()))

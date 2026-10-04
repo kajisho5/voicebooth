@@ -43,10 +43,12 @@ TopBar::TopBar (UiSession& u, Actions& a)
 
     exportKey.withIcon (Icon::exportFile);
     exportKey.setTooltip (tr ("topbar.export.tooltip"));
+    exportKey.withShortcut (commandKeyName ('E'));
     exportKey.onClick = [this] { if (actions.openExport) actions.openExport(); };
 
     settings.withIcon (Icon::gear);
     settings.setTooltip (tr ("topbar.settings"));
+    settings.withShortcut (commandKeyName (','));
     settings.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &songInfo, &tally, &exportKey, &settings })
