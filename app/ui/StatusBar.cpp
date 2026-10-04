@@ -193,9 +193,11 @@ void StatusBar::paint (juce::Graphics& g)
     if (s.separating)
     {
         const auto pct = juce::roundToInt (s.separationProgress * 100.0f);
-        chip (s.separationProgress <= 0.0f && s.separationEta <= 0.0 ? tr ("status.separatingPreparing")   // 最初の部分を処理するまで
-              : s.separationEta > 0.0 ? tr ("status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
-                                    : tr ("status.separating", pct), colours::ref);
+        // リードとハモリの分離（お手本の声が出た後に続けて走る）は、そうと分かる言い方で
+        const bool lead = s.separationKind == 2;
+        chip (s.separationProgress <= 0.0f && s.separationEta <= 0.0 ? tr (lead ? "status.leadPreparing" : "status.separatingPreparing")   // 最初の部分を処理するまで
+              : s.separationEta > 0.0 ? tr (lead ? "status.leadSeparatingEta" : "status.separatingEta", pct, juce::jmax (1, juce::roundToInt (s.separationEta / 60.0)))
+                                    : tr (lead ? "status.leadSeparating" : "status.separating", pct), colours::ref);
     }
 
     // 分離モデルのダウンロード（B16。画面を閉じても裏で続く）
