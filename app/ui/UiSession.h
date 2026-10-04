@@ -280,8 +280,21 @@ public:
     void offerSeparation() { if (separationAvailable()) { ++s.separationOfferSerial; notify (change::notice); } }
     /** 分離に要る物（分離プロセスとモデル）がそろっている */
     bool separationAvailable() const;
-    /** 分離にかかる時間の目安（秒。このパソコンで測る前の見込み） */
-    double separationEstimateSeconds() const;
+    /** 分離にかかる時間の見込み（このパソコンで測る前。分は短い方と長い方。#27） */
+    struct SeparationEstimate
+    {
+        double lowSeconds = 0.0, highSeconds = 0.0;
+        int lowMinutes() const  { return juce::jmax (1, juce::roundToInt (lowSeconds / 60.0)); }
+        int highMinutes() const { return juce::jmax (lowMinutes() + 1, juce::roundToInt (highSeconds / 60.0)); }
+    };
+    /** songSeconds の曲に models 個のモデル（声と伴奏・リード）を回すときの見込み。cores = CPU のコア数 */
+    static SeparationEstimate estimateSeparation (double songSeconds, int models, int cores);
+    /** 開いている曲のお手本を分離するとき（リードのモデルがあれば、同じ分離の中でリードも分ける） */
+    SeparationEstimate separationEstimate() const;
+    /** 原曲だけで始めるとき（オフボを作る分。リードとハモリ分けは開いた後に別に動く） */
+    SeparationEstimate originalSeparationEstimate (const juce::File& original) const;
+    /** リードとハモリを分けるモデルが入っている */
+    bool leadModelInstalled() const { return separationService->karaokeInstalled(); }
 
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */

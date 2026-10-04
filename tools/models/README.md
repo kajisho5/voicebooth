@@ -54,7 +54,7 @@ python3 tools/models/make_manifest.py --model-dir pitch --files rmvpe.onnx \
   --merge out/manifest.json --key ~/voicebooth-keys/models-ed25519.pem --serial 3 --out out/
 ```
 
-- GPL-3.0 の 2 つは変更版（ONNX に分けて int8 にした物）。変換の手順・元の重みの URL と SHA-256 は `tools/separation/README.md`（GPL §6 の対応するソース）。
+- GPL-3.0 の 2 つは、ONNX に分けて int8 に変更したもの。変換の手順・元の重みの URL と SHA-256 は `tools/separation/README.md`（GPL §6 の対応するソース）。
   一覧の `license_url` からたどれるようにしておく。モデルの使い方を利用規約などで縛らない（§10）
 - `--license-url` は配布元のモデルページ。実際の URL は `tools/separation/README.md` の表と合わせること
 
