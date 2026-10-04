@@ -195,6 +195,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/song/SongInfo.cpp
     app/system/SystemCheck.cpp
     app/system/AppCache.cpp
+    app/system/Background.cpp
     app/update/UpdateCheck.cpp
     app/analysis/Align.cpp
     app/analysis/RefPitch.cpp
@@ -576,6 +577,7 @@ if(VOICEBOOTH_TESTS)
         tests/UpdateCheckTests.cpp
         tests/TakeCompareTests.cpp
         tests/PitchShiftTests.cpp
+        tests/BackgroundTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
