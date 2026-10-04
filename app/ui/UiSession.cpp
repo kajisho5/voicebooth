@@ -29,8 +29,9 @@ UiSession::UiSession() : s (dummy::makeSession()) {}
 
 void UiSession::notify (juce::uint32 changes)
 {
-    // プロジェクトに入るものが変わったら、少し待ってから自動保存（B14）
-    if ((changes & (change::takes | change::songInfo | change::recordFormat | change::tracks | change::practice)) != 0 && changes != change::all)
+    // プロジェクトに入るものが変わったら、少し待ってから自動保存（B14）。モニターの音量・範囲とループも入る（2026-10-04）
+    if ((changes & (change::takes | change::songInfo | change::recordFormat | change::tracks | change::practice | change::monitor | change::range)) != 0
+        && changes != change::all)
         markDirty();
     // 録ったトラックの再生（B12）：採用区間が変わったら作り直し、音量・M / S・録音中は今すぐ
     if (isEngineDriven())
@@ -55,6 +56,13 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     stopSeparation();    // 前の曲の分離は止める（B16）
     endTakeCompare (false);   // テイク比較の試聴中なら元の採用区間に戻す（B18c。範囲・ループも元へ）
     flushSave();         // 前の曲のプロジェクトを保存してから
+    // 開く途中のプロジェクトが、いま開く曲のものでなければ捨てる（読み込みをやめた・失敗した後に別の曲を開いた時、
+    // 前のプロジェクトのフォルダに別の曲を開いて上書きしていた。監査 2026-10-04）
+    if (pendingProject != nullptr
+        && ! juce::File (pendingProject->project.songPath).getFileName().equalsIgnoreCase (file.getFileName()))
+        clearPendingProject();
+    awaitingRestore = false;
+    timelineLocked = false;
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
     s.songRate = sampleRate;
@@ -76,6 +84,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     {
         s.projectFile = pendingProjectFile;
         s.projectFolder = pendingProjectFile.getParentDirectory();
+        awaitingRestore = true;   // 中身を戻すまでは保存しない（空のプロジェクトで上書きしないため）
     }
     else
     {
@@ -89,6 +98,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
             if (juce::File (l.project.songPath).getFileName() != file.getFileName() || std::abs (len - (double) lengthSamples) > 2.0)
                 return false;
             pendingProject = std::make_unique<project::LoadedProject> (std::move (l));
+            awaitingRestore = true;
             return true;
         };
         for (int n = 2; ; ++n)
@@ -147,6 +157,16 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         s.recordRate = ex.recordRate;
         s.recordFloat = ex.recordFloat;
         s.deviceFallbackRate = ex.deviceFallbackRate;
+        // テイクがあるプロジェクトは、保存した時の時間軸の SR のまま開く（テイクの位置と声の SR がその SR。
+        // 機器の SR や録音形式の変更で別の SR にそろえると、位置が 8.8% などずれたまま保存されていた。監査 2026-10-04）
+        const auto& lp = pendingProject->project;
+        const bool withTakes = std::any_of (lp.tracks.begin(), lp.tracks.end(), [] (const project::Track& tr) { return ! tr.takes.empty(); });
+        if (withTakes && lp.sampleRate > 0)
+        {
+            s.recordRate = lp.sampleRate == s.songRate ? 0.0 : (double) lp.sampleRate;
+            s.deviceFallbackRate = 0;
+            timelineLocked = true;
+        }
         s.project.bitDepthExport = ex.recordFloat ? 32 : 24;
         notify (change::recordFormat);
     }
@@ -160,13 +180,16 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
         restoreProject();
 
     estimateSongInfo();
-    markDirty();   // 新しい曲はすぐに .vbooth を作る
+    if (! s.projectFile.existsAsFile())
+        markDirty();   // 新しい曲はすぐに .vbooth を作る（続きから開いた時は、何か変えるまで書かない）
 }
 
 //==============================================================================
 void UiSession::markDirty()
 {
-    if (! isEngineDriven() || restoring)
+    // 出力の機器が閉じていても（抜けた・選んでいない）保存は止めない（監査 2026-10-04：録音中に機器が抜けると、
+    // できたテイクが .vbooth に入らず、次に開くと Recovered へ移っていた）。見本の画面（エンジンなし）では保存しない
+    if (engine == nullptr || restoring)
         return;
     dirty = true;
     dirtySince = juce::Time::getMillisecondCounter();
@@ -178,12 +201,19 @@ void UiSession::setPendingProject (const juce::File& vboothFile, const project::
     pendingProjectFile = vboothFile;
 }
 
+void UiSession::clearPendingProject()
+{
+    pendingProject.reset();
+    pendingProjectFile = juce::File();
+}
+
 void UiSession::restoreProject()
 {
     if (pendingProject == nullptr)
         return;
     const auto loaded = std::move (pendingProject);
     pendingProjectFile = juce::File();
+    awaitingRestore = false;
     const auto& lp = loaded->project;
     restoring = true;
 
@@ -240,8 +270,39 @@ void UiSession::restoreProject()
             }
     setPractice (loaded->extras.practiceTempo, loaded->extras.practiceKey);
 
+    // モニターの音量と M、作業の続き（2026-10-04。古いファイルには無い：既定のまま）
+    if (const auto& m = loaded->extras.monitor; m.has)
+    {
+        setBackingLevel (m.backing);
+        setBackingMuted (m.backingMute);
+        setGuideLevel (m.guide);
+        setGuideMuted (m.guideMute);
+        setHarmGuideLevel (m.harmony);
+        setHarmGuideMuted (m.harmonyMute);
+        setSelfMonitorLevel (m.self);
+        setMonitorReverb (m.reverb);
+    }
+    if (const auto& w = loaded->extras.work; w.has)
+    {
+        if (w.rangeIn >= 0 && w.rangeOut > w.rangeIn && w.rangeOut <= s.project.lengthSamples)
+            setRange (w.rangeIn, w.rangeOut);
+        setLoop (w.loop);
+        for (int i = 0; i < (int) s.trackUi.size(); ++i)
+            if (w.track == project::trackKey (s.trackUi[(size_t) i].type))
+                selectTrack (i);   // いまのモードで見えないトラックなら選ばない（selectTrack が見る）
+        setOctaveUp (w.octaveUp);
+        if (w.playhead > 0 && w.playhead < s.project.lengthSamples)
+            seek (w.playhead);
+    }
+
     if (lp.sampleRate != s.sampleRate())
+    {
         postNotice (tr ("project.rateChanged", formatKhz (lp.sampleRate), formatKhz (s.sampleRate())));
+        // テイクの位置は保存した時の SR のサンプル。そろえられなかった（伴奏の SR 変換に失敗した）まま保存すると、
+        // ずれた位置で上書きしてしまうので、この曲では保存しない（.vbooth は前のまま残る。監査 2026-10-04）
+        if (takes > 0)
+            awaitingRestore = true;
+    }
     else if (takes > 0)
         postNotice (tr ("project.resumed", takes));
     if (recoveredTakes > 0)
@@ -255,11 +316,16 @@ void UiSession::restoreProject()
 
     // お手本（声入りの原曲）はもう一度合わせ直す（結果は知らせで）。時間合わせと RMVPE の線は Cache/analysis/ に保存した結果を使うので数秒
     s.guideNudgeMs = loaded->extras.guideNudgeMs;   // お手本の位置の手直し（合わせ直した後に当てる）
+    // お手本の場所は、読めるかどうかに関係なく覚えておく（ファイルが見つからない・機器が閉じている時に、
+    // 次の保存でお手本の記録が消えていた。監査 2026-10-04）
+    s.guidePath = loaded->extras.guidePath;
     if (loaded->extras.guidePath.isNotEmpty())
     {
         const auto guide = project::findMedia (s.projectFolder, loaded->extras.guidePath, "Audio/Guide");
         if (guide.existsAsFile())
             loadGuide (guide);
+        else
+            postNotice (tr ("guide.missing", juce::File (loaded->extras.guidePath).getFileName()));
     }
 }
 
@@ -310,7 +376,11 @@ void UiSession::copyIntoProject (const juce::File& source, const juce::String& r
 
 void UiSession::saveProject()
 {
-    if (! isEngineDriven() || s.projectFile == juce::File() || s.songOriginal == nullptr || restoring)
+    if (engine == nullptr || s.projectFile == juce::File() || s.songOriginal == nullptr || restoring)
+        return;
+    // 続きから開くプロジェクトの中身（テイク・区間・歌詞・お手本）を戻す前は書かない。伴奏の SR をそろえている間に
+    // 曲を替える・終わると、空のプロジェクトで .vbooth を上書きし、次に開くとテイクが全部 Recovered へ移っていた（監査 2026-10-04）
+    if (awaitingRestore || s.conforming)
         return;
 
     project::ProjectExtras ex;
@@ -319,10 +389,33 @@ void UiSession::saveProject()
     ex.recordRate = s.recordRate;
     ex.recordFloat = s.recordFloat;
     ex.deviceFallbackRate = s.deviceFallbackRate;
+    // テイクがあれば、時間軸の SR をそのまま書く（録音形式の SR を「次の曲から」変えても、このプロジェクトは今の SR で開く。監査 2026-10-04）
+    if (hasTakes())
+    {
+        ex.recordRate = s.sampleRate() == s.songRate ? 0.0 : (double) s.sampleRate();
+        ex.deviceFallbackRate = 0;
+    }
     for (auto& tu : s.trackUi)   // 録ったトラックの音量・M・S（B12）と練習のテンポ・キー（B11）も覚える
         ex.trackMix.push_back ({ tu.type, tu.monitorGain, tu.mute, tu.solo });
     ex.practiceTempo = s.tempoPercent;
     ex.practiceKey = s.keyShift;
+    // モニターの音量と M、作業の続き（2026-10-04。それまでは開き直すと既定に戻っていた）
+    ex.monitor.has = true;
+    ex.monitor.backing = s.offVocalGain;
+    ex.monitor.backingMute = s.backingMuted;
+    ex.monitor.guide = s.mainGain;
+    ex.monitor.guideMute = s.guideMuted;
+    ex.monitor.harmony = s.harmonyGain;
+    ex.monitor.harmonyMute = s.guideHarmMuted;
+    ex.monitor.self = s.monitorGain;
+    ex.monitor.reverb = s.monitorReverb;
+    ex.work.has = true;
+    ex.work.rangeIn = s.hasRange() ? s.rangeIn : -1;
+    ex.work.rangeOut = s.hasRange() ? s.rangeOut : -1;
+    ex.work.loop = s.loopOn;
+    ex.work.track = project::trackKey (s.currentTrack().type);
+    ex.work.octaveUp = s.octaveUp;
+    ex.work.playhead = s.playhead;
 
     // 世代バックアップ：開いてから最初の保存と、その後 10 分ごとに、前の .vbooth を Backups/ へ（新しい 10 個を残す）
     const auto now = juce::Time::getMillisecondCounter();
@@ -330,10 +423,16 @@ void UiSession::saveProject()
     {
         const auto dir = s.projectFolder.getChildFile ("Backups");
         dir.createDirectory();
-        s.projectFile.copyFileTo (dir.getChildFile (s.projectFile.getFileNameWithoutExtension() + "-"
-                                                   + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + project::fileExtension));
         auto old = dir.findChildFiles (juce::File::findFiles, false, juce::String ("*") + project::fileExtension);
         std::sort (old.begin(), old.end(), [] (const juce::File& a, const juce::File& b) { return a.getFileName() > b.getFileName(); });
+        // いちばん新しいバックアップと同じ中身なら作らない（開くだけで 1 世代ずつ増え、意味のある古い世代が押し出されていた。監査 2026-10-04）
+        if (old.isEmpty() || ! old.getReference (0).hasIdenticalContentTo (s.projectFile))
+        {
+            const auto copy = dir.getChildFile (s.projectFile.getFileNameWithoutExtension() + "-"
+                                                + juce::Time::getCurrentTime().formatted ("%Y%m%d-%H%M%S") + project::fileExtension);
+            s.projectFile.copyFileTo (copy);
+            old.insert (0, copy);
+        }
         for (int i = 10; i < old.size(); ++i)
             old.getReference (i).deleteFile();
         lastBackupMs = now;
@@ -342,6 +441,7 @@ void UiSession::saveProject()
     // テイク比較の試聴中（B18c）は、選んでいない差し替えを書かない（確定している採用区間で保存する）
     auto committed = s.project;
     audition.restoreCommitted (committed);
+    savedPlayhead = s.playhead;
     if (! project::writeAtomically (s.projectFile, project::toJson (committed, ex)))
     {
         postNotice (tr ("project.saveFailed", s.projectFile.getFullPathName()));
@@ -364,7 +464,8 @@ void UiSession::saveProject()
 
 void UiSession::flushSave()
 {
-    if (dirty)
+    // 曲を替える・終わる時：変更があるか、再生位置が保存した時から動いていれば保存（再生位置は動かすたびには保存しない）
+    if (dirty || s.playhead != savedPlayhead)
         saveProject();
 }
 
@@ -392,6 +493,8 @@ void UiSession::estimateSongInfo()
     // テンポ・1 小節目・キーを裏で推定する（B9b）。結果は「推定」。手で入れた（確定の）値は上書きしない
     if (s.songOriginal == nullptr)
         return;
+    if (s.project.tempo.known() && s.project.key.known())
+        return;   // プロジェクトから両方戻せた（同じ曲を同じ計算で推定し直すだけになる）
     const auto audio = s.songOriginal;
     const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
@@ -446,8 +549,8 @@ void UiSession::checkDeviceRate()
     // REC で止めずに、機器の SR で録る（伴奏をその SR にそろえ、知らせる。元のファイルはそのまま。2026-10-02 決定）
     if (! isEngineDriven() || s.songOriginal == nullptr || s.conforming || s.isRecording || s.recordRate > 0.0)
         return;
-    if (! s.output.open || ! s.output.converting || hasTakes())
-        return;   // 開いていない・そのまま鳴らせる・テイクがある（時間軸を変えない）
+    if (! s.output.open || ! s.output.converting || hasTakes() || timelineLocked)
+        return;   // 開いていない・そのまま鳴らせる・テイクがある（時間軸を変えない。開く途中でまだ戻していないテイクも）
     const auto deviceRate = juce::roundToInt (s.output.sampleRate);
     if (deviceRate <= 0 || deviceRate == s.sampleRate())
         return;
@@ -521,6 +624,7 @@ void UiSession::conformSong()
             {
                 postNotice (tr ("format.conformFailed", formatKhz (target)));
                 notify (change::recordFormat);
+                restoreProject();   // 続きから開くプロジェクトは中身を戻す（SR が違ってテイクがあれば、保存はしない）
                 return;
             }
 
@@ -1131,6 +1235,9 @@ void UiSession::finishRecording()
     else if (punched)                               postNotice (tr ("record.donePunch", name, id, range, undoKeyName()));
     else                                            postNotice (tr ("record.done", name, id, range));
     notify (change::takes | change::tracks);
+    // 録ったテイクはすぐ .vbooth に入れる（1.5 秒待つ自動保存だと、すぐ次を録り始めた時にその録音が終わるまで入らず、
+    // 途中で落ちると位置の分からないテイクとして Recovered に移っていた。監査 2026-10-04）
+    saveProject();
 }
 
 void UiSession::loadTakeWave (project::TrackType type, const project::Take& take)
@@ -1141,8 +1248,9 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
     // 音程も取る（B18）：原速・原キーのテイクだけ（練習の速さで録った物は曲の時間に並ばない）
     const bool wantPitch = take.tempoPercent == 100 && take.keyShift == 0;
     const auto takeStart = take.startSample;
+    const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, file, key, wantPitch, takeStart]
+    juce::Thread::launch ([this, weak, file, key, wantPitch, takeStart, serial]
     {
         juce::AudioFormatManager formats;
         formats.registerBasicFormats();
@@ -1172,10 +1280,10 @@ void UiSession::loadTakeWave (project::TrackType type, const project::Take& take
                 analyzer.process (buf.getReadPointer (0), pos64.data(), n, *pitch);
             }
         }
-        juce::MessageManager::callAsync ([this, weak, key, wave, pitch]
+        juce::MessageManager::callAsync ([this, weak, key, wave, pitch, serial]
         {
-            if (weak.expired())
-                return;
+            if (weak.expired() || serial != s.songSerial)
+                return;   // 別の曲を開いた（同じ「main/take1」でも別の曲のテイク。監査 2026-10-04）
             s.takeWaves[key] = wave;
             if (pitch != nullptr)
             {
@@ -3545,7 +3653,7 @@ void UiSession::setShowLyrics (bool b)
 }
 
 void UiSession::setOctaveAlign (bool b) { s.octaveAlign = b; rejudgeAll(); notify (change::view); }
-void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; notify (change::view); }
+void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; markDirty(); notify (change::view); }   // プロジェクトに入る（2026-10-04）
 
 void UiSession::setFullRange (bool b)
 {

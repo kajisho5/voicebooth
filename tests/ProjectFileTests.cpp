@@ -114,6 +114,53 @@ public:
             expectEquals (back.project.tempo.signature.numerator, 6);
         }
 
+        beginTest ("monitor levels and mutes, range, loop, selected track, octave up and playhead come back (2026-10-04)");
+        {
+            Project p;
+            p.sampleRate = 48000;
+            p.lengthSamples = 48000 * 200;
+            ProjectExtras ex;
+            ex.monitor.has = true;
+            ex.monitor.backing = 0.6f;
+            ex.monitor.backingMute = true;
+            ex.monitor.guide = 0.3f;
+            ex.monitor.harmony = 0.9f;
+            ex.monitor.harmonyMute = true;
+            ex.monitor.self = 0.55f;
+            ex.monitor.reverb = 0.1f;
+            ex.work.has = true;
+            ex.work.rangeIn = 480000;
+            ex.work.rangeOut = 960000;
+            ex.work.loop = true;
+            ex.work.track = "harm1";
+            ex.work.octaveUp = true;
+            ex.work.playhead = 1234567;
+            const auto back = fromJson (toJson (p, ex));
+            expect (back.ok);
+            const auto& m = back.extras.monitor;
+            expect (m.has && m.backingMute && ! m.guideMute && m.harmonyMute);
+            expectWithinAbsoluteError (m.backing, 0.6f, 1e-6f);
+            expectWithinAbsoluteError (m.guide, 0.3f, 1e-6f);
+            expectWithinAbsoluteError (m.harmony, 0.9f, 1e-6f);
+            expectWithinAbsoluteError (m.self, 0.55f, 1e-6f);
+            expectWithinAbsoluteError (m.reverb, 0.1f, 1e-6f);
+            const auto& w = back.extras.work;
+            expect (w.has && w.loop && w.octaveUp);
+            expect (w.rangeIn == 480000 && w.rangeOut == 960000 && w.playhead == 1234567);
+            expectEquals (w.track, juce::String ("harm1"));
+
+            // 範囲なしは書かない（-1 のまま戻る）。古いファイル（項目なし）は has = false で既定のまま
+            ex.work.rangeIn = ex.work.rangeOut = -1;
+            const auto noRange = fromJson (toJson (p, ex));
+            expect (noRange.extras.work.rangeIn == -1 && noRange.extras.work.rangeOut == -1);
+            const auto old = fromJson ("{\"format\":\"voicebooth.project\"}");
+            expect (! old.extras.monitor.has && ! old.extras.work.has);
+            // 範囲の外の音量は 0..1 に収める
+            const auto wild = fromJson ("{\"format\":\"voicebooth.project\",\"monitor\":{\"backing\":7,\"self\":-2}}");
+            expectWithinAbsoluteError (wild.extras.monitor.backing, 1.0f, 1e-6f);
+            expectWithinAbsoluteError (wild.extras.monitor.self, 0.0f, 1e-6f);
+        }
+
         beginTest ("not a project, broken JSON and a newer format are refused with a reason");
         {
             expectEquals (fromJson ("{ nope").error, juce::String ("project.error.notProject"));

@@ -104,6 +104,36 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
         set (root, "practice", pr);
     }
 
+    if (extras.monitor.has)
+    {
+        auto round3 = [] (float v) { return std::round ((double) v * 1000.0) / 1000.0; };
+        auto mo = obj();
+        set (mo, "backing", round3 (extras.monitor.backing));
+        set (mo, "backing_mute", extras.monitor.backingMute);
+        set (mo, "guide", round3 (extras.monitor.guide));
+        set (mo, "guide_mute", extras.monitor.guideMute);
+        set (mo, "harmony", round3 (extras.monitor.harmony));
+        set (mo, "harmony_mute", extras.monitor.harmonyMute);
+        set (mo, "self", round3 (extras.monitor.self));
+        set (mo, "reverb", round3 (extras.monitor.reverb));
+        set (root, "monitor", mo);
+    }
+    if (extras.work.has)
+    {
+        auto w = obj();
+        if (extras.work.rangeOut > extras.work.rangeIn && extras.work.rangeIn >= 0)
+        {
+            set (w, "range_in", extras.work.rangeIn);
+            set (w, "range_out", extras.work.rangeOut);
+        }
+        set (w, "loop", extras.work.loop);
+        if (extras.work.track.isNotEmpty())
+            set (w, "track", extras.work.track);
+        set (w, "octave_up", extras.work.octaveUp);
+        set (w, "playhead", extras.work.playhead);
+        set (root, "work", w);
+    }
+
     if (p.key.known())
     {
         auto k = obj();
@@ -285,6 +315,31 @@ LoadedProject fromJson (const juce::String& text)
     {
         out.extras.practiceTempo = juce::jlimit (50, 150, getInt (pr, "tempo_percent", 100));
         out.extras.practiceKey = juce::jlimit (-6, 6, getInt (pr, "key_shift", 0));
+    }
+    if (const auto mo = root.getProperty ("monitor", var()); mo.isObject())
+    {
+        auto& m = out.extras.monitor;
+        auto fader = [&] (const char* key, float def) { return (float) juce::jlimit (0.0, 1.0, getDouble (mo, key, def)); };
+        m.has = true;
+        m.backing = fader ("backing", m.backing);
+        m.guide = fader ("guide", m.guide);
+        m.harmony = fader ("harmony", m.harmony);
+        m.self = fader ("self", m.self);
+        m.reverb = fader ("reverb", m.reverb);
+        m.backingMute = getBool (mo, "backing_mute");
+        m.guideMute = getBool (mo, "guide_mute");
+        m.harmonyMute = getBool (mo, "harmony_mute");
+    }
+    if (const auto w = root.getProperty ("work", var()); w.isObject())
+    {
+        auto& k = out.extras.work;
+        k.has = true;
+        k.rangeIn = getInt64 (w, "range_in", -1);
+        k.rangeOut = getInt64 (w, "range_out", -1);
+        k.loop = getBool (w, "loop");
+        k.track = getString (w, "track");
+        k.octaveUp = getBool (w, "octave_up");
+        k.playhead = juce::jmax ((juce::int64) 0, getInt64 (w, "playhead", 0));
     }
 
     if (const auto k = root.getProperty ("key_original", var()); k.isObject())

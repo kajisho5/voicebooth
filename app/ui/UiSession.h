@@ -224,6 +224,8 @@ public:
     // --- プロジェクトの保存・開く（B14。DESIGN 8） ---------------------------------
     /** 次に開く曲を、この .vbooth の続きとして開く（起動画面が曲を読み込む前に呼ぶ） */
     void setPendingProject (const juce::File& vboothFile, const project::LoadedProject&);
+    /** 開く途中のプロジェクトを捨てる（読み込みをやめた・失敗した時） */
+    void clearPendingProject();
     /** いま変更があれば保存する（終了時など）。自動保存は変更から 1.5 秒後 */
     void flushSave();
     /** アプリ設定との受け渡し（最近のプロジェクト） */
@@ -457,6 +459,9 @@ private:
     // 保存（B14）
     bool dirty = false, restoring = false;
     juce::uint32 dirtySince = 0, lastBackupMs = 0;
+    bool awaitingRestore = false;
+    bool timelineLocked = false;    // 開いたプロジェクトにテイクがある：時間軸の SR を保存した時のまま（機器の SR に合わせない）   // 続きから開くプロジェクトの中身をまだ戻していない（戻すまで保存しない）
+    int64 savedPlayhead = -1;   // 最後に保存した時の再生位置（曲を替える・終わる時に動いていれば保存する）
     std::unique_ptr<project::LoadedProject> pendingProject;   // 開く途中のプロジェクト（伴奏の SR をそろえてから戻す）
     juce::File pendingProjectFile;
 

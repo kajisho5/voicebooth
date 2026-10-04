@@ -90,6 +90,7 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     {
         if (phase == Phase::separating) { session.stopSeparation(); return; }   // 止まったら知らせが来て最初の画面へ
         loader.cancel();
+        session.clearPendingProject();   // 開くのをやめたプロジェクトを、次に開く別の曲に使わない
         setPhase (Phase::home);
     };
     anotherKey.withIcon (Icon::folder);
@@ -323,6 +324,7 @@ void StartScreen::loadFinished (audio::LoadResult r)
 
     if (! r.ok())
     {
+        session.clearPendingProject();
         setPhase (Phase::failed);
         return;
     }
