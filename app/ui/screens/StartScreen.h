@@ -40,6 +40,7 @@ public:
     void resized() override;
     void mouseUp (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override { repaint(); }   // ホバー
+    bool keyPressed (const juce::KeyPress&) override;   // 読み込みが終わったら Enter でメイン画面へ
 
     bool isInterestedInFileDrag (const juce::StringArray&) override;
     void fileDragEnter (const juce::StringArray&, int, int) override;

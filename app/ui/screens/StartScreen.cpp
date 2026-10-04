@@ -1,6 +1,7 @@
 #include "StartScreen.h"
 #include "../TopBar.h"
 #include "../parts/LedMeter.h"
+#include "../Animator.h"
 #include "project/ProjectFile.h"
 #include "separation/SeparatorClient.h"
 #include "models/ModelManifest.h"
@@ -34,6 +35,7 @@ namespace
     const char* const stepKeys[] = {
         "analyze.step.format",
         "analyze.step.separation",
+        "analyze.step.lead",       // リードとハモリの分け（メイン画面に移ってから。分かれて見えるように 1 行）
         "analyze.step.pitch",
         "analyze.step.tempo",
         "analyze.step.range",
@@ -78,6 +80,7 @@ StartScreen::StartScreen (UiSession& u, audio::SongLoader& l, bool isFirstRun)
     refreshRecents();
     addChildComponent (openFolder);
 
+    setWantsKeyboardFocus (true);   // 読み込みが終わったら Enter で進む
     continueKey.withLed (colours::signal).withToggle (false);
     continueKey.setToggleState (true, juce::dontSendNotification);
     continueKey.onClick = [this] { if (onDone) onDone(); };
@@ -125,6 +128,18 @@ void StartScreen::setPhase (Phase p)
     else                         stopTimer();
     resized();
     repaint();
+    if (phase == Phase::loaded && isShowing())
+        grabKeyboardFocus();   // Enter で［メイン画面へ進む］
+}
+
+bool StartScreen::keyPressed (const juce::KeyPress& k)
+{
+    if (phase == Phase::loaded && k == juce::KeyPress::returnKey && onDone != nullptr)
+    {
+        onDone();
+        return true;
+    }
+    return false;
 }
 
 void StartScreen::chooseFile (bool guide)
@@ -643,9 +658,11 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
                      : phase == Phase::loaded     ? tr ("analyze.titleDone", name)
                                                   : tr ("analyze.title", name);
     g.drawText (title, r.removeFromTop (30), juce::Justification::centredLeft, true);
-    g.setColour (colours::textDim);
-    g.setFont (sans (12.5f));
-    g.drawText (tr ("analyze.sub"), r.removeFromTop (24), juce::Justification::centredLeft, true);
+    // 終わったら、次に何をすればよいかを目立つ色で（［メイン画面へ進む］・Enter）
+    const bool ready = phase == Phase::loaded;
+    g.setColour (ready ? colours::signal : colours::textDim);
+    g.setFont (sans (ready ? 13.5f : 12.5f, ready ? Weight::medium : Weight::regular));
+    g.drawFittedText (tr (ready ? "analyze.subDone" : "analyze.sub"), r.removeFromTop (40), juce::Justification::topLeft, 2, 1.0f);
     if (fromOriginal)   // 分離した音の扱い（配ってよいか）を最初から一文で
     {
         g.setColour (colours::warn);
@@ -683,13 +700,22 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         g.setColour (c);
         g.setFont (mono (11.0f, Weight::medium));
         const auto eta = state().separationEta;
+        // 分離は「曲を読む → モデルを読む → 最初の部分を処理」まで進み具合も残り時間も届かない（数十秒）。
+        // その間は止まって見えないよう、経過時間と流れる棒を表示する
+        const bool preparing = sepRow && running && progress <= 0.0f && eta <= 0.0;
+        const auto startedMs = state().separationStartedMs;
+        const auto elapsed = startedMs > 0.0 ? (int) ((juce::Time::getMillisecondCounterHiRes() - startedMs) / 1000.0) : 0;
         // テンポ・キーは開いた後に裏で推定する（B9b）。お手本があれば、音程と分離（引き算で取れない時・リードとハモリ分け）も開いた後（B9 / B16）
         const bool withGuide = guideFile != juce::File() || guideAfterOpen;   // 分離（要る時・リードとハモリ分け）も開いた後
-        const bool later = (i == 3) || (i == 2 && (withGuide || fromOriginal)) || (i == 1 && withGuide);
-        const auto statusText = ! real ? tr (later ? "analyze.later" : "analyze.skip")
+        // 0 形式 / 1 分離 / 2 リード・ハモリ / 3 お手本ピッチ / 4 テンポ / 5 声域。リード・ハモリはリードのモデルがある時だけ（開いた後）
+        const bool leadLater = (withGuide || fromOriginal) && separation::SeparatorClient::karaokeInstalled();
+        const bool later = (i == 4) || (i == 3 && (withGuide || fromOriginal)) || (i == 2 && leadLater) || (i == 1 && withGuide);
+        const bool noLeadModel = i == 2 && (withGuide || fromOriginal) && ! leadLater;   // リードのモデルが無い：分けられない
+        const auto statusText = ! real ? tr (later ? "analyze.later" : (noLeadModel ? "analyze.noModel" : "analyze.skip"))
                               : waiting ? tr ("analyze.wait")
                               : failed ? tr ("analyze.failed")
                               : done   ? tr ("analyze.done")
+                              : preparing ? tr ("analyze.preparing", juce::String (elapsed / 60) + ":" + juce::String (elapsed % 60).paddedLeft ('0', 2))
                               : sepRow && eta > 0.0 ? tr ("analyze.eta", juce::roundToInt (progress * 100.0f), juce::jmax (1, juce::roundToInt (eta / 60.0)))
                                        : juce::String (juce::roundToInt (progress * 100.0f)) + "%";
         g.drawText (statusText, status, juce::Justification::centredRight, false);
@@ -712,7 +738,20 @@ void StartScreen::paintAnalyzing (juce::Graphics& g)
         }
 
         paint::inset (g, bar, 3.0f);
-        if (progress > 0.0f)
+        if (preparing)   // 終わりの分からない間：短い棒が左右に行き来する（動きを減らす設定では、薄い棒を全体に）
+        {
+            g.setColour (c.withAlpha (0.55f));
+            if (motion::prefersReducedMotion())
+                g.fillRoundedRectangle (bar, 3.0f);
+            else
+            {
+                const auto t = std::fmod (juce::Time::getMillisecondCounterHiRes() / 1600.0, 2.0);
+                const auto pos = (float) (t < 1.0 ? t : 2.0 - t);
+                const auto w = bar.getWidth() * 0.22f;
+                g.fillRoundedRectangle (bar.withWidth (w).withX (bar.getX() + (bar.getWidth() - w) * pos), 3.0f);
+            }
+        }
+        else if (progress > 0.0f)
         {
             g.setColour (c);
             g.fillRoundedRectangle (bar.withWidth (bar.getWidth() * progress), 3.0f);
