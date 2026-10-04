@@ -9,7 +9,7 @@
 
 namespace vb::test
 {
-class FakeEngine final : public audio::AudioEngine
+class FakeEngine : public audio::AudioEngine   // 遡及録音のテストで派生させる（SessionRecordTests）
 {
 public:
     void setSong (std::shared_ptr<const audio::SongAudio> a) override
@@ -23,10 +23,10 @@ public:
     void  play() override                          { playing = true; }
     void  stop() override                          { playing = false; }
     bool  isPlaying() const override               { return playing; }
-    void  seek (audio::int64 sample) override      { playhead = sample; }
+    void  seek (audio::int64 sample) override      { if (recording) recordedTo = juce::jmax (recordedTo, playhead); playhead = sample; }
     audio::int64 getPlayheadSample() const override { return playhead; }
     bool  consumeReachedEnd() override             { return false; }
-    void  setLoop (audio::int64, audio::int64, bool) override {}
+    void  setLoop (audio::int64, audio::int64, bool enabled) override { loopEnabled = enabled; if (enabled) ++loopEnables; }
     void  setVocalGain (int slot, float g) override { if (slot >= 0 && slot < 4) vocalGains[(size_t) slot] = g; }   // 0 = Main
 
     void setBackingLevel (float, bool) override {}
@@ -41,9 +41,59 @@ public:
         return o;
     }
 
+    // 入力はいつも開いている（録音のテスト用。音は無い）
+    audio::InputStatus getInputStatus() const override
+    {
+        audio::InputStatus i;
+        i.open = true;
+        i.problem = audio::InputProblem::none;
+        i.deviceName = "Fake input";
+        i.sampleRate = song != nullptr ? song->sampleRate : 48000.0;
+        i.bufferSize = 256;
+        return i;
+    }
+
+    // 録音の偽物：始めた位置を覚え、止めたら（今の位置 − 始めた位置）の長さの無音の WAV を書く
+    juce::String startRecording (const juce::File& f, bool, audio::int64) override
+    {
+        recordFile = f;
+        recordStart = playhead;
+        recordedTo = playhead;
+        recording = true;
+        ++recordingsStarted;
+        return {};
+    }
+    audio::RecordedTake stopRecording() override
+    {
+        audio::RecordedTake r;
+        if (! recording)
+            return r;
+        recording = false;
+        r.file = recordFile;
+        r.startSample = recordStart;
+        r.length = juce::jmax ((audio::int64) 0, juce::jmax (recordedTo, playhead) - recordStart);   // 録音中に戻っても、それまでに録った分
+        recordFile.getParentDirectory().createDirectory();
+        juce::AudioBuffer<float> b (1, (int) r.length);
+        b.clear();
+        std::unique_ptr<juce::OutputStream> out (recordFile.createOutputStream().release());
+        juce::WavAudioFormat wav;
+        if (auto w = wav.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (song != nullptr ? song->sampleRate : 48000.0)
+                                                                              .withNumChannels (1).withBitsPerSample (24)))
+            w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
+        return r;
+    }
+    bool isRecording() const override                    { return recording; }
+    audio::int64 recordingStartSample() const override   { return recording ? recordStart : -1; }
+
     std::shared_ptr<const audio::SongAudio> song;
     audio::int64 playhead = 0;
     bool playing = false;
+    bool recording = false;
+    audio::int64 recordStart = 0, recordedTo = 0;
+    bool loopEnabled = false;
+    int loopEnables = 0;   // エンジンのループを点けた回数（録音の周回の切れ目で点けない）
+    juce::File recordFile;
+    int recordingsStarted = 0;
     std::array<float, 4> vocalGains { -1.0f, -1.0f, -1.0f, -1.0f };
 };
 } // namespace vb::test
