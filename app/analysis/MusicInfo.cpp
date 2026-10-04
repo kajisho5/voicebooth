@@ -1,4 +1,5 @@
 #include "MusicInfo.h"
+#include "Decimate.h"
 #include "Align.h"
 #include "Fft.h"
 
@@ -136,7 +137,7 @@ std::vector<std::array<float, 12>> chromaFrames (const float* x, int64 length, d
     return out;
 }
 
-TempoEstimate estimateTempo (const float* x, int64 length, double sampleRate)
+static TempoEstimate estimateTempoAtRate (const float* x, int64 length, double sampleRate)
 {
     TempoEstimate r;
     if (x == nullptr || sampleRate <= 0.0)
@@ -296,7 +297,7 @@ TempoEstimate estimateTempo (const float* x, int64 length, double sampleRate)
     return r;
 }
 
-KeyEstimate estimateKey (const float* x, int64 length, double sampleRate)
+static KeyEstimate estimateKeyAtRate (const float* x, int64 length, double sampleRate)
 {
     KeyEstimate r;
     int hop = 1;
@@ -350,5 +351,26 @@ KeyEstimate estimateKey (const float* x, int64 length, double sampleRate)
         }
     r.confidence = (float) juce::jlimit (0.0, 1.0, (best - second) * 5.0);
     return r;
+}
+//==============================================================================
+// 高い SR の曲は 48 kHz 前後まで下げてから推定する（#21）。位置（1 小節目）は元の SR に戻す
+TempoEstimate estimateTempo (const float* x, int64 length, double sampleRate)
+{
+    const auto k = analysisFactor (sampleRate);
+    if (k <= 1)
+        return estimateTempoAtRate (x, length, sampleRate);
+    const auto d = decimate (x, length, k);
+    auto r = estimateTempoAtRate (d.data(), (int64) d.size(), sampleRate / k);
+    r.downbeatSample *= k;
+    return r;
+}
+
+KeyEstimate estimateKey (const float* x, int64 length, double sampleRate)
+{
+    const auto k = analysisFactor (sampleRate);
+    if (k <= 1)
+        return estimateKeyAtRate (x, length, sampleRate);
+    const auto d = decimate (x, length, k);
+    return estimateKeyAtRate (d.data(), (int64) d.size(), sampleRate / k);
 }
 } // namespace vb::analysis

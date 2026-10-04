@@ -1,4 +1,5 @@
 #include "UiSession.h"
+#include "system/Background.h"
 #include "audio/SongLoader.h"
 #include "audio/Resample.h"
 #include "analysis/MusicInfo.h"
@@ -513,7 +514,7 @@ void UiSession::estimateSongInfo()
     const auto audio = s.songOriginal;
     const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, audio, serial]
+    background::run ([this, weak, audio, serial]
     {
         const auto n = audio->buffer.getNumSamples(), ch = juce::jmax (1, audio->buffer.getNumChannels());
         std::vector<float> m ((size_t) n, 0.0f);
@@ -618,7 +619,7 @@ void UiSession::conformSong()
     const auto original = s.songOriginal;
     const auto serial = s.songSerial;
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, original, target, serial]
+    background::run ([this, weak, original, target, serial]
     {
         auto audio = audio::resampleSong (*original, (double) target);
         std::shared_ptr<audio::WaveformOverview> wave;
