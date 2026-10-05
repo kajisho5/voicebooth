@@ -266,13 +266,19 @@ static AlignResult alignReferenceAtRate (const float* ref, juce::int64 refLen, c
         const auto karEnd = s0 + n >= envK.size() ? karLen : (juce::int64) (s0 + n) * envHop;
 
         auto mapped = (long long) std::llround (r.referencePosition (karStart) / envHop);
+        // 原曲と重なるフレーム [lo, hi) だけで比べる。区間の一部が原曲の外（オフボの前奏が長い・後奏が長い）でも、
+        // 重なる部分が合えばその部分はお手本あり（前は区間ごと外れ、頭の数秒のお手本が消えた。バグチェック 2026-10-05）
+        const auto lo = juce::jlimit (0LL, (long long) n, -mapped);
+        const auto hi = juce::jlimit (lo, (long long) n, (long long) envR.size() - mapped);
         double corr = -1.0;
-        if (mapped >= 0 && (size_t) mapped + n <= envR.size())
-            corr = correlation (envK.data() + s0, envR.data() + mapped, n);
+        if (hi - lo >= 16 && hi - lo >= (long long) n / 3)
+            corr = correlation (envK.data() + s0 + (size_t) lo, envR.data() + mapped + lo, (size_t) (hi - lo));
 
         if (corr > 0.3)
         {
-            segs.push_back ({ karStart, karEnd, r.offsetSamples, r.tempoRatio });   // 全体の速さの比も持つ（2026-10-03）
+            const auto start = lo > 0 ? karStart + (juce::int64) lo * envHop : karStart;
+            const auto end = hi < (long long) n ? (juce::int64) (s0 + (size_t) hi) * envHop : karEnd;
+            segs.push_back ({ start, end, r.offsetSamples, r.tempoRatio });   // 全体の速さの比も持つ（2026-10-03）
             continue;
         }
 
@@ -281,7 +287,8 @@ static AlignResult alignReferenceAtRate (const float* ref, juce::int64 refLen, c
         {
             if (! segs.empty() && segs.back().karaokeEnd == karStart)
             {
-                const auto m = (long long) std::llround ((double) (karStart + segs.back().offsetSamples) / envHop);
+                // 直前の区間の速さの比も使う（offset だけだと、速さの違う曲で端がずれて見えた。バグチェック 2026-10-05）
+                const auto m = (long long) std::llround (segs.back().referencePosition (karStart) / envHop);
                 if (m >= 0 && (size_t) m + n <= envR.size() && correlation (envK.data() + s0, envR.data() + m, n) > 0.3)
                     segs.back().karaokeEnd = karEnd;
             }
@@ -310,9 +317,9 @@ static AlignResult alignReferenceAtRate (const float* ref, juce::int64 refLen, c
     // ずれの違う区間が隣り合う所（カットの継ぎ目）は、区間の幅（10 秒）ではなく包絡の刻み（約 12 ms）で境目を探す
     {
         const long long win = (long long) std::max (8.0, 1.0 * sampleRate / envHop);   // 約 1 秒の窓で合い方を見る
-        auto localMatch = [&] (long long frame, juce::int64 offset)
+        auto localMatch = [&] (long long frame, const Covered& seg)
         {
-            const auto m = (long long) std::llround ((double) ((juce::int64) frame * envHop + offset) / envHop);
+            const auto m = (long long) std::llround (seg.referencePosition ((juce::int64) frame * envHop) / envHop);   // 速さの比も使う
             if (frame < 0 || frame + win > (long long) envK.size() || m < 0 || m + win > (long long) envR.size())
                 return -1.0;
             return correlation (envK.data() + frame, envR.data() + m, (size_t) win);
@@ -326,7 +333,7 @@ static AlignResult alignReferenceAtRate (const float* ref, juce::int64 refLen, c
             const auto lo = (long long) (a.karaokeStart / envHop), hi = (long long) (b.karaokeEnd / envHop) - win;
             // 境目 f で「前は a のずれ、後は b のずれ」が一番よく合う所
             std::vector<double> ma, mb;
-            for (long long f = lo; f <= hi; ++f) { ma.push_back (localMatch (f, a.offsetSamples)); mb.push_back (localMatch (f, b.offsetSamples)); }
+            for (long long f = lo; f <= hi; ++f) { ma.push_back (localMatch (f, a)); mb.push_back (localMatch (f, b)); }
             if (ma.size() < 2) continue;
             std::vector<double> preA (ma.size() + 1, 0.0), sufB (mb.size() + 1, 0.0);
             for (size_t k = 0; k < ma.size(); ++k) preA[k + 1] = preA[k] + ma[k];
@@ -460,8 +467,41 @@ LocalLag localLag (const float* a, juce::int64 aLength, const float* b, juce::in
     return out;
 }
 //==============================================================================
-// 高い SR の曲は 48 kHz 前後まで下げてから合わせる（#21）。ずれ・区間は元の SR に戻す
-// （細かい合わせは下げた SR のサンプル単位になる：192 kHz で 4 サンプル＝0.02 ms。お手本の線は 10 ms ごとなので足りる）
+/** 下げた SR で求めたずれ（k サンプル単位）を、元の SR で ±k サンプルの中から詰め直す。
+    区間の中の 3 か所の窓で相関を足し、一番合うずれ。窓が取れなければそのまま */
+static juce::int64 refineOffset (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, const Covered& c, int k)
+{
+    constexpr juce::int64 win = 16384;
+    double best = -2.0;
+    auto bestOffset = c.offsetSamples;
+    for (int d = -k; d <= k; ++d)
+    {
+        auto shifted = c;
+        shifted.offsetSamples += d;
+        double xy = 0.0, xx = 0.0, yy = 0.0;
+        for (int p = 1; p <= 3; ++p)
+        {
+            const auto start = c.karaokeStart + (c.karaokeEnd - c.karaokeStart) * p / 4 - win / 2;
+            const auto refStart = (juce::int64) std::llround (shifted.referencePosition (start));
+            if (start < 0 || start + win > karLen || refStart < 0 || refStart + win > refLen)
+                continue;
+            for (juce::int64 i = 0; i < win; ++i)
+            {
+                const double x = kar[start + i], y = ref[refStart + i];
+                xy += x * y; xx += x * x; yy += y * y;
+            }
+        }
+        if (xx <= 1.0e-12 || yy <= 1.0e-12)
+            continue;
+        const auto score = xy / std::sqrt (xx * yy);
+        if (score > best) { best = score; bestOffset = shifted.offsetSamples; }
+    }
+    return bestOffset;
+}
+
+// 高い SR の曲は 48 kHz 前後まで下げてから合わせる（#21）。ずれ・区間は元の SR に戻す。
+// 下げた SR のずれは k サンプル単位なので、元の SR で詰め直す（原曲−オフボの引き算はサンプル単位で合っていないと
+// オフボの高い音が残る。バグチェック 2026-10-05）
 AlignResult alignReference (const float* ref, juce::int64 refLen, const float* kar, juce::int64 karLen, double sampleRate)
 {
     const auto k = analysisFactor (sampleRate);
@@ -470,11 +510,13 @@ AlignResult alignReference (const float* ref, juce::int64 refLen, const float* k
     const auto r = decimate (ref, refLen, k), q = decimate (kar, karLen, k);
     auto a = alignReferenceAtRate (r.data(), (juce::int64) r.size(), q.data(), (juce::int64) q.size(), sampleRate / k);
     a.offsetSamples *= k;
+    if (a.found())
+        a.offsetSamples = refineOffset (ref, refLen, kar, karLen, { 0, karLen, a.offsetSamples, a.tempoRatio }, k);
     for (auto& c : a.covered)
     {
         c.karaokeStart = juce::jmin (c.karaokeStart * k, karLen);
         c.karaokeEnd = juce::jmin (c.karaokeEnd * k, karLen);
-        c.offsetSamples *= k;
+        c.offsetSamples = refineOffset (ref, refLen, kar, karLen, { c.karaokeStart, c.karaokeEnd, c.offsetSamples * k, c.tempoRatio }, k);
     }
     return a;
 }

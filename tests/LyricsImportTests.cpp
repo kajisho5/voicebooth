@@ -137,6 +137,25 @@ public:
             expectEquals (doc.lines[4].text, doc.lines[2].text);
         }
 
+        beginTest ("lrc with headings: after sorting by time, each heading still points at a line of its own section");
+        {
+            const auto doc = parseLyrics (u8 (
+                "【Aメロ】\n"
+                "[00:10.00][00:50.00]夜の窓に 小さな灯り\n"
+                "[00:20.00]息をととのえて 待つ\n"
+                "【サビ】\n"
+                "[00:30.00]声を重ねて 遠くまで\n"));
+            expectEquals (doc.sections.size(), 2);
+            expectEquals (doc.lines.size(), 4);
+            for (int s = 0; s < doc.sections.size(); ++s)
+            {
+                const auto first = doc.sections[s].firstLine;
+                expect (first >= 0 && first < doc.lines.size() && doc.lines[first].section == s,
+                        doc.sections[s].name + " -> " + juce::String (first));
+            }
+            expectEquals (doc.lines[doc.sections[1].firstLine].text, u8 ("声を重ねて 遠くまで"));
+        }
+
         beginTest ("file: Shift_JIS txt on disk (path with spaces and Japanese)");
         {
             auto dir = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile (u8 ("vb 歌詞テスト"));

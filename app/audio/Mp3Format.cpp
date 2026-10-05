@@ -100,6 +100,10 @@ namespace
             }
 
             position = startSampleInFile + got;
+            // 途中でデコードできなくなった（SR・チャンネル数の変わる mp3、読み込みの失敗）：成功にしない
+            // （前は残りを無音のまま開き、後半が黙って無音になった。バグチェック 2026-10-05）
+            if (got < wanted && decoder->last_error != 0)
+                return false;
             return true;
         }
 

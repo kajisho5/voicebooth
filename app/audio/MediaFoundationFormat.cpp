@@ -117,7 +117,8 @@ namespace
                     ended = true;
             }
 
-            return true;
+            // 終わりではなく失敗で止まった：成功にしない（前は後半を無音のまま開いた。バグチェック 2026-10-05）
+            return ! failed;
         }
 
     private:
@@ -189,7 +190,7 @@ namespace
                 LONGLONG timestamp = 0;   // 使わない（位置はデコードした数で数える）
                 Com<IMFSample> sample;
                 if (FAILED (reader->ReadSample (audioStream, 0, nullptr, &flags, &timestamp, sample.put())))
-                    return false;
+                    return fail();
                 if ((flags & MF_SOURCE_READERF_ENDOFSTREAM) != 0 && ! sample)
                     return false;
                 if (! sample)
@@ -197,12 +198,12 @@ namespace
 
                 Com<IMFMediaBuffer> buffer;
                 if (FAILED (sample->ConvertToContiguousBuffer (buffer.put())))
-                    return false;
+                    return fail();
 
                 BYTE* data = nullptr;
                 DWORD bytes = 0;
                 if (FAILED (buffer->Lock (&data, nullptr, &bytes)))
-                    return false;
+                    return fail();
                 const auto* f = reinterpret_cast<const float*> (data);
                 pending.insert (pending.end(), f, f + bytes / sizeof (float));
                 buffer->Unlock();
@@ -228,6 +229,7 @@ namespace
             pending.clear();
             pendingStart = 0;
             ended = false;
+            failed = false;
         }
 
         HRESULT comResult = E_FAIL;
@@ -238,6 +240,8 @@ namespace
         std::vector<float> pending;       // インターリーブ
         juce::int64 pendingStart = 0;     // pending の先頭のサンプル位置
         bool ended = false;
+        bool failed = false;   // デコードに失敗した（ファイルの終わりとは別）
+        bool fail() { failed = true; return false; }
     };
 }
 

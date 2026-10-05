@@ -95,6 +95,8 @@ public:
     juce::PopupMenu helpMenu();
     /** メニューから画面を開いてよいか（録音中・ほかの画面を出しているときは開かない） */
     bool canOpenFromMenu() const;
+    /** モデルのダウンロードの確認を出してよいか（録音中・ほかの画面の途中は待つ） */
+    bool canShowModelOffer() const;
 
     // Mac のメニューバー（ヘルプのメニューだけ。Windows はウィンドウにメニューバーがないので ? キーから）
     juce::StringArray getMenuBarNames() override;

@@ -20,7 +20,7 @@ void StatusBar::onSessionChanged (juce::uint32 c)
         const auto& s = state();
         mini.setLevels (s.inputPeakDb, s.inputRmsDb, s.inputPeakHoldDb, s.inputClipped);
     }
-    if (c & (change::transport | change::view | change::practice | change::mode | change::device | change::song | change::meter))
+    if (c & (change::transport | change::view | change::practice | change::mode | change::device | change::song | change::meter | change::latency))
         repaint();
 
     // 新しいバージョンの知らせが出た：右から滑り込み、LED が 2 回点滅

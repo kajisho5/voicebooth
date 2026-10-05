@@ -101,7 +101,9 @@ public:
 
     void updateTitle()
     {
-        setName (tr ("app.name") + juce::String::fromUTF8 (" \xe2\x80\x94 ") + session->songName);
+        // 曲を開く前は見本の曲名を出さない（バグチェック 2026-10-05）
+        const bool hasSong = session->projectFile != juce::File() || ! session->engineAttached;
+        setName (hasSong ? tr ("app.name") + juce::String::fromUTF8 (" \xe2\x80\x94 ") + session->songName : tr ("app.name"));
     }
 
     /** ショートカットを受けられるようにする（表示されてから） */
@@ -323,10 +325,13 @@ public:
         if (session != nullptr)
         {
             session->closeForQuit();   // 録音中なら、そこまでをテイクとして入れてから保存（B14。監査 2026-10-03）
-            session->removeListener (this);
         }
+        // 画面を先に閉じてから聞くのをやめる（入力セットアップが閉じるときに確定する手入力の遅延などを、設定に書けるように。
+        // 前は聞くのをやめた後に閉じ、Enter を押さずに終了した値が消えていた。バグチェック 2026-10-05）
         window = nullptr;
         gallery = nullptr;
+        if (session != nullptr)
+            session->removeListener (this);
         if (session != nullptr)
             session->attachEngine (nullptr);
        #if ! VOICEBOOTH_UI_MOCK
@@ -362,8 +367,8 @@ private:
 
         if (changes & change::recordFormat)
         {
-            settings()->setValue ("recordRate", session->get().recordRate);
-            settings()->setValue ("recordFloat", session->get().recordFloat);
+            settings()->setValue ("recordRate", session->get().prefRecordRate);   // 開いたプロジェクトの SR は書かない
+            settings()->setValue ("recordFloat", session->get().prefRecordFloat);
             settings()->saveIfNeeded();
         }
 

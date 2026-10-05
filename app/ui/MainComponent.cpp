@@ -78,6 +78,13 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
         // 起動画面・ダイアログを閉じた後で、待っていた入力セットアップを出す（B13）
         juce::Component::SafePointer<MainComponent> safe (this);
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->maybeOpenSetup(); });
+        // 曲がないのに何も出ていなければ起動画面に戻す（何もない画面で止まらない。閉じた後に別の画面を開く流れを先に通すため、1 つ後で見る。
+        // バグチェック 2026-10-05）
+        juce::MessageManager::callAsync ([safe]
+        {
+            if (safe != nullptr)
+                juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openStartIfNoSong(); });
+        });
     };
     status.onUpdateClicked = [this] { openUpdate(); };
 
@@ -210,6 +217,8 @@ void MainComponent::timerCallback()
     if ((state().separationOfferSerial != state().separationOfferShown || state().leadOfferSerial != state().leadOfferShown)
         && ! overlay.isShowing() && ! state().isRecording)
         onSessionChanged (change::notice);
+    if (state().modelDl.dialogSerial != modelDialogSeen && canShowModelOffer())
+        onSessionChanged (change::notice);
 
     const auto now = juce::Time::getMillisecondCounterHiRes();
     const auto dt = juce::jlimit (0.0, 0.1, (now - lastTick) / 1000.0);
@@ -271,10 +280,15 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         const auto& m = state().modelDl;
         using DS = models::DownloadStatus::Stage;
         using MS = ModelDownloadDialog::Stage;
-        if (m.dialogSerial != modelDialogSeen)
+        if (m.dialogSerial != modelDialogSeen && canShowModelOffer())
         {
             modelDialogSeen = m.dialogSerial;
             openLiveModelDownload ((int) MS::confirm);
+        }
+        else if (m.dialogSerial != modelDialogSeen)
+        {
+            // ほかの画面・録音の途中：閉じるまで待つ（timerCallback で見直す。前は開いている画面を置き換え、
+            // 起動画面なら読み込み・分離が止まっていた。バグチェック 2026-10-05）
         }
         else if (modelStageShown != -2 && m.stage != modelStageShown)
         {
@@ -498,9 +512,12 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             confirm->onCloseRequest();
             return true;
         }
-        // 曲を開く前の起動画面は Esc で閉じない（閉じても使える画面が無い）
-        if (key == juce::KeyPress::escapeKey && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr))
-            overlay.close();
+        // 曲を開く前の起動画面と、初回のようこそ画面は Esc で閉じない（閉じても使える画面が無い・最初に選ぶもの）。
+        // ほかの画面は、その画面の「閉じる」と同じ道を通す（設定から開いた画面は設定へ戻る・ダウンロードの画面の後始末 など）
+        if (key == juce::KeyPress::escapeKey
+            && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr)
+            && dynamic_cast<WelcomeScreen*> (overlay.getContent()) == nullptr)
+            overlay.requestClose();
         return true;
     }
 
@@ -1113,6 +1130,20 @@ juce::PopupMenu MainComponent::helpMenu()
     return m;
 }
 
+bool MainComponent::canShowModelOffer() const
+{
+    // モデルのダウンロードの確認を出してよいか：録音中でなく、ほかの画面が無いか、置き換えてよい画面
+    // （何もしていない起動画面・ダウンロードの画面そのもの）のとき
+    if (state().isRecording)
+        return false;
+    auto* c = overlay.getContent();
+    if (c == nullptr || dynamic_cast<ModelDownloadDialog*> (c) != nullptr)
+        return true;
+    if (auto* start = dynamic_cast<StartScreen*> (c))
+        return ! start->isBusy();
+    return false;
+}
+
 bool MainComponent::canOpenFromMenu() const
 {
     // 録音中と、ほかの画面（起動画面・設定・確認など）を出しているときは開かない（F1・⌘ のキーと同じ。
@@ -1253,7 +1284,13 @@ void MainComponent::openLyrics (const juce::File& file)
     auto dlg = std::make_unique<LyricsDialog> (session);
     auto* raw = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onApplied = [this] (const juce::String& msg) { overlay.close(); session.setShowLyrics (true); notice (msg); };
+    dlg->onApplied = [this] (const juce::String& msg)
+    {
+        overlay.close();
+        if (! state().project.lyrics.empty())
+            session.setShowLyrics (true);   // 消したときは出さない（空のレーンが出て、設定にも残っていた。バグチェック 2026-10-05）
+        notice (msg);
+    };
     overlay.show (std::move (dlg), false);
     if (file != juce::File())
         raw->loadFile (file);

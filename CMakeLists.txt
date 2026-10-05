@@ -629,6 +629,7 @@ if(VOICEBOOTH_TESTS)
         tests/session/SessionRecordTests.cpp
         tests/session/HelpTests.cpp
         tests/session/ShortcutsTests.cpp
+        tests/session/BugCheckTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

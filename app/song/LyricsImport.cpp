@@ -417,6 +417,24 @@ LyricsDoc parseLyrics (const juce::String& text)
             keyed.push_back ({ l.hasTime() ? l.timeSeconds : last, i, l });
         }
         std::stable_sort (keyed.begin(), keyed.end(), [] (const Keyed& a, const Keyed& b) { return a.key < b.key; });
+        // 見出しの「次の行」を並べ替えた後の行番号に付け直す（前は並べ替える前の番号のままで、1 行に時刻が 2 つある lrc
+        // などで見出しが違う行に付き、区間が作られない・歌詞を保存すると構造が崩れた。バグチェック 2026-10-05）。
+        // その見出しに属する行のうち、並べ替えた後でいちばん前の行。属する行が無ければ、元の次の行の新しい位置
+        std::vector<int> newIndexOf ((size_t) doc.lines.size(), 0);
+        for (int i = 0; i < (int) keyed.size(); ++i)
+            newIndexOf[(size_t) keyed[(size_t) i].order] = i;
+        for (int sIdx = 0; sIdx < doc.sections.size(); ++sIdx)
+        {
+            int first = -1;
+            for (int i = 0; i < (int) keyed.size() && first < 0; ++i)
+                if (keyed[(size_t) i].line.section == sIdx)
+                    first = i;
+            auto& sec = doc.sections.getReference (sIdx);
+            if (first >= 0)
+                sec.firstLine = first;
+            else if (sec.firstLine < (int) newIndexOf.size())
+                sec.firstLine = newIndexOf[(size_t) sec.firstLine];
+        }
         doc.lines.clearQuick();
         for (auto& k : keyed)
             doc.lines.add (k.line);
