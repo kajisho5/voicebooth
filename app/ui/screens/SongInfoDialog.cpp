@@ -294,19 +294,26 @@ void SongInfoDialog::tap()
 
 bool SongInfoDialog::keyPressed (const juce::KeyPress& key)
 {
-    // パネルを開いたままでも：Space 再生 / 一時停止、T タップ、M 区間の頭
-    const auto c = juce::CharacterFunctions::toLowerCase (key.getTextCharacter());
+    // パネルを開いたままでも：Space 再生 / 一時停止、タップ、区間の頭（キーは設定の割り当てどおり。#28。バグチェック 2026-10-05）
     if (key == juce::KeyPress::spaceKey)
     {
         session.setPlaying (! state().isPlaying);
         return true;
     }
-    if (c == 't')
+    if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown())
+        return false;
+    const auto& map = state().shortcuts;
+    auto typed = juce::CharacterFunctions::toLowerCase (key.getTextCharacter());
+    // Alt / Option と一緒だと別の文字になる（Mac の Option+M は µ）：キーの場所で見る（メイン画面と同じ）
+    if (! map.actionFor (typed) && key.getModifiers().isAltDown())
+        typed = juce::CharacterFunctions::toLowerCase ((juce::juce_wchar) key.getKeyCode());
+    const auto action = map.actionFor (typed);
+    if (action == shortcuts::Action::tapTempo)
     {
         tap();
         return true;
     }
-    if (c == 'm')
+    if (action == shortcuts::Action::addSection)
     {
         addSectionKey.flash();
         session.addSectionAtPlayhead (! key.getModifiers().isAltDown());

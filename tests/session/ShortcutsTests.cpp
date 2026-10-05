@@ -1,4 +1,5 @@
 #include "ui/screens/ShortcutsDialog.h"
+#include "ui/screens/SongInfoDialog.h"
 #include "session/SessionTestUtil.h"
 
 /*  1 文字のショートカットを変える（#28）：割り当て表・保存の文字列・設定の画面でのキー入力 */
@@ -112,6 +113,30 @@ public:
 
             ui.resetShortcuts();
             expect (ui.get().shortcuts.isDefault());
+        }
+
+        // 曲の情報のパネルを開いている間も、割り当てたキーで動く（前は T / M の決め打ち。バグチェック 2026-10-05）
+        beginTest ("the song info panel follows the assigned keys");
+        {
+            UiSession ui;
+            Actions actions;
+            ui.setShortcut (Action::tapTempo, 'y');
+            SongInfoDialog dlg (ui, actions);
+            const auto before = ui.tapCount();
+            expect (dlg.keyPressed (juce::KeyPress ('y', 0, 'y')), "the new key taps");
+            expectEquals (ui.tapCount(), before + 1);
+            expect (! dlg.keyPressed (juce::KeyPress ('t', 0, 't')), "the old key does nothing");
+            expectEquals (ui.tapCount(), before + 1);
+            ui.resetShortcuts();
+        }
+
+        // 曲を開き直しても、お手本の線の番号は戻さない（音符・おすすめのキーのキャッシュの鍵。バグチェック 2026-10-05）
+        beginTest ("opening another song keeps counting the guide line number");
+        {
+            dummy::Session prev;
+            prev.refPitchSerial = 5;
+            const auto next = dummy::makeSongSession (prev, "song", "/song.wav", 48000, 48000, nullptr);
+            expect (next.refPitchSerial > prev.refPitchSerial);
         }
     }
 };
