@@ -111,4 +111,6 @@ private:
 
 /** 取りに行く URL（10 件。下書きは返ってこない） */
 inline constexpr const char* releasesUrl = "https://api.github.com/repos/kajisho5/voicebooth/releases?per_page=10";
+/** いちばん新しい正式版（ベータ・下書きは返ってこない）。正式版の人だけ、上の 10 件に足す */
+inline constexpr const char* latestReleaseUrl = "https://api.github.com/repos/kajisho5/voicebooth/releases/latest";
 } // namespace vb::update

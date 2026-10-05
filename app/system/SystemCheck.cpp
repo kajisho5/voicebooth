@@ -31,7 +31,13 @@ Info gather (const juce::File& disk)
 
     auto dir = disk;
     while (dir != juce::File() && ! dir.exists())
-        dir = dir.getParentDirectory();
+    {
+        // ないドライブ（Windows の「X:」）は親も自分なので、そこで止める（前は止まらず、設定画面を開くと固まった。バグチェック 2026-10-05）
+        const auto parent = dir.getParentDirectory();
+        if (parent == dir)
+            break;
+        dir = parent;
+    }
     if (dir.exists())
         i.freeDiskMB = dir.getBytesFreeOnVolume() / (1024 * 1024);
     return i;

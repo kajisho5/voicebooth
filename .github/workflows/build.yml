@@ -22,10 +22,12 @@ on:
 permissions:
   contents: read
 
-# 同じブランチに新しく push したら、前の実行は止める（Mac のユニバーサル版は 30 分以上かかるため）
+# PR のブランチに新しく push したら、前の実行は止める（Mac のユニバーサルのビルドは 30 分以上かかるため）。
+# main では止めずに順番に待つ（止めると、バージョンを上げたマージのリリースが次のマージの中身で作られた・作られなかった。
+# バグチェック 2026-10-05）
 concurrency:
   group: build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # 出すリリースのタグを決める（無ければ空 = ビルドとテストだけ）

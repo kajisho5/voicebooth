@@ -78,7 +78,12 @@ bool TakeRecorder::fileHolds (const juce::File& f, juce::int64 samples)
         return false;   // ファイルが無い・開けない
     juce::WavAudioFormat wav;
     std::unique_ptr<juce::AudioFormatReader> reader (wav.createReaderFor (stream.release(), true));
-    return reader != nullptr && reader->lengthInSamples >= samples;
+    if (reader == nullptr || reader->lengthInSamples < samples)
+        return false;
+    // 頭の長さは最後に書くので、閉じるときの最後の書き込み（最大 16 KB）が失敗しても長さは足りて見える。
+    // ファイルの大きさでも確かめる（バグチェック 2026-10-05）
+    const auto bytesPerFrame = (juce::int64) reader->numChannels * (juce::int64) (reader->bitsPerSample / 8);
+    return f.getSize() >= samples * bytesPerFrame;
 }
 
 TakeRecorder::Result TakeRecorder::finish()

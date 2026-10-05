@@ -376,12 +376,11 @@ bool Checker::start (const juce::String& current, bool includePre, const juce::S
 
 void Checker::run()
 {
-    int status = 0;
-    juce::String body;
+    // 送るのはこの GET だけ（正式版の人はもう 1 つ）。短く待って、だめなら諦める（起動を遅らせない・次の起動でまた確かめる）。
+    // WebInputStream は 403 / 429 でも本文を読めるので、回数の上限か別の失敗かを見分けられる
+    auto fetch = [this] (const char* url, int& status, juce::String& body)
     {
-        // 送るのはこの GET だけ。短く待って、だめなら諦める（起動を遅らせない・次の起動でまた確かめる）。
-        // WebInputStream は 403 / 429 でも本文を読めるので、回数の上限か別の失敗かを見分けられる
-        juce::WebInputStream in (juce::URL (releasesUrl), false);
+        juce::WebInputStream in (juce::URL (url), false);
         in.withExtraHeaders ("User-Agent: VoiceBooth\r\nAccept: application/vnd.github+json")
           .withConnectionTimeout (8000)
           .withNumRedirectsToFollow (3);
@@ -400,7 +399,31 @@ void Checker::run()
         }
         const juce::ScopedLock sl (lock);
         stream = nullptr;
+    };
+
+    int status = 0;
+    juce::String body;
+    fetch (releasesUrl, status, body);
+
+    // 正式版の人：直近 10 件が全部ベータだと、正式版が一覧に入らず「最新です」になっていた。
+    // いちばん新しい正式版（/releases/latest）も足す（バグチェック 2026-10-05）
+    if (! includePrerelease && status == 200 && ! threadShouldExit())
+    {
+        int latestStatus = 0;
+        juce::String latestBody;
+        fetch (latestReleaseUrl, latestStatus, latestBody);
+        if (latestStatus == 200)
+        {
+            auto list = juce::JSON::parse (body);
+            const auto latest = juce::JSON::parse (latestBody);
+            if (list.isArray() && latest.isObject())
+            {
+                list.append (latest);
+                body = juce::JSON::toString (list, true);
+            }
+        }
     }
+
     if (threadShouldExit())
         return;
 

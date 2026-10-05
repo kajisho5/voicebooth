@@ -180,9 +180,17 @@ void OverlayHost::paint (juce::Graphics& g)
         juce::DropShadow (colours::shadow (0.55f), 28, { 0, 8 }).drawForRectangle (g, content->getBoundsInParent());   // 暗くしない代わりに影で浮かせる
 }
 
+void OverlayHost::requestClose()
+{
+    if (auto* d = dynamic_cast<DialogPanel*> (content.get()); d != nullptr && d->onCloseRequest)
+        d->onCloseRequest();
+    else
+        close();
+}
+
 void OverlayHost::mouseDown (const juce::MouseEvent& e)
 {
     if (dismissible && content != nullptr && ! content->getBoundsInParent().contains (e.getPosition()))
-        close();
+        requestClose();
 }
 } // namespace vb

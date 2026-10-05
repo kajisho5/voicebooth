@@ -200,26 +200,53 @@ std::vector<Vibrato> vibratos (const std::vector<audio::PitchFrame>& take, doubl
         for (auto& f : take)
             if (f.songSample >= n.start && f.songSample <= n.end && voiced (f))
                 p.push_back (f.midi * 100.0f);
-        const int half = 7;   // 移動平均 ±70 ms（150 ms）
-        if ((int) p.size() < 2 * half + 20)
+        // 移動平均を引いて揺れだけにし、ゼロをまたぐ回数で速さ、二乗平均で深さ。
+        // 移動平均の幅が揺れの 1 周期と違うと、揺れの一部が平均に残って深さが速さで変わる（150 ms 固定では 4 Hz で約半分、
+        // 8 Hz で約 1.16 倍。バグチェック 2026-10-05）。1 回目の速さから、幅を 1 周期にして測り直す
+        auto measure = [&p] (int half, float& rate, float& depth)
+        {
+            if ((int) p.size() < 2 * half + 20)
+                return false;
+            std::vector<float> d;
+            for (int i = half; i + half < (int) p.size(); ++i)
+            {
+                float m = 0.0f;
+                for (int k = -half; k <= half; ++k) m += p[(size_t) (i + k)];
+                d.push_back (p[(size_t) i] - m / (float) (2 * half + 1));
+            }
+            // 速さは最初と最後にゼロをまたいだ位置の間で数える（全体の長さで割ると、端の半周期の分だけ低く出て、
+            // 4 Hz のビブラートが 3.7 Hz ほどになり検出されなかった。バグチェック 2026-10-05）
+            int crossings = 0;
+            double sq = 0.0, firstCross = -1.0, lastCross = -1.0;
+            for (size_t i = 0; i < d.size(); ++i)
+            {
+                sq += (double) d[i] * d[i];
+                if (i > 0 && ((d[i - 1] < 0.0f) != (d[i] < 0.0f)))
+                {
+                    // またいだ位置を線形補間で
+                    const auto at = (double) (i - 1) + (double) d[i - 1] / ((double) d[i - 1] - (double) d[i]);
+                    if (crossings == 0) firstCross = at;
+                    lastCross = at;
+                    ++crossings;
+                }
+            }
+            rate = crossings >= 3 ? (float) ((crossings - 1) / 2.0 / ((lastCross - firstCross) * 0.01)) : 0.0f;
+            depth = (float) (std::sqrt (sq / (double) d.size()) * std::sqrt (2.0));   // 正弦波なら振幅（片側のセント）
+            return true;
+        };
+        float rate = 0.0f, depth = 0.0f;
+        if (! measure (7, rate, depth))   // 1 回目：±70 ms（150 ms）
             continue;
-        std::vector<float> d;
-        for (int i = half; i + half < (int) p.size(); ++i)
+        if (rate >= 3.0f && rate <= 10.0f)
         {
-            float m = 0.0f;
-            for (int k = -half; k <= half; ++k) m += p[(size_t) (i + k)];
-            d.push_back (p[(size_t) i] - m / (2 * half + 1));
+            const auto half = juce::jmax (2, (int) std::lround (100.0 / rate / 2.0));   // 幅 2*half+1 ≒ 1 周期（10 ms ごと）
+            float r2 = 0.0f, d2 = 0.0f;
+            if (measure (half, r2, d2))
+            {
+                rate = r2;
+                depth = d2;
+            }
         }
-        int crossings = 0;
-        double sq = 0.0;
-        for (size_t i = 0; i < d.size(); ++i)
-        {
-            sq += (double) d[i] * d[i];
-            if (i > 0 && ((d[i - 1] < 0.0f) != (d[i] < 0.0f))) ++crossings;
-        }
-        const auto seconds = d.size() * 0.01;
-        const auto rate = (float) (crossings / 2.0 / seconds);
-        const auto depth = (float) (std::sqrt (sq / d.size()) * std::sqrt (2.0));   // 正弦波なら振幅（片側のセント）
         if (rate >= 4.0f && rate <= 8.0f && depth >= 15.0f)
             out.push_back ({ n.start, n.end, rate, depth });
     }

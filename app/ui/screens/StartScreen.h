@@ -35,6 +35,8 @@ public:
     /** 原曲だけ（B16。DESIGN 7.1.1）：原曲を分離してオフボを作り、それを開いて原曲をお手本に重ねる */
     /** confirmed：見込み時間の確認が済んでいる（onConfirmOriginal が無ければ確認せずに始める） */
     void startFromOriginal (const juce::File& original, bool confirmed = false);
+    /** 読み込み・分離の途中（この画面を閉じると止まる） */
+    bool isBusy() const { return phase == Phase::loading || phase == Phase::separating; }
     /** お手本（声入りの原曲）の枠に入れる（読むのはオフボを開いた後） */
     void setGuide (const juce::File&);
     /** お手本は開いた後に重ねる（--open と --guide を一緒に渡した時）。解析の「お手本ピッチ」を「開いた後」と出す */

@@ -250,6 +250,21 @@ TextEncoding detectEncoding (const void* data, size_t size)
     if (size >= 3 && p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF) return TextEncoding::utf8Bom;
     if (size >= 2 && p[0] == 0xFF && p[1] == 0xFE)                  return TextEncoding::utf16le;
     if (size >= 2 && p[0] == 0xFE && p[1] == 0xFF)                  return TextEncoding::utf16be;
+    // BOM の無い UTF-16：ふつうの文章に 0 のバイトは無い。0 が奇数番目に偏っていれば LE、偶数番目なら BE
+    // （改行・空白・英数字の上の桁が 0 になる。前は UTF-8 と判定し、最初の 0 で文字列が終わって 1 文字になった。バグチェック 2026-10-05）
+    {
+        size_t zeroEven = 0, zeroOdd = 0;
+        const auto n = std::min (size, (size_t) 8192) & ~(size_t) 1;
+        for (size_t i = 0; i < n; ++i)
+            if (p[i] == 0)
+                ++((i & 1) != 0 ? zeroOdd : zeroEven);
+        const auto pairs = n / 2;
+        if (pairs >= 2 && zeroOdd + zeroEven >= std::max ((size_t) 1, pairs / 50))
+        {
+            if (zeroOdd >= 9 * zeroEven)  return TextEncoding::utf16le;
+            if (zeroEven >= 9 * zeroOdd)  return TextEncoding::utf16be;
+        }
+    }
     if (isValidUtf8 (p, size))                                      return TextEncoding::utf8;      // ASCII だけもここ
     if (isValidShiftJis (p, size))                                  return TextEncoding::shiftJis;
     return TextEncoding::utf8;   // どれでもなければ UTF-8 として読み、壊れた所は U+FFFD
@@ -261,8 +276,9 @@ juce::String decodeText (const void* data, size_t size, TextEncoding e)
     switch (e)
     {
         case TextEncoding::utf8Bom:  return size >= 3 ? decodeUtf8 (p + 3, size - 3) : juce::String();
-        case TextEncoding::utf16le:  return size >= 2 ? decodeUtf16 (p + 2, size - 2, false) : juce::String();
-        case TextEncoding::utf16be:  return size >= 2 ? decodeUtf16 (p + 2, size - 2, true) : juce::String();
+        // BOM は有るときだけ飛ばす（BOM の無い UTF-16 もある）
+        case TextEncoding::utf16le:  { const auto skip = size >= 2 && p[0] == 0xFF && p[1] == 0xFE ? 2u : 0u; return decodeUtf16 (p + skip, size - skip, false); }
+        case TextEncoding::utf16be:  { const auto skip = size >= 2 && p[0] == 0xFE && p[1] == 0xFF ? 2u : 0u; return decodeUtf16 (p + skip, size - skip, true); }
         case TextEncoding::shiftJis: return decodeShiftJis (p, size);
         case TextEncoding::utf8:     break;
     }
@@ -417,6 +433,24 @@ LyricsDoc parseLyrics (const juce::String& text)
             keyed.push_back ({ l.hasTime() ? l.timeSeconds : last, i, l });
         }
         std::stable_sort (keyed.begin(), keyed.end(), [] (const Keyed& a, const Keyed& b) { return a.key < b.key; });
+        // 見出しの「次の行」を並べ替えた後の行番号に付け直す（前は並べ替える前の番号のままで、1 行に時刻が 2 つある lrc
+        // などで見出しが違う行に付き、区間が作られない・歌詞を保存すると構造が崩れた。バグチェック 2026-10-05）。
+        // その見出しに属する行のうち、並べ替えた後でいちばん前の行。属する行が無ければ、元の次の行の新しい位置
+        std::vector<int> newIndexOf ((size_t) doc.lines.size(), 0);
+        for (int i = 0; i < (int) keyed.size(); ++i)
+            newIndexOf[(size_t) keyed[(size_t) i].order] = i;
+        for (int sIdx = 0; sIdx < doc.sections.size(); ++sIdx)
+        {
+            int first = -1;
+            for (int i = 0; i < (int) keyed.size() && first < 0; ++i)
+                if (keyed[(size_t) i].line.section == sIdx)
+                    first = i;
+            auto& sec = doc.sections.getReference (sIdx);
+            if (first >= 0)
+                sec.firstLine = first;
+            else if (sec.firstLine < (int) newIndexOf.size())
+                sec.firstLine = newIndexOf[(size_t) sec.firstLine];
+        }
         doc.lines.clearQuick();
         for (auto& k : keyed)
             doc.lines.add (k.line);
