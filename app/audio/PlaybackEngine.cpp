@@ -371,6 +371,9 @@ juce::String PlaybackEngine::setInputDevice (const juce::String& name)
     wantedChannel = 0;                       // 別の機器は L から
     setup.inputChannels = inputChannelMask (0);
     inputError = applySetup (setup);
+    // 新しい入力機器も曲の SR に（前のマイクの都合で別の SR のまま残り、REC が断られ続けた。バグチェック 2026-10-05）
+    if (inputError.isEmpty() && songRate > 0.0)
+        matchDeviceRateToSong (songRate);
     return inputError;
 }
 

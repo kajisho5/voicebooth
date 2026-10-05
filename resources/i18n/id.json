@@ -408,6 +408,7 @@
   "project.error.newer": "Proyek ini dibuat dengan VoiceBooth yang lebih baru ({0}). Perbarui dulu, lalu buka",
   "project.error.notProject": "Ini bukan proyek VoiceBooth: {0}",
   "project.error.songMissing": "File lagu proyek tidak ditemukan ({0}). Pastikan folder Audio ikut dipindahkan",
+  "project.missingTakeFiles": "{0} file take yang dipakai tidak ditemukan. Trek tersebut tidak akan diputar dan tidak bisa diekspor (periksa folder Audio/Takes)",
   "project.outsideTakes": "{0} take yang mengarah ke luar folder proyek tidak dimuat",
   "project.rateChanged": "Take direkam di {0} kHz tetapi timeline kini {1} kHz. Take dengan rate berbeda tidak bisa diekspor; kembalikan format rekam atau periksa perangkat",
   "project.rateChangedNotSaved": "Terakhir direkam di {0} kHz, tetapi tidak bisa disesuaikan dari {1} kHz. Posisi take akan bergeser, jadi perubahan proyek ini tidak disimpan dan merekam tidak bisa. Kosongkan memori lalu buka lagi",

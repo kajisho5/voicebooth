@@ -46,6 +46,8 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     };
     actions.openVoiceRange = [this]
     {
+        if (state().isRecording)
+            return;   // 録音中は開かない（バグチェック 2026-10-05）
         auto dlg = std::make_unique<RangeDialog> (session);
         dlg->onCloseRequest = [this] { overlay.close(); };
         overlay.show (std::move (dlg));
@@ -412,6 +414,8 @@ void MainComponent::resized()
     pitch.setBounds (r);
 
     overlay.setBounds (getLocalBounds());
+    if (toastLayer.isVisible())
+        layoutToastLayer();   // キー付きの知らせも付いてくる（前は古い位置に残った。バグチェック 2026-10-05）
 }
 
 void MainComponent::paint (juce::Graphics& g)
@@ -460,16 +464,20 @@ juce::Rectangle<float> MainComponent::toastBox() const
     return juce::Rectangle<float> (w, h).withCentre ({ (float) canvasArea.getCentreX(), (float) canvasArea.getBottom() - 90.0f });
 }
 
+void MainComponent::layoutToastLayer()
+{
+    const auto area = toastBox().getSmallestIntegerContainer();
+    toastLayer.setBounds (area);
+    toastKey.setBounds (juce::Rectangle<int> (toastKey.idealWidth(), area.getHeight() - 14)
+                            .withPosition (area.getWidth() - toastKey.idealWidth() - 8, 7));
+}
+
 void MainComponent::showToast (const juce::String& text, const juce::String& actionLabel, std::function<void()> action)
 {
     toastText = text;
     toastAction = std::move (action);
     toastKey.setButtonText (actionLabel);
-    const auto box = toastBox();
-    const auto area = box.getSmallestIntegerContainer();
-    toastLayer.setBounds (area);
-    toastKey.setBounds (juce::Rectangle<int> (toastKey.idealWidth(), area.getHeight() - 14)
-                            .withPosition (area.getWidth() - toastKey.idealWidth() - 8, 7));
+    layoutToastLayer();
     toastKey.setVisible (true);
     toastLayer.setVisible (true);
     toastLayer.toFront (false);
@@ -553,8 +561,14 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         }
     }
 
+    // 押し続けたときの自動リピートは受けない（REC・再生が 1 秒に何十回も切り替わり、短いテイクで採用区間が置き換わった。
+    // 区間・タップも何度も入った。バグチェック 2026-10-05）。離すと keyStateChanged で戻す
+    const bool repeated = key.getKeyCode() == heldKey;
     if (key == juce::KeyPress::spaceKey)
     {
+        if (repeated)
+            return true;
+        heldKey = key.getKeyCode();
         transport.playKey().flash();
         session.setPlaying (! s.isPlaying);
         return true;
@@ -568,6 +582,9 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             typed = juce::CharacterFunctions::toLowerCase ((juce::juce_wchar) key.getKeyCode());
         if (const auto action = s.shortcuts.actionFor (typed))
         {
+            if (repeated)
+                return true;
+            heldKey = key.getKeyCode();
             runShortcut (*action, key);
             return true;
         }
@@ -580,6 +597,13 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             confirmDiscardRecording();
         return true;
     }
+    return false;
+}
+
+bool MainComponent::keyStateChanged (bool)
+{
+    if (heldKey != 0 && ! juce::KeyPress::isKeyCurrentlyDown (heldKey))
+        heldKey = 0;
     return false;
 }
 
@@ -932,6 +956,8 @@ void MainComponent::maybeOpenSetup()
 
 void MainComponent::openSetup (int step)
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<SetupWizard> (session, step);
     dlg->onCloseRequest = [this] { overlay.close(); };
     overlay.show (std::move (dlg), true);
@@ -939,6 +965,8 @@ void MainComponent::openSetup (int step)
 
 void MainComponent::openExport()
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<ExportDialog> (session);
     auto* d = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };
@@ -982,6 +1010,8 @@ void MainComponent::openExport()
 
 void MainComponent::openSettings()
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     std::vector<skin::Skin> skins = hooks.skins != nullptr ? hooks.skins->all() : skin::builtInSkins();
     auto dlg = std::make_unique<SettingsDialog> (session, std::move (skins), hooks.currentSkin ? hooks.currentSkin() : juce::String ("booth"));
     dlg->onCloseRequest = [this] { overlay.close(); };
@@ -1273,6 +1303,8 @@ void MainComponent::openSkinEditor (const skin::Skin* fromTemplate)
 
 void MainComponent::openSongInfo()
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<SongInfoDialog> (session, actions);
     dlg->onCloseRequest = [this] { overlay.close(); };
     // 右に出す（背景を暗くしない：ルーラー・BAR.BEAT が変わるのを見ながら直す）
@@ -1281,6 +1313,8 @@ void MainComponent::openSongInfo()
 
 void MainComponent::openLyrics (const juce::File& file)
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<LyricsDialog> (session);
     auto* raw = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };

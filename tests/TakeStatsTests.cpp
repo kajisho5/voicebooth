@@ -137,9 +137,9 @@ public:
             expect (vibratos (frames (melody), rate).empty());   // まっすぐな音には無い
         }
 
-        beginTest ("vibrato depth does not depend on its rate (5 Hz and 8 Hz, 40 cents)");
+        beginTest ("vibrato depth does not depend on its rate (4, 5 and 7.5 Hz, 40 cents)");
         {
-            for (auto hz : { 5.0f, 8.0f })
+            for (auto hz : { 4.0f, 5.0f, 7.5f })
             {
                 const auto v = vibratos (frames ({ { 1000, 2000, 67 } }, 0.0, 0.0f, hz, 40.0f), rate);
                 expectEquals ((int) v.size(), 1, juce::String (hz) + " Hz");

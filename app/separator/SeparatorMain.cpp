@@ -34,6 +34,7 @@
 #include "analysis/Rmvpe.h"
 #include <atomic>
 #include <limits>
+#include <stdexcept>
 #include <iostream>
 #include <thread>
 #if JUCE_WINDOWS
@@ -169,6 +170,9 @@ public:
         const char* outEst[] = { "est" };
         Ort::Value inputs[] = { std::move (x[0]), std::move (specTensor) };
         auto out = sessions.back().Run (Ort::RunOptions{ nullptr }, inHead, inputs, 2, outEst, 1);
+        // 出力の大きさを確かめてから読む（別のモデルを指したとき、範囲の外を読んで落ちた。バグチェック 2026-10-05）
+        if (out[0].GetTensorTypeAndShapeInfo().GetElementCount() < spec.size())
+            throw std::runtime_error ("the model output has an unexpected size");
         const auto* p = out[0].GetTensorData<float>();
         est.assign (p, p + spec.size());
         return ! stopRequested.load();
@@ -248,6 +252,8 @@ int runPitch (const juce::File& modelFile, const juce::File& in, const juce::Fil
             auto output = session->Run (Ort::RunOptions{ nullptr }, inName, &input, 1, outName, 1);
             const auto* p = output[0].GetTensorData<float>();   // [1, padded, 360]
             const int e = juce::jmin (frames, s + rm::chunkFrames);
+            if (output[0].GetTensorTypeAndShapeInfo().GetElementCount() < (size_t) (e - a) * (size_t) rm::bins)
+                return fail ("pitch failed: the model output has an unexpected size");   // 範囲の外を読まない（バグチェック 2026-10-05）
             for (int t = s; t < e; ++t)
                 rm::decodeFrame (p + (size_t) (t - a) * rm::bins, result[(size_t) t].cents, result[(size_t) t].strength);
         }

@@ -250,6 +250,21 @@ TextEncoding detectEncoding (const void* data, size_t size)
     if (size >= 3 && p[0] == 0xEF && p[1] == 0xBB && p[2] == 0xBF) return TextEncoding::utf8Bom;
     if (size >= 2 && p[0] == 0xFF && p[1] == 0xFE)                  return TextEncoding::utf16le;
     if (size >= 2 && p[0] == 0xFE && p[1] == 0xFF)                  return TextEncoding::utf16be;
+    // BOM の無い UTF-16：ふつうの文章に 0 のバイトは無い。0 が奇数番目に偏っていれば LE、偶数番目なら BE
+    // （改行・空白・英数字の上の桁が 0 になる。前は UTF-8 と判定し、最初の 0 で文字列が終わって 1 文字になった。バグチェック 2026-10-05）
+    {
+        size_t zeroEven = 0, zeroOdd = 0;
+        const auto n = std::min (size, (size_t) 8192) & ~(size_t) 1;
+        for (size_t i = 0; i < n; ++i)
+            if (p[i] == 0)
+                ++((i & 1) != 0 ? zeroOdd : zeroEven);
+        const auto pairs = n / 2;
+        if (pairs >= 2 && zeroOdd + zeroEven >= std::max ((size_t) 1, pairs / 50))
+        {
+            if (zeroOdd >= 9 * zeroEven)  return TextEncoding::utf16le;
+            if (zeroEven >= 9 * zeroOdd)  return TextEncoding::utf16be;
+        }
+    }
     if (isValidUtf8 (p, size))                                      return TextEncoding::utf8;      // ASCII だけもここ
     if (isValidShiftJis (p, size))                                  return TextEncoding::shiftJis;
     return TextEncoding::utf8;   // どれでもなければ UTF-8 として読み、壊れた所は U+FFFD
@@ -261,8 +276,9 @@ juce::String decodeText (const void* data, size_t size, TextEncoding e)
     switch (e)
     {
         case TextEncoding::utf8Bom:  return size >= 3 ? decodeUtf8 (p + 3, size - 3) : juce::String();
-        case TextEncoding::utf16le:  return size >= 2 ? decodeUtf16 (p + 2, size - 2, false) : juce::String();
-        case TextEncoding::utf16be:  return size >= 2 ? decodeUtf16 (p + 2, size - 2, true) : juce::String();
+        // BOM は有るときだけ飛ばす（BOM の無い UTF-16 もある）
+        case TextEncoding::utf16le:  { const auto skip = size >= 2 && p[0] == 0xFF && p[1] == 0xFE ? 2u : 0u; return decodeUtf16 (p + skip, size - skip, false); }
+        case TextEncoding::utf16be:  { const auto skip = size >= 2 && p[0] == 0xFE && p[1] == 0xFF ? 2u : 0u; return decodeUtf16 (p + skip, size - skip, true); }
         case TextEncoding::shiftJis: return decodeShiftJis (p, size);
         case TextEncoding::utf8:     break;
     }

@@ -147,6 +147,30 @@ public:
             expectEquals (c.l (3), 111.0f);
         }
 
+        beginTest ("playing from after the loop range just plays on (no jumps back into the range)");
+        {
+            // 前は毎サンプル範囲の長さずつ戻り、プチプチ鳴りながら範囲の途中へ飛んだ（バグチェック 2026-10-05）
+            PlaybackCore core;
+            core.setSong (rampSong (1, 1000, 48000.0));
+            core.prepare (48000.0);
+            core.setLoop (100, 110, true);
+            core.seek (300);
+            core.play();
+            auto b = render (core, 8);
+            for (int i = 0; i < 8; ++i)
+                expectEquals (b.l (i), (float) (300 + i));
+
+            PlaybackCore practice;
+            practice.setSong (toneSong (440.0, 2.0, 48000.0));
+            practice.prepare (48000.0);
+            practice.setPractice (1.25, 0);
+            practice.setLoop (4800, 9600, true);
+            practice.seek (48000);
+            practice.play();
+            play (practice, 4800);
+            expect (practice.getPosition() > 48000, "practice too: " + juce::String (practice.getPosition()));
+        }
+
         beginTest ("stops at the end and reports it once");
         {
             PlaybackCore core;

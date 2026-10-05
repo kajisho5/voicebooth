@@ -69,6 +69,7 @@ public:
     void paintOverChildren (juce::Graphics&) override;
     void resized() override;
     bool keyPressed (const juce::KeyPress&) override;
+    bool keyStateChanged (bool isKeyDown) override;
 
     /** 曲ファイルをメイン画面にドロップ → 起動画面で読み込む（B1） */
     bool isInterestedInFileDrag (const juce::StringArray&) override;
@@ -142,6 +143,7 @@ private:
     /** 曲の情報のショートカット（T / M / Enter / ↑ ↓ / Delete / Backspace / Esc。B4b）。扱ったら true */
     void runShortcut (shortcuts::Action, const juce::KeyPress&);   // 1 文字のショートカット（#28）
     bool songInfoKey (const juce::KeyPress&);
+    void layoutToastLayer();   // キー付きの知らせの部品を今の画面の大きさに合わせる
     void tapTempo();
     /** 知らせ（録音中は出さない。DESIGN 4.10.1 TS） */
     void notice (const juce::String&);
@@ -163,6 +165,7 @@ private:
     juce::Rectangle<int> canvasArea;
     double lastTick = 0.0;
     bool clockFrozen = false;   // スクリーンショット用（--rec）
+    int heldKey = 0;            // 押したままのキー（自動リピートを受けない。離すと 0）
     int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
     void maybeOpenSetup();      // 初めての機器なら入力セットアップを開く（B13）
     int modelDialogSeen = 0;       // 分離モデルのダウンロード画面を開いた回数（B16）

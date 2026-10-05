@@ -25,6 +25,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     s.canUndoTake = false;   // 前の曲のテイクの採用を、次の曲のプロジェクトで戻さない
     leadSplitAgreed = false; // ハモリ分けの了承（agreeLeadSplit）は、そのあと読むお手本の分だけ
     flushSave();         // 前の曲のプロジェクトを保存してから
+    saveFailed = false;  // 前の曲の保存の失敗を持ち越さない（次の曲で保存できなくても知らせが出なかった。バグチェック 2026-10-05）
     // 開く途中のプロジェクトが、いま開く曲のものでなければ捨てる（読み込みをやめた・失敗した後に別の曲を開いた時、
     // 前のプロジェクトのフォルダに別の曲を開いて上書きしていた。監査 2026-10-04）
     if (pendingProject != nullptr)
@@ -85,12 +86,16 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
             awaitingRestore = true;
             return true;
         };
-        for (int n = 2; ; ++n)
+        // 前の名前の付け方のフォルダに同じ曲のプロジェクトがあれば、それを続きから開く
+        if (const auto legacy = legacyProjectFolderFor (s.songName); legacy != folder)
+            if (const auto f = legacy.getChildFile (legacy.getFileName() + project::fileExtension); f.existsAsFile() && sameSong (f))
+                folder = legacy;
+        for (int n = 2; n < 10000; ++n)
         {
             const auto f = folder.getChildFile (folder.getFileName() + project::fileExtension);
             if (! f.exists() || sameSong (f))
                 break;
-            folder = projectFolderFor (s.songName + " (" + juce::String (n) + ")");
+            folder = projectFolderFor (s.songName, n);
         }
         s.projectFolder = folder;
         s.projectFile = folder.getChildFile (folder.getFileName() + project::fileExtension);
@@ -210,7 +215,7 @@ void UiSession::restoreProject()
     restoring = true;
 
     // テイク・採用区間（ファイルはプロジェクトフォルダ相対）。フォルダの外を指すテイク（../・絶対パス）は使わない（#17）
-    int takes = 0, outside = 0;
+    int takes = 0, outside = 0, missing = 0;
     for (auto t : lp.tracks)
     {
         juce::StringArray dropped;
@@ -225,6 +230,23 @@ void UiSession::restoreProject()
         t.comp.erase (std::remove_if (t.comp.begin(), t.comp.end(), [&] (const project::CompSegment& c) { return dropped.contains (c.takeId); }),
                       t.comp.end());
         outside += dropped.size();
+        // 壊れた・手で直した .vbooth：無いテイクを指す区間・長さのない区間は捨て、重なりは前の区間を優先して詰める
+        // （前はそのまま使い、トラック全体が鳴らない・書き出せない、重なった所が二重に鳴った。バグチェック 2026-10-05）
+        t.comp.erase (std::remove_if (t.comp.begin(), t.comp.end(), [&] (const project::CompSegment& c)
+                      {
+                          return c.endSample <= c.startSample
+                              || std::none_of (t.takes.begin(), t.takes.end(), [&] (const project::Take& k) { return k.id == c.takeId; });
+                      }),
+                      t.comp.end());
+        std::stable_sort (t.comp.begin(), t.comp.end(), [] (const project::CompSegment& a, const project::CompSegment& b) { return a.startSample < b.startSample; });
+        for (size_t i = 1; i < t.comp.size();)
+        {
+            t.comp[i].startSample = std::max (t.comp[i].startSample, t.comp[i - 1].endSample);
+            if (t.comp[i].endSample <= t.comp[i].startSample)
+                t.comp.erase (t.comp.begin() + (long) i);
+            else
+                ++i;
+        }
 
         auto* mine = const_cast<project::Track*> (s.project.findTrack (t.type));
         if (mine == nullptr)
@@ -239,10 +261,14 @@ void UiSession::restoreProject()
             ++takes;
             if (s.projectFolder.getChildFile (k.path).existsAsFile())
                 loadTakeWave (t.type, k);
+            else if (std::any_of (t.comp.begin(), t.comp.end(), [&] (const project::CompSegment& c) { return c.takeId == k.id; }))
+                ++missing;   // 採用しているテイクのファイルが無い：そのトラックは鳴らず、書き出せない（黙っていた。バグチェック 2026-10-05）
         }
     }
     if (outside > 0)
         postNotice (tr ("project.outsideTakes", outside));
+    if (missing > 0)
+        postNotice (tr ("project.missingTakeFiles", missing));
 
     // 曲の情報（推定のままの値も戻す。あとから届く自動推定は確定した値を上書きしない）。
     // 保存した時と時間軸の SR が違えば（テイクのないプロジェクトで、録音形式の SR が変わった等）、位置を今の SR に直してから戻す
@@ -493,6 +519,9 @@ void UiSession::closeForQuit()
         setRecording (false);
     else
         finishRecording();   // 裏録り（B7）だけなら消す
+    // テイクの比較中なら元の採用区間・範囲・ループに戻してから保存する（比べた範囲と「ループ入り」が保存されていた。
+    // バグチェック 2026-10-05）
+    endTakeCompare (false);
     flushSave();
     // 分離の途中なら止めて、作業ファイル（入力の写し 約 85 MB など）を消す。止めた知らせはもう届かない
     // （アプリ共通のキャッシュに残っていた。バグチェック 2026-10-05）
@@ -702,10 +731,35 @@ void UiSession::conformSong()
     });
 }
 
-juce::File UiSession::projectFolderFor (const juce::String& songName)
+static juce::File projectsRoot()
 {
-    const auto name = juce::File::createLegalFileName (songName.isNotEmpty() ? songName : juce::String ("Untitled"));
-    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory)
-               .getChildFile ("VoiceBooth").getChildFile ("Projects").getChildFile (name);
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("VoiceBooth").getChildFile ("Projects");
+}
+
+juce::File UiSession::legacyProjectFolderFor (const juce::String& songName)
+{
+    // 2026-10-05 より前の名前の付け方（長い名前のプロジェクトを続きから開くため）
+    return projectsRoot().getChildFile (juce::File::createLegalFileName (songName.isNotEmpty() ? songName : juce::String ("Untitled")));
+}
+
+juce::File UiSession::projectFolderFor (const juce::String& songName, int number)
+{
+    // 使えない文字を外した後で空・点だけなら Untitled（前は Projects フォルダそのもの・その上を使った）。
+    // 長い名前は切る（.vbooth の一時ファイル・書き出しの名前を足すとファイル名やパスの上限を超え、保存できなかった）。
+    // 番号は切った後に付ける（前は 128 文字で番号ごと切られて、どの番号も同じフォルダになり、開くと固まった。バグチェック 2026-10-05）
+    auto name = juce::File::createLegalFileName (songName).trim();
+    if (name.isEmpty() || name.containsOnly (". "))   // 「.」「..」と、Windows で末尾の点が消えて空になる「...」
+        name = "Untitled";
+    constexpr int maxChars = 80, maxBytes = 160;
+    if (name.length() > maxChars || (int) name.getNumBytesAsUTF8() > maxBytes)
+    {
+        name = name.substring (0, maxChars);
+        while (name.isNotEmpty() && (int) name.getNumBytesAsUTF8() > maxBytes)
+            name = name.dropLastCharacters (1);
+        name = name.trimEnd();
+    }
+    if (number > 1)
+        name << " (" << number << ")";
+    return projectsRoot().getChildFile (name);
 }
 } // namespace vb

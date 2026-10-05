@@ -408,6 +408,7 @@
   "project.error.newer": "Dự án này được tạo bằng VoiceBooth mới hơn ({0}). Hãy cập nhật rồi mở lại",
   "project.error.notProject": "Đây không phải dự án VoiceBooth: {0}",
   "project.error.songMissing": "Không tìm thấy file bài hát của dự án ({0}). Hãy kiểm tra thư mục Audio đã được chuyển theo chưa",
+  "project.missingTakeFiles": "Không tìm thấy {0} tệp bản thu đang dùng. Track đó sẽ không phát và không xuất được (hãy kiểm tra thư mục Audio/Takes)",
   "project.outsideTakes": "Đã bỏ qua {0} bản thu trỏ ra ngoài thư mục dự án",
   "project.rateChanged": "Các bản thu được ghi ở {0} kHz nhưng dòng thời gian giờ là {1} kHz. Bản thu khác tần số không xuất được; hãy đặt lại định dạng thu hoặc kiểm tra thiết bị",
   "project.rateChangedNotSaved": "Lần trước thu ở {0} kHz nhưng không thể chỉnh lại từ {1} kHz. Vị trí các lượt thu sẽ lệch, nên không lưu thay đổi của dự án này và không thể thu. Hãy giải phóng bộ nhớ rồi mở lại",

@@ -152,6 +152,9 @@ void UiSession::removeSection (int index)
 {
     if (! juce::isPositiveAndBelow (index, (int) s.project.sections.size()))
         return;
+    // 歌詞の見出しから作った区間：その見出しはもう区間にしない
+    if (const auto h = s.project.sections[(size_t) index].heading; juce::isPositiveAndBelow (h, (int) s.project.lyrics.headings.size()))
+        s.project.lyrics.headings[(size_t) h].noSection = true;
     song::removeSection (s.project.sections, index);
     s.selectedSection = -1;
     songInfoChanged();
@@ -191,6 +194,18 @@ void UiSession::loopSection (int index)
 void UiSession::setLyrics (song::Lyrics lyrics)
 {
     song::updateLineEnds (lyrics, s.project.lengthSamples, s.sampleRate());
+    // 歌詞を替える・直す：消した見出し（同じ名前・同じ行）は消したまま。見出しが変わったら、区間と前の見出しの番号のつながりは切る
+    // （前の番号が新しい見出しの番号をふさいで区間が作られなかった。バグチェック 2026-10-05）
+    for (auto& h : lyrics.headings)
+        for (auto& old : s.project.lyrics.headings)
+            if (old.noSection && old.name == h.name && old.firstLine == h.firstLine)
+                h.noSection = true;
+    const bool sameHeadings = std::equal (lyrics.headings.begin(), lyrics.headings.end(),
+                                          s.project.lyrics.headings.begin(), s.project.lyrics.headings.end(),
+                                          [] (const song::Heading& a, const song::Heading& b) { return a.name == b.name && a.firstLine == b.firstLine; });
+    if (! sameHeadings)
+        for (auto& sec : s.project.sections)
+            sec.heading = -1;
     s.project.lyrics = std::move (lyrics);
     s.lyricSyncing = false;
     s.lyricCursor = 0;
@@ -201,6 +216,8 @@ void UiSession::setLyrics (song::Lyrics lyrics)
 void UiSession::clearLyrics()
 {
     s.project.lyrics = {};
+    for (auto& sec : s.project.sections)
+        sec.heading = -1;   // 区間は残す。見出しとのつながりだけ切る
     s.lyricSyncing = false;
     s.lyricCursor = 0;
     songInfoChanged (change::playhead);
