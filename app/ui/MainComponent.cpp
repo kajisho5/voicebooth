@@ -1,6 +1,7 @@
 #include "MainComponent.h"
 #include "screens/StartScreen.h"
 #include "screens/AboutDialog.h"
+#include "screens/HelpDialog.h"
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
 #include "screens/SettingsDialog.h"
@@ -30,6 +31,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openSetup    = [this] { openSetup(); };
     actions.openExport   = [this] { openExport(); };
     actions.openSettings = [this] { openSettings(); };
+    actions.openHelp = [this] { openHelp(); };
     actions.openVoiceRange = [this]
     {
         auto dlg = std::make_unique<RangeDialog> (session);
@@ -133,6 +135,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
     if (o.screen == "about")        openAbout();
+    if (o.screen == "help")         openHelp();
     if (o.screen == "range" && actions.openVoiceRange) actions.openVoiceRange();
     if (o.screen == "skin-templates") openSkinTemplates();
     if (o.screen == "skin-editor" || o.screen == "skin-editor-borrow")
@@ -459,6 +462,13 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     const auto c = key.getTextCharacter();
     const auto& s = state();
 
+    // F1：困ったときのヘルプ（録音中は開かない）
+    if (key.getKeyCode() == juce::KeyPress::F1Key)
+    {
+        if (! s.isRecording)
+            openHelp();
+        return true;
+    }
     // Ctrl / ⌘+Z：直前のテイクを採用から外す（B10）
     if (key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0))
     {
@@ -940,6 +950,32 @@ void MainComponent::openSettings()
         // 設定を閉じてから一覧を見に行く（確かめたらダウンロードの確認を出す。B16）
         overlay.close();
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->session.requestSeparationModel(); });
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openHelp()
+{
+    // 困ったときのヘルプ（2026-10-04）。項目から移る先を押したら、ヘルプを閉じてその画面を開く
+    auto dlg = std::make_unique<HelpDialog> (session);
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onAction = [this, safe] (help::Action a)
+    {
+        overlay.close();
+        juce::MessageManager::callAsync ([safe, a]
+        {
+            if (safe == nullptr)
+                return;
+            switch (a)
+            {
+                case help::Action::openSetup:      safe->openSetup (0); break;
+                case help::Action::openLatency:    safe->openSetup (2); break;   // 遅延の測定の手順から
+                case help::Action::downloadModels: safe->session.requestSeparationModel(); break;
+                case help::Action::openIssues:     juce::URL ("https://github.com/kajisho5/voicebooth/issues").launchInDefaultBrowser(); break;
+                case help::Action::none:           break;
+            }
+        });
     };
     overlay.show (std::move (dlg), true);
 }
