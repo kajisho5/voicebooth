@@ -3069,6 +3069,7 @@ void UiSession::clearShortcut (shortcuts::Action a) { s.shortcuts.clear (a); not
 void UiSession::resetShortcuts()                    { s.shortcuts = shortcuts::Map::defaults(); notify (change::prefs); }
 
 void UiSession::setOctaveUp (bool b)    { s.octaveUp = b; markDirty(); notify (change::view); }   // プロジェクトに入る（2026-10-04）
+void UiSession::setThirdGuide (int g)   { s.thirdGuide = juce::jlimit (0, 2, g); markDirty(); notify (change::view); }   // プロジェクトに入る（#30）
 
 void UiSession::setFullRange (bool b)
 {

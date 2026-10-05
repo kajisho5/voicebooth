@@ -73,6 +73,7 @@ struct Session
     double crossfadeMs = 8.0;             // テイクの継ぎ目のクロスフェード（DESIGN 6.4。書き出し・試聴の両方。設定に保存）
     bool showLyrics = false;              // 歌詞レーン（7.5.3）を出す。既定は出さない（2026-10-02 ユーザー決定：あまり使わない）
     bool octaveUp = false;                // 自分の声を 1 オクターブ上げて重ねる
+    int thirdGuide = 0;                   // 3 度ガイド（ハモリのトラック。0 = なし・1 = 3 度上・2 = 3 度下。プロジェクトに入る。#30）
     bool fullRange = false;
     int lowMidi = 48, highMidi = 84;      // C3–C6
     float pitchToleranceCents = 30.0f;    // 緑の範囲（設定 20/30/50、既定 30）。黄は ±50 まで（50 のときは ±70。pitchWarnLimitCents）
