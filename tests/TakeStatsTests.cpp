@@ -136,6 +136,20 @@ public:
             }
             expect (vibratos (frames (melody), rate).empty());   // まっすぐな音には無い
         }
+
+        beginTest ("vibrato depth does not depend on its rate (4, 5 and 7.5 Hz, 40 cents)");
+        {
+            for (auto hz : { 4.0f, 5.0f, 7.5f })
+            {
+                const auto v = vibratos (frames ({ { 1000, 2000, 67 } }, 0.0, 0.0f, hz, 40.0f), rate);
+                expectEquals ((int) v.size(), 1, juce::String (hz) + " Hz");
+                if (! v.empty())
+                {
+                    expectWithinAbsoluteError (v[0].rateHz, hz, 0.6f);
+                    expectWithinAbsoluteError (v[0].depthCents, 40.0f, 8.0f, juce::String (hz) + " Hz: " + juce::String (v[0].depthCents, 1));
+                }
+            }
+        }
     }
 };
 

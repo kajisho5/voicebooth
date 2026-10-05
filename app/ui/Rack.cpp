@@ -27,7 +27,7 @@ InputModule::InputModule (UiSession& u, Actions& a)
 void InputModule::onSessionChanged (juce::uint32 c)
 {
     const auto& s = state();
-    if (c & (change::meter | change::device))
+    if (c & (change::meter | change::device | change::latency))   // 遅延を測り直した・手入力した（バグチェック 2026-10-05）
     {
         meter.setLevels (s.inputPeakDb, s.inputRmsDb, s.inputPeakHoldDb, s.inputClipped);
         repaint (readoutArea);
@@ -382,7 +382,7 @@ void MonitorModule::onSessionChanged (juce::uint32 c)
     if (c & (change::meter | change::monitor | change::device))
         updateMeters();
 
-    if (c & (change::monitor | change::device))
+    if (c & (change::monitor | change::device | change::latency))   // 遅延が変わるとモニターの遅延の注意も変わる
     {
         // 知らせが出る・消える時は並べ直す
         const bool has = noticeFor (state()).text.isNotEmpty();

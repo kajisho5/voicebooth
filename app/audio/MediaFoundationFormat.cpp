@@ -117,7 +117,8 @@ namespace
                     ended = true;
             }
 
-            return true;
+            // 終わりではなく失敗で止まった：成功にしない（前は後半を無音のまま開いた。バグチェック 2026-10-05）
+            return ! failed;
         }
 
     private:
@@ -180,6 +181,17 @@ namespace
             return lengthInSamples > 0;
         }
 
+        /** 今の形式が開いたときと同じ SR・チャンネル数か */
+        bool sameFormat()
+        {
+            Com<IMFMediaType> now;
+            UINT32 ch = 0, sr = 0;
+            return SUCCEEDED (reader->GetCurrentMediaType (audioStream, now.put()))
+                && SUCCEEDED (now->GetUINT32 (MF_MT_AUDIO_NUM_CHANNELS, &ch))
+                && SUCCEEDED (now->GetUINT32 (MF_MT_AUDIO_SAMPLES_PER_SECOND, &sr))
+                && ch == numChannels && (double) sr == sampleRate;
+        }
+
         /** 1 つ分デコードして pending に足す。終わり・失敗なら false */
         bool decodeNext()
         {
@@ -189,7 +201,11 @@ namespace
                 LONGLONG timestamp = 0;   // 使わない（位置はデコードした数で数える）
                 Com<IMFSample> sample;
                 if (FAILED (reader->ReadSample (audioStream, 0, nullptr, &flags, &timestamp, sample.put())))
-                    return false;
+                    return fail();
+                // 途中で形式が変わった（SBR / PS の HE-AAC は、開いたときの SR・チャンネル数から変わることがある）：
+                // 開いたときの形式で読み続けると遅く低く鳴るので、変わっていたら失敗にする（バグチェック 2026-10-05）
+                if ((flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED) != 0 && ! sameFormat())
+                    return fail();
                 if ((flags & MF_SOURCE_READERF_ENDOFSTREAM) != 0 && ! sample)
                     return false;
                 if (! sample)
@@ -197,12 +213,12 @@ namespace
 
                 Com<IMFMediaBuffer> buffer;
                 if (FAILED (sample->ConvertToContiguousBuffer (buffer.put())))
-                    return false;
+                    return fail();
 
                 BYTE* data = nullptr;
                 DWORD bytes = 0;
                 if (FAILED (buffer->Lock (&data, nullptr, &bytes)))
-                    return false;
+                    return fail();
                 const auto* f = reinterpret_cast<const float*> (data);
                 pending.insert (pending.end(), f, f + bytes / sizeof (float));
                 buffer->Unlock();
@@ -228,6 +244,7 @@ namespace
             pending.clear();
             pendingStart = 0;
             ended = false;
+            failed = false;
         }
 
         HRESULT comResult = E_FAIL;
@@ -238,6 +255,8 @@ namespace
         std::vector<float> pending;       // インターリーブ
         juce::int64 pendingStart = 0;     // pending の先頭のサンプル位置
         bool ended = false;
+        bool failed = false;   // デコードに失敗した（ファイルの終わりとは別）
+        bool fail() { failed = true; return false; }
     };
 }
 

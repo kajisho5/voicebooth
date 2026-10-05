@@ -155,6 +155,39 @@ public:
             expect (r.audio == nullptr);
         }
 
+        beginTest ("more than 2 channels are mixed down to stereo (5.1: the center voice is heard on both sides, no LFE)");
+        {
+            juce::AudioBuffer<float> six (6, 100);
+            six.clear();
+            for (int i = 0; i < 100; ++i)
+            {
+                six.setSample (2, i, 0.5f);   // C
+                six.setSample (3, i, 0.9f);   // LFE
+            }
+            juce::AudioBuffer<float> st;
+            downmixToStereo (six, st);
+            expectEquals (st.getNumChannels(), 2);
+            const auto k = 0.70710678f, scale = 1.0f / (1.0f + 2.0f * k);
+            expectWithinAbsoluteError (st.getSample (0, 50), 0.5f * k * scale, 1.0e-5f);
+            expectWithinAbsoluteError (st.getSample (1, 50), 0.5f * k * scale, 1.0e-5f);
+
+            juce::AudioBuffer<float> three (3, 10);
+            for (int c = 0; c < 3; ++c)
+                for (int i = 0; i < 10; ++i)
+                    three.setSample (c, i, c == 0 ? 0.2f : c == 1 ? 0.4f : 0.6f);
+            downmixToStereo (three, st);
+            expectWithinAbsoluteError (st.getSample (0, 5), 0.4f, 1.0e-6f);   // 0 と 2 の平均
+            expectWithinAbsoluteError (st.getSample (1, 5), 0.4f, 1.0e-6f);
+
+            const auto f = dir.getChildFile ("six.wav");
+            expect (writeFile (*formats.findFormatForFileExtension ("wav"), f, six, 48000.0, 24));
+            const auto r = loadSong (f, formats);
+            expect (r.ok(), errorKey (r.error));
+            expect (r.audio != nullptr && r.audio->buffer.getNumChannels() == 2, "the song is played as stereo");
+            if (r.audio != nullptr)
+                expectGreaterThan (std::abs (r.audio->buffer.getSample (0, 50)), 0.1f, "the center is not lost");
+        }
+
         beginTest ("cancel while loading");
         {
             const auto f = dir.getChildFile ("long.wav");

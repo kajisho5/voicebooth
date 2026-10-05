@@ -187,6 +187,7 @@ struct Heading
 {
     juce::String name;                // 【サビ】なら「サビ」（データ）
     int firstLine = 0;
+    bool noSection = false;           // この見出しから作った区間を消した：もう区間にしない（2026-10-05）
 };
 
 struct Lyrics

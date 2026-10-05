@@ -289,6 +289,7 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     // お手本の線の番号は曲をまたいで増やし続ける（音符・おすすめのキーのキャッシュの鍵。0 に戻すと、
     // 同じお手本でキー違いの伴奏を開き直したときに前の曲の音符が残った。バグチェック 2026-10-05）
     s.refPitchSerial      = prev.refPitchSerial + 1;
+    s.shortcuts           = prev.shortcuts;   // 曲を開くたびに既定に戻り、設定からも消えていた（バグチェック 2026-10-05）
     s.octaveAlign         = prev.octaveAlign;
     s.showLyrics          = prev.showLyrics;
     s.crossfadeMs         = prev.crossfadeMs;
@@ -316,10 +317,12 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
     s.monitorGain         = prev.monitorGain;
     s.monitorReverb       = prev.monitorReverb;
     s.selfMuted           = prev.selfMuted;
-    s.recordRate          = prev.recordRate;
-    s.recordFloat         = prev.recordFloat;
+    s.prefRecordRate      = prev.prefRecordRate;
+    s.prefRecordFloat     = prev.prefRecordFloat;
+    s.recordRate          = prev.prefRecordRate;    // 前のプロジェクトの SR ではなく、設定で選んだもの
+    s.recordFloat         = prev.prefRecordFloat;
     s.songSerial          = prev.songSerial + 1;
-    s.project.bitDepthExport = prev.recordFloat ? 32 : 24;
+    s.project.bitDepthExport = prev.prefRecordFloat ? 32 : 24;
     s.speakerOutput       = prev.speakerOutput;
     s.speakerCheckedFor   = prev.speakerCheckedFor;
 

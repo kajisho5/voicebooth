@@ -331,8 +331,10 @@ void UiSession::setRecording (bool r)
         return;
     }
 
-    // UI_MOCK・デモ（曲を開いていない）：見た目だけ（Phase A）
-    if (! isEngineDriven())
+    // UI_MOCK・デモ（曲を開いていない）：見た目だけ（Phase A）。
+    // 曲を開いているのに出力が閉じているときは、ここに来ずに下の recordProblem で理由を知らせる
+    // （前は見た目だけの録音になり、何も録れないのに録っているように見えた。バグチェック 2026-10-05）
+    if (engine == nullptr || ! engine->hasSong())
     {
         s.isRecording = true;
         s.isPlaying = true;          // 録音は再生と同時（DESIGN 6.3）
@@ -814,7 +816,7 @@ namespace
     {
         namespace ac = analysis::cache;
         const auto key = ac::mix (ac::mix (ac::hashSamples (kar.data(), (juce::int64) kar.size(),
-                                                            ac::hashSamples (ref.data(), (juce::int64) ref.size())), rate), "align|1");
+                                                            ac::hashSamples (ref.data(), (juce::int64) ref.size())), rate), "align|2");   // 2：区間の重なり・高い SR の詰め直し（バグチェック 2026-10-05）
         analysis::AlignResult a;
         if (ac::loadAlign (key, a))
             return a;
@@ -1025,6 +1027,7 @@ void UiSession::loadGuide (const juce::File& file)
         stopSeparation();
     s.guideBusy = true;
     s.guideName = file.getFileName();
+    s.guideNeedsSeparation = false;   // 前のお手本の「分離が要る」を引き継がない（バグチェック 2026-10-05）
     s.guideKaraokeKey = 0;
     s.guideAlignRough = false;
     s.guideCovered.clear();
@@ -1109,6 +1112,21 @@ void UiSession::loadGuide (const juce::File& file)
             }
             if (out->kind != Kind::ok)
             {
+                // 前のお手本の線と声は残さない（名前は新しいお手本・線は前のお手本、の食い違いになり、
+                // 手直しを 0 に戻した分だけ声とずれていた。バグチェック 2026-10-05）。分離で取れれば、そのときに入る
+                if (! s.refPitch.empty() || s.guideVocals != nullptr)
+                {
+                    s.refPitch.clear();
+                    s.refPitchHarm.clear();
+                    ++s.refPitchSerial;
+                    s.guideVocals = nullptr;
+                    s.guideHarmVocals = nullptr;
+                    appliedVocalNudgeMs = s.guideNudgeMs;   // 声はもう無い
+                    rejudgeAll();
+                    updateTakeStats();
+                    syncGuideToEngine();
+                    notify (change::takes | change::monitor);
+                }
                 leadSplitAgreed = false;   // 取れなかったお手本の分の了承を、あとで読む別のお手本に使わない
                 flushGuideShift();   // 声は作り直していない：解析の間に押した手直しを当てる（線はもう動いている）
             }
@@ -1292,11 +1310,13 @@ bool UiSession::startSeparator (const juce::File& mix, const juce::File& outA, c
         notify (change::view);
     };
     scratch.push_back (mix);
-    cb.done = [weak, scratch, done] (bool ok, const juce::String& error)
+    separationScratch = scratch;   // アプリを閉じて止めたときは、この知らせが届かないので closeForQuit で消す（バグチェック 2026-10-05）
+    cb.done = [this, weak, scratch, done] (bool ok, const juce::String& error)
     {
         for (auto& f : scratch)
-            f.deleteFile();   // 入力の写し（4 分の曲で約 85 MB）と使わない出力は残さない（アプリを閉じて止まったときも）
+            f.deleteFile();   // 入力の写し（4 分の曲で約 85 MB）と使わない出力は残さない
         if (weak.expired()) return;
+        separationScratch.clear();
         done (ok, error);
     };
     return separator->start (mix, outA, outB, std::move (cb), lead, model);
@@ -1340,20 +1360,25 @@ void UiSession::separateGuide()
         mix.deleteFile();
         s.separating = false;
         s.guideBusy = false;
-        postNotice (why);
+        flushGuideShift();   // 分離の間に押した手直しを声にも当てる（線だけ動いてずれていた。バグチェック 2026-10-05）
+        if (why.isNotEmpty())
+            postNotice (why);
         notify (change::view);
     };
     prepareSeparationInput (guide, mix, [this, mix, vocals, backing, lead, rest, serial, leadOnly, fail] (SeparationPrep prep)
     {
-        if (serial != s.songSerial)               { fail ({}); return; }
+        // 別の曲を開いた：新しい曲の状態（解析中の印など）には触らない。空の知らせも出さない（バグチェック 2026-10-05）
+        if (serial != s.songSerial)               { mix.deleteFile(); return; }
         if (prep == SeparationPrep::stopped)      { fail (tr ("separation.stopped")); return; }
         if (prep == SeparationPrep::failed)       { fail (tr ("separation.failed", reasonText ("can't prepare the input"))); return; }
 
-        auto done = [this, vocals, backing, serial, leadOnly, fail] (bool ok, const juce::String& error)
+        auto done = [this, vocals, backing, serial, fail] (bool ok, const juce::String& error)
         {
+            if (serial != s.songSerial) return;   // 別の曲：新しい曲の印（分離中・解析中）を下ろさない（バグチェック 2026-10-05）
             s.separating = false;
-            if (serial != s.songSerial) { s.guideBusy = false; return; }
-            if (! ok && (! leadOnly || error == "stopped"))
+            // 声と伴奏までは取れていて、失敗したのがリードの段階だけなら、声全体をお手本にする
+            // （前は全体を回したときにリードだけ失敗すると、取れた声も使わずに「分離できませんでした」になった。バグチェック 2026-10-05）
+            if (! ok && (error == "stopped" || ! (vocals.existsAsFile() && backing.existsAsFile())))
             {
                 fail (separationError (error));
                 return;
@@ -1382,6 +1407,11 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                                                                + juce::String (original.getLastModificationTime().toMilliseconds()) + "|"
                                                                + separation::SeparatorClient::modelId()).hashCode64());
     const auto dir = cacheFolder().getChildFile ("offvocal/" + key);
+    // 前に作る途中で閉じた・落ちたときの作業ファイル（入力の写し・分離の書きかけ・声と伴奏。1 本で数十 MB）を削除する。
+    // できあがったオフボは残す（今は分離していないので、どれも使っていない。バグチェック 2026-10-05）
+    for (auto& sub : cacheFolder().getChildFile ("offvocal").findChildFiles (juce::File::findDirectories, false))
+        for (auto& f : sub.findChildFiles (juce::File::findFiles, false, "*.part;mix.wav;vocals.wav;backing.wav"))
+            f.deleteFile();
     const auto out = dir.getChildFile (juce::File::createLegalFileName (original.getFileNameWithoutExtension() + " (off vocal)") + ".wav");
     if (out.existsAsFile())
     {
@@ -1511,7 +1541,7 @@ void UiSession::extractLead()
     };
     prepareSeparationInput (guide, mix, [this, mix, lead, rest, serial, forGuide, fail] (SeparationPrep prep)
     {
-        if (serial != s.songSerial) { fail ({}); return; }
+        if (serial != s.songSerial) { mix.deleteFile(); return; }   // 別の曲：新しい曲の「分離中」を下ろさない（バグチェック 2026-10-05）
         if (forGuide != guideSerial)
         {
             // 準備の間にお手本を替えた：前のお手本は分けない。新しいお手本の解析が終わっていれば、そのリードを分け始める
@@ -1527,8 +1557,8 @@ void UiSession::extractLead()
         const bool started = startSeparator (mix, lead, rest, {}, separation::SeparatorClient::karaokeModelFolder(), { rest },
                                              [this, lead, serial, forGuide, fail] (bool ok, const juce::String& error)
         {
+            if (serial != s.songSerial) return;   // 別の曲：新しい曲の「分離中」を下ろさない（バグチェック 2026-10-05）
             s.separating = false;
-            if (serial != s.songSerial) return;
             if (forGuide != guideSerial)
             {
                 // お手本を替えた（loadGuide で止めた）：前のお手本の結果は使わない。新しいお手本の解析が終わっていれば、そのリードを分け始める
@@ -1732,6 +1762,7 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
                 updateTakeStats();
                 s.guideVocals = out->vocals;
                 s.guideHarmVocals = out->harmVocals;
+                s.guideNeedsSeparation = false;   // 取れた（モデルを入れた後にまた分離を勧めない。バグチェック 2026-10-05）
                 if (applyGuideNudge()) { rejudgeAll(); updateTakeStats(); }
                 syncGuideToEngine();
                 notify (change::takes | change::monitor);
@@ -1742,6 +1773,8 @@ void UiSession::analyseSeparated (const juce::File& vocalsFile, const juce::File
             }
             else if (out->kind == GuideOutcome::Kind::loadFailed) postNotice (tr ("separation.failed", reasonText ("can't read the result")));
             else                                                  postNotice (tr ("guide.problem.notAligned"));
+            if (out->kind != GuideOutcome::Kind::ok)
+                flushGuideShift();   // 解析の間に押した手直しを声にも当てる（線だけ動いてずれていた。バグチェック 2026-10-05）
             notify (change::view);
         });
     });
@@ -2451,7 +2484,10 @@ void UiSession::postNotice (const juce::String& text)
 
 void UiSession::exportTracks (const std::vector<project::TrackType>& types, int bitDepth)
 {
-    if (s.exporting || s.project.lengthSamples <= 0 || s.projectFolder == juce::File() || types.empty())
+    // 黙って戻らない（ダイアログは閉じるので、何も起きなかったように見えていた。バグチェック 2026-10-05）
+    if (s.exporting)                  { postNotice (tr ("export.busy")); return; }
+    if (types.empty())                { postNotice (tr ("export.nothing")); return; }
+    if (s.project.lengthSamples <= 0 || s.projectFolder == juce::File())
         return;
 
     // 裏のスレッドで書く（曲の長さぶん読む・書くので、画面を止めない）。プロジェクトは値で渡す
@@ -2468,7 +2504,8 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    background::run ([this, weak, project, folder, dest, song, types, eo]
+    const auto serial = s.songSerial;
+    background::run ([this, weak, project, folder, dest, song, types, eo, serial]
     {
         juce::StringArray failed;
         int written = 0;
@@ -2479,11 +2516,13 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
             if (res.ok) ++written;
             else        failed.add (exporter::ExportService::dryFileName (song, t) + "\n" + res.message);   // 理由はメッセージスレッドで訳す
         }
-        juce::MessageManager::callAsync ([this, weak, dest, failed, written]
+        juce::MessageManager::callAsync ([this, weak, dest, failed, written, serial]
         {
             if (weak.expired())
                 return;
-            s.exporting = false;
+            // 前の曲の書き出しが終わった：いまの曲で動いている書き出しの印は下ろさない（バグチェック 2026-10-05）
+            if (s.songSerial == serial)
+                s.exporting = false;
             if (failed.isEmpty()) postNotice (tr ("export.done", written, dest.getFullPathName()));
             else
             {
@@ -2542,7 +2581,10 @@ juce::StringArray UiSession::unrecordedSummary (const std::vector<project::Track
 
 void UiSession::exportPack (const std::vector<project::TrackType>& types, int bitDepth, bool refmix)
 {
-    if (s.exporting || s.project.lengthSamples <= 0 || s.projectFolder == juce::File() || types.empty())
+    // 黙って戻らない（ダイアログは閉じるので、何も起きなかったように見えていた。バグチェック 2026-10-05）
+    if (s.exporting)                  { postNotice (tr ("export.busy")); return; }
+    if (types.empty())                { postNotice (tr ("export.nothing")); return; }
+    if (s.project.lengthSamples <= 0 || s.projectFolder == juce::File())
         return;
 
     exporter::PackOptions o;
@@ -2581,14 +2623,16 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    background::run ([this, weak, project, folder, o]
+    const auto serial = s.songSerial;
+    background::run ([this, weak, project, folder, o, serial]
     {
         const auto r = exporter::DeliveryPack::write (project, folder, o);
-        juce::MessageManager::callAsync ([this, weak, r]
+        juce::MessageManager::callAsync ([this, weak, r, serial]
         {
             if (weak.expired())
                 return;
-            s.exporting = false;
+            if (s.songSerial == serial)   // 前の曲の書き出し：いまの曲の書き出しの印は下ろさない（バグチェック 2026-10-05）
+                s.exporting = false;
             if (r.ok && r.zipTooLarge) postNotice (tr ("export.pack.doneNoZip", r.files.size(), r.folder.getFullPathName()));
             else if (r.ok) postNotice (tr ("export.pack.done", r.files.size(), r.zipFile.getFullPathName()));
             else      postNotice (tr ("export.failed", reasonText (r.message)));
@@ -3332,7 +3376,9 @@ void UiSession::setSelfSolo (bool on)
 // 声域とおすすめのキー（2026-10-02。DESIGN 18.1）
 void UiSession::setVoiceRange (int low, int high)
 {
-    if (low > high) std::swap (low, high);
+    // 入れ替えるのは両方が分かっているときだけ（低い声から測ると、未設定の -1 が低い声の側に来て、低い声が設定できなかった。
+    // バグチェック 2026-10-05）
+    if (low >= 0 && high >= 0 && low > high) std::swap (low, high);
     s.voiceLow = juce::jlimit (-1, 108, low);
     s.voiceHigh = juce::jlimit (-1, 108, high);
     notify (change::practice);
@@ -3470,6 +3516,10 @@ void UiSession::setMode (project::Mode m)
     // 見えなくなったトラックが選択中なら Main に戻す（データは消さない）
     if (! isTrackVisible (s.currentTrack().type))
         s.selectedTrack = 0;
+    // 見えなくなったトラックのアームも外す（見えないトラックに録音していた。バグチェック 2026-10-05）。録音中のトラックはそのまま
+    for (auto& t : s.trackUi)
+        if (t.armed && ! isTrackVisible (t.type) && ! (s.isRecording && t.type == s.recordingTrack))
+            t.armed = false;
     notify (change::mode | change::tracks);
 }
 

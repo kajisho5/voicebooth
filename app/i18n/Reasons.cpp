@@ -4,7 +4,10 @@ namespace vb::i18n
 {
 ReasonKey reasonKey (const juce::String& reasonIn)
 {
-    const auto reason = reasonIn.trim();
+    auto reason = reasonIn.trim();
+    // 納品パックは「<ファイル名>.wav: <理由>」で返す：ファイル名を外してから照らし合わせる（英語のまま出ていた。バグチェック 2026-10-05）
+    if (const auto at = reason.indexOf (".wav: "); at > 0 && ! reason.substring (0, at).containsAnyOf ("/\\"))
+        reason = reason.substring (at + 6).trim();
     // 決まった文字列
     struct Exact { const char* text; const char* key; };
     static const Exact exact[] = {
@@ -37,6 +40,10 @@ ReasonKey reasonKey (const juce::String& reasonIn)
         { "the model isn't in the list",            "reason.modelNotListed" },
         { "not enough disk space",                  "reason.diskFull" },
         { "verification failed",                    "reason.verifyFailed" },
+        { "write failed (the file is incomplete)",  "reason.writeFailed" },
+        { "separation failed",                      "reason.separationFailed" },
+        { "lead separation failed",                 "reason.separationFailed" },
+        { "input must be 44100 Hz",                 "reason.cantReadOriginal" },
     };
     for (auto& e : exact)
         if (reason == e.text)
@@ -55,6 +62,10 @@ ReasonKey reasonKey (const juce::String& reasonIn)
         { "can't write ",                   "reason.cantWrite" },
         { "refmix: can't render ",          "reason.cantRender" },
         { "can't open ",                    "reason.cantOpenDevice" },
+        { "separation failed: ",            "reason.separationFailedDetail" },
+        { "lead separation failed: ",       "reason.separationFailedDetail" },
+        { "can't load model: ",             "reason.cantLoadModel" },
+        { "can't load karaoke model: ",     "reason.cantLoadModel" },
     };
     for (auto& p : prefixes)
         if (reason.startsWith (p.text))
