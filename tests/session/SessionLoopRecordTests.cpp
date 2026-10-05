@@ -8,6 +8,23 @@
 
 namespace vb::test
 {
+/** n 回目の録音を始められない（周回の途中で機器が外れた など）・seek の回数を数えるエンジン */
+struct LoopProbeEngine : FakeEngine
+{
+    int failOnStart = -1;
+    int seeks = 0;
+    juce::String startRecording (const juce::File& f, bool asFloat, audio::int64 latency) override
+    {
+        if (recordingsStarted + 1 == failOnStart)
+        {
+            ++recordingsStarted;
+            return "no device";
+        }
+        return FakeEngine::startRecording (f, asFloat, latency);
+    }
+    void seek (audio::int64 sample) override { ++seeks; FakeEngine::seek (sample); }
+};
+
 class SessionLoopRecordTests : public juce::UnitTest
 {
 public:
@@ -177,8 +194,75 @@ public:
             ui.attachEngine (nullptr);
         }
 
+        // バグチェック（2026-10-05）で見つかった 4 件
+        auto compOf = [] (UiSession& ui) { return ui.get().project.findTrack (project::TrackType::main)->comp; };
+
+        beginTest ("with the loop on, stopping in the middle of the first pass uses what was recorded (there is no earlier pass)");
+        {
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, true);
+            ui.setRecording (true);
+            const auto id = ui.get().recordingTake;
+            pass (ui, engine, in + rate);
+            ui.setPlaying (false);
+            bool used = false;
+            for (auto& c : compOf (ui))   // 採用区間は時刻順
+                used = used || (c.takeId == id && c.startSample == in && c.endSample > in && c.endSample < out);
+            expect (used, "the first pass is used from the range start up to where it stopped: " + ui.get().noticeText);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("when the next pass cannot start, the practice loop comes back");
+        {
+            LoopProbeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, true);
+            engine.failOnStart = 2;
+            ui.setRecording (true);
+            pass (ui, engine, out + rate / 2 + 10);
+            expect (! ui.get().isRecording, "it stops");
+            ui.setPlaying (true);
+            expect (engine.loopEnabled, "the engine loops the range again");
+            ui.setPlaying (false);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("with the loop off, a range near the end of the song still waits for the late tail");
+        {
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, false);
+            const auto length = ui.get().project.lengthSamples;
+            ui.setRange (length - 2 * rate, length - rate / 10);
+            ui.setRecording (true);
+            engine.playhead = length;
+            engine.playing = false;   // 本物のエンジンは曲の終わりで止まり、遅延の分を録り足す
+            ui.tick (0.02);
+            expect (ui.get().isRecording, "it waits for the tail instead of closing at once");
+            ui.setPlaying (false);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("moving to the next pass seeks the engine once");
+        {
+            LoopProbeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            prepare (ui, true);
+            ui.setRecording (true);
+            const auto before = engine.seeks;
+            pass (ui, engine, out + rate / 2 + 10);
+            expectEquals (engine.seeks - before, 1, "the pre-roll plays from its start once");
+            ui.setPlaying (false);
+            ui.attachEngine (nullptr);
+        }
+
         UiSession::projectFolderFor (songName).deleteRecursively();
-        for (int n = 2; n < 5; ++n)
+        for (int n = 2; n < 9; ++n)
             UiSession::projectFolderFor (songName + " (" + juce::String (n) + ")").deleteRecursively();
         work.deleteRecursively();
     }
