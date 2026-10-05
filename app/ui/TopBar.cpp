@@ -53,8 +53,7 @@ TopBar::TopBar (UiSession& u, Actions& a)
 
     helpKey.withIcon (Icon::help);
     helpKey.setTooltip (tr ("topbar.help"));
-    helpKey.withShortcut ("F1");
-    helpKey.onClick = [this] { if (actions.openHelp) actions.openHelp(); };
+    helpKey.onClick = [this] { if (actions.openHelpMenu) actions.openHelpMenu (helpKey); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &songInfo, &tally, &exportKey, &settings, &helpKey })
         addAndMakeVisible (c);

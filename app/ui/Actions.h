@@ -2,6 +2,8 @@
 
 #include <functional>
 
+namespace juce { class Component; }
+
 /*  画面をまたぐ操作の窓口。確認ダイアログが要る操作は MainComponent が判断する。
     部品は「何をしたいか」だけ伝え、ダイアログの出し方は知らない。 */
 
@@ -18,7 +20,8 @@ struct Actions
     std::function<void()> openExport;
     std::function<void()> openSettings;
     std::function<void()> openVoiceRange;         // 声域を測る（おすすめのキー）
-    std::function<void()> openHelp;               // 困ったときのヘルプ（上のバーの ? / F1）
+    std::function<void()> openHelp;               // 困ったときのヘルプ（F1）
+    std::function<void (juce::Component&)> openHelpMenu;   // ヘルプのメニュー（上のバーの ?。この部品の下に表示する）
 
     // 曲の情報（B4b。DESIGN 7.5）
     std::function<void()> openSongInfo;           // テンポ・拍子・キー・区間のパネル

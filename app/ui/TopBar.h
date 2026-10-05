@@ -31,7 +31,7 @@ private:
     KeyButton device { {}, KeyButton::Kind::ghost };
     KeyButton songInfo { {}, KeyButton::Kind::ghost };   // 「KEY C  BPM 128」：押すとテンポ・キー・区間のパネル
     TallyLamp tally;
-    KeyButton exportKey, settings, helpKey;   // helpKey：困ったときのヘルプ（? / F1）
+    KeyButton exportKey, settings, helpKey;   // helpKey：ヘルプのメニュー（困ったとき・ショートカット・不具合の報告など）
 
     juce::Rectangle<int> logoArea, songArea, modeLabelArea;
 };
