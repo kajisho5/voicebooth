@@ -609,8 +609,7 @@ bool MainComponent::keyStateChanged (bool)
 
 void MainComponent::notice (const juce::String& text)
 {
-    if (! state().isRecording)
-        showToast (text);
+    showToast (text);   // 録音中も出す（録音・書き出しの結果と同じ。2026-10-05 に持ち主が決定）
 }
 
 void MainComponent::tapTempo()
