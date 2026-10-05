@@ -86,6 +86,7 @@ public:
     void openExport();
     void openSettings();
     void openAbout();
+    void openHelp();        // 困ったときのヘルプ（? / F1）
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
