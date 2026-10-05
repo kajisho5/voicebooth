@@ -49,7 +49,7 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
       fullRange (tr ("pitch.fullRange")),
       listenOriginal (tr ("pitch.listenOriginal"))
 {
-    for (auto* b : { &octaveAlign, &octaveUp, &fullRange, &listenOriginal })
+    for (auto* b : { &octaveAlign, &octaveUp, &fullRange, &listenOriginal, &thirdKey })
     {
         b->withLed().withToggle (false).withFont (sans (11.5f, Weight::medium));
         addAndMakeVisible (b);
@@ -64,6 +64,9 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
     // 原曲で聴く（聞き比べ・時間合わせの確認。お手本を入れて合わせられた時だけ押せる）
     listenOriginal.setTooltip (tr ("pitch.listenOriginal.tooltip"));
     listenOriginal.onClick = [this] { session.setListenOriginal (! state().listenOriginal); };
+    // 3 度ガイド（#30）：押すたびに 3 度上 → 3 度下 → なし
+    thirdKey.setTooltip (tr ("pitch.third.tooltip"));
+    thirdKey.onClick = [this] { session.setThirdGuide ((state().thirdGuide + 1) % 3); };
 
     onSessionChanged (change::all);
 }
@@ -79,6 +82,16 @@ void PitchLane::onSessionChanged (juce::uint32 changes)
     if (listenOriginal.isVisible() != s.engineAttached)
     {
         listenOriginal.setVisible (s.engineAttached);   // 見本（UI_MOCK）には原曲が無い
+        resized();
+    }
+    // 3 度ガイドのキーはハモリのトラックで、標準・プロだけ（DESIGN 4.3「標準はオプション、プロは詳細」）
+    thirdKey.setToggleState (s.thirdGuide != 0, juce::dontSendNotification);
+    const auto thirdText = tr (s.thirdGuide == 1 ? "pitch.third.up" : s.thirdGuide == 2 ? "pitch.third.down" : "pitch.third.off");
+    const bool thirdShow = s.isHarmonySelected() && s.mode != project::Mode::easy;
+    if (thirdKey.isVisible() != thirdShow || thirdKey.getButtonText() != thirdText)
+    {
+        thirdKey.setButtonText (thirdText);   // 文字の幅が変わるので並べ直す
+        thirdKey.setVisible (thirdShow);
         resized();
     }
 
@@ -120,7 +133,7 @@ void PitchLane::resized()
     plotArea = r;
 
     auto f = footerArea.reduced (metrics::pad, 0);
-    for (auto* b : { &fullRange, &octaveUp, &octaveAlign, &listenOriginal })
+    for (auto* b : { &fullRange, &octaveUp, &octaveAlign, &listenOriginal, &thirdKey })
     {
         if (! b->isVisible())
             continue;
@@ -373,6 +386,8 @@ void PitchLane::paintStatic (juce::Graphics& g)
         lane::drawRange (g, s, m, plot);
         if (harmonyGuide())
             drawMainGhost (g, m);
+        if (thirdGuideShown())   // お手本の音符の下に（重なったときはお手本の音名が読める）
+            drawThirdGuide (g, m);
         drawReference (g, m);
         drawUncovered (g, m);
         drawHarmonyHint (g);
@@ -578,6 +593,25 @@ void PitchLane::drawMainGhost (juce::Graphics& g, const TimeMap& m)
     });
 }
 
+namespace
+{
+    /** お手本の点 → 音符（ピアノロールとして読みやすく：音符の間が 0.3 秒より短ければ、次の音符の頭まで伸ばす。
+        音の移り・しゃくりで切れて細切れに見えない。判定は線そのもので行うので、ここは見た目だけ。2026-10-03） */
+    std::vector<analysis::NoteSpan> notesOf (const std::vector<dummy::PitchPoint>& ref, double sampleRate)
+    {
+        std::vector<audio::PitchFrame> frames;
+        frames.reserve (ref.size());
+        for (auto& p : ref)
+            frames.push_back ({ p.sample, p.midi, p.confidence, 0.0f });
+        auto notes = analysis::segmentNotes (frames, sampleRate);
+        const auto legato = (int64) (0.3 * sampleRate);
+        for (size_t i = 0; i + 1 < notes.size(); ++i)
+            if (notes[i + 1].start - notes[i].end < legato)
+                notes[i].end = notes[i + 1].start;
+        return notes;
+    }
+}
+
 const std::vector<analysis::NoteSpan>& PitchLane::refNotes() const
 {
     const auto& s = state();
@@ -588,20 +622,89 @@ const std::vector<analysis::NoteSpan>& PitchLane::refNotes() const
                    : ((juce::int64) s.refPitchSerial * 1000003 + (juce::int64) ref.size()) * 2 + (&ref == &s.refPitchHarm ? 1 : 0);
     if (key != notesKey)
     {
-        std::vector<audio::PitchFrame> frames;
-        frames.reserve (s.activeRef().size());
-        for (auto& p : s.activeRef())
-            frames.push_back ({ p.sample, p.midi, p.confidence, 0.0f });
-        notesCache = analysis::segmentNotes (frames, s.sampleRate());
-        // ピアノロールとして読みやすく（2026-10-03）：音符の間が 0.3 秒より短ければ、次の音符の頭まで伸ばす
-        // （音の移り・しゃくりで切れて細切れに見えない。判定は線そのもので行うので、ここは見た目だけ）
-        const auto legato = (int64) (0.3 * s.sampleRate());
-        for (size_t i = 0; i + 1 < notesCache.size(); ++i)
-            if (notesCache[i + 1].start - notesCache[i].end < legato)
-                notesCache[i].end = notesCache[i + 1].start;
+        notesCache = notesOf (ref, s.sampleRate());
         notesKey = key;
     }
     return notesCache;
+}
+
+const std::vector<analysis::NoteSpan>& PitchLane::mainNotes() const
+{
+    const auto& s = state();
+    if (&s.activeRef() == &s.refPitch)
+        return refNotes();
+    const auto key = s.refPitch.empty() ? 0 : (juce::int64) s.refPitchSerial * 1000003 + (juce::int64) s.refPitch.size();
+    if (key != mainNotesKey)
+    {
+        mainNotesCache = notesOf (s.refPitch, s.sampleRate());
+        mainNotesKey = key;
+    }
+    return mainNotesCache;
+}
+
+bool PitchLane::thirdGuideShown() const
+{
+    const auto& s = state();
+    return s.thirdGuide != 0 && s.isHarmonySelected() && s.mode != project::Mode::easy && ! s.refPitch.empty();
+}
+
+void PitchLane::drawThirdGuide (juce::Graphics& g, const TimeMap& m)
+{
+    // 3 度ガイド（#30。2026-10-05 持ち主の OK）：メインのお手本の音から、曲のキーの音階で 3 度上・下の音を点線の音符で。
+    // 練習のキー（B11）はあとから足す（伴奏と同じキーで歌う）。プロは音名も（「詳細」）
+    const auto& s = state();
+    const auto& key = s.project.key;
+    const auto plot = plotArea.toFloat();
+    if (! key.known())
+    {
+        const auto f = sans (12.5f);
+        const auto text = tr ("pitch.third.noKey");
+        const auto w = juce::jmin (plot.getWidth() - 24.0f, textWidth (f, text) + 40.0f);
+        if (w < 80.0f)
+            return;
+        const auto lines = textWidth (f, text) + 40.0f > w ? 2 : 1;
+        const bool harmHint = s.engineAttached && s.refPitchHarm.empty();   // drawHarmonyHint の札の下に置く
+        const juce::Rectangle<float> chip (plot.getCentreX() - w * 0.5f, plot.getY() + (harmHint ? 58.0f : 10.0f), w, lines == 1 ? 26.0f : 42.0f);
+        g.setColour (colours::panel.withAlpha (0.92f));
+        g.fillRoundedRectangle (chip, 6.0f);
+        g.setColour (colours::line);
+        g.drawRoundedRectangle (chip.reduced (0.5f), 6.0f, 1.0f);
+        g.setColour (colours::textDim);
+        g.setFont (f);
+        g.drawFittedText (text, chip.reduced (14.0f, 4.0f).toNearestInt(), juce::Justification::centred, lines, 1.0f);
+        return;
+    }
+
+    const bool up = s.thirdGuide == 1;
+    const auto rowH = std::abs (yForMidi (60.0f) - yForMidi (61.0f));
+    const auto nameFont = mono (9.5f, Weight::semibold);
+    const float dash[] = { 3.0f, 3.0f };
+    for (auto& n : mainNotes())
+    {
+        if (n.end < s.viewStart || n.start > s.viewEnd)
+            continue;
+        const auto third = song::diatonicThird ((int) std::lround (n.midi), key, up);
+        if (third < 0)
+            continue;
+        const auto semi = (float) (third + s.keyShift);
+        const auto x0 = m.x (n.start), x1 = m.x (n.end);
+        const juce::Rectangle<float> bar (x0, yForMidi (semi + 0.5f) + 1.0f, juce::jmax (2.0f, x1 - x0), juce::jmax (2.0f, rowH - 2.0f));
+        juce::Path outline, dashed;
+        outline.addRoundedRectangle (bar.reduced (0.5f), juce::jmin (3.0f, bar.getHeight() * 0.5f));
+        juce::PathStrokeType (1.2f).createDashedStroke (dashed, outline, dash, 2);
+        g.setColour (colours::text.withAlpha (0.06f));
+        g.fillPath (outline);
+        g.setColour (colours::text.withAlpha (0.7f));
+        g.fillPath (dashed);
+
+        const auto name = dummy::noteName (semi);
+        if (s.mode == project::Mode::pro && rowH >= 9.0f && bar.getWidth() >= textWidth (nameFont, name) + 10.0f)
+        {
+            g.setColour (colours::textDim);
+            g.setFont (nameFont);
+            g.drawText (name, bar.withTrimmedLeft (5.0f), juce::Justification::centredLeft, false);
+        }
+    }
 }
 
 void PitchLane::drawReference (juce::Graphics& g, const TimeMap& m)
