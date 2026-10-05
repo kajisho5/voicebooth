@@ -14,7 +14,7 @@ enum class Icon
     metronome, gear, mic, headphones, edit, compare, lock,
     chevronDown, chevronRight, minus, plus,
     exportFile, folder, note, check, warning, globe,
-    download, shield
+    download, shield, help
 };
 
 juce::Path makeIcon (Icon, juce::Rectangle<float> area);

@@ -51,7 +51,11 @@ TopBar::TopBar (UiSession& u, Actions& a)
     settings.withShortcut (commandKeyName (','));
     settings.onClick = [this] { if (actions.openSettings) actions.openSettings(); };
 
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &songInfo, &tally, &exportKey, &settings })
+    helpKey.withIcon (Icon::help);
+    helpKey.setTooltip (tr ("topbar.help"));
+    helpKey.onClick = [this] { if (actions.openHelpMenu) actions.openHelpMenu (helpKey); };
+
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &mode, &device, &songInfo, &tally, &exportKey, &settings, &helpKey })
         addAndMakeVisible (c);
 
     onSessionChanged (change::all);
@@ -104,6 +108,8 @@ void TopBar::resized()
     logoArea = r.removeFromLeft (juce::jmax (136, 36 + juce::roundToInt (textWidth (sans (16.5f, Weight::semibold), tr ("app.name"))) + 4));
     r.removeFromLeft (14);
 
+    helpKey.setBounds (centreH (r.removeFromRight (32), 32));
+    r.removeFromRight (6);
     settings.setBounds (centreH (r.removeFromRight (32), 32));
     r.removeFromRight (8);
     exportKey.setSize (10, 32);
