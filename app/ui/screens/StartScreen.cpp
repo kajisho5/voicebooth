@@ -341,6 +341,7 @@ void StartScreen::loadFinished (audio::LoadResult r)
 
     // 曲を差し替える（後ろのメイン画面もこの時点で実波形になる）。知らせで別の画面が開いてこの画面が消えることがある
     const auto guide = std::exchange (guideFile, juce::File());
+    const bool fromOriginalFlow = fromOriginal;   // 原曲だけで始めた（openFile は分離の後だけ true のまま。始める前の確認で、ハモリ分けも続くと伝えてある）
     auto& ui = session;
     juce::Component::SafePointer<StartScreen> safe (this);
     ui.loadSong (r.info.file, juce::roundToInt (r.info.sampleRate), r.info.lengthSamples, r.overview, r.audio);
@@ -349,7 +350,11 @@ void StartScreen::loadFinished (audio::LoadResult r)
 
     // お手本も入っていれば、オフボと時間を合わせて重ねる（裏で。結果はメイン画面の知らせ）
     if (guide != juce::File())
+    {
+        if (fromOriginalFlow)
+            ui.agreeLeadSplit();   // 開いた後に「ハモリの分離も続けますか？」をもう一度聞かない（#27）
         ui.loadGuide (guide);
+    }
 }
 
 //==============================================================================

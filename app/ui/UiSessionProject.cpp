@@ -23,6 +23,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     stopSeparation();    // 前の曲の分離は止める（B16）
     endTakeCompare (false);   // テイク比較の試聴中なら元の採用区間に戻す（B18c。範囲・ループも元へ）
     s.canUndoTake = false;   // 前の曲のテイクの採用を、次の曲のプロジェクトで戻さない
+    leadSplitAgreed = false; // ハモリ分けの了承（agreeLeadSplit）は、そのあと読むお手本の分だけ
     flushSave();         // 前の曲のプロジェクトを保存してから
     // 開く途中のプロジェクトが、いま開く曲のものでなければ捨てる（読み込みをやめた・失敗した後に別の曲を開いた時、
     // 前のプロジェクトのフォルダに別の曲を開いて上書きしていた。監査 2026-10-04）

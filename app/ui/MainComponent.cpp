@@ -74,6 +74,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     noticeSeen = state().noticeSerial;
     // 言語・スキンを変えると画面を作り直す。前の画面で出した確認・知らせを、もう一度出さない（監査 2026-10-04）
     separationOfferSeen = state().separationOfferSerial;
+    leadOfferSeen = state().leadOfferSerial;
     modelDialogSeen = state().modelDl.dialogSerial;
     modelStageBehind = state().modelDl.stage;
     lastTick = juce::Time::getMillisecondCounterHiRes();
@@ -174,8 +175,8 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
 //==============================================================================
 void MainComponent::timerCallback()
 {
-    // 画面を閉じるのを待っていた「分離しますか？」を出す
-    if (state().separationOfferSerial != separationOfferSeen && ! overlay.isShowing())
+    // 画面を閉じるのを待っていた「分離しますか？」「ハモリの分離も続けますか？」を出す
+    if ((state().separationOfferSerial != separationOfferSeen || state().leadOfferSerial != leadOfferSeen) && ! overlay.isShowing())
         onSessionChanged (change::notice);
 
     const auto now = juce::Time::getMillisecondCounterHiRes();
@@ -305,6 +306,20 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         showConfirm (tr ("separation.confirm.title"), message,
                      {
                          { tr ("separation.confirm.yes"), DialogPanel::KeyRole::primary, [this] { session.separateGuide(); } },
+                         { tr ("separation.confirm.later"), DialogPanel::KeyRole::normal, {} },
+                     });
+    }
+
+    // 引き算でお手本が取れた：続けてリードとハモリを分けるか尋ねる（#27。黙って 15〜30 分の分離を始めない）。待ち方は上と同じ
+    if ((changes & change::notice) && state().leadOfferSerial != leadOfferSeen && ! overlay.isShowing())
+    {
+        leadOfferSeen = state().leadOfferSerial;
+        const auto estimate = session.leadSplitEstimate();
+        const auto message = estimate.known() ? tr ("separation.lead.message", estimate.lowMinutes(), estimate.highMinutes())
+                                              : tr ("separation.lead.messageNoTime");
+        showConfirm (tr ("separation.lead.title"), message,
+                     {
+                         { tr ("separation.lead.yes"), DialogPanel::KeyRole::primary, [this] { session.startLeadSplit(); } },
                          { tr ("separation.confirm.later"), DialogPanel::KeyRole::normal, {} },
                      });
     }
