@@ -617,6 +617,7 @@ if(VOICEBOOTH_TESTS)
         tests/TestMain.cpp
         tests/session/SessionSaveTests.cpp
         tests/session/SessionSeparationTests.cpp
+        tests/session/SessionLoopRecordTests.cpp
         tests/session/PartsKeyboardTests.cpp
         tests/session/SessionGuideTests.cpp
         tests/session/SessionRealSeparationTests.cpp
