@@ -87,8 +87,6 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     deviceLostSeen = state().deviceLostCount;
     noticeSeen = state().noticeSerial;
     // 言語・スキンを変えると画面を作り直す。前の画面で出した確認・知らせを、もう一度出さない（監査 2026-10-04）
-    separationOfferSeen = state().separationOfferSerial;
-    leadOfferSeen = state().leadOfferSerial;
     modelDialogSeen = state().modelDl.dialogSerial;
     modelStageBehind = state().modelDl.stage;
     lastTick = juce::Time::getMillisecondCounterHiRes();
@@ -100,8 +98,8 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     {
         juce::Component::SafePointer<MainComponent> safe (this);
         juce::PopupMenu appItems;
-        appItems.addItem (juce::PopupMenu::Item (tr ("menu.help.about")).setAction ([safe] { if (safe != nullptr && ! safe->state().isRecording) safe->openAbout (false); }));
-        appItems.addItem (juce::PopupMenu::Item (tr ("menu.app.settings")).setAction ([safe] { if (safe != nullptr && ! safe->state().isRecording) safe->openSettings(); }));
+        appItems.addItem (juce::PopupMenu::Item (tr ("menu.help.about")).setAction ([safe] { if (safe != nullptr && safe->canOpenFromMenu()) safe->openAbout (false); }));
+        appItems.addItem (juce::PopupMenu::Item (tr ("menu.app.settings")).setAction ([safe] { if (safe != nullptr && safe->canOpenFromMenu()) safe->openSettings(); }));
         juce::MenuBarModel::setMacMainMenu (this, &appItems);
     }
    #endif
@@ -209,7 +207,8 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
 void MainComponent::timerCallback()
 {
     // 画面を閉じるのを待っていた「分離しますか？」「ハモリの分離も続けますか？」を出す
-    if ((state().separationOfferSerial != separationOfferSeen || state().leadOfferSerial != leadOfferSeen) && ! overlay.isShowing())
+    if ((state().separationOfferSerial != state().separationOfferShown || state().leadOfferSerial != state().leadOfferShown)
+        && ! overlay.isShowing() && ! state().isRecording)
         onSessionChanged (change::notice);
 
     const auto now = juce::Time::getMillisecondCounterHiRes();
@@ -322,9 +321,10 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
 
     // 引き算では声が取れない：分離するか尋ねる（B16）。ほかの画面（書き出し・設定など）を開いている間は、閉じるまで待つ
     // （前は開いている画面を置き換えていた。監査 2026-10-04）
-    if ((changes & change::notice) && state().separationOfferSerial != separationOfferSeen && ! overlay.isShowing())
+    // 録音中も出さない（確認が出ている間はキーもマウスも届かず、録音を止められない。バグチェック 2026-10-05）
+    if ((changes & change::notice) && state().separationOfferSerial != state().separationOfferShown && ! overlay.isShowing() && ! state().isRecording)
     {
-        separationOfferSeen = state().separationOfferSerial;
+        session.offerShown (false);
         const auto estimate = session.separationEstimate();
         if (! estimate.known())
         {
@@ -344,9 +344,9 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
     }
 
     // 引き算でお手本が取れた：続けてリードとハモリを分けるか尋ねる（#27。黙って 15〜30 分の分離を始めない）。待ち方は上と同じ
-    if ((changes & change::notice) && state().leadOfferSerial != leadOfferSeen && ! overlay.isShowing())
+    if ((changes & change::notice) && state().leadOfferSerial != state().leadOfferShown && ! overlay.isShowing() && ! state().isRecording)
     {
-        leadOfferSeen = state().leadOfferSerial;
+        session.offerShown (true);
         const auto estimate = session.leadSplitEstimate();
         const auto message = estimate.known() ? tr ("separation.lead.message", estimate.lowMinutes(), estimate.highMinutes())
                                               : tr ("separation.lead.messageNoTime");
@@ -1084,12 +1084,12 @@ void MainComponent::openReport()
 juce::PopupMenu MainComponent::helpMenu()
 {
     const auto& s = state();
-    const bool canOpen = ! s.isRecording;   // 録音中は画面を開かない（F1 と同じ）
+    const bool canOpen = canOpenFromMenu();
     juce::Component::SafePointer<MainComponent> safe (this);
-    // 押したら、メニューが閉じてから開く
+    // 押したら、メニューが閉じてから開く。開いている間に録音・ほかの画面が始まっていれば開かない
     auto run = [safe] (std::function<void (MainComponent&)> f)
     {
-        return [safe, f] { if (safe != nullptr) f (*safe); };
+        return [safe, f] { if (safe != nullptr && safe->canOpenFromMenu()) f (*safe); };
     };
     auto browse = [] (juce::String url) { return [url] { juce::URL (url).launchInDefaultBrowser(); }; };
 
@@ -1111,6 +1111,13 @@ juce::PopupMenu MainComponent::helpMenu()
     m.addItem (juce::PopupMenu::Item (tr ("menu.help.about")).setEnabled (canOpen)
                    .setAction (run ([] (MainComponent& c) { c.openAbout (false); })));
     return m;
+}
+
+bool MainComponent::canOpenFromMenu() const
+{
+    // 録音中と、ほかの画面（起動画面・設定・確認など）を出しているときは開かない（F1・⌘ のキーと同じ。
+    // Mac のメニューバーは画面の後ろの守りを通らないので、ここで見る。バグチェック 2026-10-05）
+    return ! state().isRecording && ! overlay.isShowing();
 }
 
 juce::StringArray MainComponent::getMenuBarNames()

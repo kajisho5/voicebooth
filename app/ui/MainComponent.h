@@ -93,6 +93,8 @@ public:
 
     /** ヘルプのメニュー（2026-10-05。上のバーの ? と、Mac のメニューバーの「ヘルプ」で同じもの） */
     juce::PopupMenu helpMenu();
+    /** メニューから画面を開いてよいか（録音中・ほかの画面を出しているときは開かない） */
+    bool canOpenFromMenu() const;
 
     // Mac のメニューバー（ヘルプのメニューだけ。Windows はウィンドウにメニューバーがないので ? キーから）
     juce::StringArray getMenuBarNames() override;
@@ -161,8 +163,6 @@ private:
     bool clockFrozen = false;   // スクリーンショット用（--rec）
     int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
     void maybeOpenSetup();      // 初めての機器なら入力セットアップを開く（B13）
-    int separationOfferSeen = 0;   // 「分離しますか？」を出した回数（B16）
-    int leadOfferSeen = 0;         // 「ハモリの分離も続けますか？」を出した回数（#27）
     int modelDialogSeen = 0;       // 分離モデルのダウンロード画面を開いた回数（B16）
     int modelStageShown = -2;      // いま開いているダウンロード画面の段階（-2 = 開いていない）
     juce::File pendingOriginal;    // 原曲だけで始めたいがモデルが無かった：モデルが入ったら起動画面から続ける（B16）

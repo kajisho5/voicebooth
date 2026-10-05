@@ -286,6 +286,9 @@ Session makeSongSession (const Session& prev, const juce::String& name, const ju
 
     // 表示の好み
     s.mode                = prev.mode;
+    // お手本の線の番号は曲をまたいで増やし続ける（音符・おすすめのキーのキャッシュの鍵。0 に戻すと、
+    // 同じお手本でキー違いの伴奏を開き直したときに前の曲の音符が残った。バグチェック 2026-10-05）
+    s.refPitchSerial      = prev.refPitchSerial + 1;
     s.octaveAlign         = prev.octaveAlign;
     s.showLyrics          = prev.showLyrics;
     s.crossfadeMs         = prev.crossfadeMs;
