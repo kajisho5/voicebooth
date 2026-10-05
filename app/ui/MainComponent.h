@@ -86,6 +86,7 @@ public:
     void openExport();
     void openSettings();
     void openAbout();
+    void openShortcuts();   // 1 文字のショートカット（#28）
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
@@ -124,6 +125,7 @@ private:
                       std::function<void()> onDismiss = {});   // onDismiss：どれも選ばずに閉じた（Esc）
 
     /** 曲の情報のショートカット（T / M / Enter / ↑ ↓ / Delete / Backspace / Esc。B4b）。扱ったら true */
+    void runShortcut (shortcuts::Action, const juce::KeyPress&);   // 1 文字のショートカット（#28）
     bool songInfoKey (const juce::KeyPress&);
     void tapTempo();
     /** 知らせ（録音中は出さない。DESIGN 4.10.1 TS） */

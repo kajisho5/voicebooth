@@ -156,7 +156,7 @@ SongInfoDialog::SongInfoDialog (UiSession& u, Actions& a)
 
     tapKey.withLed().withToggle (false);
     tapKey.setTooltip (tr ("songInfo.tap.tooltip"));
-    tapKey.withShortcut ("T");
+    tapKey.withShortcut (session.get().shortcuts.keyName (shortcuts::Action::tapTempo));   // 設定で変えられる（#28）
     tapKey.onClick = [this] { tap(); };
 
     clearTempoKey.setButtonText (tr ("songInfo.clearTempo"));
@@ -185,7 +185,7 @@ SongInfoDialog::SongInfoDialog (UiSession& u, Actions& a)
     // 区間
     addSectionKey.withIcon (Icon::plus);
     addSectionKey.setTooltip (tr ("songInfo.section.add.tooltip"));
-    addSectionKey.withShortcut ("M");
+    addSectionKey.withShortcut (session.get().shortcuts.keyName (shortcuts::Action::addSection));
     addSectionKey.onClick = [this] { session.addSectionAtPlayhead(); };
 
     sectionView.setViewedComponent (&sectionList, false);
