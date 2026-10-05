@@ -219,6 +219,7 @@ struct Session
     bool guideBusy = false;               // 時間合わせ・声の取り出しの最中
     // ボーカル分離（B16）：引き算では声が取れない時に勧める。分離は別プロセスで裏で進む
     int separationOfferSerial = 0;        // 「分離しますか？」を出す合図（増えたら出す）
+    int leadOfferSerial = 0;              // 「ハモリの分離も続けますか？」を出す合図（引き算でお手本が取れた後。#27）
     // 分離モデルのダウンロード（B16。使う人が押した時だけ）
     struct ModelDownload
     {

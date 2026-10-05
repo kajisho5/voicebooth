@@ -1,4 +1,5 @@
 #include "session/FakeEngine.h"
+#include "session/FakeSeparator.h"
 #include "session/SessionTestUtil.h"
 
 /*  お手本の位置の手直し（#26）：キーを続けて押している間は線だけをずらし、音（声・原曲）は押し終わってから 1 回だけずらす。
@@ -148,6 +149,80 @@ public:
                 expect (v1 != nullptr && maxDiff (*v1, *v0) < 1.0e-6f, "the voice is shifted by the nudge once");
                 expect (o1 != nullptr && maxDiff (*o1, *o0) < 1.0e-6f, "the original is shifted by the nudge once");
             }
+            ui.attachEngine (nullptr);
+        }
+
+        // ハモリ分け（#27）：引き算でお手本が取れても、リードとハモリの分離（4 分の曲で 15〜30 分）は黙って始めず、確認を出す
+        auto analyse = [&] (UiSession& ui)
+        {
+            ui.loadGuide (original);
+            expect (pumpUntil ([&] { return ! ui.get().guideBusy; }, 120000), "the guide is analysed");
+            expect (ui.get().guideVocals != nullptr, "the guide is made by subtraction: " + ui.get().noticeText);
+        };
+
+        beginTest ("a guide taken by subtraction asks before splitting the lead and harmonies, and starts only when asked");
+        {
+            auto st = std::make_shared<FakeSeparation>();
+            st->karaoke = true;
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            ui.setSeparationService (std::make_unique<FakeSeparationService> (st));
+            expect (openSong (ui, karaoke));
+            const auto offers = ui.get().leadOfferSerial;
+            analyse (ui);
+            expectEquals (ui.get().leadOfferSerial, offers + 1, "it asks");
+            pump (600);
+            expectEquals (st->starts, 0, "nothing starts by itself");
+            expect (! ui.get().separating);
+            const auto e = ui.leadSplitEstimate();
+            expect (e.known() && e.lowMinutes() >= 1, "the question tells how long it takes");
+
+            ui.startLeadSplit();   // 「続ける」
+            expect (pumpUntil ([&] { return st->running; }, 30000), "it starts when asked");
+            expectEquals (st->starts, 1);
+            ui.stopSeparation();
+            pump (300);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("starting from the original only: the split was announced before it began, so it is not asked again");
+        {
+            auto st = std::make_shared<FakeSeparation>();
+            st->karaoke = true;
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            ui.setSeparationService (std::make_unique<FakeSeparationService> (st));
+            expect (openSong (ui, karaoke));
+            const auto offers = ui.get().leadOfferSerial;
+            ui.agreeLeadSplit();   // 起動画面の「原曲からオフボを作りますか？」で伝えてある
+            analyse (ui);
+            expectEquals (ui.get().leadOfferSerial, offers, "not asked");
+            expect (pumpUntil ([&] { return st->running; }, 30000), "it goes on by itself");
+            ui.stopSeparation();
+            pump (300);
+
+            // 了承はその 1 回だけ：次にお手本を読み直したときは聞く
+            analyse (ui);
+            expectEquals (ui.get().leadOfferSerial, offers + 1, "asked the next time");
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("without the lead model nothing is asked and nothing starts");
+        {
+            auto st = std::make_shared<FakeSeparation>();
+            st->karaoke = false;
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            ui.setSeparationService (std::make_unique<FakeSeparationService> (st));
+            expect (openSong (ui, karaoke));
+            const auto offers = ui.get().leadOfferSerial;
+            analyse (ui);
+            pump (300);
+            expectEquals (ui.get().leadOfferSerial, offers);
+            expectEquals (st->starts, 0);
             ui.attachEngine (nullptr);
         }
 
