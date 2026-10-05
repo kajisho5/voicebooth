@@ -1,6 +1,8 @@
 #include "MainComponent.h"
 #include "screens/StartScreen.h"
 #include "screens/AboutDialog.h"
+#include "screens/HelpDialog.h"
+#include "screens/ReportDialog.h"
 #include "screens/ShortcutsDialog.h"
 #include "screens/SetupWizard.h"
 #include "screens/ExportDialog.h"
@@ -31,6 +33,17 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openSetup    = [this] { openSetup(); };
     actions.openExport   = [this] { openExport(); };
     actions.openSettings = [this] { openSettings(); };
+    actions.openHelp = [this] { openHelp(); };
+    actions.openHelpMenu = [this] (juce::Component& anchor)
+    {
+        // ? は上のバーの右端にあるので、キーの右端にそろえて左へ開く（窓の外へはみ出さない）
+        constexpr int menuW = 300;
+        const auto key = anchor.getScreenBounds();
+        helpMenu().showMenuAsync (juce::PopupMenu::Options()
+                                      .withTargetScreenArea ({ key.getRight() - menuW, key.getY(), menuW, key.getHeight() })
+                                      .withMinimumWidth (menuW)
+                                      .withStandardItemHeight (30));
+    };
     actions.openVoiceRange = [this]
     {
         auto dlg = std::make_unique<RangeDialog> (session);
@@ -80,10 +93,26 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     modelStageBehind = state().modelDl.stage;
     lastTick = juce::Time::getMillisecondCounterHiRes();
     startTimerHz (30);
+
+   #if JUCE_MAC
+    // Mac のメニューバー（2026-10-05）：アプリのメニューの先頭に「VoiceBooth について」「設定…」、その右に「ヘルプ」。
+    // 言語を変えて画面を作り直したときは、新しい画面のものに置き換わる
+    {
+        juce::Component::SafePointer<MainComponent> safe (this);
+        juce::PopupMenu appItems;
+        appItems.addItem (juce::PopupMenu::Item (tr ("menu.help.about")).setAction ([safe] { if (safe != nullptr && ! safe->state().isRecording) safe->openAbout (false); }));
+        appItems.addItem (juce::PopupMenu::Item (tr ("menu.app.settings")).setAction ([safe] { if (safe != nullptr && ! safe->state().isRecording) safe->openSettings(); }));
+        juce::MenuBarModel::setMacMainMenu (this, &appItems);
+    }
+   #endif
 }
 
 MainComponent::~MainComponent()
 {
+   #if JUCE_MAC
+    if (juce::MenuBarModel::getMacMainMenu() == this)
+        juce::MenuBarModel::setMacMainMenu (nullptr);
+   #endif
     stopTimer();
 }
 
@@ -135,6 +164,8 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     if (o.screen == "export")       openExport();
     if (o.screen == "settings")     openSettings();
     if (o.screen == "about")        openAbout();
+    if (o.screen == "help")         openHelp();
+    if (o.screen == "report")       openReport();
     if (o.screen == "shortcuts")    openShortcuts();
     if (o.screen == "range" && actions.openVoiceRange) actions.openVoiceRange();
     if (o.screen == "skin-templates") openSkinTemplates();
@@ -476,6 +507,13 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     const auto c = key.getTextCharacter();
     const auto& s = state();
 
+    // F1：困ったときのヘルプ（録音中は開かない）
+    if (key.getKeyCode() == juce::KeyPress::F1Key)
+    {
+        if (! s.isRecording)
+            openHelp();
+        return true;
+    }
     // Ctrl / ⌘+Z：直前のテイクを採用から外す（B10）
     if (key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0))
     {
@@ -973,30 +1011,116 @@ void MainComponent::openSettings()
     overlay.show (std::move (dlg), true);
 }
 
-void MainComponent::openAbout()
+void MainComponent::openHelp()
 {
-    // 閉じたら設定に戻る（設定から開くので）
-    auto dlg = std::make_unique<AboutDialog>();
+    // 困ったときのヘルプ（2026-10-04）。項目から移る先を押したら、ヘルプを閉じてその画面を開く
+    auto dlg = std::make_unique<HelpDialog> (session);
     juce::Component::SafePointer<MainComponent> safe (this);
-    dlg->onCloseRequest = [this, safe]
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onAction = [this, safe] (help::Action a)
     {
         overlay.close();
-        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+        juce::MessageManager::callAsync ([safe, a]
+        {
+            if (safe == nullptr)
+                return;
+            switch (a)
+            {
+                case help::Action::openSetup:      safe->openSetup (0); break;
+                case help::Action::openLatency:    safe->openSetup (2); break;   // 遅延の測定の手順から
+                case help::Action::downloadModels: safe->session.requestSeparationModel(); break;
+                case help::Action::report:         safe->openReport(); break;
+                case help::Action::none:           break;
+            }
+        });
     };
     overlay.show (std::move (dlg), true);
 }
 
-void MainComponent::openShortcuts()
+void MainComponent::openAbout (bool backToSettings)
 {
-    // 1 文字のショートカットを変える（#28）。閉じたら設定に戻る（設定から開くので）
-    auto dlg = std::make_unique<ShortcutsDialog> (session);
+    // 設定から開いたときは、閉じたら設定に戻る
+    auto dlg = std::make_unique<AboutDialog>();
     juce::Component::SafePointer<MainComponent> safe (this);
-    dlg->onCloseRequest = [this, safe]
+    dlg->onCloseRequest = [this, safe, backToSettings]
     {
         overlay.close();
-        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+        if (backToSettings)
+            juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
     };
     overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openShortcuts (bool backToSettings)
+{
+    // 1 文字のショートカットを変える（#28）。設定から開いたときは、閉じたら設定に戻る
+    auto dlg = std::make_unique<ShortcutsDialog> (session);
+    juce::Component::SafePointer<MainComponent> safe (this);
+    dlg->onCloseRequest = [this, safe, backToSettings]
+    {
+        overlay.close();
+        if (backToSettings)
+            juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openSettings(); });
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openReport()
+{
+    // 不具合を報告する（2026-10-05）。アプリからは何も送らない：ブラウザで Issues を開き、送るのは使う人
+    auto dlg = std::make_unique<ReportDialog> (session);
+    dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onOpenIssue = [this]
+    {
+        // 情報はクリップボードにも入れておく（URL に入りきらないとき・ブラウザが本文を受け取らないときに貼れるように）
+        juce::SystemClipboard::copyTextToClipboard (help::environmentReport (session));
+        const auto url = help::reportUrl (session);
+        overlay.close();
+        showToast (juce::URL (url).launchInDefaultBrowser() ? tr ("report.opened") : tr ("update.openFailed", help::issuesUrl));
+    };
+    overlay.show (std::move (dlg), true);
+}
+
+juce::PopupMenu MainComponent::helpMenu()
+{
+    const auto& s = state();
+    const bool canOpen = ! s.isRecording;   // 録音中は画面を開かない（F1 と同じ）
+    juce::Component::SafePointer<MainComponent> safe (this);
+    // 押したら、メニューが閉じてから開く
+    auto run = [safe] (std::function<void (MainComponent&)> f)
+    {
+        return [safe, f] { if (safe != nullptr) f (*safe); };
+    };
+    auto browse = [] (juce::String url) { return [url] { juce::URL (url).launchInDefaultBrowser(); }; };
+
+    juce::PopupMenu m;
+    juce::PopupMenu::Item trouble (tr ("menu.help.trouble"));
+    trouble.shortcutKeyDescription = "F1";
+    m.addItem (std::move (trouble).setEnabled (canOpen).setAction (run ([] (MainComponent& c) { c.openHelp(); })));
+    m.addItem (juce::PopupMenu::Item (tr ("menu.help.shortcuts")).setEnabled (canOpen)
+                   .setAction (run ([] (MainComponent& c) { c.openShortcuts (false); })));
+    m.addItem (juce::PopupMenu::Item (tr ("menu.help.guide")).setAction (browse (help::guideUrl())));
+    m.addSeparator();
+    m.addItem (juce::PopupMenu::Item (tr ("menu.help.report")).setEnabled (canOpen)
+                   .setAction (run ([] (MainComponent& c) { c.openReport(); })));
+    m.addSeparator();
+    // 押して確かめたときは、結果を知らせで表示する（設定の「今すぐ確認」と同じ）。再生・録音中と確認中は押せない
+    m.addItem (juce::PopupMenu::Item (tr ("menu.help.update")).setEnabled (! s.updateChecking && ! s.isPlaying && ! s.isRecording)
+                   .setAction (run ([] (MainComponent& c) { c.session.checkForUpdatesNow(); })));
+    m.addItem (juce::PopupMenu::Item (tr ("menu.help.releases")).setAction (browse (help::releasesUrl)));
+    m.addItem (juce::PopupMenu::Item (tr ("menu.help.about")).setEnabled (canOpen)
+                   .setAction (run ([] (MainComponent& c) { c.openAbout (false); })));
+    return m;
+}
+
+juce::StringArray MainComponent::getMenuBarNames()
+{
+    return { tr ("menu.help") };
+}
+
+juce::PopupMenu MainComponent::getMenuForIndex (int, const juce::String&)
+{
+    return helpMenu();
 }
 
 namespace

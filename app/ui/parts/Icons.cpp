@@ -265,6 +265,21 @@ namespace
                 return p;
             }
 
+            case Icon::help:       // 困ったときのヘルプ：丸の中に ?
+            {
+                juce::Path q;
+                q.addEllipse (3.5f, 3.5f, 17.0f, 17.0f);
+                p = outline (q, 1.6f);
+                juce::Path hook;
+                hook.startNewSubPath (9.3f, 9.6f);
+                hook.cubicTo (9.3f, 7.6f, 10.6f, 6.8f, 12.0f, 6.8f);
+                hook.cubicTo (13.6f, 6.8f, 14.8f, 7.9f, 14.8f, 9.4f);
+                hook.cubicTo (14.8f, 11.4f, 12.0f, 11.6f, 12.0f, 13.8f);
+                p.addPath (outline (hook, 1.7f));
+                p.addEllipse (11.0f, 15.6f, 2.0f, 2.0f);
+                return p;
+            }
+
             case Icon::globe:
             {
                 juce::Path gl;
