@@ -76,7 +76,7 @@ public:
             {
                 k->setButtonText (tr (key));
                 const auto act = help::action (items[i].topic);
-                k->withIcon (act == help::Action::openIssues ? Icon::globe
+                k->withIcon (act == help::Action::report ? Icon::globe
                            : act == help::Action::downloadModels ? Icon::download : Icon::mic);
                 k->onClick = [this, act] { if (onAction) onAction (act); };
             }

@@ -1,4 +1,5 @@
 #include "ui/screens/HelpDialog.h"
+#include "ui/screens/ReportDialog.h"
 #include "session/FakeEngine.h"
 #include "session/SessionTestUtil.h"
 #include <set>
@@ -69,6 +70,86 @@ public:
             HelpDialog dlg (ui);
             expectEquals (dlg.openIndex(), -1);
             ui.attachEngine (nullptr);
+        }
+
+        // ヘルプのメニューと不具合の報告（2026-10-05）
+        beginTest ("the help menu and the report are translated in every language");
+        {
+            const char* keys[] = { "topbar.help", "menu.help", "menu.help.trouble", "menu.help.shortcuts", "menu.help.guide", "menu.help.report",
+                                   "menu.help.update", "menu.help.releases", "menu.help.about", "menu.app.settings",
+                                   "report.title", "report.micro", "report.intro", "report.env", "report.note", "report.open", "report.copy",
+                                   "report.copied", "report.opened", "report.issue.title", "report.issue.what", "report.issue.steps",
+                                   "report.issue.env", "report.issue.paste", "help.action.report" };
+            for (auto& l : i18n::available())
+                for (auto* k : keys)
+                    expect (i18n::has (l.id, k), juce::String (l.code) + ": " + k);
+        }
+
+        beginTest ("the report carries the app and device, but no song or project name");
+        {
+            const auto tag = juce::String::toHexString (juce::Random::getSystemRandom().nextInt64()).substring (0, 8);
+            const auto work = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("vbreport-" + tag);
+            const auto songName = "vbreport-" + tag;
+            const auto song = writeTone (work.getChildFile (songName + ".wav"), 440.0, 2.0);
+
+            FakeEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            expect (openSong (ui, song));
+            ui.tick (1.1);
+
+            const auto report = help::environmentReport (ui);
+            expect (report.startsWith ("VoiceBooth " + update::currentVersion()), report);
+            expect (report.contains ("OS: ") && report.contains ("Audio driver: ") && report.contains ("Output: ")
+                    && report.contains ("Input: ") && report.contains ("Latency: ") && report.contains ("Models: "), report);
+            expect (report.contains ("Song: ") && ! report.contains ("Song: none"), report);
+            expect (! report.contains (songName) && ! report.contains (work.getFullPathName()), "no song name or path: " + report);
+
+            const auto body = help::issueBody (ui);
+            expect (body.contains ("### " + tr ("report.issue.what")) && body.contains ("```\n" + report + "\n```"));
+
+            // URL：題と本文がそのまま戻る（改行・空白・記号・日本語を逃がしている）
+            const auto url = help::newIssueUrl (tr ("report.issue.title"), body);
+            expect (url.startsWith (juce::String (help::issuesUrl) + "/new?title="));
+            expect (! url.containsAnyOf (" \n#\"<>") && url.indexOf ("&") == url.indexOf ("&body="), url);
+            const juce::URL parsed (url);
+            expectEquals (parsed.getParameterValues()[parsed.getParameterNames().indexOf ("body")], body);
+            expectEquals (parsed.getParameterValues()[parsed.getParameterNames().indexOf ("title")], tr ("report.issue.title"));
+
+            const auto reportUrl = help::reportUrl (ui);
+            expect (reportUrl.length() <= help::maxUrlLength, juce::String (reportUrl.length()));
+
+            ReportDialog dlg (ui);
+            expectEquals (dlg.shownText(), report);
+
+            ui.attachEngine (nullptr);
+            UiSession::projectFolderFor (songName).deleteRecursively();
+            work.deleteRecursively();
+        }
+
+        beginTest ("a report too long for a URL leaves the information out and asks to paste it");
+        {
+            juce::String longInfo;
+            for (int i = 0; i < 200; ++i)
+                longInfo << "device name " << i << "\n";
+            const auto url = help::reportUrl (longInfo);
+            expect (url.length() <= help::maxUrlLength, juce::String (url.length()));
+            const juce::URL parsed (url);
+            const auto body = parsed.getParameterValues()[parsed.getParameterNames().indexOf ("body")];
+            expect (body.contains (tr ("report.issue.paste")) && ! body.contains ("device name"), body);
+            // 短ければ情報が本文に入る
+            const auto shortBody = juce::URL (help::reportUrl ("OS: test")).getParameterValues()[1];
+            expect (shortBody.contains ("```\nOS: test\n```"), shortBody);
+        }
+
+        beginTest ("the guide link follows the language");
+        {
+            const auto before = i18n::current();
+            i18n::setLanguage (i18n::Language::ja);
+            expect (help::guideUrl().endsWith ("/README.md"), help::guideUrl());
+            i18n::setLanguage (i18n::Language::zhHans);
+            expect (help::guideUrl().endsWith ("/README.zh-Hans.md"), help::guideUrl());
+            i18n::setLanguage (before);
         }
     }
 };

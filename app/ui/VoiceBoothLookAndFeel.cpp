@@ -130,7 +130,7 @@ juce::Font VoiceBoothLookAndFeel::getPopupMenuFont()
 
 void VoiceBoothLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rectangle<int>& area,
                                                bool isSeparator, bool isActive, bool isHighlighted, bool isTicked,
-                                               bool hasSubMenu, const juce::String& text, const juce::String&,
+                                               bool hasSubMenu, const juce::String& text, const juce::String& shortcutKeyText,
                                                const juce::Drawable* icon, const juce::Colour*)
 {
     if (isSeparator)
@@ -166,6 +166,14 @@ void VoiceBoothLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Re
     if (hasSubMenu)
         drawIcon (g, Icon::chevronRight, r.removeFromRight (22.0f).withSizeKeepingCentre (12.0f, 12.0f),
                   isHighlighted ? colours::signal : colours::textDim);
+
+    // ショートカット（ヘルプのメニューの F1 など）は右に等幅で
+    if (shortcutKeyText.isNotEmpty())
+    {
+        g.setColour (colours::textMute);
+        g.setFont (mono (11.5f, Weight::medium));
+        g.drawText (shortcutKeyText, r.removeFromRight (56.0f).withTrimmedRight (10.0f), juce::Justification::centredRight, false);
+    }
 
     g.setColour (isActive ? (isTicked ? colours::text : colours::text.withAlpha (0.85f)) : colours::textMute);
     g.setFont (sansForLanguageName (text, 13.0f, isTicked ? Weight::semibold : Weight::regular));

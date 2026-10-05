@@ -55,6 +55,7 @@ class StartScreen;
 
 class MainComponent : public juce::Component,
                       public juce::FileDragAndDropTarget,
+                      public juce::MenuBarModel,
                       private juce::Timer,
                       private SessionView
 {
@@ -85,9 +86,18 @@ public:
     void openSetup (int step = 0);
     void openExport();
     void openSettings();
-    void openAbout();
-    void openHelp();        // 困ったときのヘルプ（? / F1）
-    void openShortcuts();   // 1 文字のショートカット（#28）
+    void openAbout (bool backToSettings = true);       // 閉じたら設定に戻る（設定から開いたとき）
+    void openHelp();        // 困ったときのヘルプ（F1・ヘルプのメニュー）
+    void openShortcuts (bool backToSettings = true);   // 1 文字のショートカット（#28）
+    void openReport();      // 不具合を報告する（ヘルプのメニュー）
+
+    /** ヘルプのメニュー（2026-10-05。上のバーの ? と、Mac のメニューバーの「ヘルプ」で同じもの） */
+    juce::PopupMenu helpMenu();
+
+    // Mac のメニューバー（ヘルプのメニューだけ。Windows はウィンドウにメニューバーがないので ? キーから）
+    juce::StringArray getMenuBarNames() override;
+    juce::PopupMenu getMenuForIndex (int, const juce::String&) override;
+    void menuItemSelected (int, int) override {}
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
