@@ -494,6 +494,13 @@ void UiSession::closeForQuit()
     else
         finishRecording();   // 裏録り（B7）だけなら消す
     flushSave();
+    // 分離の途中なら止めて、作業ファイル（入力の写し 約 85 MB など）を消す。止めた知らせはもう届かない
+    // （アプリ共通のキャッシュに残っていた。バグチェック 2026-10-05）
+    if (s.separating)
+        stopSeparation();
+    for (auto& f : separationScratch)
+        f.deleteFile();
+    separationScratch.clear();
 }
 
 void UiSession::restoreRecentProjects (const juce::StringArray& list)
@@ -587,8 +594,8 @@ bool UiSession::hasTakes() const
 void UiSession::setRecordFormat (double rate, bool floatSamples)
 {
     const bool rateChanged = std::abs (rate - s.recordRate) > 0.5;
-    s.recordFloat = floatSamples;
-    s.recordRate = rate;
+    s.recordFloat = s.prefRecordFloat = floatSamples;
+    s.recordRate = s.prefRecordRate = rate;
     s.project.bitDepthExport = floatSamples ? 32 : 24;
     notify (change::recordFormat | change::practice);
 

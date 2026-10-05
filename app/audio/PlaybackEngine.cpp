@@ -312,7 +312,14 @@ void PlaybackEngine::reopen()
     core.stop();
     meter.reset();
     manager.closeAudioDevice();
-    openError = manager.initialise (inputAllowed() ? 1 : 0, 2, saved.get(), true);
+    const auto ins = inputAllowed() ? 1 : 0;
+    openError = manager.initialise (ins, 2, saved.get(), true);
+    if (openError.isNotEmpty() && ins > 0)
+    {
+        // 起動時と同じく、入力が原因なら出力だけで開き直す（前は出力まで開けなくなった。バグチェック 2026-10-05）
+        inputError = openError;
+        openError = manager.initialise (0, 2, nullptr, true);
+    }
     if (openError.isEmpty() && manager.getCurrentAudioDevice() == nullptr)
         openError = "no output device";
     ensureMonoInput();
@@ -559,7 +566,10 @@ void PlaybackEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
     meter.prepare (device->getCurrentSampleRate());
     monitor.prepare (device->getCurrentSampleRate(), device->getCurrentBufferSizeSamples());
     game.prepare (device->getCurrentSampleRate());
-    outputLatencySamples.store (device->getOutputLatencyInSamples() + device->getCurrentBufferSizeSamples());
+    // JUCE の出力の遅延は、WASAPI・Core Audio などではバッファ 1 つ分を含む。含まない ALSA だけ足す
+    // （前はいつも足していて、ゲームのリズムタップがバッファ分遅れて判定された。バグチェック 2026-10-05）
+    const bool addBuffer = device->getTypeName() == "ALSA";
+    outputLatencySamples.store (device->getOutputLatencyInSamples() + (addBuffer ? device->getCurrentBufferSizeSamples() : 0));
 }
 
 void PlaybackEngine::audioDeviceStopped()

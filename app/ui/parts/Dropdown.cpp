@@ -75,6 +75,9 @@ std::unique_ptr<juce::AccessibilityHandler> Dropdown::createAccessibilityHandler
 
 void Dropdown::showMenu()
 {
+    // JUCE は無効な部品にもクリックを渡す（灰色のプルダウンで選べ、録音中にスキンが変わっていた。バグチェック 2026-10-05）
+    if (! isEnabled())
+        return;
     juce::PopupMenu menu;
     for (int i = 0; i < items.size(); ++i)
         menu.addItem (i + 1, items[i], true, i == selected);

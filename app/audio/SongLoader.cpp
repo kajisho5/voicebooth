@@ -5,6 +5,37 @@
 
 namespace vb::audio
 {
+void downmixToStereo (const juce::AudioBuffer<float>& in, juce::AudioBuffer<float>& out)
+{
+    const auto n = in.getNumSamples(), channels = in.getNumChannels();
+    out.setSize (2, n, false, false, true);
+    out.clear();
+    if (channels == 6)
+    {
+        // 5.1ch（L R C LFE Ls Rs）：ITU-R BS.775 のまとめ方（LFE は入れない）。重なっても割れないよう全体を下げる
+        constexpr float k = 0.70710678f, scale = 1.0f / (1.0f + 2.0f * k);
+        for (int side = 0; side < 2; ++side)
+        {
+            out.addFrom (side, 0, in, side, 0, n, scale);
+            out.addFrom (side, 0, in, 2, 0, n, k * scale);
+            out.addFrom (side, 0, in, 4 + side, 0, n, k * scale);
+        }
+        return;
+    }
+    // そのほか：偶数番目を左、奇数番目を右に平均（並びが分からないので、どのチャンネルも落とさない）
+    int counts[2] = { 0, 0 };
+    for (int c = 0; c < channels; ++c)
+    {
+        out.addFrom (c % 2, 0, in, c, 0, n);
+        ++counts[c % 2];
+    }
+    for (int side = 0; side < 2; ++side)
+        if (counts[side] > 1)
+            out.applyGain (side, 0, n, 1.0f / (float) counts[side]);
+    if (counts[1] == 0)
+        out.copyFrom (1, 0, out, 0, 0, n);
+}
+
 const char* errorKey (LoadResult::Error e)
 {
     switch (e)
@@ -16,6 +47,7 @@ const char* errorKey (LoadResult::Error e)
         case LoadResult::Error::readFailed:  return "load.error.readFailed";
         case LoadResult::Error::cancelled:   return "load.error.cancelled";
         case LoadResult::Error::tooLong:     return "load.error.tooLong";
+        case LoadResult::Error::outOfMemory: return "load.error.outOfMemory";
     }
     return "";
 }
@@ -93,8 +125,13 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
 
     // 長さは時間だけでなくサンプル数でも見る。バッファは int のサンプル数なので、極端な SR を書いたファイル
     // （時間は短いのにサンプル数が int を超える）を通すと、確保した外へ読み込んでしまう（監査 2026-10-03）
-    if ((double) info.lengthSamples / info.sampleRate > maxSongMinutes * 60.0 || info.numChannels > 8
-        || info.sampleRate > maxSampleRate || info.lengthSamples > (int64) std::numeric_limits<int>::max())
+    // 長すぎるとき以外（チャンネルが多すぎる・SR が高すぎる）に「長すぎます」と出していた（バグチェック 2026-10-05）
+    if (info.numChannels > 8 || info.sampleRate > maxSampleRate)
+    {
+        r.error = LoadResult::Error::unsupported;
+        return r;
+    }
+    if ((double) info.lengthSamples / info.sampleRate > maxSongMinutes * 60.0 || info.lengthSamples > (int64) std::numeric_limits<int>::max())
     {
         r.error = LoadResult::Error::tooLong;
         return r;
@@ -109,7 +146,7 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
     }
     catch (const std::bad_alloc&)
     {
-        r.error = LoadResult::Error::tooLong;
+        r.error = LoadResult::Error::outOfMemory;
         return r;
     }
 
@@ -137,6 +174,18 @@ LoadResult loadSong (const juce::File& file, juce::AudioFormatManager& formats,
             r.error = LoadResult::Error::cancelled;
             return r;
         }
+    }
+
+    // 3 チャンネル以上はステレオにまとめる（鳴らすのは 2ch までなので、5.1ch ではセンターの歌が鳴らず、
+    // 解析は全チャンネルの平均で、聞こえる音と食い違っていた。バグチェック 2026-10-05）
+    if (info.numChannels > 2)
+    {
+        auto stereo = std::make_shared<SongAudio>();
+        stereo->sampleRate = audio->sampleRate;
+        try { stereo->buffer.setSize (2, audio->buffer.getNumSamples()); }
+        catch (const std::bad_alloc&) { r.error = LoadResult::Error::outOfMemory; return r; }
+        downmixToStereo (audio->buffer, stereo->buffer);
+        audio = std::move (stereo);
     }
 
     r.overview = std::move (overview);

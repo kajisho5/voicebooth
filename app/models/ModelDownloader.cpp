@@ -279,6 +279,8 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
             wait (300);
         }
         status.paused = false;
+        // 一時停止中に中止した：通信せずに止める（前は 1 回つなぎに行き、回線が切れていると終了が 20 秒ほど固まった。バグチェック 2026-10-05）
+        if (threadShouldExit()) { status.stage = Stage::cancelled; writeState (stateFile, st, have); report (status); return false; }
         status.stage = Stage::downloading;
 
         auto resp = http->get (f.url, have, have > 0 ? st.etag : juce::String());

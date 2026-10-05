@@ -62,12 +62,13 @@ void UiSession::requestSeparationModel (bool onlyIfMissing)
         return;
     }
 
-    postNotice (tr ("model.checking"));
+    if (! onlyIfMissing)   // 起動時の黙った確認では知らせない（オフラインだと毎回出ていた。バグチェック 2026-10-05）
+        postNotice (tr ("model.checking"));
     const auto wantedId = separation::SeparatorClient::modelId();
     const auto karaokeId = separation::SeparatorClient::karaokeModelId();
     const auto pitchId = separation::SeparatorClient::pitchModelId();
     std::weak_ptr<bool> weak = alive;
-    juce::Thread::launch ([this, weak, keys, wantedId, karaokeId, pitchId, openDialog]
+    juce::Thread::launch ([this, weak, keys, wantedId, karaokeId, pitchId, openDialog, onlyIfMissing]
     {
         auto http = models::makeHttpSource();
         juce::String error;
@@ -97,12 +98,13 @@ void UiSession::requestSeparationModel (bool onlyIfMissing)
             else
                 error = "the model isn't in the list";
         }
-        juce::MessageManager::callAsync ([this, weak, found, foundKaraoke, foundPitch, error, openDialog]
+        juce::MessageManager::callAsync ([this, weak, found, foundKaraoke, foundPitch, error, openDialog, onlyIfMissing]
         {
             if (weak.expired()) return;
             if (found == nullptr)
             {
-                postNotice (tr ("model.listFailed", reasonText (error)));
+                if (! onlyIfMissing)
+                    postNotice (tr ("model.listFailed", reasonText (error)));
                 return;
             }
             modelEntry = std::make_unique<models::ModelEntry> (*found);
