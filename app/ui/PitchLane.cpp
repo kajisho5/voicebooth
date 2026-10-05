@@ -1,5 +1,6 @@
 #include "PitchLane.h"
 #include "SongMarks.h"
+#include "PitchStyle.h"
 #include "separation/SeparatorClient.h"
 
 namespace vb
@@ -148,9 +149,12 @@ float PitchLane::yForMidi (float midi) const
 
 juce::Colour PitchLane::colourForCents (float cents) const
 {
-    const auto a = std::abs (cents);
-    if (a <= state().pitchToleranceCents)                                     return colours::signal;
-    if (a <= analysis::pitchWarnLimitCents (state().pitchToleranceCents)) return colours::warn;
+    switch (pitchstyle::levelFor (cents, state().pitchToleranceCents))
+    {
+        case pitchstyle::Level::ok:   return colours::signal;
+        case pitchstyle::Level::near: return colours::warn;
+        case pitchstyle::Level::far:  break;
+    }
     return colours::bad;
 }
 
@@ -666,18 +670,40 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
     // 自分の線は「歌ったところ」＝再生ヘッドまで。描き直す範囲の左端より前（16 px の余白より左）は組み立てない
     // （再生中は再生ヘッドの前後だけを描き直すので、線全体をたどると重い。#26）
     const auto from = juce::jmax (s.viewStart - 4800, m.sampleAt ((float) g.getClipBounds().getX() - 16.0f));
+    // 判定の段階（お手本が無ければ実線のまま）。色だけでなく線の形も変える（合う＝実線・ずれ＝長い破線・大きくずれ＝短い破線。#28）
+    const auto tolerance = s.pitchToleranceCents;
+    auto levelOf = [tolerance] (const dummy::PitchPoint& p)
+    {
+        return p.judged ? pitchstyle::levelFor (p.centsOff, tolerance) : pitchstyle::Level::ok;
+    };
     forEachRun (s.myPitch, from, s.playhead, s.sampleRate(), [&] (const std::vector<const dummy::PitchPoint*>& run)
     {
-        // 同じ色の連続ごとに描く（境界点は両側で共有して途切れなく見せる）
+        // 同じ色・同じ形の連続ごとに描く（境界点は両側で共有して途切れなく見せる）。形は 0.1 秒より短いずれ・戻りでは変えない
+        std::vector<pitchstyle::Level> raw;
+        raw.reserve (run.size());
+        for (auto* p : run)
+            raw.push_back (levelOf (*p));
+        const auto shapes = pitchstyle::shapeLevels (raw, juce::roundToInt (0.1 / audio::pitch::hopSeconds));
+
         juce::Path path;
         auto colour = colourFor (*run.front());
+        auto level = shapes.front();
 
         auto flush = [&]
         {
             g.setColour (colour.withAlpha (0.16f));
-            g.strokePath (path, stroke (7.0f));
+            g.strokePath (path, stroke (7.0f));   // にじみは実線のまま（線の場所が分かる）
             g.setColour (colour);
-            g.strokePath (path, stroke (2.6f));
+            const auto w = pitchstyle::width (level);
+            if (const auto d = pitchstyle::dashes (level); d.empty())
+                g.strokePath (path, stroke (w));
+            else
+            {
+                juce::Path dashed;
+                juce::PathStrokeType (w, juce::PathStrokeType::curved, juce::PathStrokeType::butt)
+                    .createDashedStroke (dashed, path, d.data(), (int) d.size());
+                g.fillPath (dashed);
+            }
             path.clear();
         };
 
@@ -685,10 +711,11 @@ void PitchLane::drawMine (juce::Graphics& g, const TimeMap& m)
         {
             const juce::Point<float> pt { m.x (run[i]->sample), yForMidi (run[i]->midi + off) };
             const auto c = colourFor (*run[i]);
+            const auto l = shapes[i];
 
-            if (i == 0)       { path.startNewSubPath (pt); continue; }
+            if (i == 0)                        { path.startNewSubPath (pt); continue; }
             path.lineTo (pt);
-            if (c != colour)  { flush(); colour = c; path.startNewSubPath (pt); }
+            if (c != colour || l != level)     { flush(); colour = c; level = l; path.startNewSubPath (pt); }
         }
         flush();
     });
@@ -758,6 +785,20 @@ void PitchLane::drawCurrent (juce::Graphics& g, const TimeMap& m)
     g.drawEllipse (juce::Rectangle<float> (13.0f, 13.0f).withCentre (c), 2.5f);
     g.fillEllipse (juce::Rectangle<float> (5.0f, 5.0f).withCentre (c));
 
+    // ずれていれば、直す向きの印（低い ▲ を点の上、高い ▼ を点の下）。色が見分けにくくても向きが分かる（#28）
+    if (p->judged)
+        if (const auto dir = pitchstyle::correction (p->centsOff, s.pitchToleranceCents); dir != 0)
+        {
+            const auto y = c.y - (float) dir * 15.0f;            // 印の中心（点から 15 px 離す）
+            const auto tip = y - (float) dir * 4.0f, base = y + (float) dir * 3.0f;
+            juce::Path arrow;
+            arrow.addTriangle (c.x, tip, c.x - 5.0f, base, c.x + 5.0f, base);
+            g.setColour (colours::bgDeep.withAlpha (0.85f));
+            g.strokePath (arrow, juce::PathStrokeType (2.0f));   // 地に溶けないよう縁取り
+            g.setColour (col);
+            g.fillPath (arrow);
+        }
+
     // セント値はプロのみ（DESIGN 4.3）。お手本が無ければ出さない
     if (s.mode == project::Mode::pro && p->judged)
     {
@@ -810,12 +851,27 @@ void PitchLane::drawFooter (juce::Graphics& g)
 
     // 自分：3 状態
     {
-        const juce::Colour cs[] = { colours::signal, colours::warn, colours::bad };
-        for (auto c : cs)
+        // 線の見本：色と形の両方（合う＝実線・ずれ＝長い破線・大きくずれ＝短い破線）
+        const std::pair<juce::Colour, pitchstyle::Level> cs[] = { { colours::signal, pitchstyle::Level::ok },
+                                                                  { colours::warn, pitchstyle::Level::near },
+                                                                  { colours::bad, pitchstyle::Level::far } };
+        for (auto& [c, level] : cs)
         {
+            const auto sw = r.removeFromLeft (16.0f);
+            juce::Path line;
+            line.startNewSubPath (sw.getX(), sw.getCentreY());
+            line.lineTo (sw.getRight(), sw.getCentreY());
             g.setColour (c);
-            g.fillRoundedRectangle (r.removeFromLeft (12.0f).withSizeKeepingCentre (12.0f, 3.0f), 1.5f);
-            r.removeFromLeft (2.0f);
+            const auto w = pitchstyle::width (level);
+            if (const auto d = pitchstyle::dashes (level); d.empty())
+                g.strokePath (line, juce::PathStrokeType (w));
+            else
+            {
+                juce::Path dashed;
+                juce::PathStrokeType (w).createDashedStroke (dashed, line, d.data(), (int) d.size());
+                g.fillPath (dashed);
+            }
+            r.removeFromLeft (3.0f);
         }
         r.removeFromLeft (6.0f);
         label (tr ("pitch.legend.mine"), colours::textDim);
