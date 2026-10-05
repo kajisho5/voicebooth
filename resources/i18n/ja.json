@@ -408,6 +408,7 @@
   "project.error.newer": "新しい VoiceBooth で作られたプロジェクトです（{0}）。アップデートしてから開いてください",
   "project.error.notProject": "VoiceBooth のプロジェクトとして読めません：{0}",
   "project.error.songMissing": "プロジェクトの曲ファイルが見つかりません（{0}）。Audio フォルダごと移動したか確認してください",
+  "project.missingTakeFiles": "採用しているテイクのファイル {0} 個が見つかりません。そのトラックは鳴らず、書き出せません（Audio/Takes フォルダを確認してください）",
   "project.outsideTakes": "プロジェクトのフォルダの外を指すテイク {0} 個は読み込みませんでした",
   "project.rateChanged": "前回は {0} kHz で録音しましたが、現在は {1} kHz です。サンプリングレートの違うテイクは一緒に書き出せません。録音形式を戻すか、機器の設定を確認してください",
   "project.rateChangedNotSaved": "前回は {0} kHz で録音しましたが、{1} kHz にそろえられませんでした。テイクの位置がずれるため、このプロジェクトの変更は保存せず、録音もできません。メモリを空けてから開き直してください",

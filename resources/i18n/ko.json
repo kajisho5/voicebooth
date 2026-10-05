@@ -408,6 +408,7 @@
   "project.error.newer": "더 새로운 VoiceBooth로 만든 프로젝트입니다({0}). 업데이트한 뒤 열어 주세요",
   "project.error.notProject": "VoiceBooth 프로젝트로 읽을 수 없습니다: {0}",
   "project.error.songMissing": "프로젝트의 곡 파일을 찾을 수 없습니다({0}). Audio 폴더도 함께 옮겼는지 확인해 주세요",
+  "project.missingTakeFiles": "채택한 테이크의 파일 {0}개를 찾을 수 없습니다. 해당 트랙은 재생되지 않고 내보낼 수 없습니다(Audio/Takes 폴더를 확인하세요)",
   "project.outsideTakes": "프로젝트 폴더 밖을 가리키는 테이크 {0}개는 불러오지 않았습니다",
   "project.rateChanged": "지난번에는 {0} kHz로 녹음했지만 지금은 {1} kHz입니다. 테이크의 SR이 다르면 내보낼 수 없습니다. 녹음 형식을 되돌리거나 장치를 확인해 주세요",
   "project.rateChangedNotSaved": "지난번에는 {0} kHz로 녹음했지만 {1} kHz에서 맞추지 못했습니다. 테이크 위치가 어긋나므로 이 프로젝트의 변경은 저장하지 않고 녹음도 할 수 없습니다. 메모리를 확보한 뒤 다시 열어 주세요",

@@ -327,7 +327,8 @@ public:
 
     /** 曲ごとの作業フォルダ（テイク・書き出し）。.vbooth の保存（B14）までの仮の置き場：
         書類フォルダ/VoiceBooth/Projects/{曲名}/ */
-    static juce::File projectFolderFor (const juce::String& songName);
+    static juce::File projectFolderFor (const juce::String& songName, int number = 1);   // number > 1 なら「{曲名} (n)」
+    static juce::File legacyProjectFolderFor (const juce::String& songName);
 
     // --- 練習 / モード ------------------------------------------------------
     void setTempo (int percent);

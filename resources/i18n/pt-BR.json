@@ -408,6 +408,7 @@
   "project.error.newer": "Este projeto foi feito com um VoiceBooth mais novo ({0}). Atualize primeiro e depois abra",
   "project.error.notProject": "Isto não é um projeto do VoiceBooth: {0}",
   "project.error.songMissing": "O arquivo de música do projeto não foi encontrado ({0}). Verifique se a pasta Audio foi movida junto",
+  "project.missingTakeFiles": "{0} arquivo(s) de take em uso não foram encontrados. A faixa afetada não vai tocar nem pode ser exportada (confira a pasta Audio/Takes)",
   "project.outsideTakes": "Takes que apontam para fora da pasta do projeto, não carregados: {0}",
   "project.rateChanged": "Os takes foram gravados em {0} kHz, mas a linha do tempo agora está em {1} kHz. Takes em outra taxa não podem ser exportados; volte o formato de gravação ou verifique o dispositivo",
   "project.rateChangedNotSaved": "Da última vez você gravou em {0} kHz, mas não foi possível ajustar a partir de {1} kHz. Os takes ficariam deslocados, então as alterações não são salvas e a gravação está desativada. Libere memória e abra novamente",

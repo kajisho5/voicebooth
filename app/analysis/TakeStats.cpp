@@ -214,14 +214,23 @@ std::vector<Vibrato> vibratos (const std::vector<audio::PitchFrame>& take, doubl
                 for (int k = -half; k <= half; ++k) m += p[(size_t) (i + k)];
                 d.push_back (p[(size_t) i] - m / (float) (2 * half + 1));
             }
+            // 速さは最初と最後にゼロをまたいだ位置の間で数える（全体の長さで割ると、端の半周期の分だけ低く出て、
+            // 4 Hz のビブラートが 3.7 Hz ほどになり検出されなかった。バグチェック 2026-10-05）
             int crossings = 0;
-            double sq = 0.0;
+            double sq = 0.0, firstCross = -1.0, lastCross = -1.0;
             for (size_t i = 0; i < d.size(); ++i)
             {
                 sq += (double) d[i] * d[i];
-                if (i > 0 && ((d[i - 1] < 0.0f) != (d[i] < 0.0f))) ++crossings;
+                if (i > 0 && ((d[i - 1] < 0.0f) != (d[i] < 0.0f)))
+                {
+                    // またいだ位置を線形補間で
+                    const auto at = (double) (i - 1) + (double) d[i - 1] / ((double) d[i - 1] - (double) d[i]);
+                    if (crossings == 0) firstCross = at;
+                    lastCross = at;
+                    ++crossings;
+                }
             }
-            rate = (float) (crossings / 2.0 / ((double) d.size() * 0.01));
+            rate = crossings >= 3 ? (float) ((crossings - 1) / 2.0 / ((lastCross - firstCross) * 0.01)) : 0.0f;
             depth = (float) (std::sqrt (sq / (double) d.size()) * std::sqrt (2.0));   // 正弦波なら振幅（片側のセント）
             return true;
         };

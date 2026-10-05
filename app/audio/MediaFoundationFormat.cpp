@@ -181,6 +181,17 @@ namespace
             return lengthInSamples > 0;
         }
 
+        /** 今の形式が開いたときと同じ SR・チャンネル数か */
+        bool sameFormat()
+        {
+            Com<IMFMediaType> now;
+            UINT32 ch = 0, sr = 0;
+            return SUCCEEDED (reader->GetCurrentMediaType (audioStream, now.put()))
+                && SUCCEEDED (now->GetUINT32 (MF_MT_AUDIO_NUM_CHANNELS, &ch))
+                && SUCCEEDED (now->GetUINT32 (MF_MT_AUDIO_SAMPLES_PER_SECOND, &sr))
+                && ch == numChannels && (double) sr == sampleRate;
+        }
+
         /** 1 つ分デコードして pending に足す。終わり・失敗なら false */
         bool decodeNext()
         {
@@ -190,6 +201,10 @@ namespace
                 LONGLONG timestamp = 0;   // 使わない（位置はデコードした数で数える）
                 Com<IMFSample> sample;
                 if (FAILED (reader->ReadSample (audioStream, 0, nullptr, &flags, &timestamp, sample.put())))
+                    return fail();
+                // 途中で形式が変わった（SBR / PS の HE-AAC は、開いたときの SR・チャンネル数から変わることがある）：
+                // 開いたときの形式で読み続けると遅く低く鳴るので、変わっていたら失敗にする（バグチェック 2026-10-05）
+                if ((flags & MF_SOURCE_READERF_CURRENTMEDIATYPECHANGED) != 0 && ! sameFormat())
                     return fail();
                 if ((flags & MF_SOURCE_READERF_ENDOFSTREAM) != 0 && ! sample)
                     return false;

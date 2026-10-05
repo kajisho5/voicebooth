@@ -53,6 +53,21 @@ public:
                 expectEquals (decodeText (block.getData(), block.getSize(), e), s);   // 絵文字（サロゲートペア）も
             }
 
+            // BOM の無い UTF-16（バグチェック 2026-10-05）
+            for (const bool big : { false, true })
+            {
+                juce::MemoryOutputStream out;
+                for (const auto* p = s.toUTF16().getAddress(); *p != 0; ++p)
+                {
+                    if (big) out.writeShortBigEndian ((short) *p);
+                    else     out.writeShort ((short) *p);
+                }
+                const auto block = out.getMemoryBlock();
+                const auto e = detectEncoding (block.getData(), block.getSize());
+                expect (e == (big ? TextEncoding::utf16be : TextEncoding::utf16le), big ? "BE without BOM" : "LE without BOM");
+                expectEquals (decodeText (block.getData(), block.getSize(), e), s);
+            }
+
             const char ascii[] = "hello\n";
             expect (detectEncoding (ascii, 6) == TextEncoding::utf8);
         }

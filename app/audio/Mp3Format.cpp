@@ -23,6 +23,10 @@ namespace
 {
     size_t readCallback (void* buffer, size_t size, void* user)
     {
+        // 読み込みを止めるとき（別の曲を選んだ・閉じた）：ここで止める。Xing タグの無い mp3 は開くときに全フレームを数えるので、
+        // 見ないとスレッドが止まらず、待ちきれずに強制終了していた（バグチェック 2026-10-05）
+        if (juce::Thread::currentThreadShouldExit())
+            return 0;
         auto* stream = static_cast<juce::InputStream*> (user);
         const auto n = stream->read (buffer, (int) juce::jmin (size, (size_t) std::numeric_limits<int>::max()));
         return n > 0 ? (size_t) n : 0;
@@ -102,12 +106,19 @@ namespace
             position = startSampleInFile + got;
             // 途中でデコードできなくなった（SR・チャンネル数の変わる mp3、読み込みの失敗）：成功にしない
             // （前は残りを無音のまま開き、後半が黙って無音になった。バグチェック 2026-10-05）
-            if (got < wanted && decoder->last_error != 0)
+            // 読み込みの失敗（USB を抜いた・ネットワークが切れた）は minimp3 には終わりに見えるので、ストリームの状態も見る
+            if (got < wanted && (decoder->last_error != 0 || streamFailed()))
                 return false;
             return true;
         }
 
     private:
+        bool streamFailed() const
+        {
+            auto* f = dynamic_cast<juce::FileInputStream*> (input);
+            return f != nullptr && f->getStatus().failed();
+        }
+
         std::unique_ptr<mp3dec_ex_t> decoder;   // 大きい（1 フレーム分のバッファを含む）ので確保して持つ
         mp3dec_io_t io {};
         bool opened = false;

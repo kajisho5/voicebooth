@@ -90,6 +90,22 @@ public:
             ui.attachEngine (nullptr);
         }
 
+        beginTest ("project folder names: long names keep their number, symbol-only names are Untitled");
+        {
+            const auto longName = juce::String::repeatedString ("a", 200);
+            const auto one = UiSession::projectFolderFor (longName), two = UiSession::projectFolderFor (longName, 2), three = UiSession::projectFolderFor (longName, 3);
+            expect (two != three && one != two, "each number gets its own folder (it hung before)");
+            expect (one.getFileName().length() <= 80);
+            expect (two.getFileName().endsWith (" (2)"));
+            const auto jp = juce::String::repeatedString (juce::String::fromUTF8 ("\xe3\x81\x82"), 120);   // 「あ」×120（360 バイト）
+            expect (UiSession::projectFolderFor (jp).getFileName().getNumBytesAsUTF8() <= 160);
+            const auto root = UiSession::projectFolderFor ({}).getParentDirectory();
+            for (auto* bad : { "???", "...", "..", ".", "" })
+                expect (UiSession::projectFolderFor (bad).getParentDirectory() == root
+                        && UiSession::projectFolderFor (bad).getFileName() == "Untitled", juce::String ("name: ") + bad);
+            expectEquals (UiSession::projectFolderFor ("My Song").getFileName(), juce::String ("My Song"), "short names do not change");
+        }
+
         UiSession::projectFolderFor (songName).deleteRecursively();
         work.deleteRecursively();
     }

@@ -408,6 +408,7 @@
   "project.error.newer": "这是用更新版本的 VoiceBooth 创建的项目（{0}）。请先更新再打开",
   "project.error.notProject": "无法作为 VoiceBooth 项目读取：{0}",
   "project.error.songMissing": "找不到项目的歌曲文件（{0}）。请确认 Audio 文件夹是否一起移动了",
+  "project.missingTakeFiles": "找不到采用中录音的 {0} 个文件。该音轨无法播放，也无法导出（请检查 Audio/Takes 文件夹）",
   "project.outsideTakes": "未载入指向项目文件夹以外的 {0} 条录音",
   "project.rateChanged": "上次以 {0} kHz 录音，现在是 {1} kHz。采样率不同的录音无法导出，请改回录音格式或检查设备",
   "project.rateChangedNotSaved": "上次以 {0} kHz 录音，但无法从 {1} kHz 调整过来。录音片段的位置会错开，因此不保存此项目的更改，也无法录音。请释放内存后重新打开",

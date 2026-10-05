@@ -408,6 +408,7 @@
   "project.error.newer": "Ce projet a été créé avec un VoiceBooth plus récent ({0}). Mettez à jour, puis ouvrez-le",
   "project.error.notProject": "Ce n'est pas un projet VoiceBooth : {0}",
   "project.error.songMissing": "Le fichier audio du projet est introuvable ({0}). Vérifiez que le dossier Audio a été déplacé avec",
+  "project.missingTakeFiles": "{0} fichier(s) de prise utilisé(s) introuvable(s). La piste concernée ne sera ni lue ni exportée (vérifiez le dossier Audio/Takes)",
   "project.outsideTakes": "Prises pointant hors du dossier du projet, non chargées : {0}",
   "project.rateChanged": "Les prises ont été enregistrées en {0} kHz mais la timeline est maintenant en {1} kHz. Les prises à une autre fréquence ne peuvent pas être exportées ; remettez le format d'enregistrement ou vérifiez le périphérique",
   "project.rateChangedNotSaved": "La dernière fois, l'enregistrement était à {0} kHz, mais {1} kHz n'a pas pu être ajusté. Les prises se décaleraient : les modifications ne sont pas enregistrées et l'enregistrement est désactivé. Libérez de la mémoire et rouvrez",

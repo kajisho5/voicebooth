@@ -408,6 +408,7 @@
   "project.error.newer": "Bu proje daha yeni bir VoiceBooth ({0}) ile yapıldı. Önce güncelleyin, sonra açın",
   "project.error.notProject": "Bu bir VoiceBooth projesi değil: {0}",
   "project.error.songMissing": "Projenin şarkı dosyası bulunamadı ({0}). Audio klasörünün de birlikte taşındığından emin olun",
+  "project.missingTakeFiles": "Kullanılan {0} take dosyası bulunamadı. İlgili kanal çalmaz ve dışa aktarılamaz (Audio/Takes klasörünü kontrol edin)",
   "project.outsideTakes": "Proje klasörünün dışını gösteren {0} take yüklenmedi",
   "project.rateChanged": "Take'ler {0} kHz'te kaydedildi ama zaman çizelgesi şimdi {1} kHz. Farklı hızdaki take'ler dışa aktarılamaz; kayıt biçimini geri alın veya aygıtı kontrol edin",
   "project.rateChangedNotSaved": "Son kayıt {0} kHz idi ama {1} kHz'den ayarlanamadı. Çekim konumları kayacağı için bu projedeki değişiklikler kaydedilmez ve kayıt yapılamaz. Bellek boşaltıp yeniden açın",

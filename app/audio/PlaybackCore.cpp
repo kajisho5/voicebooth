@@ -372,10 +372,13 @@ PlaybackCore::Rendered PlaybackCore::renderSong (float* const* out, int numChann
     const bool loop = loopOn.load();
     const auto in = loopIn.load(), outPoint = juce::jmin (loopOut.load(), length);
 
+    // ループで戻すのは範囲の終わりを越えた直後だけ（1 サンプルで進む分の幅）。範囲より後ろから再生したときは、そのまま進める
+    // （前は毎サンプル「範囲の長さ」ずつ戻り、プチプチ鳴りながら範囲の途中へ飛んだ。バグチェック 2026-10-05）
+    const auto wrapWidth = (juce::int64) std::ceil (convert ? ratio : 1.0) + 1;
     int i = 0;
     for (; i < numSamples; ++i)
     {
-        if (loop && pos >= outPoint && outPoint > in)
+        if (loop && pos >= outPoint && pos - outPoint < wrapWidth && outPoint > in)
         {
             pos = in + (pos - outPoint);
             r.wrapped = true;
@@ -501,7 +504,7 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
             st.retrieve (outPtrs, (size_t) n);
             for (int k = 0; k < n; ++k, ++i)
             {
-                if (loop && heard >= (double) outPoint && outPoint > in)
+                if (loop && heard >= (double) outPoint && heard - (double) outPoint < step + 1.0 && outPoint > in)   // 越えた直後だけ
                 {
                     heard = (double) in + (heard - (double) outPoint);
                     r.wrapped = true;
@@ -532,7 +535,7 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
         need = juce::jlimit (1, stretchBlock, need > 0 ? need : 256);
         for (int k = 0; k < need; ++k)
         {
-            if (loop && feedPos >= outPoint && outPoint > in)
+            if (loop && feedPos == outPoint && outPoint > in)   // 越えた直後だけ（入れる側は 1 サンプルずつ進む）
                 feedPos = in + (feedPos - outPoint);
             const auto g = nextGains();   // 音量は入れる側で掛ける（変えてから聞こえるまで Rubber Band の遅れの分かかる）
             for (int c = 0; c < chans; ++c)

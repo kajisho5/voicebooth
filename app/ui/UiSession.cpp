@@ -1407,6 +1407,11 @@ void UiSession::makeOffVocal (const juce::File& original, std::function<void (ju
                                                                + juce::String (original.getLastModificationTime().toMilliseconds()) + "|"
                                                                + separation::SeparatorClient::modelId()).hashCode64());
     const auto dir = cacheFolder().getChildFile ("offvocal/" + key);
+    // 前に作る途中で閉じた・落ちたときの作業ファイル（入力の写し・分離の書きかけ・声と伴奏。1 本で数十 MB）を削除する。
+    // できあがったオフボは残す（今は分離していないので、どれも使っていない。バグチェック 2026-10-05）
+    for (auto& sub : cacheFolder().getChildFile ("offvocal").findChildFiles (juce::File::findDirectories, false))
+        for (auto& f : sub.findChildFiles (juce::File::findFiles, false, "*.part;mix.wav;vocals.wav;backing.wav"))
+            f.deleteFile();
     const auto out = dir.getChildFile (juce::File::createLegalFileName (original.getFileNameWithoutExtension() + " (off vocal)") + ".wav");
     if (out.existsAsFile())
     {
@@ -2499,7 +2504,8 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    background::run ([this, weak, project, folder, dest, song, types, eo]
+    const auto serial = s.songSerial;
+    background::run ([this, weak, project, folder, dest, song, types, eo, serial]
     {
         juce::StringArray failed;
         int written = 0;
@@ -2510,11 +2516,13 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
             if (res.ok) ++written;
             else        failed.add (exporter::ExportService::dryFileName (song, t) + "\n" + res.message);   // 理由はメッセージスレッドで訳す
         }
-        juce::MessageManager::callAsync ([this, weak, dest, failed, written]
+        juce::MessageManager::callAsync ([this, weak, dest, failed, written, serial]
         {
             if (weak.expired())
                 return;
-            s.exporting = false;
+            // 前の曲の書き出しが終わった：いまの曲で動いている書き出しの印は下ろさない（バグチェック 2026-10-05）
+            if (s.songSerial == serial)
+                s.exporting = false;
             if (failed.isEmpty()) postNotice (tr ("export.done", written, dest.getFullPathName()));
             else
             {
@@ -2615,14 +2623,16 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     notify (change::takes);
 
     std::weak_ptr<bool> weak = alive;
-    background::run ([this, weak, project, folder, o]
+    const auto serial = s.songSerial;
+    background::run ([this, weak, project, folder, o, serial]
     {
         const auto r = exporter::DeliveryPack::write (project, folder, o);
-        juce::MessageManager::callAsync ([this, weak, r]
+        juce::MessageManager::callAsync ([this, weak, r, serial]
         {
             if (weak.expired())
                 return;
-            s.exporting = false;
+            if (s.songSerial == serial)   // 前の曲の書き出し：いまの曲の書き出しの印は下ろさない（バグチェック 2026-10-05）
+                s.exporting = false;
             if (r.ok && r.zipTooLarge) postNotice (tr ("export.pack.doneNoZip", r.files.size(), r.folder.getFullPathName()));
             else if (r.ok) postNotice (tr ("export.pack.done", r.files.size(), r.zipFile.getFullPathName()));
             else      postNotice (tr ("export.failed", reasonText (r.message)));

@@ -34,11 +34,13 @@ namespace
         両方に音がある所が無ければ、継ぎ目でそのまま切り替える */
     std::pair<int64, int64> seamWindow (const Piece& left, const Piece& right, int64 seam, int64 h)
     {
-        const auto lo = juce::jmax (left.takeStart, right.takeStart);
-        const auto hi = juce::jmin (left.takeEnd, right.takeEnd);
+        // 窓は左の区間の頭から右の区間の終わりまでに収める（短い区間で窓がはみ出し、その先の区間と 3 つ重なって
+        // 大きく鳴った。バグチェック 2026-10-05）
+        const auto lo = juce::jmax (left.takeStart, right.takeStart, left.start);
+        const auto hi = juce::jmin (left.takeEnd, right.takeEnd, right.end);
         if (h <= 0 || hi - lo <= 1 || seam < lo || seam > hi)
             return { seam, seam };
-        const auto width = juce::jmin (2 * h, hi - lo);
+        const auto width = juce::jmin (2 * h, hi - lo, left.end - left.start, right.end - right.start);   // 短い区間では窓も短く
         const auto a = juce::jlimit (lo, hi - width, seam - width / 2);
         return { a, a + width };
     }

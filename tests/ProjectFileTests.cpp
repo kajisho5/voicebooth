@@ -79,7 +79,7 @@ public:
             p.lyrics.sourceFileName = "a.lrc";
             p.lyrics.lines.push_back ({ "line one", 4800, -1, 0, -1, song::Source::confirmed });
             p.lyrics.lines.push_back ({ "line two", -1, -1, 1, 0, song::Source::confirmed });
-            p.lyrics.headings.push_back ({ "Chorus", 1 });
+            p.lyrics.headings.push_back ({ "Chorus", 1, true });   // 区間を消した見出し（2026-10-05）
             p.lyrics.chorusBlocks = { 1 };
 
             ProjectExtras ex;
@@ -112,6 +112,7 @@ public:
             expectEquals (back.extras.practiceTempo, 85);
             expectEquals (back.extras.practiceKey, -3);
             expectEquals (back.project.tempo.signature.numerator, 6);
+            expect (back.project.lyrics.headings.size() == 1 && back.project.lyrics.headings[0].noSection, "a removed heading section stays removed");
         }
 
         beginTest ("monitor levels and mutes, range, loop, selected track, octave up and playhead come back (2026-10-04)");
