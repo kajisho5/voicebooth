@@ -249,6 +249,7 @@ set(VOICEBOOTH_UI_SOURCES
     app/ui/TransportBar.cpp
     app/ui/PitchLane.cpp
     app/ui/Help.cpp
+    app/ui/Shortcuts.cpp
     app/ui/LyricsLane.cpp
     app/ui/WaveLane.cpp
     app/ui/TrackTabs.cpp
@@ -270,6 +271,7 @@ set(VOICEBOOTH_UI_SOURCES
     app/ui/screens/LyricsDialog.cpp
     app/ui/screens/RangeDialog.cpp
     app/ui/screens/HelpDialog.cpp
+    app/ui/screens/ShortcutsDialog.cpp
     app/ui/screens/TakeCompareDialog.cpp)
 # OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
 if(APPLE)
@@ -572,6 +574,7 @@ if(VOICEBOOTH_TESTS)
         tests/SeparationTests.cpp
         tests/ModelDownloadTests.cpp
         tests/TakeStatsTests.cpp
+        tests/PitchStyleTests.cpp
         tests/KeySuggestTests.cpp
         tests/GuideCleanTests.cpp
         tests/RmvpeTests.cpp
@@ -618,11 +621,13 @@ if(VOICEBOOTH_TESTS)
         tests/TestMain.cpp
         tests/session/SessionSaveTests.cpp
         tests/session/SessionSeparationTests.cpp
+        tests/session/SessionLoopRecordTests.cpp
         tests/session/PartsKeyboardTests.cpp
         tests/session/SessionGuideTests.cpp
         tests/session/SessionRealSeparationTests.cpp
         tests/session/SessionRecordTests.cpp
         tests/session/HelpTests.cpp
+        tests/session/ShortcutsTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}

@@ -31,51 +31,51 @@ namespace
             // 既定。DESIGN 4.9 そのもの（夜の録音ブース：暖色グラファイト＋LED＋タリー）
             make ("booth", "Booth", {
                 0xff141311, 0xff0d0c0b, 0xff1b1a17, 0xff262420, 0xff302d28, 0xff24221e, 0xff34312b, 0xff4a463e,
-                0xfff2ede3, 0xffa9a295, 0xff6f6a60,
+                0xfff2ede3, 0xffa9a295, 0xff878278,
                 0xffc6ee6a, 0xff8cc1ee, 0xfff4b942, 0xffff6b5e, 0xffff3b30 }),
 
             // 明るい生成り。表示窓（bgDeep）は地より明るい紙の白にして、深い色の線を読みやすくする。
             // 段差は「パネル・キーほど白い」で表す（暗いスキンの「浮くほど明るい」と同じ向き）
             make ("studio-day", "Studio Day", {
                 0xffece8e0, 0xfff8f6f1, 0xfff4f1eb, 0xfffbfaf7, 0xffffffff, 0xffdcd7cd, 0xffcec8bc, 0xffb2ab9d,
-                0xff1e1c18, 0xff5a544a, 0xff8a8376,
+                0xff1e1c18, 0xff5a544a, 0xff6e685e,
                 0xff5e8f00, 0xff2f7cc0, 0xffb97800, 0xffd23b2e, 0xffe0261c }),
 
             // 白とピンク。明るいスキン（Studio Day と同じく表示窓は地より白い）。
             // 合っている＝ピンク、bad はピンクに紛れないよう紫、rec は赤のまま
             make ("sweet", "Sweet", {
                 0xfffbf4f7, 0xffffffff, 0xfff6eaf0, 0xffffffff, 0xfffff7fb, 0xfff0dee7, 0xffe6ccd9, 0xffd3afc1,
-                0xff3a2530, 0xff7a5a69, 0xffa88b98,
+                0xff3a2530, 0xff6a4d5b, 0xff7e6470,
                 0xffd63f86, 0xff3e8fd6, 0xffb07a00, 0xff7b3fd1, 0xffe0263a }),
 
             // 青みの黒。中間色も同じ青みでそろえる（ミント＋ラベンダーは使わない）
             make ("midnight", "Midnight", {
                 0xff0f1218, 0xff0a0c11, 0xff151922, 0xff1f2430, 0xff282e3b, 0xff1b202a, 0xff2a303d, 0xff3e4657,
-                0xffe8edf5, 0xff9aa3b4, 0xff636b7b,
+                0xffe8edf5, 0xff9aa3b4, 0xff7a8290,
                 0xffc6ee6a, 0xff5fd3e8, 0xffffb547, 0xffff5c6c, 0xffff3b30 }),
 
             // 焦げ茶の古いミキサー卓。文字はクリーム色
             make ("analog", "Analog", {
                 0xff1a1611, 0xff120f0b, 0xff221d16, 0xff2e271e, 0xff383026, 0xff2a241c, 0xff3b3328, 0xff54493a,
-                0xfff3e6c8, 0xffb3a486, 0xff7a6e58,
+                0xfff3e6c8, 0xffb3a486, 0xff90846c,
                 0xff9bd45a, 0xff7fb8c9, 0xfff28c38, 0xffe8524a, 0xffff3b2e }),
 
             // 黒紫に蛍光色。rec は bad（ピンク）より赤に寄せて分ける
             make ("neon", "Neon", {
                 0xff0b0a10, 0xff07060b, 0xff121019, 0xff1c1926, 0xff252134, 0xff191623, 0xff2a2538, 0xff403955,
-                0xfff2eeff, 0xffa8a0c0, 0xff6c6584,
+                0xfff2eeff, 0xffa8a0c0, 0xff7f7895,
                 0xff39ff88, 0xff3fd0ff, 0xffffd23f, 0xffff4f8b, 0xffff2e4d }),
 
             // 黒に青白い線、シアンと紫の発光
             make ("gaming", "Gaming", {
                 0xff0b0c10, 0xff050608, 0xff11131a, 0xff1a1d27, 0xff232736, 0xff161922, 0xff262b3a, 0xff3a4258,
-                0xffeef2ff, 0xff9aa3bf, 0xff646c86,
+                0xffeef2ff, 0xff9aa3bf, 0xff757d95,
                 0xff00e5ff, 0xffb15cff, 0xffffb800, 0xffff3d6e, 0xffff1f1f }),
 
             // 夜の紫に桜色。bad は赤系にせず紫（桜色と見分ける）。rec は桜色と離れた朱寄りの赤
             make ("sakura", "Sakura", {
                 0xff18121a, 0xff100c12, 0xff201824, 0xff2b2130, 0xff352939, 0xff261d2a, 0xff392d3e, 0xff524357,
-                0xfff7ecf3, 0xffb8a5b5, 0xff7e6c7c,
+                0xfff7ecf3, 0xffb8a5b5, 0xff8f7e8d,
                 0xffff9ec7, 0xff9fd8f0, 0xffffc970, 0xffb06cff, 0xffff3b30 }),
 
             // 真っ黒に白い文字。線と控えめな文字も明るくして、小さい画面・明るい現場でも読める
@@ -87,7 +87,7 @@ namespace
             // Okabe–Ito の配色（空色 / 赤紫 / 黄 / 朱）。中間色は Booth と同じ
             make ("colorsafe", "Color Safe", {
                 0xff141311, 0xff0d0c0b, 0xff1b1a17, 0xff262420, 0xff302d28, 0xff24221e, 0xff34312b, 0xff4a463e,
-                0xfff2ede3, 0xffa9a295, 0xff6f6a60,
+                0xfff2ede3, 0xffa9a295, 0xff878278,
                 0xff56b4e9, 0xffcc79a7, 0xfff0e442, 0xffd55e00, 0xffff3b30 }),
         };
     }
@@ -440,6 +440,9 @@ std::vector<Warning> check (const Skin& s, const Limits& lim)
     contrast (Token::text, Token::panel, lim.text);
     contrast (Token::textDim, Token::bg0, lim.textDim);
     contrast (Token::textDim, Token::panel, lim.textDim);
+    contrast (Token::textMute, Token::bg0, lim.textMute);       // 小さい見出し・目盛りの数字
+    contrast (Token::textMute, Token::bgDeep, lim.textMute);    // レーンの中の字（歌詞の次の行など）
+    contrast (Token::textMute, Token::panel, lim.textMute);
 
     // ピッチの線と帯が見える
     contrast (Token::signal, Token::bgDeep, lim.lines);

@@ -20,6 +20,7 @@ public:
     std::function<void()> onEditSkin;
     std::function<void()> onNewSkin;   // テンプレートから作る
     std::function<void()> onAbout;        // このアプリについて・ライセンス
+    std::function<void()> onShortcuts;    // 1 文字のショートカットを変える（#28）
     std::function<void()> onClearCache;   // キャッシュを空にする（確認は MainComponent が出す）
     std::function<void()> onInstallModels;   // 分離モデルを入れる（設定を閉じてからダウンロードの確認を出す）
 
@@ -49,7 +50,7 @@ private:
     Dropdown language, skinPicker;
     KeyButton editSkin, newSkin;
     SegmentedKeys mode, tolerance, countIn, crossfade;
-    KeyButton octaveAlign, showLyrics, openSetup, cacheKey, supportKey;
+    KeyButton octaveAlign, showLyrics, openSetup, cacheKey, supportKey, shortcutsKey;
     KeyButton modelKey;                            // 分離モデル：入れる／入っている／受け取り中（B16）
     KeyButton cacheOpen, cacheClear;               // キャッシュの場所（DESIGN 8）：開く・空にする
     KeyButton updateAuto, updateBetas, updateNow;  // 新しいバージョンの確認（DESIGN 11.7）

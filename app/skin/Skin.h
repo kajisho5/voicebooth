@@ -98,7 +98,7 @@ double saturation (juce::uint32);                          // HSV の彩度（0�
 
 struct Limits
 {
-    double text = 4.5, textDim = 3.0, lines = 3.0, deltaE = 25.0;
+    double text = 4.5, textDim = 4.5, textMute = 4.5, lines = 3.0, deltaE = 25.0;   // 小さい字は 4.5:1（WCAG 1.4.3。#28）
     double recHueFrom = 330.0, recHueTo = 20.0, recMinSaturation = 0.35;
 };
 

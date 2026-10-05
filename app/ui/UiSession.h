@@ -128,6 +128,12 @@ public:
     /** 横に送る（表示の幅に対する割合。+ で右へ） */
     void scrollView (double fraction);
     void setOctaveAlign (bool);
+    /** 1 文字のショートカット（#28）：a に key を付ける。同じキーが付いていた操作はなしになり、その操作を返す（知らせに使う） */
+    std::optional<shortcuts::Action> setShortcut (shortcuts::Action a, juce::juce_wchar key);
+    void clearShortcut (shortcuts::Action a);
+    void resetShortcuts();
+    /** アプリの設定から戻す（起動時。保存は change::prefs で Main が書く） */
+    void restoreShortcuts (const juce::String& saved) { s.shortcuts = shortcuts::Map::fromString (saved); }
     /** 歌詞レーンを出すか（設定。既定は出さない） */
     void setShowLyrics (bool);
     void setCrossfade (double ms);   // 0 / 5 / 8 / 20 ms
@@ -297,6 +303,12 @@ public:
     static SeparationEstimate originalSeparationEstimate (const juce::File& original);
     /** リードとハモリを分けるモデルが入っている */
     bool leadModelInstalled() const { return separationService->karaokeInstalled(); }
+    /** 引き算でお手本が取れた後に、リードとハモリを分ける（#27。「ハモリの分離も続けますか？」で「続ける」を押したとき） */
+    void startLeadSplit() { extractLead(); }
+    /** その見込み（リードのモデル 1 つ分。お手本の長さが分からなければ known() が false） */
+    SeparationEstimate leadSplitEstimate() const;
+    /** 次にお手本が取れたら、確認せずにリードとハモリを分ける（原曲だけで始める流れ。始める前の確認で、続けて分けることを伝えてある） */
+    void agreeLeadSplit() { leadSplitAgreed = true; }
 
     // --- 録音・書き出し（B5） -------------------------------------------------
     /** 録音を始められない理由の翻訳キー（空なら録れる）。曲・入力・アーム・SR を見る */
@@ -435,6 +447,9 @@ private:
     bool separationCached() const;
     juce::File leadCacheFolder() const;
     void extractLead();
+    /** 引き算でお手本が取れた後：前に分けた結果があれば使い、なければ「ハモリの分離も続けますか？」を出す（#27。黙って 15〜30 分の分離を始めない） */
+    void offerLeadSplit();
+    bool leadSplitAgreed = false;   // agreeLeadSplit：次のお手本では確認しない（曲を開き直すと戻る）
     void analyseLead (const juce::File& leadFile);
     std::unique_ptr<separation::Separator> separator;   // B16
     // 分離の 3 つの流れに共通の部分（UiSession.cpp。2026-10-04）
@@ -451,6 +466,10 @@ private:
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
+    /** 範囲をループして録っている（#29）：範囲の終わりで今のテイクを閉じ、範囲の少し前へ戻って次のテイクを録る。止めるまで続ける */
+    bool loopTakes = false;
+    bool continuingLoop = false;   // nextLoopTake の中（止めずに、数えずに、次のテイクを録り始める）
+    void nextLoopTake();
     juce::uint32 tailWaitStart = 0;
     juce::uint32 latencyStartMs = 0;  // 測定音を鳴らし始めた時刻
     bool analysingLatency = false;    // 録り終えた測定音を裏で解析している
