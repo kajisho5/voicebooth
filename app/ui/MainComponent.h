@@ -87,6 +87,7 @@ public:
     void openSettings();
     void openAbout();
     void openHelp();        // 困ったときのヘルプ（? / F1）
+    void openShortcuts();   // 1 文字のショートカット（#28）
     void openSkinTemplates();
     void openSkinEditor (const skin::Skin* fromTemplate = nullptr);   // nullptr：いまのスキンを編集
     void openUpdate();
@@ -125,6 +126,7 @@ private:
                       std::function<void()> onDismiss = {});   // onDismiss：どれも選ばずに閉じた（Esc）
 
     /** 曲の情報のショートカット（T / M / Enter / ↑ ↓ / Delete / Backspace / Esc。B4b）。扱ったら true */
+    void runShortcut (shortcuts::Action, const juce::KeyPress&);   // 1 文字のショートカット（#28）
     bool songInfoKey (const juce::KeyPress&);
     void tapTempo();
     /** 知らせ（録音中は出さない。DESIGN 4.10.1 TS） */
@@ -150,6 +152,7 @@ private:
     int deviceLostSeen = 0;     // 「デバイスが外れました」を知らせた回数
     void maybeOpenSetup();      // 初めての機器なら入力セットアップを開く（B13）
     int separationOfferSeen = 0;   // 「分離しますか？」を出した回数（B16）
+    int leadOfferSeen = 0;         // 「ハモリの分離も続けますか？」を出した回数（#27）
     int modelDialogSeen = 0;       // 分離モデルのダウンロード画面を開いた回数（B16）
     int modelStageShown = -2;      // いま開いているダウンロード画面の段階（-2 = 開いていない）
     juce::File pendingOriginal;    // 原曲だけで始めたいがモデルが無かった：モデルが入ったら起動画面から続ける（B16）

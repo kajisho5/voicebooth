@@ -16,7 +16,7 @@ public:
             expectEquals (defaultSkin().id, juce::String ("booth"));
 
             const juce::uint32 booth[] = { 0xff141311, 0xff0d0c0b, 0xff1b1a17, 0xff262420, 0xff302d28, 0xff24221e, 0xff34312b, 0xff4a463e,
-                                           0xfff2ede3, 0xffa9a295, 0xff6f6a60, 0xffc6ee6a, 0xff8cc1ee, 0xfff4b942, 0xffff6b5e, 0xffff3b30 };
+                                           0xfff2ede3, 0xffa9a295, 0xff878278, 0xffc6ee6a, 0xff8cc1ee, 0xfff4b942, 0xffff6b5e, 0xffff3b30 };
             for (int i = 0; i < numTokens; ++i)
                 expectEquals ((juce::int64) defaultSkin().colours[(size_t) i], (juce::int64) booth[i], tokenKey (i));
 
@@ -58,7 +58,10 @@ public:
                 // テストでも直接（判定のしくみが壊れても気づくように）
                 expectGreaterOrEqual (contrastRatio (s.get (Token::text), s.get (Token::bg0)), 4.5, s.id);
                 expectGreaterOrEqual (contrastRatio (s.get (Token::text), s.get (Token::panel)), 4.5, s.id);
-                expectGreaterOrEqual (contrastRatio (s.get (Token::textDim), s.get (Token::bg0)), 3.0, s.id);
+                for (auto bg : { Token::bg0, Token::panel })
+                    expectGreaterOrEqual (contrastRatio (s.get (Token::textDim), s.get (bg)), 4.5, s.id + " textDim");
+                for (auto bg : { Token::bg0, Token::bgDeep, Token::panel })
+                    expectGreaterOrEqual (contrastRatio (s.get (Token::textMute), s.get (bg)), 4.5, s.id + " textMute (small text, #28)");
                 expectGreaterOrEqual (contrastRatio (s.get (Token::signal), s.get (Token::bgDeep)), 3.0, s.id);
                 expectGreaterOrEqual (contrastRatio (s.get (Token::ref), s.get (Token::bgDeep)), 3.0, s.id);
                 expectGreaterOrEqual (deltaE76 (s.get (Token::signal), s.get (Token::warn)), 25.0, s.id);
@@ -119,6 +122,14 @@ public:
             }
             expect (textWarned);
             expect (deltaWarned);
+
+            // 前の Booth の控えめな文字（#6F6A60）は小さい字に暗すぎる（パネルの上で 3.2:1）
+            auto old = defaultSkin();
+            old.set (Token::textMute, 0xff6f6a60);
+            bool muteWarned = false;
+            for (auto& w : check (old))
+                if (w.kind == Warning::Kind::contrast && w.a == Token::textMute) muteWarned = true;
+            expect (muteWarned, "the old textMute is reported");
         }
 
         beginTest ("hex colours");
