@@ -138,7 +138,6 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
 
     rec.withIcon (Icon::rec).withToggle (false).withBreathing();   // REC 中は ● がゆっくり呼吸
     rec.setTooltip (tr ("transport.rec.tooltip"));
-    rec.withShortcut ("R");
     rec.onClick = [this] { if (actions.toggleRecord) actions.toggleRecord(); };
 
     time.setMainSize (21.0f);
@@ -147,7 +146,6 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
     loop.setButtonText (tr ("transport.loop"));
     loop.withIcon (Icon::loop).withLed().withToggle (false);
     loop.setTooltip (tr ("transport.loop.tooltip"));
-    loop.withShortcut ("L");
     loop.onClick = [this] { session.setLoop (! state().loopOn); };
 
     for (auto* b : { &rangeIn, &rangeOut })
@@ -156,8 +154,6 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
     rangeOut.withIcon (Icon::rangeOut);
     rangeIn.setTooltip (tr ("transport.rangeIn.tooltip"));
     rangeOut.setTooltip (tr ("transport.rangeOut.tooltip"));
-    rangeIn.withShortcut ("[");
-    rangeOut.withShortcut ("]");
     rangeIn.onClick = [this] { session.setRangeInAtPlayhead(); };
     rangeOut.onClick = [this] { session.setRangeOutAtPlayhead(); };
 
@@ -182,6 +178,16 @@ TransportBar::TransportBar (UiSession& u, Actions& a)
 void TransportBar::onSessionChanged (juce::uint32 changes)
 {
     const auto& s = state();
+
+    // ツールチップに添えるショートカット（設定で変えられる。#28）。なしにしたキーには添えない
+    if (changes & change::prefs)
+    {
+        using shortcuts::Action;
+        rec.withShortcut (s.shortcuts.keyName (Action::record));
+        loop.withShortcut (s.shortcuts.keyName (Action::loop));
+        rangeIn.withShortcut (s.shortcuts.keyName (Action::rangeIn));
+        rangeOut.withShortcut (s.shortcuts.keyName (Action::rangeOut));
+    }
 
     if (changes & change::transport)
     {

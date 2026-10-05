@@ -260,6 +260,7 @@ public:
         // 判定の幅・オクターブ合わせ（設定）と音域の表示（2026-10-04：保存していなかった）
         session->setPitchTolerance ((float) stored->getDoubleValue ("pitchToleranceCents", 30.0));
         session->setOctaveAlign (stored->getBoolValue ("octaveAlign", true));
+        session->restoreShortcuts (stored->getValue ("shortcuts"));   // 1 文字のショートカット（#28）
         session->setFullRange (stored->getBoolValue ("fullRange", false));
         // クリック・カウントイン（2026-10-02）。クリックの入り切りは、曲を開いてテンポが分かってから効く（setClick はテンポを見るので、値だけ戻す）
         session->setCountIn (stored->getIntValue ("countInBars", 1));
@@ -422,6 +423,7 @@ private:
             if (! st.updateRelease.sample)   // 見本（--screen=update）は覚えない
                 settings()->setValue ("updateFound", st.updateRelease.found ? st.updateRelease.toJson() : juce::String());
             settings()->setValue ("cacheFolder", st.cacheFolder.getFullPathName());
+            settings()->setValue ("shortcuts", st.shortcuts.isDefault() ? juce::String() : st.shortcuts.toString());
             settings()->saveIfNeeded();
         }
 
