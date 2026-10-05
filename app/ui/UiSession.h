@@ -175,6 +175,8 @@ public:
     double gameBeatClock() const;
     void setOctaveUp (bool);
     void setThirdGuide (int);   // 0 = なし・1 = 3 度上・2 = 3 度下（#30）
+    /** 「分離しますか？」（lead = false）／「ハモリの分離も続けますか？」（true）を表示した */
+    void offerShown (bool lead) { (lead ? s.leadOfferShown : s.separationOfferShown) = lead ? s.leadOfferSerial : s.separationOfferSerial; }
     void setFullRange (bool);
 
     // --- トラック -----------------------------------------------------------
@@ -470,6 +472,7 @@ private:
     /** 範囲をループして録っている（#29）：範囲の終わりで今のテイクを閉じ、範囲の少し前へ戻って次のテイクを録る。止めるまで続ける */
     bool loopTakes = false;
     bool continuingLoop = false;   // nextLoopTake の中（止めずに、数えずに、次のテイクを録り始める）
+    bool loopPassDone = false;     // ループ録りで、1 周を最後まで録り終えた（途中で止めた周回を採用しないのは、前の周回があるときだけ）
     void nextLoopTake();
     juce::uint32 tailWaitStart = 0;
     juce::uint32 latencyStartMs = 0;  // 測定音を鳴らし始めた時刻
