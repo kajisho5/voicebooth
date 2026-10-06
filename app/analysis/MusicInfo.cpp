@@ -292,6 +292,10 @@ static TempoEstimate estimateTempoAtRate (const float* x, int64 length, double s
         downbeat -= barLength;
     while (downbeat < start - 0.5 * samplesPerBeat)
         downbeat += barLength;
+    // 曲の頭よりは前にしない（すぐ 1 拍目が鳴る曲で負になり、表示が崩れた。手で入れるときも 0 以上。監査 2026-10-06）。
+    // ごくわずかなら 0 に、それより前なら拍の位置を保って次の小節へ
+    if (downbeat < 0.0)
+        downbeat = downbeat > -0.1 * samplesPerBeat ? 0.0 : downbeat + barLength;
     r.downbeatSample = (int64) std::llround (downbeat);
     r.beatsPerBar = 4;
     return r;
@@ -349,6 +353,9 @@ static KeyEstimate estimateKeyAtRate (const float* x, int64 length, double sampl
             else if (c > second)
                 second = c;
         }
+    // 調のない音（無音・打楽器だけ）：どれとも相関しない。最初に見た C を「推定」として入れていた（監査 2026-10-06）
+    if (best <= 0.0)
+        return {};
     r.confidence = (float) juce::jlimit (0.0, 1.0, (best - second) * 5.0);
     return r;
 }

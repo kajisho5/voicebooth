@@ -2,6 +2,7 @@
 
 #include <juce_core/juce_core.h>
 #include <array>
+#include <map>
 #include <vector>
 
 /*  スキン（DESIGN 4.11）。色トークン 16 個だけを差し替える。書体・寸法・配置・動きは変えない
@@ -145,5 +146,6 @@ public:
 private:
     juce::File dir;
     std::vector<Skin> user;
+    std::map<juce::String, juce::File> files;   // 読んだ id → 実際のファイル（手で置いた「My Skin.vbskin」は id が my-skin になる）
 };
 } // namespace vb::skin

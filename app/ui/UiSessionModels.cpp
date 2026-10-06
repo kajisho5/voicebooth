@@ -137,6 +137,11 @@ void UiSession::startModelDownload()
         modelDownloader = std::make_unique<models::ModelDownloader> (models::makeHttpSource());
     // キャンセルした前の受け取りがまだ終わっていない（回線が止まっていると最大 20 秒）：終わるのを待ってから始める
     const bool stillStopping = modelDownloader->isBusy();
+    if (stillStopping && s.modelDl.stage == (int) models::DownloadStatus::Stage::waiting)
+    {
+        modelDownloader->retryNow();   // 自動の再開を待っている：すぐつなぎ直す（押しても何も起きなかった。監査 2026-10-06）
+        return;
+    }
     if (stillStopping && s.modelDl.stage >= 0)
         return;   // 受け取り中
     ++downloadGeneration;

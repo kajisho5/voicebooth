@@ -42,11 +42,11 @@ inline juce::String formatDb (float db)
 /** m:ss / m:ss.mmm（表示専用。内部はサンプルが真実） */
 inline juce::String formatTime (int64 samples, int sampleRate, bool withMillis)
 {
-    const auto totalMs = samples * 1000 / sampleRate;
+    const auto totalMs = std::abs (samples) * 1000 / juce::jmax (1, sampleRate);   // 負の値は符号を付けて（前は「0:00.0-6」）
     const auto m  = totalMs / 60000;
     const auto s  = (totalMs / 1000) % 60;
     const auto ms = totalMs % 1000;
-    auto str = juce::String (m) + ":" + juce::String (s).paddedLeft ('0', 2);
+    auto str = juce::String (samples < 0 ? "-" : "") + juce::String (m) + ":" + juce::String (s).paddedLeft ('0', 2);
     if (withMillis)
         str << "." << juce::String (ms).paddedLeft ('0', 3);
     return str;

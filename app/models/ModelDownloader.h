@@ -66,6 +66,8 @@ public:
     bool start (const ModelEntry&, const juce::File& folder, std::function<void (const DownloadStatus&)> onStatus);
     void cancel();   // 止めるよう伝えるだけ（待たない）
     void setPaused (bool);
+    /** 再試行の待ち（3 / 10 / 30 秒）を飛ばして、すぐつなぎ直す */
+    void retryNow() { skipWait = true; notify(); }
     bool isBusy() const { return isThreadRunning(); }
 
     /** そのフォルダにモデルがそろっているか（大きさだけで見る。中身は入れる時に照合済み） */
@@ -83,7 +85,7 @@ private:
     ModelEntry entry;
     juce::File folder;
     std::function<void (const DownloadStatus&)> onStatus;
-    std::atomic<bool> paused { false };
+    std::atomic<bool> paused { false }, skipWait { false };
     std::vector<int> retryDelays { 3, 10, 30 };
     DownloadStatus status;
     double windowStart = 0.0;

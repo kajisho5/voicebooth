@@ -294,6 +294,22 @@ bool ExportDialog::refmixSelected() const
     return false;
 }
 
+void ExportDialog::restore (const Choice& c)
+{
+    bitKeys.setSelected (c.bits <= 16 ? 0 : (c.bits >= 32 ? 2 : 1), juce::dontSendNotification);
+    if (packMode.isVisible())
+        packMode.setSelected (c.pack ? 1 : 0);   // 確認用ミックスのチェックもここで作り直す
+    for (size_t i = 0; i < rows.size(); ++i)
+    {
+        auto* k = checks[(int) i];
+        if (rows[i].packOnly)
+            k->setToggleState (packSelected() && c.refmix, juce::dontSendNotification);
+        else if (rows[i].available && rows[i].type != project::TrackType::backing)
+            k->setToggleState (std::find (c.tracks.begin(), c.tracks.end(), rows[i].type) != c.tracks.end(), juce::dontSendNotification);
+    }
+    repaint();
+}
+
 std::vector<project::TrackType> ExportDialog::selectedTracks() const
 {
     std::vector<project::TrackType> out;

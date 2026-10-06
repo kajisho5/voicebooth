@@ -69,11 +69,14 @@ void MonitorMixer::processChunk (const float* input, float* const* out, int numC
     bool anySend = false;
     for (int i = 0; i < n; ++i)
     {
-        const auto x = input != nullptr ? input[i] : 0.0f;
-        dry[i] = x * smoothedGain.getNextValue();
+        auto x = input != nullptr ? input[i] : 0.0f;
+        if (! std::isfinite (x))
+            x = 0.0f;   // 壊れた値はリバーブに入れない（中に溜まって、開き直すまで出力に足し続ける）
+        const auto gv = smoothedGain.getNextValue();
+        dry[i] = x * gv;
         const auto send = smoothedSend.getNextValue();
         wetL[i] = dry[i] * send;
-        anySend = anySend || send > 0.0f;
+        anySend = anySend || (send > 0.0f && gv > 0.0f);   // 自分をミュートしたら尾が鳴り終わったところで止める（監査 2026-10-06）
     }
 
     // リバーブ：送りがある間と、止めてから尾が鳴り終わるまで回す

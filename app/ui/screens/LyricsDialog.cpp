@@ -35,7 +35,7 @@ LyricsDialog::LyricsDialog (UiSession& u)
     text.setIndents (12, 10);
     text.setFont (sansIn (i18n::Language::ja, 14.5f));   // かなの字形（歌詞はデータ。DESIGN 10.1）
     text.setTextToShowWhenEmpty (tr ("lyrics.dialog.placeholder"), colours::textMute);
-    text.onTextChange = [this] { reparse(); };
+    text.onTextChange = [this] { error = {}; reparse(); };   // 手で直したら、読めなかったファイルの知らせは消す
     addAndMakeVisible (text);
 
     openKey.withIcon (Icon::folder);
@@ -89,14 +89,16 @@ void LyricsDialog::chooseFile()
 void LyricsDialog::loadFile (const juce::File& f)
 {
     error = {};
-    fileBytes.reset();
-    if (! f.existsAsFile() || f.getSize() > maxFileBytes || ! f.loadFileAsData (fileBytes))
+    // 読めたときだけ入れ替える（前は先に空にしていて、読めない後に文字コードを選び直すと、入力中の歌詞が消えた。監査 2026-10-06）
+    juce::MemoryBlock bytes;
+    if (! f.existsAsFile() || f.getSize() > maxFileBytes || ! f.loadFileAsData (bytes))
     {
         error = tr ("lyrics.dialog.readError", f.getFileName());
         repaint();
         return;
     }
 
+    fileBytes = std::move (bytes);
     fileName = f.getFileName();
     detected = song::detectEncoding (fileBytes.getData(), fileBytes.getSize());
     rebuildEncodingPicker();

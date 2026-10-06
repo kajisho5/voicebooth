@@ -102,7 +102,9 @@ PlaybackCore::Gains PlaybackCore::nextGains() noexcept
 float PlaybackCore::mixAt (const SongAudio& s, int channel, juce::int64 pos, const Gains& g) noexcept
 {
     const auto& b = s.buffer;
-    auto v = b.getSample (juce::jmin (channel, b.getNumChannels() - 1), (int) pos) * g.backing;   // モノラルの曲は両耳へ
+    // モノラルの曲は両耳へ。出力が 1 ch（channel < 0）なら L と R を混ぜる（L だけが鳴り、右に振った音が消えていた。監査 2026-10-06）
+    auto v = (channel < 0 && b.getNumChannels() > 1 ? 0.5f * (b.getSample (0, (int) pos) + b.getSample (1, (int) pos))
+                                                    : b.getSample (juce::jlimit (0, b.getNumChannels() - 1, channel), (int) pos)) * g.backing;
     peakBacking = juce::jmax (peakBacking, std::abs (v));
     for (int k = 0; k < maxStems; ++k)
         if (stems[k] != nullptr && g.stem[k] > 0.0f && pos < stems[k]->getNumSamples())
@@ -218,9 +220,14 @@ juce::int64 PlaybackCore::getPosition() const
 
 void PlaybackCore::setLoop (juce::int64 in, juce::int64 out, bool enabled)
 {
+    const bool on = enabled && out > in;
+    // 練習のテンポ・キーでは、入れる側が聞こえる位置より先を進んでいる。ループが変わったら聞こえる位置から入れ直す
+    // （別々に折り返し、音と位置がずれたままになっていた。監査 2026-10-06）
+    if (on != loopOn.load() || (on && (in != loopIn.load() || out != loopOut.load())))
+        stretchReset = true;
     loopIn = in;
     loopOut = out;
-    loopOn = enabled && out > in;
+    loopOn = on;
 }
 
 void PlaybackCore::setGain (float linearGain) { gain = juce::jmax (0.0f, linearGain); }
@@ -279,6 +286,9 @@ PlaybackCore::Rendered PlaybackCore::render (float* const* out, int numChannels,
         fraction = 0.0;
         heard = (double) pos;
         metronome.resync();
+        // すぐ書く：シークの前に始まったブロックが終わりに古い位置を書いていると、このブロックが終わるまで
+        // 画面の位置がシーク前に戻り、ループ録りの次の周がもう一度始まっていた（監査 2026-10-06）
+        position = pos;
     }
 
     r.start = pos;
@@ -397,10 +407,11 @@ PlaybackCore::Rendered PlaybackCore::renderSong (float* const* out, int numChann
         for (int c = 0; c < numChannels; ++c)
         {
             if (out[c] == nullptr) continue;
-            auto v = mixAt (*song, c, pos, g);
+            const auto src = numChannels == 1 ? -1 : c;
+            auto v = mixAt (*song, src, pos, g);
             if (convert)
             {
-                const auto next = pos + 1 < length ? mixAt (*song, c, pos + 1, g) : v;
+                const auto next = pos + 1 < length ? mixAt (*song, src, pos + 1, g) : v;
                 v += (next - v) * (float) fraction;
             }
             out[c][i] = v * f;
@@ -522,7 +533,8 @@ PlaybackCore::Rendered PlaybackCore::renderStretched (float* const* out, int num
                 const auto f = fade.getNextValue();
                 for (int c = 0; c < numChannels; ++c)
                     if (out[c] != nullptr)
-                        out[c][i] = stretchOut.getSample (juce::jmin (c, chans - 1), k) * f;
+                        out[c][i] = (numChannels == 1 && chans > 1 ? 0.5f * (stretchOut.getSample (0, k) + stretchOut.getSample (1, k))
+                                                                   : stretchOut.getSample (juce::jmin (c, chans - 1), k)) * f;
                 // クリックは伸ばした後に足す（聞こえている位置 heard で拍を数える。キーで高さが変わらない）
                 addClick (out, numChannels, i, metronome.next (heard, clickAudible (heard)));
                 heard += step;

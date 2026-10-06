@@ -181,6 +181,8 @@ bool TakeCompareDialog::keyPressed (const juce::KeyPress& key)
 {
     if (key == juce::KeyPress::spaceKey)
     {
+        if (held.repeated (key))
+            return true;   // 押し続けで試聴が何十回も切り替わっていた（監査 2026-10-06）
         playKey.flash();
         session.toggleCompareAudition();
         return true;

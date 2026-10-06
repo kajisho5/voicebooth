@@ -320,6 +320,21 @@ public:
                 expect (lib.remove ("booth-2"));
                 expect (lib.userSkins().empty());
                 expect (! dir.getChildFile ("booth-2.vbskin").exists());
+
+                // 手で置いたファイル（名前が id の形でない）：消すとそのファイルが消え、保存しても 2 つにならない
+                const auto handmade = dir.getChildFile ("My Skin.vbskin");
+                expect (handmade.replaceWithText (toJson (s)));
+                lib.reload();
+                expect (lib.find ("my-skin") != nullptr);
+                expect (lib.fileFor ("my-skin") == handmade);
+                auto edited = *lib.find ("my-skin");
+                edited.name = "Edited";
+                expect (lib.save (edited));
+                expectEquals ((int) lib.userSkins().size(), 1);
+                expectEquals (lib.find ("my-skin")->name, juce::String ("Edited"));
+                expect (lib.remove ("my-skin"));
+                expect (lib.userSkins().empty());
+                expect (! handmade.exists());
             }
             dir.deleteRecursively();
         }
