@@ -261,12 +261,29 @@ PackResult DeliveryPack::write (const project::Project& project, const juce::Fil
                 for (int i = 0; i < n; ++i)
                     w[i] = mixAt (c, a + i) * scale;
             }
+            // 失敗したら先にファイルを閉じてから消す（Windows では開いたままだと消せず、途中までのパックが残った。バグチェック 2026-10-05）
             if (! writer->writeFromAudioSampleBuffer (out, 0, n))
+            {
+                writer.reset();
                 return fail ("refmix: write failed");
+            }
             if (! stepProgress ((float) (a + n) / (float) length))
+            {
+                writer.reset();
                 return fail ("cancelled");
+            }
         }
         writer.reset();
+        // 閉じるときの書き込み（ディスクが一杯）の失敗に気づけるよう、長さを読み直して確かめる（ボーカルと同じ）
+        {
+            juce::WavAudioFormat wav;
+            std::unique_ptr<juce::AudioFormatReader> check (wav.createReaderFor (file.createInputStream().release(), true));
+            if (check == nullptr || check->lengthInSamples != (juce::int64) length)
+            {
+                check.reset();
+                return fail ("refmix: write failed");
+            }
+        }
         r.files.add ("refmix.wav");
         done += 1.0f;
     }

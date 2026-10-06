@@ -81,6 +81,27 @@ public:
             expectLessThan (worstError (*low, 1000.0, 0.5f), 2.0e-3f);   // 通す帯域は時間も大きさもそのまま
         }
 
+        beginTest ("the first samples of the song are not lost (an impulse near the head stays where it was)");
+        {
+            SongAudio song;
+            song.sampleRate = 48000.0;
+            song.buffer.setSize (2, 4800);
+            song.buffer.clear();
+            song.buffer.setSample (0, 10, 1.0f);
+            song.buffer.setSample (1, 10, 1.0f);
+            const auto up = resampleSong (song, 96000.0);
+            int at = 0;
+            float peak = 0.0f;
+            for (int i = 0; i < 400; ++i)
+                if (std::abs (up->buffer.getSample (0, i)) > peak)
+                {
+                    peak = std::abs (up->buffer.getSample (0, i));
+                    at = i;
+                }
+            expectGreaterThan (peak, 0.5f, "the impulse is still there");
+            expect (std::abs (at - 20) <= 1, "at the same time: " + juce::String (at));
+        }
+
         beginTest ("same rate is a plain copy; cancelling returns nothing");
         {
             const auto song = sineSong (48000.0, 0.1, 440.0);

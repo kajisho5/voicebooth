@@ -379,5 +379,12 @@ std::unique_ptr<juce::AccessibilityHandler> SegmentedKeys::createAccessibilityHa
 
 void SegmentedKeys::mouseMove (const juce::MouseEvent& e) { hover = indexAt (e.getPosition()); repaint(); }
 void SegmentedKeys::mouseExit (const juce::MouseEvent&)   { hover = -1; repaint(); }
-void SegmentedKeys::mouseDown (const juce::MouseEvent& e) { focus::handBack (*this); setSelected (indexAt (e.getPosition())); }
+void SegmentedKeys::mouseDown (const juce::MouseEvent& e)
+{
+    // JUCE は無効な部品にもクリックを渡す（灰色の切り替えで値が変わっていた。バグチェック 2026-10-05）
+    if (! isEnabled())
+        return;
+    focus::handBack (*this);
+    setSelected (indexAt (e.getPosition()));
+}
 } // namespace vb

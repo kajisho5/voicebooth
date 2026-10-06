@@ -34,6 +34,7 @@
 #include "analysis/Rmvpe.h"
 #include <atomic>
 #include <limits>
+#include <stdexcept>
 #include <iostream>
 #include <thread>
 #if JUCE_WINDOWS
@@ -169,6 +170,9 @@ public:
         const char* outEst[] = { "est" };
         Ort::Value inputs[] = { std::move (x[0]), std::move (specTensor) };
         auto out = sessions.back().Run (Ort::RunOptions{ nullptr }, inHead, inputs, 2, outEst, 1);
+        // 出力の大きさを確かめてから読む（別のモデルを指したとき、範囲の外を読んで落ちた。バグチェック 2026-10-05）
+        if (out[0].GetTensorTypeAndShapeInfo().GetElementCount() < spec.size())
+            throw std::runtime_error ("the model output has an unexpected size");
         const auto* p = out[0].GetTensorData<float>();
         est.assign (p, p + spec.size());
         return ! stopRequested.load();
@@ -248,6 +252,8 @@ int runPitch (const juce::File& modelFile, const juce::File& in, const juce::Fil
             auto output = session->Run (Ort::RunOptions{ nullptr }, inName, &input, 1, outName, 1);
             const auto* p = output[0].GetTensorData<float>();   // [1, padded, 360]
             const int e = juce::jmin (frames, s + rm::chunkFrames);
+            if (output[0].GetTensorTypeAndShapeInfo().GetElementCount() < (size_t) (e - a) * (size_t) rm::bins)
+                return fail ("pitch failed: the model output has an unexpected size");   // 範囲の外を読まない（バグチェック 2026-10-05）
             for (int t = s; t < e; ++t)
                 rm::decodeFrame (p + (size_t) (t - a) * rm::bins, result[(size_t) t].cents, result[(size_t) t].strength);
         }
@@ -376,6 +382,15 @@ int main (int argc, char* argv[])
     int pass = 0;
     const auto t0 = juce::Time::getMillisecondCounterHiRes();
     const auto report = [&] (float p) { say ("progress " + juce::String (((float) pass + p) / (float) passes, 4)); return ! stopRequested.load(); };
+    // モデルの失敗の理由（メモリ不足など）は最後の 1 行で伝える（前は先に出した理由の後に「separation failed」を出し、
+    // 本体は最後の行だけを見るので理由が消えていた。バグチェック 2026-10-05）
+    juce::String modelError;
+    const auto failedRun = [&] (const char* what)
+    {
+        if (stopRequested.load())
+            return fail ("stopped");
+        return fail (modelError.isNotEmpty() ? juce::String (what) + ": " + modelError : juce::String (what));
+    };
     const sep::Model run = [&] (const std::vector<float>& spec, int frames, std::vector<float>& est)
     {
         try
@@ -390,14 +405,14 @@ int main (int argc, char* argv[])
         }
         catch (const std::exception& e)
         {
-            say (juce::String ("error ") + e.what());
+            modelError = e.what();
             return false;
         }
     };
 
     juce::AudioBuffer<float> vocals;
     if (! sep::demix (mix, run, overlap, vocals, report, config.hop))
-        return fail (stopRequested.load() ? "stopped" : "separation failed");
+        return failedRun ("separation failed");
 
     // 伴奏 = 元の音 − ボーカル
     juce::AudioBuffer<float> backing (2, mix.getNumSamples());
@@ -421,7 +436,7 @@ int main (int argc, char* argv[])
         pass = 1;
         juce::AudioBuffer<float> lead;
         if (! sep::demix (mix, run, overlap, lead, report, karaokeConfig.hop))
-            return fail (stopRequested.load() ? "stopped" : "lead separation failed");
+            return failedRun ("lead separation failed");
         if (! writeWav (outLead, lead))
             return fail ("can't write output");
     }

@@ -427,6 +427,8 @@ int applyLyricSections (Sections& list, const Lyrics& ly, double sampleRate, con
         if (! juce::isPositiveAndBelow (heading.firstLine, (int) ly.lines.size()))
             continue;
         const auto& line = ly.lines[(size_t) heading.firstLine];
+        if (heading.noSection)
+            continue;   // 消した区間は作り直さない（前は次のタップ・歌詞の差し替えで戻った。バグチェック 2026-10-05）
         if (! line.timed() || line.heading != h)
             continue;   // 時刻がまだ無い・自分の行が無い見出し（【間奏】の直後に【サビ】など）
 

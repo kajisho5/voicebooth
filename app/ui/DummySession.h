@@ -114,6 +114,10 @@ struct Session
     // 録音形式（2026-10-01：機器が対応すれば 44.1〜384 kHz、24bit / 32bit float。DESIGN 6.5）
     double recordRate = 0.0;              // 0 = 曲に合わせる。違う値なら伴奏をこの SR にそろえ、時間軸もこの SR
     bool recordFloat = false;             // 32bit float（false = 24bit PCM）
+    // 使う人が設定で選んだ録音形式（アプリの設定に保存し、次に開く曲に使う）。上の 2 つは開いているプロジェクトのもので、
+    // テイクのあるプロジェクトを開くとその SR になる（それをアプリの設定に書いていた。バグチェック 2026-10-05）
+    double prefRecordRate = 0.0;
+    bool prefRecordFloat = false;
     int songRate = 0;                     // 曲ファイルの SR（project.sampleRate は時間軸）
     std::shared_ptr<const audio::SongAudio> songOriginal;   // そろえ直す時の元の伴奏
     std::shared_ptr<const audio::SongAudio> songCurrent;    // いまの伴奏（プロジェクトの SR。確認用ミックス B15）

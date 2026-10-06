@@ -92,6 +92,12 @@ std::shared_ptr<SongAudio> resampleSong (const SongAudio& song, double toRate, c
 
         juce::WindowedSincInterpolator interp;
         interp.reset();
+        // 頭の latency 分を先に補間器へ入れておく（入れないと曲の頭の 100 サンプルが一度も通らず無音になり、
+        // 頭に段差のノイズも出た。バグチェック 2026-10-05）
+        {
+            std::vector<float> prime ((size_t) latency);
+            interp.process (1.0, in.data(), prime.data(), latency);
+        }
         const float* src = in.data() + latency;
         auto available = (int) in.size() - latency;
         auto* dst = out->buffer.getWritePointer (c);

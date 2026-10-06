@@ -143,7 +143,9 @@ std::vector<float> resampleTo16k (const float* x, int64_t n, double rate)
     std::vector<float> out ((size_t) std::max ((int64_t) 0, outN));
     if (std::abs (ratio - 1.0) < 1e-9)
     {
-        std::copy (x, x + out.size(), out.begin());
+        // 壊れた値（NaN・Inf）は 0 に（ユーザーの float の WAV をそのまま読む経路がある。NaN は判定の表の外を読み、
+        // その後の有声・無声の判断も崩していた。バグチェック 2026-10-05）
+        std::transform (x, x + out.size(), out.begin(), [] (float v) { return std::isfinite (v) ? v : 0.0f; });
         return out;
     }
     // 窓付き sinc。カットオフは低い方のナイキストの 0.95 倍
@@ -161,7 +163,8 @@ std::vector<float> resampleTo16k (const float* x, int64_t n, double rate)
             const auto a = pi * d * cutoff;
             const auto s = std::abs (a) < 1e-9 ? 1.0 : std::sin (a) / a;
             const auto win = 0.5 + 0.5 * std::cos (pi * d / halfWidth);
-            acc += x[j] * s * win;
+            if (std::isfinite (x[j]))
+                acc += x[j] * s * win;
         }
         out[(size_t) i] = (float) (acc * cutoff);
     }
@@ -230,7 +233,7 @@ void decodeFrame (const float* s, float& cents, float& strength)
 float voicedProbability (float p)
 {
     constexpr int n = (int) (sizeof (calib) / sizeof (calib[0]));
-    if (p <= calib[0][0]) return calib[0][1];
+    if (! std::isfinite (p) || p <= calib[0][0]) return calib[0][1];   // NaN は表の外を読んでいた
     if (p >= calib[n - 1][0]) return calib[n - 1][1];
     const auto* it = std::upper_bound (std::begin (calib), std::end (calib), p, [] (float v, const float (&e)[2]) { return v < e[0]; });
     const auto& b = *it;
