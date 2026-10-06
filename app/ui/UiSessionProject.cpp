@@ -25,14 +25,19 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     s.canUndoTake = false;   // 前の曲のテイクの採用を、次の曲のプロジェクトで戻さない
     leadSplitAgreed = false; // ハモリ分けの了承（agreeLeadSplit）は、そのあと読むお手本の分だけ
     flushSave();         // 前の曲のプロジェクトを保存してから
+    // 保存した長さ（プロジェクトの SR）と同じ曲か：そろえるときと同じ計算で SR を変えて比べる（前は元の SR に戻して 2 サンプルで比べ、
+    // SR を下げてそろえた曲は丸めの差が広がって別の曲と判断し、録ったテイクのない「(2)」のプロジェクトで開いていた。バグチェック 2026-10-06）
+    auto sameLength = [&] (int64 savedLength, double savedRate)
+    {
+        return savedRate > 0.0 && std::llabs (audio::resampledLength (lengthSamples, (double) sampleRate, savedRate) - savedLength) <= 2;
+    };
     saveFailed = false;  // 前の曲の保存の失敗を持ち越さない（次の曲で保存できなくても知らせが出なかった。バグチェック 2026-10-05）
     // 開く途中のプロジェクトが、いま開く曲のものでなければ捨てる（読み込みをやめた・失敗した後に別の曲を開いた時、
     // 前のプロジェクトのフォルダに別の曲を開いて上書きしていた。監査 2026-10-04）
     if (pendingProject != nullptr)
     {
         const auto& lp = pendingProject->project;
-        const auto len = lp.sampleRate > 0 ? (double) lp.lengthSamples * sampleRate / lp.sampleRate : -1.0;
-        if (! juce::File (lp.songPath).getFileName().equalsIgnoreCase (file.getFileName()) || std::abs (len - (double) lengthSamples) > 2.0)
+        if (! juce::File (lp.songPath).getFileName().equalsIgnoreCase (file.getFileName()) || ! sameLength (lp.lengthSamples, (double) lp.sampleRate))
             clearPendingProject();
         // 今のプロジェクトを開き直す時は、いま保存した中身で戻す（開く画面を出した時に読んだ中身では、その後に録ったテイク・
         // 変えた所が古い中身で上書きされていた。監査 2026-10-04）
@@ -77,8 +82,7 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
             auto l = project::fromJson (vbooth.loadFileAsString());
             if (! l.ok || l.project.sampleRate <= 0)
                 return false;
-            const auto len = (double) l.project.lengthSamples * sampleRate / l.project.sampleRate;
-            if (juce::File (l.project.songPath).getFileName() != file.getFileName() || std::abs (len - (double) lengthSamples) > 2.0)
+            if (juce::File (l.project.songPath).getFileName() != file.getFileName() || ! sameLength (l.project.lengthSamples, (double) l.project.sampleRate))
                 return false;
             if (l.extras.songHash.isNotEmpty() && songHash.isNotEmpty() && l.extras.songHash != songHash)
                 return false;   // 名前と長さは同じでも別の音（監査 2026-10-04）
@@ -447,9 +451,13 @@ void UiSession::saveProject()
     ex.monitor.self = s.monitorGain;
     ex.monitor.reverb = s.monitorReverb;
     ex.work.has = true;
-    ex.work.rangeIn = s.hasRange() ? s.rangeIn : -1;
-    ex.work.rangeOut = s.hasRange() ? s.rangeOut : -1;
-    ex.work.loop = s.loopOn;
+    // テイクを比べている間は、比べる前の範囲とループを残す（比べるために一時的に変えた範囲が自動保存に入っていた。監査 2026-10-06）
+    const auto keptIn = compareChangedRange ? compareRangeIn : s.rangeIn;
+    const auto keptOut = compareChangedRange ? compareRangeOut : s.rangeOut;
+    const bool keptRange = keptIn >= 0 && keptOut > keptIn;
+    ex.work.rangeIn = keptRange ? keptIn : -1;
+    ex.work.rangeOut = keptRange ? keptOut : -1;
+    ex.work.loop = compareChangedRange ? compareLoopOn : s.loopOn;
     ex.work.track = project::trackKey (s.currentTrack().type);
     ex.work.octaveUp = s.octaveUp;
     ex.work.playhead = s.playhead;
@@ -478,6 +486,7 @@ void UiSession::saveProject()
     // テイク比較の試聴中（B18c）は、選んでいない差し替えを書かない（確定している採用区間で保存する）
     auto committed = s.project;
     audition.restoreCommitted (committed);
+    committed.modeLast = s.mode;   // 開いた後にモードを変えても、最初の画面の一覧は開いたときのモードのままだった（監査 2026-10-06）
     if (! project::writeAtomically (s.projectFile, project::toJson (committed, ex)))
     {
         // 失敗したら変更ありのまま残し、5 秒ごとに試し直す（終了時も）。知らせは続けて失敗した最初の 1 回だけ。
@@ -523,6 +532,10 @@ void UiSession::closeForQuit()
     // バグチェック 2026-10-05）
     endTakeCompare (false);
     flushSave();
+    // 書き出しの途中なら終わるまで待つ（最長 2 分）。待たずに終わると、書きかけのパック・WAV が残っていた（監査 2026-10-06）
+    for (const auto until = juce::Time::getMillisecondCounter() + 120000;
+         exportJobs->load() > 0 && (juce::int32) (juce::Time::getMillisecondCounter() - until) < 0;)
+        juce::Thread::sleep (50);
     // 分離の途中なら止めて、作業ファイル（入力の写し 約 85 MB など）を消す。止めた知らせはもう届かない
     // （アプリ共通のキャッシュに残っていた。バグチェック 2026-10-05）
     if (s.separating)

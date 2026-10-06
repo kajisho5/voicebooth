@@ -41,6 +41,8 @@ public:
     bool isActive() const { return active.load(); }
     /** 録音が始まった後に曲が止まった（終わりまで行った・止められた）。finish() を呼ぶ合図 */
     bool hasEnded() const { return ended.load(); }
+    /** 曲が止まった・終わった・ループで戻った後の、遅れて届く分を録り足している（または終わった） */
+    bool isFinishing() const { return finishing.load() || ended.load(); }
     /** いま書けたサンプル数（表示用） */
     juce::int64 getRecordedSamples() const { return recorded.load(); }
     /** 録り始めた位置（ファイルの 1 サンプル目と同じコールバックで鳴らした曲の位置）。まだなら -1 */
@@ -68,7 +70,7 @@ private:
     std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> writer; // lock で保護
     juce::File file;
 
-    std::atomic<bool> active { false }, started { false }, ended { false }, dropped { false };
+    std::atomic<bool> active { false }, started { false }, ended { false }, dropped { false }, finishing { false };
     std::atomic<juce::int64> startSample { 0 }, recorded { 0 };
     juce::int64 tail = 0;              // 曲が終わった後に録る長さ（begin で決める）
 

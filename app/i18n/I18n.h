@@ -45,17 +45,39 @@ Language current();
 /** キーを引く */
 juce::String tr (const char* key);
 
-/** キーを引いて {0} {1} … を差し込む */
-/** {index} を value で置き換える */
-juce::String substitute (const juce::String& text, int index, const juce::String& value);
+/** {0} {1} … を values で一度に置き換える（差し込んだ値の中の「{1}」などは置き換えない。表に依存しないのでテストからも使う） */
+inline juce::String substitute (const juce::String& text, const juce::StringArray& values)
+{
+    // 前から 1 度だけ読む（順に置き換えると、{0} に入れたファイル名の中の「{1}」まで置き換わっていた。バグチェック 2026-10-06）
+    juce::String out;
+    auto p = text.getCharPointer();
+    while (! p.isEmpty())
+    {
+        if (*p == '{')
+        {
+            auto q = p + 1;
+            int index = 0, digits = 0;
+            while (q.isDigit() && digits < 3) { index = index * 10 + (int) (*q - '0'); ++q; ++digits; }
+            if (digits > 0 && *q == '}' && index < values.size())
+            {
+                out << values[index];
+                p = q + 1;
+                continue;
+            }
+        }
+        out << juce::String::charToString (*p);
+        ++p;
+    }
+    return out;
+}
 
+/** キーを引いて {0} {1} … を差し込む */
 template <typename... Args>
 juce::String tr (const char* key, Args&&... args)
 {
-    auto s = tr (key);
-    int index = 0;
-    ((s = substitute (s, index++, juce::String (std::forward<Args> (args)))), ...);
-    return s;
+    juce::StringArray values;
+    (values.add (juce::String (std::forward<Args> (args))), ...);
+    return substitute (tr (key), values);
 }
 
 /** 指定言語の表にキーがあるか（検査用） */

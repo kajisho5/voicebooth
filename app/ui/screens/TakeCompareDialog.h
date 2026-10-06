@@ -2,6 +2,7 @@
 
 #include "../Overlay.h"
 #include "../UiSession.h"
+#include "../parts/Focus.h"
 #include <optional>
 
 /*  テイク比較（B18c。DESIGN 2「テイク比較：標準は簡易・プロは詳細」/ 3「メイン上のスライドパネル」）
@@ -30,6 +31,7 @@ public:
 
     /** Space：試聴の再生 / 停止。↑ ↓：テイクを選ぶ（選ぶとすぐ差し替わる） */
     bool keyPressed (const juce::KeyPress&) override;
+    bool keyStateChanged (bool) override { held.update(); return false; }
 
     static constexpr int rowH = 50;
 
@@ -38,6 +40,7 @@ protected:
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
 
 private:
+    focus::HeldKey held;   // 押し続けの自動リピートを受けない
     struct Entry
     {
         juce::String takeId;                   // 空 = いまの採用（元のまま）

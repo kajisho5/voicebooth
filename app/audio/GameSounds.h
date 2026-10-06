@@ -48,7 +48,7 @@ private:
     juce::int64 beatCounter = 0;       // クリックを始めてからのサンプル
     juce::int64 clickLeft = 0;         // 鳴っているクリックの残り（サンプル）
     double clickPhase = 0.0, clickFreq = 1000.0;
-    juce::int64 toneLeft = 0, toneTotal = 0;
-    double tonePhase = 0.0, toneFreq = 0.0;
+    juce::int64 toneLeft = 0, toneTotal = 0, nextToneTotal = 0;   // next：鳴っている音を下げきってから鳴らす音
+    double tonePhase = 0.0, toneFreq = 0.0, nextToneFreq = 0.0;
 };
 } // namespace vb::audio

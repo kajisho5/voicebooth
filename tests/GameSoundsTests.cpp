@@ -111,6 +111,39 @@ public:
             expectEquals (tail, 0.0f);                               // 0.5 秒で止まる
             expectEquals (g.samplesRendered(), (juce::int64) -1);   // 音だけならクリックの時計は動かない
         }
+
+        beginTest ("stopping or replacing the tone midway fades it out instead of cutting it");
+        {
+            // 隣り合うサンプルの差：440 Hz・0.18 なら最大 0.18 × 2π × 440 / 48000 ≈ 0.0104。切ると 0.18 近く跳ぶ
+            auto maxStep = [] (const std::vector<float>& x)
+            {
+                float m = 0.0f;
+                for (size_t i = 1; i < x.size(); ++i) m = juce::jmax (m, std::abs (x[i] - x[i - 1]));
+                return m;
+            };
+            GameSounds g;
+            g.prepare (48000.0);
+            g.playTone (69.0f, 2.0);
+            auto x = render (g, 9601);    // 0.2 秒（鳴っている途中、周期の途中で止める）
+            g.playTone (0.0f, 0.0);
+            const auto y = render (g, 4800);
+            x.insert (x.end(), y.begin(), y.end());
+            expectLessThan (maxStep (x), 0.02f);
+            float tail = 0.0f;
+            for (size_t i = 9601 + 1200; i < x.size(); ++i) tail = juce::jmax (tail, std::abs (x[i]));
+            expectEquals (tail, 0.0f);   // 20 ms で下げきる
+
+            g.playTone (69.0f, 2.0);
+            auto a = render (g, 9601);
+            g.playTone (81.0f, 0.5);       // 鳴っている途中に別の音
+            const auto b = render (g, 9600);
+            a.insert (a.end(), b.begin(), b.end());
+            expectLessThan (maxStep (a), 0.04f);   // 880 Hz の正弦波の差（約 0.021）程度まで
+            int n = 0;
+            for (size_t i = 9601 + 2400; i < 9601 + 7200; ++i)
+                if ((a[i - 1] < 0.0f) != (a[i] < 0.0f)) ++n;
+            expectWithinAbsoluteError ((double) n / 2.0 / 0.1, 880.0, 15.0);   // 次の音は鳴る
+        }
     }
 };
 

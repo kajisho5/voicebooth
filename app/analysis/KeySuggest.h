@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 /*  自分の声域に合うキー（2026-10-02。DESIGN 18.1）
@@ -40,4 +42,7 @@ KeySuggestion suggestKey (const SongRange&, int voiceLow, int voiceHigh, int min
 
 /** その曲をキー shift・オクターブ octave で歌った時の、上・下のはみ出し（半音。収まれば 0） */
 void overflowAt (const SongRange&, int voiceLow, int voiceHigh, int shift, int octave, float& overLow, float& overHigh);
+
+/** 表示する半音の数。はみ出していれば 1 以上（0.31〜0.49 半音が「0 半音はみ出します」になっていた。監査 2026-10-06） */
+inline int overSemitones (float over) { return over > 0.0f ? std::max (1, (int) std::lround (over)) : 0; }
 } // namespace vb::analysis

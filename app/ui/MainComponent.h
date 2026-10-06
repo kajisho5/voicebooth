@@ -11,6 +11,7 @@
 #include "Rack.h"
 #include "StatusBar.h"
 #include "Overlay.h"
+#include "screens/ExportDialog.h"
 #include "audio/SongLoader.h"
 
 namespace vb
@@ -86,6 +87,7 @@ public:
     void openSong (const juce::File&);
     void openSetup (int step = 0);
     void openExport();
+    void openExport (const ExportDialog::Choice& restore);   // 選んだものを戻して開き直す
     void openSettings();
     void openAbout (bool backToSettings = true);       // 閉じたら設定に戻る（設定から開いたとき）
     void openHelp();        // 困ったときのヘルプ（F1・ヘルプのメニュー）

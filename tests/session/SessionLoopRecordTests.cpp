@@ -73,7 +73,7 @@ public:
             expect (preroll < in, "it starts a little before the range");
 
             const auto enablesBefore = engine.loopEnables;
-            pass (ui, engine, out + rate / 2 + 10);   // 範囲の終わり＋余韻
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);   // 範囲の終わり＋余韻
             expect (ui.get().isRecording && engine.recording && engine.playing, "it goes on without stopping");
             expectEquals (engine.loopEnables, enablesBefore, "the engine loop is not turned on between passes (the range head would sound)");
             expect (! engine.loopEnabled);
@@ -81,7 +81,7 @@ public:
             expectEquals (engine.playhead, preroll, "back to a little before the range");
             expectEquals ((int) mainTakes (ui).size(), 1);
 
-            pass (ui, engine, out + rate / 2 + 10);
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);
             expectEquals (engine.recordingsStarted, 3);
             expectEquals ((int) mainTakes (ui).size(), 2);
 
@@ -125,7 +125,7 @@ public:
             prepare (ui, false);
             const auto before = (int) mainTakes (ui).size();
             ui.setRecording (true);
-            pass (ui, engine, out + rate / 2 + 10);
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);
             expect (! ui.get().isRecording && ! engine.recording && ! engine.playing, "it stops at the end of the range");
             expectEquals (engine.recordingsStarted, 1);
             expectEquals ((int) mainTakes (ui).size(), before + 1);
@@ -140,10 +140,10 @@ public:
             prepare (ui, true);
             const auto before = (int) mainTakes (ui).size();
             ui.setRecording (true);
-            pass (ui, engine, out + rate / 2 + 10);
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);
             expectEquals (engine.recordingsStarted, 2);
             ui.setLoop (false);
-            pass (ui, engine, out + rate / 2 + 10);
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);
             expect (! ui.get().isRecording && ! engine.playing, "it stops at the end of the range");
             expectEquals (engine.recordingsStarted, 2, "no third pass");
             expectEquals ((int) mainTakes (ui).size(), before + 2);
@@ -159,7 +159,7 @@ public:
             ui.attachEngine (&engine);
             prepare (ui, false);
             ui.setRecording (true);
-            pass (ui, engine, out + rate / 2 + 10);   // 1 本録って採用
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);   // 1 本録って採用
             const auto compAfter = ui.get().project.findTrack (project::TrackType::main)->comp;
             expect (ui.get().canUndoTake);
             ui.setRecording (true);
@@ -222,7 +222,7 @@ public:
             prepare (ui, true);
             engine.failOnStart = 2;
             ui.setRecording (true);
-            pass (ui, engine, out + rate / 2 + 10);
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);
             expect (! ui.get().isRecording, "it stops");
             ui.setPlaying (true);
             expect (engine.loopEnabled, "the engine loops the range again");
@@ -255,7 +255,7 @@ public:
             prepare (ui, true);
             ui.setRecording (true);
             const auto before = engine.seeks;
-            pass (ui, engine, out + rate / 2 + 10);
+            pass (ui, engine, out + rate / 2 + ui.get().recordingLatency + 10);
             expectEquals (engine.seeks - before, 1, "the pre-roll plays from its start once");
             ui.setPlaying (false);
             ui.attachEngine (nullptr);

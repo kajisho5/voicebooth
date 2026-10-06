@@ -28,6 +28,7 @@ UI_RULES = [
     (re.compile(r"無い|無け|無し"), "「無い」は「ない」"),
     (re.compile(r"受け取り中"), "「受け取り中」は「ダウンロード中」"),
     (re.compile(r"申告"), "「申告値」は「機器の報告値」"),
+    (re.compile(r"耳だけ|耳のみ"), "「耳だけ」「耳のみ」は「モニターのみ」"),
 ]
 
 # どのファイルにも当てる決まり（持ち主が直した言い方。--fix では置き換えない）
@@ -63,6 +64,7 @@ def bad_spans(line):
 def main():
     fix = "--fix" in sys.argv[1:]
     found = 0
+    unfixable = 0   # --fix でも置き換えない言い方（手で直す。前は「replaced」に数えて 0 で終わっていた）
     for path in files():
         try:
             with open(path, encoding="utf-8") as fh:
@@ -73,12 +75,12 @@ def main():
         for n, line in enumerate(lines):
             for rule, hint in ALL_RULES:
                 if rule.search(line):
-                    found += 1
+                    unfixable += 1
                     print(f"{path}:{n + 1}: {hint}: {line.strip()[:120]}")
             if USER_FACING.search(path):
                 for rule, hint in UI_RULES:
                     if rule.search(line):
-                        found += 1
+                        unfixable += 1
                         print(f"{path}:{n + 1}: {hint}: {line.strip()[:120]}")
             spans = bad_spans(line)
             if not spans:
@@ -96,9 +98,12 @@ def main():
                 fh.write("\n".join(lines))
     if fix:
         print(f"replaced {found}")
+        if unfixable:
+            print(f"NG  手で直すもの {unfixable} 件")
+            return 1
         return 0
-    if found:
-        print(f"NG  {found} 件")
+    if found + unfixable:
+        print(f"NG  {found + unfixable} 件")
         return 1
     print("OK  言葉の決まり")
     return 0

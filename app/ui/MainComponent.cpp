@@ -62,6 +62,10 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
         addAndMakeVisible (c);
     toastKey.onClick = [this]
     {
+        // 録音中と、ほかの画面を出している間は動かさない（知らせのキーは画面より前に出るので押せて、開いている画面を
+        // 後始末なしに置き換えていた：起動画面の読み込み・分離が止まる、ダウンロードの完了が届かない など。監査 2026-10-06）
+        if (! canOpenFromMenu())
+            return;
         auto action = std::move (toastAction);
         toastAction = nullptr;
         toastUntil = 0.0;
@@ -478,7 +482,7 @@ void MainComponent::showToast (const juce::String& text, const juce::String& act
     toastAction = std::move (action);
     toastKey.setButtonText (actionLabel);
     layoutToastLayer();
-    toastKey.setVisible (true);
+    toastKey.setVisible (canOpenFromMenu());   // 押しても動かせないときは文だけ
     toastLayer.setVisible (true);
     toastLayer.toFront (false);
     toastLayer.repaint();
@@ -522,8 +526,10 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         }
         // 曲を開く前の起動画面と、初回のようこそ画面は Esc で閉じない（閉じても使える画面が無い・最初に選ぶもの）。
         // ほかの画面は、その画面の「閉じる」と同じ道を通す（設定から開いた画面は設定へ戻る・ダウンロードの画面の後始末 など）
+        // 起動画面で読み込み・分離（原曲だけで始める）の途中も閉じない（閉じると確認なしに 15〜30 分の分離が止まる。監査 2026-10-06）
+        auto* startScreen = dynamic_cast<StartScreen*> (overlay.getContent());
         if (key == juce::KeyPress::escapeKey
-            && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr)
+            && ! (startScreen != nullptr && (needsSong() || startScreen->isBusy()))
             && dynamic_cast<WelcomeScreen*> (overlay.getContent()) == nullptr)
             overlay.requestClose();
         return true;
@@ -604,6 +610,9 @@ bool MainComponent::keyStateChanged (bool)
 {
     if (heldKey != 0 && ! juce::KeyPress::isKeyCurrentlyDown (heldKey))
         heldKey = 0;
+    // テイク比較はフォーカスが無くてもキーを届けている：離したことも届ける
+    if (auto* compare = dynamic_cast<TakeCompareDialog*> (overlay.getContent()))
+        compare->keyStateChanged (false);
     return false;
 }
 
@@ -927,7 +936,8 @@ void MainComponent::filesDropped (const juce::StringArray& files, int x, int y)
     // .txt / .lrc は歌詞（DESIGN 7.5.3：ウィンドウへのドロップ）
     if (LyricsDialog::isLyricsFile (f))
     {
-        session.setShowLyrics (true);   // 歌詞のファイルを落としたら、歌詞レーンを出す
+        // レーンは当てたときに出す（openLyrics の onApplied）。先に出すと、キャンセル・読めないときも空のレーンが出て
+        // 設定にも残っていた（監査 2026-10-06）
         if (auto* open = dynamic_cast<LyricsDialog*> (overlay.getContent()))
             open->loadFile (f);
         else
@@ -964,14 +974,24 @@ void MainComponent::openSetup (int step)
 
 void MainComponent::openExport()
 {
+    openExport (ExportDialog::Choice {});
+}
+
+void MainComponent::openExport (const ExportDialog::Choice& restore)
+{
     if (state().isRecording)
         return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<ExportDialog> (session);
     auto* d = dlg.get();
+    // ［戻る］で開き直した：外したトラック・ビット数・パック・確認用ミックスを戻す（既定に戻り、続けて書き出すと
+    // 違う内容になっていた。監査 2026-10-06）
+    if (! restore.tracks.empty())
+        d->restore (restore);
     dlg->onCloseRequest = [this] { overlay.close(); };
     dlg->onExport = [this, d]
     {
         // 曲を開いていれば本当に書き出す（B5：個別のフル尺 Dry）。見本（UI_MOCK・デモ）は書かない
+        const auto choice = d->choice();
         const auto chosen = d->selectedTracks();
         const auto bits = d->selectedBitDepth();
         const bool pack = d->packSelected();
@@ -1001,7 +1021,7 @@ void MainComponent::openExport()
                      {
                          { tr ("export.unrecorded.yes"), DialogPanel::KeyRole::primary, run },
                          { tr ("export.unrecorded.back"), DialogPanel::KeyRole::normal,
-                           [safe] { juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openExport(); }); } },
+                           [safe, choice] { juce::MessageManager::callAsync ([safe, choice] { if (safe != nullptr) safe->openExport (choice); }); } },
                      });
     };
     overlay.show (std::move (dlg), true);
@@ -1240,7 +1260,8 @@ void MainComponent::confirmClearCache()
                            backToSettings();
                        } },
                      { tr ("common.cancel"), DialogPanel::KeyRole::normal, backToSettings },
-                 });
+                 },
+                 backToSettings);   // Esc・× でも設定に戻る（監査 2026-10-06）
 }
 
 void MainComponent::openSkinTemplates()
@@ -1331,6 +1352,8 @@ void MainComponent::openLyrics (const juce::File& file)
 
 void MainComponent::openSectionName (int index)
 {
+    if (state().isRecording)
+        return;   // 開いている間は R・Space が届かず、キーで録音を止められない（監査 2026-10-06）
     // 曲の情報パネルから開いた時は、名前を入れたらパネルに戻る
     const bool fromPanel = dynamic_cast<SongInfoDialog*> (overlay.getContent()) != nullptr;
     auto dlg = std::make_unique<SectionNameDialog> (session, index);
@@ -1372,6 +1395,8 @@ void MainComponent::openTakeCompare (int64 from, int64 to)
 
 void MainComponent::openUpdate()
 {
+    if (state().isRecording)
+        return;   // ステータスバーの札は録音中も押せる。開くとキーで録音を止められない（監査 2026-10-06）
     const auto r = state().updateRelease;
     if (! r.found)
         return;

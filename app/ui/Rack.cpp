@@ -192,7 +192,7 @@ void PracticeModule::updateKeyHelp()
         const auto g = session.guideRange();
         juce::String tip = tr ("range.suggest.tooltip", dummy::noteName (g.low), dummy::noteName (g.high));
         if (! k.fits)
-            tip << "\n" << tr ("range.suggest.over", juce::String (juce::roundToInt (k.overLow)), juce::String (juce::roundToInt (k.overHigh)));
+            tip << "\n" << tr ("range.suggest.over", juce::String (analysis::overSemitones (k.overLow)), juce::String (analysis::overSemitones (k.overHigh)));
         suggestKey.setTooltip (tip);
         const bool applied = k.shift == s.keyShift;
         suggestKey.withIconColour (k.fits ? colours::signal : colours::warn);

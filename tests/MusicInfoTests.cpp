@@ -233,6 +233,10 @@ public:
             const auto kd = estimateKey (d.data(), (juce::int64) d.size(), sr);
             expectEquals (kd.tonic, 2);
             expect (! kd.minor);
+
+            // 調のない音（無音）は分からないまま（前は C と推定していた）
+            const std::vector<float> silent ((size_t) (sr * 10.0), 0.0f);
+            expectEquals (estimateKey (silent.data(), (juce::int64) silent.size(), sr).tonic, -1);
         }
     }
 };

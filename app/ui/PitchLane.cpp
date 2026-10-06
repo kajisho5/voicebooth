@@ -99,6 +99,7 @@ void PitchLane::onSessionChanged (juce::uint32 changes)
     headX = x;
     if (dirty.isEmpty())
     {
+        gutterKeys = litKeys();   // 全体を描き直す：光る鍵も今の物にそろえる（古いままだと、次に同じ鍵と見て描き直さなかった。監査 2026-10-06）
         repaint();
         return;
     }

@@ -468,6 +468,8 @@ private:
     std::unique_ptr<separation::Service> separationService = std::make_unique<separation::Service>();   // 分離が使えるか・分離を作る（テストは偽物）
     int separationGeneration = 0;   // stopSeparation で進める（準備中・引き算中に止めたら、次の段階へ進まない）
     void analyseSeparated (const juce::File& vocals, const juce::File& backing);
+    // 動いている書き出しの数（終了するときに、書きかけのパック・WAV を残さないよう終わるまで待つ。監査 2026-10-06）
+    std::shared_ptr<std::atomic<int>> exportJobs = std::make_shared<std::atomic<int>> (0);
     std::shared_ptr<bool> alive = std::make_shared<bool> (true);   // 裏のスレッドから戻ってきた時に、まだ生きているか
     bool loopBeforeRecording = false;
     /** 範囲をループして録っている（#29）：範囲の終わりで今のテイクを閉じ、範囲の少し前へ戻って次のテイクを録る。止めるまで続ける */
