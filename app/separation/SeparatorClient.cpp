@@ -198,6 +198,13 @@ void SeparatorClient::run()
         args.addArray ({ "--karaoke", karaokeModelFolder().getFullPathName(), "--lead", lead.getFullPathName() });
     {
         const juce::ScopedLock sl (childLock);
+        // 始める前に止められていた：子プロセスを作らない（stop() は子プロセスを作る前だと何も止められず、5 秒待った後に
+        // スレッドを強制終了し、子プロセスは残っていた。バグチェック 2026-10-05）
+        if (threadShouldExit())
+        {
+            finish (false, "stopped");
+            return;
+        }
         child = std::make_unique<juce::ChildProcess>();
         if (! child->start (args, juce::ChildProcess::wantStdOut))
         {

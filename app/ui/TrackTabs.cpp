@@ -74,6 +74,8 @@ void TrackCard::mouseMove (const juce::MouseEvent& e)
 
 void TrackCard::onSessionChanged (juce::uint32 changes)
 {
+    if (changes & change::prefs)
+        repaint();   // 選ぶキーを変えた
     if ((changes & (change::tracks | change::mode)) == 0)
         return;
 
@@ -132,11 +134,17 @@ void TrackCard::paint (juce::Graphics& g)
     g.drawText (name, top.removeFromLeft (nw), juce::Justification::bottomLeft, true);
 
     top.removeFromLeft (7);
-    const auto key = top.removeFromLeft (15).withTrimmedTop (top.getHeight() - 15).toFloat();
-    paint::inset (g, key, 2.0f);
-    g.setColour (colours::textDim);
-    g.setFont (mono (9.5f, Weight::semibold));
-    g.drawText (juce::String (t.hotkey), key, juce::Justification::centred, false);
+    // 選ぶキー（#28 で変えられる・なしにできる。前は 1〜4 の決め打ちで、変えても表示が変わらなかった。バグチェック 2026-10-05）
+    const auto keyText = index < 4 ? state().shortcuts.keyName ((shortcuts::Action) ((int) shortcuts::Action::track1 + index)) : juce::String();
+    if (keyText.isNotEmpty())
+    {
+        const auto kf = mono (9.5f, Weight::semibold);
+        const auto key = top.removeFromLeft (juce::jmax (15, (int) textWidth (kf, keyText) + 6)).withTrimmedTop (top.getHeight() - 15).toFloat();
+        paint::inset (g, key, 2.0f);
+        g.setColour (colours::textDim);
+        g.setFont (kf);
+        g.drawText (keyText, key, juce::Justification::centred, false);
+    }
 
     // テイク情報
     const auto* tr_ = state().project.findTrack (t.type);

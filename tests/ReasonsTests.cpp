@@ -39,6 +39,18 @@ public:
             expectKey ("sample rate of take2 differs from the song", "reason.rateDiffers", "take2");
         }
 
+        beginTest ("reasons found in the bug check (2026-10-05): file name in front, separation and model failures");
+        {
+            expectKey ("vocal_dry.wav: missing take take3", "reason.missingTake", "take3");
+            expectKey ("Main_take1.wav: write failed (the file is incomplete)", "reason.writeFailed");
+            expectKey ("separation failed", "reason.separationFailed");
+            expectKey ("lead separation failed", "reason.separationFailed");
+            expectKey ("separation failed: std::bad_alloc", "reason.separationFailedDetail", "std::bad_alloc");
+            expectKey ("can't load model: model.onnx", "reason.cantLoadModel", "model.onnx");
+            expectKey ("input must be 44100 Hz", "reason.cantReadOriginal");
+            expect (reasonKey ("Audio/x.wav: busy").key == nullptr, "a path in front is not taken as a file name");
+        }
+
         beginTest ("unknown reasons (OS messages) are kept as they are");
         {
             expect (reasonKey ("Access is denied.").key == nullptr);

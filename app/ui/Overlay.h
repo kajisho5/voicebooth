@@ -63,6 +63,10 @@ class OverlayHost : public juce::Component
 public:
     OverlayHost();
 
+    /** 使う人が閉じた（Esc・背景のクリック）：DialogPanel なら onCloseRequest を通す（閉じた後に戻る画面・後始末があるため）。
+        それ以外は close。前は close を直接呼び、曲がないときに何もない画面で止まった（バグチェック 2026-10-05） */
+    void requestClose();
+
     /** centre：中央に置いて背景を暗くする
         side  ：右に寄せ、背景を暗くしない（スキンエディタ：後ろの画面で色を確かめる） */
     enum class Placement { centre, side };

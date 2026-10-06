@@ -46,6 +46,8 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     };
     actions.openVoiceRange = [this]
     {
+        if (state().isRecording)
+            return;   // 録音中は開かない（バグチェック 2026-10-05）
         auto dlg = std::make_unique<RangeDialog> (session);
         dlg->onCloseRequest = [this] { overlay.close(); };
         overlay.show (std::move (dlg));
@@ -78,6 +80,13 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
         // 起動画面・ダイアログを閉じた後で、待っていた入力セットアップを出す（B13）
         juce::Component::SafePointer<MainComponent> safe (this);
         juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->maybeOpenSetup(); });
+        // 曲がないのに何も出ていなければ起動画面に戻す（何もない画面で止まらない。閉じた後に別の画面を開く流れを先に通すため、1 つ後で見る。
+        // バグチェック 2026-10-05）
+        juce::MessageManager::callAsync ([safe]
+        {
+            if (safe != nullptr)
+                juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openStartIfNoSong(); });
+        });
     };
     status.onUpdateClicked = [this] { openUpdate(); };
 
@@ -210,6 +219,8 @@ void MainComponent::timerCallback()
     if ((state().separationOfferSerial != state().separationOfferShown || state().leadOfferSerial != state().leadOfferShown)
         && ! overlay.isShowing() && ! state().isRecording)
         onSessionChanged (change::notice);
+    if (state().modelDl.dialogSerial != modelDialogSeen && canShowModelOffer())
+        onSessionChanged (change::notice);
 
     const auto now = juce::Time::getMillisecondCounterHiRes();
     const auto dt = juce::jlimit (0.0, 0.1, (now - lastTick) / 1000.0);
@@ -271,10 +282,15 @@ void MainComponent::onSessionChanged (juce::uint32 changes)
         const auto& m = state().modelDl;
         using DS = models::DownloadStatus::Stage;
         using MS = ModelDownloadDialog::Stage;
-        if (m.dialogSerial != modelDialogSeen)
+        if (m.dialogSerial != modelDialogSeen && canShowModelOffer())
         {
             modelDialogSeen = m.dialogSerial;
             openLiveModelDownload ((int) MS::confirm);
+        }
+        else if (m.dialogSerial != modelDialogSeen)
+        {
+            // ほかの画面・録音の途中：閉じるまで待つ（timerCallback で見直す。前は開いている画面を置き換え、
+            // 起動画面なら読み込み・分離が止まっていた。バグチェック 2026-10-05）
         }
         else if (modelStageShown != -2 && m.stage != modelStageShown)
         {
@@ -398,6 +414,8 @@ void MainComponent::resized()
     pitch.setBounds (r);
 
     overlay.setBounds (getLocalBounds());
+    if (toastLayer.isVisible())
+        layoutToastLayer();   // キー付きの知らせも付いてくる（前は古い位置に残った。バグチェック 2026-10-05）
 }
 
 void MainComponent::paint (juce::Graphics& g)
@@ -446,16 +464,20 @@ juce::Rectangle<float> MainComponent::toastBox() const
     return juce::Rectangle<float> (w, h).withCentre ({ (float) canvasArea.getCentreX(), (float) canvasArea.getBottom() - 90.0f });
 }
 
+void MainComponent::layoutToastLayer()
+{
+    const auto area = toastBox().getSmallestIntegerContainer();
+    toastLayer.setBounds (area);
+    toastKey.setBounds (juce::Rectangle<int> (toastKey.idealWidth(), area.getHeight() - 14)
+                            .withPosition (area.getWidth() - toastKey.idealWidth() - 8, 7));
+}
+
 void MainComponent::showToast (const juce::String& text, const juce::String& actionLabel, std::function<void()> action)
 {
     toastText = text;
     toastAction = std::move (action);
     toastKey.setButtonText (actionLabel);
-    const auto box = toastBox();
-    const auto area = box.getSmallestIntegerContainer();
-    toastLayer.setBounds (area);
-    toastKey.setBounds (juce::Rectangle<int> (toastKey.idealWidth(), area.getHeight() - 14)
-                            .withPosition (area.getWidth() - toastKey.idealWidth() - 8, 7));
+    layoutToastLayer();
     toastKey.setVisible (true);
     toastLayer.setVisible (true);
     toastLayer.toFront (false);
@@ -498,9 +520,12 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             confirm->onCloseRequest();
             return true;
         }
-        // 曲を開く前の起動画面は Esc で閉じない（閉じても使える画面が無い）
-        if (key == juce::KeyPress::escapeKey && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr))
-            overlay.close();
+        // 曲を開く前の起動画面と、初回のようこそ画面は Esc で閉じない（閉じても使える画面が無い・最初に選ぶもの）。
+        // ほかの画面は、その画面の「閉じる」と同じ道を通す（設定から開いた画面は設定へ戻る・ダウンロードの画面の後始末 など）
+        if (key == juce::KeyPress::escapeKey
+            && ! (needsSong() && dynamic_cast<StartScreen*> (overlay.getContent()) != nullptr)
+            && dynamic_cast<WelcomeScreen*> (overlay.getContent()) == nullptr)
+            overlay.requestClose();
         return true;
     }
 
@@ -536,8 +561,14 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
         }
     }
 
+    // 押し続けたときの自動リピートは受けない（REC・再生が 1 秒に何十回も切り替わり、短いテイクで採用区間が置き換わった。
+    // 区間・タップも何度も入った。バグチェック 2026-10-05）。離すと keyStateChanged で戻す
+    const bool repeated = key.getKeyCode() == heldKey;
     if (key == juce::KeyPress::spaceKey)
     {
+        if (repeated)
+            return true;
+        heldKey = key.getKeyCode();
         transport.playKey().flash();
         session.setPlaying (! s.isPlaying);
         return true;
@@ -551,6 +582,9 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
             typed = juce::CharacterFunctions::toLowerCase ((juce::juce_wchar) key.getKeyCode());
         if (const auto action = s.shortcuts.actionFor (typed))
         {
+            if (repeated)
+                return true;
+            heldKey = key.getKeyCode();
             runShortcut (*action, key);
             return true;
         }
@@ -566,10 +600,16 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     return false;
 }
 
+bool MainComponent::keyStateChanged (bool)
+{
+    if (heldKey != 0 && ! juce::KeyPress::isKeyCurrentlyDown (heldKey))
+        heldKey = 0;
+    return false;
+}
+
 void MainComponent::notice (const juce::String& text)
 {
-    if (! state().isRecording)
-        showToast (text);
+    showToast (text);   // 録音中も出す（録音・書き出しの結果と同じ。2026-10-05 に持ち主が決定）
 }
 
 void MainComponent::tapTempo()
@@ -915,6 +955,8 @@ void MainComponent::maybeOpenSetup()
 
 void MainComponent::openSetup (int step)
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<SetupWizard> (session, step);
     dlg->onCloseRequest = [this] { overlay.close(); };
     overlay.show (std::move (dlg), true);
@@ -922,6 +964,8 @@ void MainComponent::openSetup (int step)
 
 void MainComponent::openExport()
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<ExportDialog> (session);
     auto* d = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };
@@ -965,6 +1009,8 @@ void MainComponent::openExport()
 
 void MainComponent::openSettings()
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     std::vector<skin::Skin> skins = hooks.skins != nullptr ? hooks.skins->all() : skin::builtInSkins();
     auto dlg = std::make_unique<SettingsDialog> (session, std::move (skins), hooks.currentSkin ? hooks.currentSkin() : juce::String ("booth"));
     dlg->onCloseRequest = [this] { overlay.close(); };
@@ -1113,6 +1159,20 @@ juce::PopupMenu MainComponent::helpMenu()
     return m;
 }
 
+bool MainComponent::canShowModelOffer() const
+{
+    // モデルのダウンロードの確認を出してよいか：録音中でなく、ほかの画面が無いか、置き換えてよい画面
+    // （何もしていない起動画面・ダウンロードの画面そのもの）のとき
+    if (state().isRecording)
+        return false;
+    auto* c = overlay.getContent();
+    if (c == nullptr || dynamic_cast<ModelDownloadDialog*> (c) != nullptr)
+        return true;
+    if (auto* start = dynamic_cast<StartScreen*> (c))
+        return ! start->isBusy();
+    return false;
+}
+
 bool MainComponent::canOpenFromMenu() const
 {
     // 録音中と、ほかの画面（起動画面・設定・確認など）を出しているときは開かない（F1・⌘ のキーと同じ。
@@ -1242,6 +1302,8 @@ void MainComponent::openSkinEditor (const skin::Skin* fromTemplate)
 
 void MainComponent::openSongInfo()
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<SongInfoDialog> (session, actions);
     dlg->onCloseRequest = [this] { overlay.close(); };
     // 右に出す（背景を暗くしない：ルーラー・BAR.BEAT が変わるのを見ながら直す）
@@ -1250,10 +1312,18 @@ void MainComponent::openSongInfo()
 
 void MainComponent::openLyrics (const juce::File& file)
 {
+    if (state().isRecording)
+        return;   // 録音中は開かない（キーと同じ。開くと R・Space が画面に取られて止められなかった。バグチェック 2026-10-05）
     auto dlg = std::make_unique<LyricsDialog> (session);
     auto* raw = dlg.get();
     dlg->onCloseRequest = [this] { overlay.close(); };
-    dlg->onApplied = [this] (const juce::String& msg) { overlay.close(); session.setShowLyrics (true); notice (msg); };
+    dlg->onApplied = [this] (const juce::String& msg)
+    {
+        overlay.close();
+        if (! state().project.lyrics.empty())
+            session.setShowLyrics (true);   // 消したときは出さない（空のレーンが出て、設定にも残っていた。バグチェック 2026-10-05）
+        notice (msg);
+    };
     overlay.show (std::move (dlg), false);
     if (file != juce::File())
         raw->loadFile (file);

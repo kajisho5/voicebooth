@@ -48,7 +48,7 @@ constexpr double maxSampleRate = 768000.0;
 
 struct LoadResult
 {
-    enum class Error { none, notFound, unsupported, empty, readFailed, cancelled, tooLong };
+    enum class Error { none, notFound, unsupported, empty, readFailed, cancelled, tooLong, outOfMemory };
 
     Error error = Error::none;
     SongInfo info;
@@ -57,6 +57,9 @@ struct LoadResult
 
     bool ok() const { return error == Error::none; }
 };
+
+/** 3 チャンネル以上をステレオにまとめる（5.1ch は ITU-R BS.775、ほかは偶数番目を左・奇数番目を右に平均） */
+void downmixToStereo (const juce::AudioBuffer<float>& in, juce::AudioBuffer<float>& out);
 
 /** 曲を開いて使うのに要るメモリの見込み（バイト）：曲のバッファ（32bit float）の 5 倍。
     曲・SR をそろえ直した曲・お手本（声入りの原曲・取り出した声）・録ったトラックの分（20 分・384 kHz・ステレオで約 18 GB。#21） */

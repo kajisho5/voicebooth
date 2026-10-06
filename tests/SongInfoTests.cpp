@@ -313,6 +313,12 @@ public:
             expectEquals (applyLyricSections (list, ly, sr), 0);   // 二重に作らない
             expectEquals ((int) list.size(), 3);
 
+            // 消した見出しの区間は作り直さない（バグチェック 2026-10-05）
+            ly.headings[(size_t) list[0].heading].noSection = true;
+            removeSection (list, 0);
+            expectEquals (applyLyricSections (list, ly, sr), 0);
+            expectEquals ((int) list.size(), 2);
+
             // 見出しの無い同じ塊のくり返しは「推定」のサビ
             const auto noHeadings = u8 ("ほどけた糸をたぐりよせて\nまだ知らない朝へ走る\n\n"
                                         "遠い駅の名前を数える\n\n"

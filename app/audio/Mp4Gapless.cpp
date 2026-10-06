@@ -185,6 +185,14 @@ Mp4Gapless readMp4Gapless (juce::InputStream& in, double sampleRate)
             const auto moov = children (body.get(), bodySize);
             if (! fromEditList (moov, sampleRate, g))
                 fromITunSMPB (moov, g);
+            else if (g.priming == 0)
+            {
+                // edit list の頭が 0（長さだけ）で、詰め物は iTunSMPB にだけ書いたファイル：そちらを使う
+                // （前は頭に約 48 ms の無音が残った。バグチェック 2026-10-05）
+                Mp4Gapless t;
+                if (fromITunSMPB (moov, t) && t.priming > 0)
+                    g = t;
+            }
             break;
         }
         if (! in.setPosition (start + (int64) size)) break;

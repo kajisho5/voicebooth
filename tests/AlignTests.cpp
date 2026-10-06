@@ -140,7 +140,10 @@ public:
             const auto r = alignReference (origHi.data(), (juce::int64) origHi.size(), karHi.data(), (juce::int64) karHi.size(), sr * 4.0);
             const auto expected = (juce::int64) (1.5 * sr * 4.0);
             expect (r.quality == AlignResult::Quality::good);
-            expect (std::llabs (r.offsetSamples - expected) <= 8, juce::String (r.offsetSamples) + " vs " + juce::String (expected));
+            // 下げた SR のずれ（4 サンプル単位）を元の SR で詰め直す（バグチェック 2026-10-05）
+            expect (std::llabs (r.offsetSamples - expected) <= 1, juce::String (r.offsetSamples) + " vs " + juce::String (expected));
+            if (! r.covered.empty())
+                expect (std::llabs (r.covered[0].offsetSamples - expected) <= 1, "the covered part too");
             expectEquals ((int) r.covered.size(), 1);
             if (! r.covered.empty())
                 expect (r.covered[0].karaokeEnd <= (juce::int64) karHi.size());
@@ -176,6 +179,9 @@ public:
             const auto r = alignReference (plainOrig.data(), (juce::int64) plainOrig.size(), kar.data(), (juce::int64) kar.size(), sr);
             expect (r.quality == AlignResult::Quality::good);
             expectEquals (r.offsetSamples, -(juce::int64) (1.25 * sr));
+            // 最初の区間の一部（オフボの頭 1.25 秒）が原曲の外でも、重なる部分からお手本あり（前は 10 秒目から。バグチェック 2026-10-05）
+            expect (! r.covered.empty() && r.covered[0].karaokeStart <= (juce::int64) (1.5 * sr),
+                    r.covered.empty() ? juce::String ("none") : juce::String ((double) r.covered[0].karaokeStart / sr, 2) + " s");
         }
 
         beginTest ("slightly different speed: ratio is found, position error stays under 3 samples");

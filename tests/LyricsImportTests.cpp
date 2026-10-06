@@ -53,6 +53,21 @@ public:
                 expectEquals (decodeText (block.getData(), block.getSize(), e), s);   // 絵文字（サロゲートペア）も
             }
 
+            // BOM の無い UTF-16（バグチェック 2026-10-05）
+            for (const bool big : { false, true })
+            {
+                juce::MemoryOutputStream out;
+                for (const auto* p = s.toUTF16().getAddress(); *p != 0; ++p)
+                {
+                    if (big) out.writeShortBigEndian ((short) *p);
+                    else     out.writeShort ((short) *p);
+                }
+                const auto block = out.getMemoryBlock();
+                const auto e = detectEncoding (block.getData(), block.getSize());
+                expect (e == (big ? TextEncoding::utf16be : TextEncoding::utf16le), big ? "BE without BOM" : "LE without BOM");
+                expectEquals (decodeText (block.getData(), block.getSize(), e), s);
+            }
+
             const char ascii[] = "hello\n";
             expect (detectEncoding (ascii, 6) == TextEncoding::utf8);
         }
@@ -135,6 +150,25 @@ public:
             expectWithinAbsoluteError (doc.lines[3].timeSeconds, 65.0, 1e-6);   // [1:05:50] の形
             expectWithinAbsoluteError (doc.lines[4].timeSeconds, 69.75, 1e-6);
             expectEquals (doc.lines[4].text, doc.lines[2].text);
+        }
+
+        beginTest ("lrc with headings: after sorting by time, each heading still points at a line of its own section");
+        {
+            const auto doc = parseLyrics (u8 (
+                "【Aメロ】\n"
+                "[00:10.00][00:50.00]夜の窓に 小さな灯り\n"
+                "[00:20.00]息をととのえて 待つ\n"
+                "【サビ】\n"
+                "[00:30.00]声を重ねて 遠くまで\n"));
+            expectEquals (doc.sections.size(), 2);
+            expectEquals (doc.lines.size(), 4);
+            for (int s = 0; s < doc.sections.size(); ++s)
+            {
+                const auto first = doc.sections[s].firstLine;
+                expect (first >= 0 && first < doc.lines.size() && doc.lines[first].section == s,
+                        doc.sections[s].name + " -> " + juce::String (first));
+            }
+            expectEquals (doc.lines[doc.sections[1].firstLine].text, u8 ("声を重ねて 遠くまで"));
         }
 
         beginTest ("file: Shift_JIS txt on disk (path with spaces and Japanese)");

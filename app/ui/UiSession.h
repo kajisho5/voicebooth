@@ -328,7 +328,8 @@ public:
 
     /** 曲ごとの作業フォルダ（テイク・書き出し）。.vbooth の保存（B14）までの仮の置き場：
         書類フォルダ/VoiceBooth/Projects/{曲名}/ */
-    static juce::File projectFolderFor (const juce::String& songName);
+    static juce::File projectFolderFor (const juce::String& songName, int number = 1);   // number > 1 なら「{曲名} (n)」
+    static juce::File legacyProjectFolderFor (const juce::String& songName);
 
     // --- 練習 / モード ------------------------------------------------------
     void setTempo (int percent);
@@ -455,6 +456,7 @@ private:
     bool leadSplitAgreed = false;   // agreeLeadSplit：次のお手本では確認しない（曲を開き直すと戻る）
     void analyseLead (const juce::File& leadFile);
     std::unique_ptr<separation::Separator> separator;   // B16
+    std::vector<juce::File> separationScratch;          // 分離中の作業ファイル（閉じるときに消す）
     // 分離の 3 つの流れに共通の部分（UiSession.cpp。2026-10-04）
     enum class SeparationPrep { ready, failed, stopped };
     void beginSeparation (int kind);

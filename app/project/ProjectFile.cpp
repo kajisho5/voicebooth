@@ -236,6 +236,8 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
             auto o = obj();
             set (o, "name", h.name);
             set (o, "first_line", h.firstLine);
+            if (h.noSection)
+                set (o, "no_section", true);
             headings.add (o);
         }
         for (auto& l : p.lyrics.lines)
@@ -421,7 +423,7 @@ LoadedProject fromJson (const juce::String& text)
         p.lyrics.sectionsFromHeadings = getBool (ly, "sections_from_headings", true);
         if (const auto* headings = ly.getProperty ("headings", var()).getArray())
             for (auto& o : *headings)
-                p.lyrics.headings.push_back ({ getString (o, "name"), getInt (o, "first_line") });
+                p.lyrics.headings.push_back ({ getString (o, "name"), getInt (o, "first_line"), getBool (o, "no_section", false) });
         if (const auto* lines = ly.getProperty ("lines", var()).getArray())
             for (auto& o : *lines)
             {
