@@ -64,6 +64,11 @@ private:
     void drawReference (juce::Graphics&, const TimeMap&);
     /** お手本の音符（お手本の点が変わった時だけ作り直す） */
     const std::vector<analysis::NoteSpan>& refNotes() const;
+    /** メインのお手本の音符（ハモリのトラックでも。3 度ガイドの元） */
+    const std::vector<analysis::NoteSpan>& mainNotes() const;
+    /** 3 度ガイド（#30）：ハモリのトラックで、メインのお手本の音から曲のキーの音階で 3 度上・下を点線の音符で */
+    bool thirdGuideShown() const;
+    void drawThirdGuide (juce::Graphics&, const TimeMap&);
     void drawMine (juce::Graphics&, const TimeMap&);
     bool drawCompareTake (juce::Graphics&, const TimeMap&);   // テイク比較で試聴中のテイクの線（B18c）。描いたら true
     void drawCurrent (juce::Graphics&, const TimeMap&);
@@ -71,14 +76,14 @@ private:
 
     Actions& actions;
     juce::Rectangle<int> rulerArea, gutterArea, plotArea, footerArea, legendArea, analysisArea;
-    KeyButton octaveAlign, octaveUp, fullRange, listenOriginal;
+    KeyButton octaveAlign, octaveUp, fullRange, listenOriginal, thirdKey;
     lane::RangeGesture gesture;
     bool draggingRuler = false;
     bool menuGesture = false;   // 右クリックのメニュー（ドラッグ・離した時は何もしない）
     int draggingTag = -1;          // 掴んでいる区間の札
     bool tagMoved = false;
     float tagGrabOffset = 0.0f;
-    mutable std::vector<analysis::NoteSpan> notesCache;
-    mutable juce::int64 notesKey = -1;
+    mutable std::vector<analysis::NoteSpan> notesCache, mainNotesCache;
+    mutable juce::int64 notesKey = -1, mainNotesKey = -1;
 };
 } // namespace vb

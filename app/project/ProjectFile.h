@@ -52,6 +52,7 @@ struct ProjectExtras
         bool loop = false;
         juce::String track;                        // trackKey（"main" など）。空 = 既定
         bool octaveUp = false;
+        int thirdGuide = 0;                        // 3 度ガイド（0 = なし・1 = 上・2 = 下。#30）
         juce::int64 playhead = 0;
     } work;
 };

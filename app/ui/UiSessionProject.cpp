@@ -320,6 +320,7 @@ void UiSession::restoreProject()
             if (w.track == project::trackKey (s.trackUi[(size_t) i].type))
                 selectTrack (i);   // いまのモードで見えないトラックなら選ばない（selectTrack が見る）
         setOctaveUp (w.octaveUp);
+        setThirdGuide (w.thirdGuide);
         if (w.playhead > 0 && scaled (w.playhead) < s.project.lengthSamples)
             seek (scaled (w.playhead));
     }
@@ -452,6 +453,7 @@ void UiSession::saveProject()
     ex.work.loop = s.loopOn;
     ex.work.track = project::trackKey (s.currentTrack().type);
     ex.work.octaveUp = s.octaveUp;
+    ex.work.thirdGuide = s.thirdGuide;
     ex.work.playhead = s.playhead;
 
     // 世代バックアップ：開いてから最初の保存と、その後 10 分ごとに、前の .vbooth を Backups/ へ（新しい 10 個を残す）
