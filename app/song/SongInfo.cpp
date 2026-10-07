@@ -133,6 +133,33 @@ const char* tonicName (int tonic)
     return juce::isPositiveAndBelow (tonic, 12) ? names[tonic] : "";
 }
 
+int diatonicThird (int midi, const KeyInfo& key, bool up)
+{
+    if (! key.known())
+        return -1;
+    static constexpr int majorSteps[7] = { 0, 2, 4, 5, 7, 9, 11 };
+    static constexpr int minorSteps[7] = { 0, 2, 3, 5, 7, 8, 10 };
+    const auto* steps = key.minor ? minorSteps : majorSteps;
+
+    // 主音から数えた位置（オクターブ・音階の何番目）。音階にない音は近い音（同じ近さなら下）に寄せる
+    const auto rel = midi - key.tonic;
+    const auto octave = (rel >= 0 ? rel : rel - 11) / 12;
+    const auto pc = rel - octave * 12;
+    int degree = 0, best = 99;
+    for (int i = 0; i < 7; ++i)
+    {
+        const auto d = std::abs (pc - steps[i]);
+        if (d < best) { best = d; degree = i; }
+    }
+    if (std::abs (pc - 12) < best)   // B と C の間のような、上のオクターブの主音に近い音
+        degree = 7;
+
+    const auto target = degree + (up ? 2 : -2);
+    const auto targetOctave = (target >= 0 ? target : target - 6) / 7;
+    const auto targetDegree = target - targetOctave * 7;
+    return key.tonic + (octave + targetOctave) * 12 + steps[targetDegree];
+}
+
 juce::String KeyInfo::shortName() const
 {
     if (! known())

@@ -350,6 +350,29 @@ public:
             Sections list3;
             expectEquals (applyLyricSections (list3, ly2, sr), 0);
         }
+
+        beginTest ("third guide: thirds on the key's scale");
+        {
+            KeyInfo c; c.tonic = 0;                    // C の長調
+            expectEquals (diatonicThird (60, c, true), 64);    // C4 → E4（長 3 度）
+            expectEquals (diatonicThird (62, c, true), 65);    // D4 → F4（短 3 度）
+            expectEquals (diatonicThird (71, c, true), 74);    // B4 → D5（オクターブをまたぐ）
+            expectEquals (diatonicThird (60, c, false), 57);   // C4 → A3（下へまたぐ）
+            expectEquals (diatonicThird (64, c, false), 60);   // E4 → C4
+            expectEquals (diatonicThird (65, c, false), 62);   // F4 → D4
+            expectEquals (diatonicThird (61, c, true), 64);    // C#4 は C に寄せて E4
+            expectEquals (diatonicThird (70, c, true), 72);    // Bb4 は A と B の真ん中：同じ近さなら下の A に寄せて C5
+            KeyInfo a; a.tonic = 9; a.minor = true;    // A の短調（自然的短音階）
+            expectEquals (diatonicThird (57, a, true), 60);    // A3 → C4（短 3 度）
+            expectEquals (diatonicThird (60, a, true), 64);    // C4 → E4
+            expectEquals (diatonicThird (64, a, true), 67);    // E4 → G4（自然的短音階なので G）
+            expectEquals (diatonicThird (57, a, false), 53);   // A3 → F3
+            KeyInfo eb; eb.tonic = 3;                  // Eb の長調
+            expectEquals (diatonicThird (63, eb, true), 67);   // Eb4 → G4
+            expectEquals (diatonicThird (70, eb, true), 74);   // Bb4 → D5
+            expectEquals (diatonicThird (58, eb, true), 62);   // 主音より下の音：Bb3 → D4
+            expectEquals (diatonicThird (60, KeyInfo(), true), -1);   // キーが分からない
+        }
     }
 };
 

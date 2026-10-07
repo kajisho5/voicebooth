@@ -174,6 +174,7 @@ public:
     /** クリックを始めてから耳に届いている位置（秒）。鳴らせない（エンジン・出力が無い）なら < 0 */
     double gameBeatClock() const;
     void setOctaveUp (bool);
+    void setThirdGuide (int);   // 0 = なし・1 = 3 度上・2 = 3 度下（#30）
     /** 「分離しますか？」（lead = false）／「ハモリの分離も続けますか？」（true）を表示した */
     void offerShown (bool lead) { (lead ? s.leadOfferShown : s.separationOfferShown) = lead ? s.leadOfferSerial : s.separationOfferSerial; }
     void setFullRange (bool);

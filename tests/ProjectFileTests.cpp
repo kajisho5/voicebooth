@@ -135,6 +135,7 @@ public:
             ex.work.loop = true;
             ex.work.track = "harm1";
             ex.work.octaveUp = true;
+            ex.work.thirdGuide = 2;
             ex.work.playhead = 1234567;
             const auto back = fromJson (toJson (p, ex));
             expect (back.ok);
@@ -147,6 +148,7 @@ public:
             expectWithinAbsoluteError (m.reverb, 0.1f, 1e-6f);
             const auto& w = back.extras.work;
             expect (w.has && w.loop && w.octaveUp);
+            expectEquals (w.thirdGuide, 2);
             expect (w.rangeIn == 480000 && w.rangeOut == 960000 && w.playhead == 1234567);
             expectEquals (w.track, juce::String ("harm1"));
 

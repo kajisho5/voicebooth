@@ -48,6 +48,7 @@ public:
                 ui.setLoop (false);
                 ui.selectTrack (1);
                 ui.setOctaveUp (true);
+                ui.setThirdGuide (1);
                 ui.setPractice (90, -2);
                 ui.seek (120000);
                 ui.flushSave();
@@ -66,6 +67,7 @@ public:
             expect (! s.loopOn);
             expectEquals (s.selectedTrack, 1);
             expect (s.octaveUp);
+            expectEquals (s.thirdGuide, 1);
             expectEquals (s.tempoPercent, 90);
             expectEquals (s.keyShift, -2);
             expectEquals ((int) s.playhead, 120000);

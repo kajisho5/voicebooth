@@ -132,6 +132,7 @@ juce::String toJson (const Project& p, const ProjectExtras& extras)
         if (extras.work.track.isNotEmpty())
             set (w, "track", extras.work.track);
         set (w, "octave_up", extras.work.octaveUp);
+        set (w, "third_guide", extras.work.thirdGuide);
         set (w, "playhead", extras.work.playhead);
         set (root, "work", w);
     }
@@ -344,6 +345,7 @@ LoadedProject fromJson (const juce::String& text)
         k.loop = getBool (w, "loop");
         k.track = getString (w, "track");
         k.octaveUp = getBool (w, "octave_up");
+        k.thirdGuide = juce::jlimit (0, 2, getInt (w, "third_guide", 0));
         k.playhead = juce::jmax ((juce::int64) 0, getInt64 (w, "playhead", 0));
     }
 
