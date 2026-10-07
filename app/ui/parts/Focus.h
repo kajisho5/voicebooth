@@ -8,6 +8,26 @@
 
 namespace vb::focus
 {
+/** 押し続けたときの自動リピートを受けない（メイン画面と、キーを自分で受けるパネルで同じに使う）。
+    keyStateChanged で update() を呼ぶと、離したキーを忘れる */
+struct HeldKey
+{
+    int code = 0;
+    /** 押したままの同じキー（自動リピート）なら true。違うキーなら覚え直して false */
+    bool repeated (const juce::KeyPress& k)
+    {
+        if (k.getKeyCode() == code)
+            return true;
+        code = k.getKeyCode();
+        return false;
+    }
+    void update()
+    {
+        if (code != 0 && ! juce::KeyPress::isKeyCurrentlyDown (code))
+            code = 0;
+    }
+};
+
 /** Tab で移れる。マウスで押してもフォーカスは移らない */
 inline void tabOnly (juce::Component& c)
 {

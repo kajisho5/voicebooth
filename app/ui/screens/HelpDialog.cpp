@@ -52,6 +52,12 @@ namespace
         void focusGained (FocusChangeType c) override { ring.gained (*this, c); }
         void focusLost (FocusChangeType) override     { ring.lost (*this); }
         void mouseDown (const juce::MouseEvent& e) override { juce::Button::mouseDown (e); focus::handBack (*this); }
+        bool keyPressed (const juce::KeyPress& k) override
+        {
+            // juce::Button は Enter だけ。Space でも開く（コメントどおりに。監査 2026-10-06）
+            if (k == juce::KeyPress::spaceKey) { triggerClick(); return true; }
+            return juce::Button::keyPressed (k);
+        }
 
     private:
         juce::String title;

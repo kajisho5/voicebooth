@@ -117,6 +117,10 @@ public:
             k.tonic = 10;
             k.minor = false;
             expectEquals (k.shortName(), juce::String ("Bb"));
+            k.tonic = 1; k.minor = false;
+            expectEquals (k.shortName(), juce::String ("Db"));    // C# 長調は Db と書く
+            k.tonic = 8; k.minor = true;
+            expectEquals (k.shortName(), juce::String ("G#m"));   // Ab 短調は G#m と書く
         }
 
         beginTest ("sections: sorted insert, same position replaces, move reorders, remove");

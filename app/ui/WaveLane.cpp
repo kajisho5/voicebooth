@@ -234,7 +234,13 @@ void WaveLane::paint (juce::Graphics& g)
     const auto m = map();
     juce::Graphics::ScopedSaveState save (g);
     g.reduceClipRegion (pl.getSmallestIntegerContainer());
-    drawRecording (g, m, layoutRows().front());
+    // 録っているトラックの行に描く（録音中に別のトラックを選ぶ・アームすると、新しく選んだ行に出ていた。監査 2026-10-06）
+    const auto rows = layoutRows();
+    auto row = rows.front();
+    if (s.isRecording)
+        for (auto& r : rows)
+            if (r.type == s.recordingTrack) { row = r; break; }
+    drawRecording (g, m, row);
     lane::drawPlayhead (g, s, m, pl);
 }
 

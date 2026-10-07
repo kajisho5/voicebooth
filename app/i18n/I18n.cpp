@@ -160,11 +160,6 @@ juce::String tr (const char* key)
     return juce::String (key);
 }
 
-juce::String substitute (const juce::String& text, int index, const juce::String& value)
-{
-    return text.replace ("{" + juce::String (index) + "}", value);
-}
-
 bool has (Language l, const char* key)
 {
     return load (l).count (key) > 0;

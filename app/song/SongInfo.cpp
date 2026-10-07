@@ -164,7 +164,10 @@ juce::String KeyInfo::shortName() const
 {
     if (! known())
         return {};
-    return juce::String (tonicName (tonic)) + (minor ? "m" : "");
+    // 長調と短調で、歌の世界でよく使う書き方が違う（C# 長調は Db、Ab 短調は G#m。監査 2026-10-06）
+    static const char* const majors[] = { "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B" };
+    static const char* const minors[] = { "Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm" };
+    return juce::isPositiveAndBelow (tonic, 12) ? juce::String ((minor ? minors : majors)[tonic]) : juce::String();
 }
 
 //==============================================================================

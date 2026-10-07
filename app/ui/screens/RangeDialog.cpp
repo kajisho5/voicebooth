@@ -221,7 +221,7 @@ void RangeDialog::paintBody (juce::Graphics& g, juce::Rectangle<int>)
     g.setColour (colours::textDim);
     g.setFont (sans (12.0f));
     if (! k.fits)
-        g.drawFittedText (tr ("range.suggest.over", juce::String (juce::roundToInt (k.overLow)), juce::String (juce::roundToInt (k.overHigh))),
+        g.drawFittedText (tr ("range.suggest.over", juce::String (analysis::overSemitones (k.overLow)), juce::String (analysis::overSemitones (k.overHigh))),
                           r.removeFromTop (36), juce::Justification::topLeft, 2, 1.0f);
     else
         g.drawFittedText (tr ("range.result.fits"), r.removeFromTop (36), juce::Justification::topLeft, 2, 1.0f);

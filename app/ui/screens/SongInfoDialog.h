@@ -2,6 +2,7 @@
 
 #include "../Overlay.h"
 #include "../UiSession.h"
+#include "../parts/Focus.h"
 #include "../Actions.h"
 #include "../parts/Dropdown.h"
 
@@ -43,6 +44,7 @@ public:
     ~SongInfoDialog() override;
 
     bool keyPressed (const juce::KeyPress&) override;
+    bool keyStateChanged (bool) override { held.update(); return false; }
 
     /** タップテンポ（T と TAP キー） */
     void tap();
@@ -52,6 +54,7 @@ protected:
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;
 
 private:
+    focus::HeldKey held;   // 押し続けの自動リピートを受けない
     void onSessionChanged (juce::uint32) override;
     void handleAsyncUpdate() override;   // 区間の一覧を作り直す（押したキーの中で消さないよう次のメッセージで）
     void refresh();

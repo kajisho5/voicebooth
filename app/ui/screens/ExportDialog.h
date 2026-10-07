@@ -25,6 +25,16 @@ public:
     /** 納品パックに確認用ミックスを入れる */
     bool refmixSelected() const;
 
+    /** 選んだもの（「未録音の箇所」の確認から［戻る］で開き直すときに戻す） */
+    struct Choice
+    {
+        std::vector<project::TrackType> tracks;
+        int bits = 24;
+        bool pack = false, refmix = false;
+    };
+    Choice choice() const { return { selectedTracks(), selectedBitDepth(), packSelected(), refmixSelected() }; }
+    void restore (const Choice&);
+
 protected:
     void layoutBody (juce::Rectangle<int>) override;
     void paintBody (juce::Graphics&, juce::Rectangle<int>) override;

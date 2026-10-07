@@ -471,6 +471,7 @@ Library::Library (juce::File folder) : dir (std::move (folder))
 void Library::reload()
 {
     user.clear();
+    files.clear();
     if (! dir.isDirectory())
         return;
 
@@ -485,6 +486,7 @@ void Library::reload()
         r.skin.builtIn = false;
         if (find (r.skin.id) != nullptr)
             continue;
+        files[r.skin.id] = f;
         user.push_back (r.skin);
     }
 
@@ -525,6 +527,9 @@ juce::String Library::uniqueId (const juce::String& wanted, const juce::String& 
 
 juce::File Library::fileFor (const juce::String& id) const
 {
+    // 読んだファイルがあればそれを使う（ファイル名と id が違うと、削除しても残り、保存すると同じスキンが 2 つになっていた。監査 2026-10-06）
+    if (auto it = files.find (id); it != files.end())
+        return it->second;
     return dir.getChildFile (sanitiseId (id) + fileExtension);
 }
 

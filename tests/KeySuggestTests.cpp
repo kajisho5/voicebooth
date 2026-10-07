@@ -86,6 +86,14 @@ public:
             expect (k.shift >= -6 && k.shift <= 6);
             expect (! suggestKey (songRange (points (60.0f, 70.0f)), -1, 70).ok, "no voice range yet");
         }
+
+        beginTest ("a small overflow is shown as at least 1 semitone");
+        {
+            expectEquals (overSemitones (0.0f), 0);
+            expectEquals (overSemitones (0.4f), 1);    // 収まらないのに「0 半音」と出ていた
+            expectEquals (overSemitones (1.4f), 1);
+            expectEquals (overSemitones (2.6f), 3);
+        }
     }
 };
 

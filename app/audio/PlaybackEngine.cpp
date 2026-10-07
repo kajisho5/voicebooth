@@ -423,9 +423,19 @@ void PlaybackEngine::changeListenerCallback (juce::ChangeBroadcaster*)
         return;
 
     const auto lost = deviceLost (lastSnapshot, now);
+    const bool otherDevice = now.open && (now.type != lastSnapshot.type || now.output != lastSnapshot.output);
     lastSnapshot = now;
     core.stop();
     meter.reset();
+    // 使っていた機器が外れ、JUCE が既定の機器で開き直した：自分で選んだときと同じく、入力 1 ch と曲の SR にそろえる
+    // （機器の今の SR のままで、伴奏を変換し、テイクがあると REC が断られ続けた。監査 2026-10-06）
+    if (otherDevice)
+    {
+        ensureMonoInput();
+        if (songRate > 0.0)
+            matchDeviceRateToSong (songRate);
+        lastSnapshot = takeSnapshot();
+    }
     if (onDeviceChange)
         onDeviceChange (lost);
 }
@@ -455,7 +465,7 @@ void PlaybackEngine::timerCallback()
     // 開いていたのに、ドライバが止まった・1.5 秒コールバックが来ない → 止まった（抜けた・サウンドサーバーが落ちた）
     auto* d = manager.getCurrentAudioDevice();
     const bool running = d != nullptr && d->isPlaying();
-    if (now < graceUntilMs && running)
+    if ((juce::int32) (now - graceUntilMs) < 0 && running)   // 数え値の一周（約 49.7 日）をまたいでも正しく比べる
         return;   // 開き直した直後：コールバックが戻るのを待つ
     if (! stalled && lastSnapshot.open && (! running || now - lastProgressMs > 1500))
     {

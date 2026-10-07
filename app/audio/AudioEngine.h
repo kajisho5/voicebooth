@@ -166,6 +166,7 @@ public:
     virtual RecordedTake stopRecording() { return {}; }
     virtual bool isRecording() const { return false; }
     virtual bool recordingEnded() const { return false; }
+    virtual bool recordingFinishing() const { return recordingEnded(); }   // 録り足し中か終わった
     /** 録っているテイクの 1 サンプル目と同じコールバックで鳴らした曲の位置。まだ始まっていなければ -1（B7） */
     virtual int64 recordingStartSample() const { return -1; }
     /** 録っているテイクの 10 ms ごとのピーク（ファイルの頭から）。戻り値は 1 つの長さ（サンプル）。B7 の遡及録音用 */

@@ -48,6 +48,7 @@ juce::String TakeRecorder::begin (const juce::File& f, double sampleRate, bool f
     threaded->setFlushInterval (juce::jmax (1, (int) sampleRate));
     started = false;
     ended = false;
+    finishing = false;
     dropped = false;
     startSample = 0;
     recorded = 0;
@@ -108,6 +109,7 @@ TakeRecorder::Result TakeRecorder::finish()
     r.dropped = dropped.load() || ! fileHolds (file, r.length);
     started = false;
     ended = false;
+    finishing = false;
     return r;
 }
 
@@ -139,6 +141,7 @@ void TakeRecorder::process (const float* input, int numSamples, juce::int64 song
         if (inSong == numSamples)
             return;
         tailLeft = tail;
+        finishing = true;
     }
 
     const auto n = (int) juce::jmin<juce::int64> (numSamples - offset, tailLeft);
