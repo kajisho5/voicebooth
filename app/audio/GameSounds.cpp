@@ -37,11 +37,24 @@ void GameSounds::process (float* const* outputs, int numOutputs, int numSamples)
     {
         seenToneSerial = s;
         const auto midi = wantToneMidi.load();
-        toneFreq = midi > 0.0f ? 440.0 * std::pow (2.0, (midi - 69.0) / 12.0) : 0.0;
-        toneTotal = toneLeft = toneFreq > 0.0 ? (juce::int64) (wantToneSeconds.load() * sr) : 0;
-        tonePhase = 0.0;
+        const auto freq = midi > 0.0f ? 440.0 * std::pow (2.0, (midi - 69.0) / 12.0) : 0.0;
+        const auto total = freq > 0.0 ? (juce::int64) (wantToneSeconds.load() * sr) : 0;
+        if (toneLeft > 0)
+        {
+            // 鳴っている途中：20 ms で下げきってから次へ（いきなり切り替え・止めて「プツッ」と鳴っていた。監査 2026-10-06）
+            toneLeft = juce::jmin (toneLeft, juce::jmax ((juce::int64) 1, (juce::int64) (0.02 * sr)));
+            nextToneFreq = freq;
+            nextToneTotal = total;
+        }
+        else
+        {
+            toneFreq = freq;
+            toneTotal = toneLeft = total;
+            tonePhase = 0.0;
+            nextToneTotal = 0;
+        }
     }
-    if ((bpm <= 0.0 && toneLeft <= 0) || outputs == nullptr || numOutputs <= 0)
+    if ((bpm <= 0.0 && toneLeft <= 0 && nextToneTotal <= 0) || outputs == nullptr || numOutputs <= 0)
         return;
 
     const auto spb = bpm > 0.0 ? sr * 60.0 / bpm : 0.0;
@@ -77,6 +90,13 @@ void GameSounds::process (float* const* outputs, int numOutputs, int numSamples)
             tonePhase += juce::MathConstants<double>::twoPi * toneFreq / sr;
             if (tonePhase > juce::MathConstants<double>::twoPi) tonePhase -= juce::MathConstants<double>::twoPi;
             --toneLeft;
+        }
+        else if (nextToneTotal > 0)
+        {
+            toneFreq = nextToneFreq;
+            toneTotal = toneLeft = nextToneTotal;
+            tonePhase = 0.0;
+            nextToneTotal = 0;
         }
         for (int c = 0; c < numOutputs; ++c)
             if (outputs[c] != nullptr)

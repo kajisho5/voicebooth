@@ -386,7 +386,8 @@ void UiSession::setRecording (bool r)
 
     // 再生中で裏で録っていれば（B7）、それをこのテイクにする。押す前に歌い始めていれば、フレーズの頭から採る
     // ループが頭に戻って終わった裏録り（recordingEnded）は昇格しない：前の周回の声がテイクになり、いま歌っている声が捨てられていた（監査 2026-10-04）
-    if (shadowActive && s.isPlaying && engine->isRecording() && engine->recordingStartSample() >= 0 && ! engine->recordingEnded())
+    // 戻った後の録り足しの間（遅延の分）も同じ（押した REC で前の周回がテイクになり、すぐ閉じていた。監査 2026-10-06）
+    if (shadowActive && s.isPlaying && engine->isRecording() && engine->recordingStartSample() >= 0 && ! engine->recordingFinishing())
     {
         shadowActive = false;
         loopBeforeRecording = s.loopOn && s.hasRange();
@@ -606,7 +607,9 @@ void UiSession::finishRecording()
     const bool punchedTake = s.recordEnd >= 0;
     const bool notReached = punchedTake && take.endSample <= s.recordStart;
     const bool partialLoop = punchedTake && loopTakes && loopPassDone && ! continuingLoop && take.endSample < s.recordEnd;
-    if (take.recMode == project::RecMode::delivery && (notReached || partialLoop))
+    // リハーサルで範囲に届かなかったときも同じ（範囲の表示が逆になり、「本番に入れる」が何も変えずに取り消しの記録を消していた。監査 2026-10-06）
+    if ((take.recMode == project::RecMode::delivery && (notReached || partialLoop))
+        || (take.recMode == project::RecMode::practice && notReached))
     {
         track->takes.push_back (take);
         loadTakeWave (type, take);
@@ -1981,6 +1984,11 @@ bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::Strin
 {
     if (s.isRecording || s.projectFolder == juce::File())
         return false;
+    if (awaitingRestore && pendingProject == nullptr)
+    {
+        postNotice (tr ("record.problem.notSaved"));   // 保存しない状態ではファイルを動かさない（moveRehearsalToTakes と同じ）
+        return false;
+    }
     auto* track = const_cast<project::Track*> (s.project.findTrack (type));
     if (track == nullptr)
         return false;
@@ -1994,6 +2002,17 @@ bool UiSession::promoteRehearsalTake (project::TrackType type, const juce::Strin
     {
         postNotice (tr ("rescue.notOriginal", take.id, take.tempoPercent, (take.keyShift > 0 ? "+" : "") + juce::String (take.keyShift)));
         return false;
+    }
+
+    // 入れる範囲が無い（範囲に届く前に止めた）なら動かさない
+    {
+        const auto from = take.useFrom >= 0 ? take.useFrom : juce::jmax ((int64) 0, take.startSample + take.latencySamples);
+        const auto to = take.useTo > from ? take.useTo : take.endSample;
+        if (to <= from)
+        {
+            postNotice (tr ("record.notReached", take.id));
+            return false;
+        }
     }
 
     // ファイルを本番のテイクの所へ移す（同じ名前があれば番号を進める。録った声は上書きしない）
@@ -2238,6 +2257,13 @@ juce::String UiSession::moveRehearsalToTakes (project::Track& track, const juce:
                             [&] (const project::Take& k) { return k.id == takeId && k.recMode == project::RecMode::practice; });
     if (it == track.takes.end() || s.projectFolder == juce::File())
         return {};
+    // 保存しない状態（SR が合わず開き直しを待っている）では動かさない。ファイルだけ動いて .vbooth と食い違い、
+    // 次に開くと Recovered へ移っていた（監査 2026-10-06）
+    if (awaitingRestore && pendingProject == nullptr)
+    {
+        postNotice (tr ("record.problem.notSaved"));
+        return {};
+    }
 
     // 本番のテイクの所へ（同じ名前があれば番号を進める。録った声は上書きしない）。救済（promoteRehearsalTake）と同じ置き場
     const auto key = juce::String (project::trackKey (track.type));
@@ -2339,6 +2365,10 @@ int64 UiSession::retroStart (int64 press) const
     // ファイルの i サンプル目 = 曲の (first - 遅れ + i)。押した所の声はファイルの press - (first - 遅れ)
     const auto fileStart = first - s.recordingLatency;
     const auto pressFrame = (int) juce::jmax ((int64) 0, (press - fileStart) / hop);
+    // 押した所の音の大きさが手元にない（10 ms ごとの記録は 30 分まで）なら遡らない。30 分の所まで大きく遡り、
+    // 前の採用区間を何分も上書きしていた（監査 2026-10-06）
+    if (pressFrame > (int) env.size() + (int) (s.recordingLatency / hop) + 10)
+        return press;
     const auto frame = audio::retro::phraseStartFrame (env.data(), (int) env.size(), pressFrame);
     if (frame >= pressFrame)
         return press;   // 遡らない（まだ歌っていない・フレーズの頭が分からない）
@@ -2505,7 +2535,8 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
 
     std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
-    background::run ([this, weak, project, folder, dest, song, types, eo, serial]
+    ++*exportJobs;
+    background::run ([this, weak, project, folder, dest, song, types, eo, serial, jobs = exportJobs]
     {
         juce::StringArray failed;
         int written = 0;
@@ -2516,6 +2547,7 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
             if (res.ok) ++written;
             else        failed.add (exporter::ExportService::dryFileName (song, t) + "\n" + res.message);   // 理由はメッセージスレッドで訳す
         }
+        --*jobs;
         juce::MessageManager::callAsync ([this, weak, dest, failed, written, serial]
         {
             if (weak.expired())
@@ -2529,7 +2561,9 @@ void UiSession::exportTracks (const std::vector<project::TrackType>& types, int 
                 juce::StringArray lines;
                 for (auto& f : failed)
                     lines.add (f.upToFirstOccurrenceOf ("\n", false, false) + " (" + reasonText (f.fromFirstOccurrenceOf ("\n", false, false)) + ")");
-                postNotice (tr ("export.failed", lines.joinIntoString (", ")));
+                // 書き出せたものがあれば、その場所も伝える（前は全部失敗したように見えた。バグチェック 2026-10-06）
+                const auto failedText = tr ("export.failed", lines.joinIntoString (", "));
+                postNotice (written > 0 ? tr ("export.done", written, dest.getFullPathName()) + " / " + failedText : failedText);
             }
             notify (change::takes);
         });
@@ -2606,15 +2640,18 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     for (auto& t : s.trackUi)
         o.vocalGains[t.type] = (! t.mute && (! anySolo || t.solo)) ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
 
-    // take_map の区間名（いまの言語で。裏のスレッドから読むので写しを渡す）
-    const auto sections = s.project.sections;
-    o.sectionAt = [sections] (int64 sample)
+    // take_map の区間名（いまの言語で）。名前はここ（メッセージスレッド）で作っておく（書き出しのスレッドで訳すと、
+    // その間に言語を変えたとき翻訳表を同時に読み書きしていた。バグチェック 2026-10-06）
+    std::vector<std::pair<int64, juce::String>> sectionNames;
+    for (int i = 0; i < (int) s.project.sections.size(); ++i)
+        sectionNames.push_back ({ s.project.sections[(size_t) i].startSample, marks::sectionName (s.project.sections, i) });
+    o.sectionAt = [sectionNames] (int64 sample)
     {
-        int index = -1;
-        for (int i = 0; i < (int) sections.size(); ++i)
-            if (sections[(size_t) i].startSample <= sample)
-                index = i;
-        return index >= 0 ? marks::sectionName (sections, index) : juce::String();
+        juce::String name;
+        for (auto& [start, n] : sectionNames)
+            if (start <= sample)
+                name = n;
+        return name;
     };
 
     auto project = s.project;
@@ -2624,9 +2661,11 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
 
     std::weak_ptr<bool> weak = alive;
     const auto serial = s.songSerial;
-    background::run ([this, weak, project, folder, o, serial]
+    ++*exportJobs;
+    background::run ([this, weak, project, folder, o, serial, jobs = exportJobs]
     {
         const auto r = exporter::DeliveryPack::write (project, folder, o);
+        --*jobs;
         juce::MessageManager::callAsync ([this, weak, r, serial]
         {
             if (weak.expired())
@@ -2751,7 +2790,9 @@ void UiSession::tick (double seconds)
             const bool loopOn = loopTakes && s.loopOn && s.hasRange() && s.mode != project::Mode::easy
                              && armedNow != nullptr && armedNow->type == s.recordingTrack;
             // 曲の終わりで頭打ちにするのはループで続けるときだけ（止めるときは、下で遅延の分を録り足してから閉じる）
-            const auto stopAt = s.recordEnd + (int64) (0.5 * s.sampleRate());
+            // 遅延の分も足す（テイクの終わり＝止めた位置−遅延。0.5 秒を超える遅延で範囲の終わりが録れず、前のテイクが残った。監査 2026-10-06）
+            const auto stopAt = s.recordEnd + (int64) (0.5 * s.sampleRate())
+                              + (int64) std::llround ((double) s.recordingLatency * s.recordingTempo / 100.0);
             if (pos >= (loopOn ? juce::jmin (stopAt, s.project.lengthSamples) : stopAt))
             {
                 if (loopOn)
@@ -2825,7 +2866,9 @@ void UiSession::followPlayhead (double seconds)
 void UiSession::keepPlayheadInView()
 {
     const auto len = s.viewEnd - s.viewStart;
-    if (s.playhead >= s.viewStart && s.playhead <= s.viewStart + len * 85 / 100)
+    // 画面の中なら動かさない（右の 15 % で合わせ直していたので、ルーラーをドラッグすると表示が曲の終わりまで飛び続けた。
+    // 監査 2026-10-06。再生中に右へ寄ったときは followPlayhead がなめらかに送る）
+    if (s.playhead >= s.viewStart && s.playhead <= s.viewEnd)
         return;
 
     // シークで画面の外へ飛んだ：再生ヘッドが 1/4 の位置に来るように合わせる（再生中の追従は followPlayhead）

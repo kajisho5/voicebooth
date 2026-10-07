@@ -24,7 +24,17 @@ inline juce::String reasonText (const juce::String& reason)
     const auto r = reasonKey (reason);
     if (r.key == nullptr)
         return reason;
-    return r.arg.isEmpty() ? tr (r.key) : tr (r.key, r.arg);
+    if (r.arg.isEmpty())
+        return tr (r.key);
+    // 確認用ミックスのトラック名（書き出しの側は英語の名前で返す）：画面のトラック名にそろえる（バグチェック 2026-10-06）
+    static const std::pair<const char*, const char*> tracks[] = {
+        { "Main", "track.main" }, { "Double", "track.double" }, { "Harmony 1", "track.harm1" }, { "Harmony 2", "track.harm2" },
+        { "Backing", "track.backing" }, { "Guide", "track.guide" } };
+    if (juce::String (r.key) == "reason.cantRender")
+        for (auto& [label, key] : tracks)
+            if (r.arg == label)
+                return tr (r.key, tr (key));
+    return tr (r.key, r.arg);
 }
 } // namespace vb::i18n
 

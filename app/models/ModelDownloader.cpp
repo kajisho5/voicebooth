@@ -158,8 +158,9 @@ void ModelDownloader::cancel()
 
 void ModelDownloader::setPaused (bool p)
 {
-    paused = p;
-    notify();
+    // 変わったときだけ起こす（画面の tick から毎回呼ばれ、再試行の待ち 3 / 10 / 30 秒が約 1.5 秒に縮んでいた。監査 2026-10-06）
+    if (paused.exchange (p) != p)
+        notify();
 }
 
 void ModelDownloader::report (DownloadStatus s)
@@ -257,15 +258,26 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
 
     auto waitOrCancel = [this] (int seconds, int attemptNo)
     {
-        for (int left = seconds; left > 0; --left)
+        skipWait = false;
+        for (int left = seconds; left > 0 && ! skipWait.exchange (false); --left)
         {
             status.stage = Stage::waiting;
             status.retryInSeconds = left;
             status.attempt = attemptNo;
             report (status);
-            if (wait (1000), threadShouldExit()) return false;
+            // 起こされても 1 秒たつまで待つ（締め切りの時刻まで）
+            const auto until = juce::Time::getMillisecondCounter() + 1000;
+            for (;;)
+            {
+                if (threadShouldExit()) return false;
+                if (skipWait) break;
+                const auto rest = (juce::int32) (until - juce::Time::getMillisecondCounter());
+                if (rest <= 0) break;
+                wait (rest);
+            }
         }
         status.stage = Stage::downloading;
+        status.retryInSeconds = 0;   // 待ち終わった（使い切った後に「1 秒後に再開」と出続けていた。監査 2026-10-06）
         return true;
     };
 
@@ -318,7 +330,7 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
             st.etag = resp.etag;
         writeState (stateFile, st, have);
 
-        bool progressed = false, verifyRestart = false, giveUp = false;
+        bool progressed = false, verifyRestart = false, giveUp = false, writeFailed = false;
         {
             juce::FileOutputStream out (part);   // 続きに足す（JUCE は既存のファイルの終わりから書く）
             if (! out.openedOk() || out.getPosition() != have)
@@ -338,7 +350,13 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
                 if (want <= 0) break;
                 const auto n = in.read (buffer.data(), want);
                 if (n <= 0) break;
-                out.write (buffer.data(), (size_t) n);
+                // 書けなければ止める（ディスクが満杯のまま続け、照合に失敗して丸ごと取り直し、
+                // 理由も「照合に失敗」と出ていた。監査 2026-10-06）
+                if (! out.write (buffer.data(), (size_t) n))
+                {
+                    writeFailed = true;
+                    break;
+                }
                 have += n;
                 progressed = true;
                 windowBytes += n;
@@ -356,6 +374,7 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
                 if (have % f.blockSize == 0 || have == f.size)
                 {
                     out.flush();
+                    if (out.getStatus().failed()) { writeFailed = true; break; }
                     const auto b = (have - 1) / f.blockSize;
                     const auto start = b * f.blockSize, len = have - start;
                     if (blockHash (part, start, len) != f.blocks[(int) b])
@@ -381,6 +400,15 @@ bool ModelDownloader::downloadFile (const ModelFile& f, juce::int64 doneBefore)
                 }
             }
             out.flush();
+            writeFailed = writeFailed || out.getStatus().failed();
+        }
+        if (writeFailed)
+        {
+            writeState (stateFile, st, juce::jmin (have, part.getSize()));
+            status.stage = Stage::failed;
+            status.error = "can't write " + part.getFullPathName();
+            report (status);
+            return false;
         }
         if (giveUp)
         {

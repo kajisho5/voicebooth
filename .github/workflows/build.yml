@@ -24,10 +24,13 @@ permissions:
 
 # PR のブランチに新しく push したら、前の実行は止める（Mac のユニバーサルのビルドは 30 分以上かかるため）。
 # main では止めずに順番に待つ（止めると、バージョンを上げたマージのリリースが次のマージの中身で作られた・作られなかった。
-# バグチェック 2026-10-05）
+# バグチェック 2026-10-05）。待っている実行は既定では 1 つだけで、次が来ると取り消されるので、main では queue: max で全部待たせる
+# （2026-10-06。queue: max と cancel-in-progress: true は一緒に使えないので、PR では single のまま。
+# https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/control-the-concurrency-of-workflows-and-jobs）
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  queue: ${{ github.event_name == 'pull_request' && 'single' || 'max' }}
 
 jobs:
   # 出すリリースのタグを決める（無ければ空 = ビルドとテストだけ）

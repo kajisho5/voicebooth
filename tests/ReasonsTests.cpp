@@ -1,4 +1,5 @@
 #include "i18n/Reasons.h"
+#include "i18n/I18n.h"
 
 namespace vb::i18n
 {
@@ -49,6 +50,14 @@ public:
             expectKey ("can't load model: model.onnx", "reason.cantLoadModel", "model.onnx");
             expectKey ("input must be 44100 Hz", "reason.cantReadOriginal");
             expect (reasonKey ("Audio/x.wav: busy").key == nullptr, "a path in front is not taken as a file name");
+        }
+
+        beginTest ("placeholders are filled in one pass (a {1} inside a value stays as it is)");
+        {
+            expectEquals (substitute ("{0} is too long (up to {1} minutes)", { "a{1}.mp3", "20" }),
+                          juce::String ("a{1}.mp3 is too long (up to 20 minutes)"));
+            expectEquals (substitute ("{1} / {0} / {2}", { "x", "y" }), juce::String ("y / x / {2}"), "a missing value stays as it is");
+            expectEquals (substitute ("{} {a} {0", { "x" }), juce::String ("{} {a} {0"));
         }
 
         beginTest ("unknown reasons (OS messages) are kept as they are");

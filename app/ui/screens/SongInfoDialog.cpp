@@ -295,9 +295,11 @@ void SongInfoDialog::tap()
 bool SongInfoDialog::keyPressed (const juce::KeyPress& key)
 {
     // パネルを開いたままでも：Space 再生 / 一時停止、タップ、区間の頭（キーは設定の割り当てどおり。#28。バグチェック 2026-10-05）
+    // 押し続けたときの自動リピートは受けない（メイン画面と同じ。T でテンポが 300 になり、M で区間が何度も入っていた。監査 2026-10-06）
     if (key == juce::KeyPress::spaceKey)
     {
-        session.setPlaying (! state().isPlaying);
+        if (! held.repeated (key))
+            session.setPlaying (! state().isPlaying);
         return true;
     }
     if (key.getModifiers().isCommandDown() || key.getModifiers().isCtrlDown())
@@ -310,11 +312,14 @@ bool SongInfoDialog::keyPressed (const juce::KeyPress& key)
     const auto action = map.actionFor (typed);
     if (action == shortcuts::Action::tapTempo)
     {
-        tap();
+        if (! held.repeated (key))
+            tap();
         return true;
     }
     if (action == shortcuts::Action::addSection)
     {
+        if (held.repeated (key))
+            return true;
         addSectionKey.flash();
         session.addSectionAtPlayhead (! key.getModifiers().isAltDown());
         return true;

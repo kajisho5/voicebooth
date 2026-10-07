@@ -48,7 +48,18 @@ public:
     /** 書き出しファイル名。例: Demo_song_vocal_dry.wav（ファイル名に使えない文字は除く） */
     static juce::String dryFileName (const juce::String& song, project::TrackType t)
     {
-        const auto safe = juce::File::createLegalFileName (song);
+        // 長い曲名は切る（後ろに「_harmony1_dry.wav」と書き込み中の「.part」が付き、255 バイト・パスの上限を超えて
+        // 書き出せなかった。バグチェック 2026-10-06）。空・点だけなら Untitled
+        auto safe = juce::File::createLegalFileName (song).trim();
+        if (safe.isEmpty() || safe.containsOnly (". "))
+            safe = "Untitled";
+        if (safe.length() > 60 || (int) safe.getNumBytesAsUTF8() > 150)
+        {
+            safe = safe.substring (0, 60);
+            while (safe.isNotEmpty() && (int) safe.getNumBytesAsUTF8() > 150)
+                safe = safe.dropLastCharacters (1);
+            safe = safe.trimEnd();
+        }
         switch (t)
         {
             case project::TrackType::main:        return safe + "_vocal_dry.wav";
