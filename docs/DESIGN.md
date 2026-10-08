@@ -1662,7 +1662,7 @@ RMVPE https://arxiv.org/abs/2306.15412 , https://github.com/Dream-High/RMVPE ／
 
 Claude が画面を先に作るための固定ダミー。
 
-- 曲名: `Tanuki_mix_demo`
+- 曲名: `Demo_song`
 - 長さ: 2:16
 - 再生ヘッド: 0:39
 - 歌詞: 「同じ穴の無地投げ所抱っこしてください」など短い日本語

@@ -45,7 +45,7 @@ public:
     static ExportResult renderTrackDry (const project::Project&, project::TrackType, const juce::File& projectFolder,
                                         juce::AudioBuffer<float>& out, const Options& = {});
 
-    /** 書き出しファイル名。例: Tanuki_mix_demo_vocal_dry.wav（ファイル名に使えない文字は除く） */
+    /** 書き出しファイル名。例: Demo_song_vocal_dry.wav（ファイル名に使えない文字は除く） */
     static juce::String dryFileName (const juce::String& song, project::TrackType t)
     {
         // 長い曲名は切る（後ろに「_harmony1_dry.wav」と書き込み中の「.part」が付き、255 バイト・パスの上限を超えて

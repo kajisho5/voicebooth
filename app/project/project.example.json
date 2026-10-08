@@ -1,7 +1,7 @@
 {
   "format": "voicebooth.project",
   "format_version": 1,
-  "song_path": "audio/Tanuki_mix_demo.wav",
+  "song_path": "audio/Demo_song.wav",
   "sr": 48000,
   "bit_depth_export": 24,
   "length_samples": 6528000,

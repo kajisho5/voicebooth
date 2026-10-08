@@ -120,10 +120,10 @@ const song::Line* Session::lyricAfter (int64 sample) const
 Session makeSession()
 {
     Session s;
-    s.songName = "Tanuki_mix_demo";
+    s.songName = "Demo_song";
 
     auto& p = s.project;
-    p.songPath       = "audio/Tanuki_mix_demo.wav";
+    p.songPath       = "audio/Demo_song.wav";
     p.sampleRate     = 48000;
     p.lengthSamples  = s.sec (136.0);          // 2:16
     // 見た目フェーズのダミー：解析で取れた（推定の）テンポ・キー
