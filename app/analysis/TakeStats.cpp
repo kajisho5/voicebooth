@@ -226,9 +226,11 @@ std::vector<WeakSpan> weakSpans (const std::vector<audio::PitchFrame>& guide, co
         if (ratio < below)
             all.push_back ({ barStarts[(size_t) b], barStarts[(size_t) (b + span)], b, f, ratio });
     }
-    // 合う割合の低い順。同じなら点の多い（歌った長さの長い）ほうを先に。それも同じなら前から
-    std::stable_sort (all.begin(), all.end(), [] (const WeakSpan& a, const WeakSpan& b)
-                      { return a.inBand != b.inBand ? a.inBand < b.inBand : a.frames > b.frames; });
+    // 合う割合を 10% 刻みで比べ、低い順。同じ刻みなら点の多い（歌った長さの長い）ほうを先に。それも同じなら前から。
+    // 刻まずに比べると、半分が休みで外れた所だけ入った 2 小節（0%）が、全部外れた 2 小節（数 % 入る）より先になる
+    auto step = [] (const WeakSpan& w) { return (int) std::floor (w.inBand * 10.0f); };
+    std::stable_sort (all.begin(), all.end(), [&] (const WeakSpan& a, const WeakSpan& b)
+                      { return step (a) != step (b) ? step (a) < step (b) : a.frames > b.frames; });
     for (auto& w : all)
         if (std::none_of (out.begin(), out.end(), [&] (const WeakSpan& o) { return w.start < o.end && o.start < w.end; }))
             out.push_back (w);

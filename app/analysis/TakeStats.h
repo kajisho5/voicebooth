@@ -49,7 +49,7 @@ PitchAccuracy pitchAccuracy (const std::vector<audio::PitchFrame>& guide, const 
 
 /** 苦手な所（Phase C「苦手小節ループ」）：区切り barStarts（小節線。小さい順）で take を小節に分け、続いた spanBars 小節ずつ
     （1 小節ずつずらす）の合う割合を数える（数え方は pitchAccuracy と同じ）。声のある点が minFrames 未満の所と、
-    合う割合が below 以上の所は外す。合う割合の低い順（同じなら点の多い順、それも同じなら前から）に、重ならない所だけ残す */
+    合う割合が below 以上の所は外す。合う割合の低い順（10% 刻みで比べ、同じ刻みなら点の多い順、それも同じなら前から）に、重ならない所だけ残す */
 struct WeakSpan
 {
     juce::int64 start = 0, end = 0;   // 曲のサンプル（小節線）
