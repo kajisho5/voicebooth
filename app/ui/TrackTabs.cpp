@@ -175,7 +175,7 @@ void TrackCard::paint (juce::Graphics& g)
 
 //==============================================================================
 TrackTabs::TrackTabs (UiSession& u, Actions& a)
-    : SessionView (u), actions (a), compare (tr ("track.compare"))
+    : SessionView (u), actions (a), compare (tr ("track.compare")), history (tr ("track.history"))
 {
     for (int i = 0; i < (int) u->trackUi.size(); ++i)
         addChildComponent (cards.add (new TrackCard (u, i)));
@@ -184,6 +184,9 @@ TrackTabs::TrackTabs (UiSession& u, Actions& a)
     compare.withIcon (Icon::compare).withLed (colours::signal).withToggle (false);
     compare.onClick = [this] { if (actions.openTakeCompare) actions.openTakeCompare (0, 0); };   // IN / OUT があればその範囲、無ければ曲全体
     addAndMakeVisible (compare);
+    history.withIcon (Icon::note).withToggle (false);
+    history.onClick = [this] { if (actions.openHistory) actions.openHistory(); };
+    addAndMakeVisible (history);
 
     onSessionChanged (change::all);
 }
@@ -204,6 +207,15 @@ void TrackTabs::onSessionChanged (juce::uint32 changes)
     compare.setTooltip (can || state().compare.active ? tr ("track.compare.tooltip")
                         : state().isRecording        ? tr ("compare.disabled.recording")
                                                      : tr ("compare.disabled.noTakes"));
+    // 練習の履歴：標準以上。テイクが 1 つも無い・録音中は押せない
+    bool anyTake = false;
+    for (auto& t : state().project.tracks)
+        anyTake = anyTake || ! t.takes.empty();
+    history.setVisible (state().mode != project::Mode::easy);
+    history.setEnabled (anyTake && ! state().isRecording);
+    history.setTooltip (state().isRecording ? tr ("history.disabled.recording")
+                        : anyTake           ? tr ("track.history.tooltip")
+                                            : tr ("history.none"));
     resized();
 }
 
@@ -216,6 +228,12 @@ void TrackTabs::resized()
     {
         compare.setSize (10, 34);
         compare.setBounds (r.removeFromRight (compare.idealWidth()).withSizeKeepingCentre (compare.idealWidth(), 34));
+        r.removeFromRight (8);
+    }
+    if (history.isVisible())
+    {
+        history.setSize (10, 34);
+        history.setBounds (r.removeFromRight (history.idealWidth()).withSizeKeepingCentre (history.idealWidth(), 34));
         r.removeFromRight (16);
     }
 

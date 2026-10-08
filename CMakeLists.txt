@@ -273,7 +273,8 @@ set(VOICEBOOTH_UI_SOURCES
     app/ui/screens/HelpDialog.cpp
     app/ui/screens/ReportDialog.cpp
     app/ui/screens/ShortcutsDialog.cpp
-    app/ui/screens/TakeCompareDialog.cpp)
+    app/ui/screens/TakeCompareDialog.cpp
+    app/ui/screens/HistoryDialog.cpp)
 # OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
 if(APPLE)
     list(APPEND VOICEBOOTH_UI_SOURCES app/ui/ReducedMotion.mm)
