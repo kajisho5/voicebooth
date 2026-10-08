@@ -278,6 +278,21 @@ public:
     void updateTakeStats (const juce::String& onlyKey = {});
     /** いま選んでいるトラックのいちばん新しいテイクの結果（無ければ nullptr） */
     const dummy::Session::TakeStats* latestTakeStats() const;
+    // --- 苦手な小節のループ（Phase C。DESIGN 4.3） --------------------------------
+    struct WeakSpot
+    {
+        int64 start = 0, end = 0;   // 小節線
+        int64 firstBar = 1;         // 画面の小節番号（1 始まり）
+        int bars = 2;
+        float inBand = 0.0f;        // 合う割合 0..1
+    };
+    /** latestTakeStats のテイクを小節ごとにお手本と比べ、合う割合の低い 2 小節（重ならない所。低い順）。
+        テンポ・お手本・テイクが無ければ空 */
+    std::vector<WeakSpot> weakSpots() const;
+    /** 苦手な所を範囲にしてループし、その頭へ。いまの範囲が苦手な所なら次の所へ（最後の次は最初）。録音中・簡単モードは何もしない */
+    void loopWeakSpot();
+    /** いまの範囲が weakSpots の何番目か（-1 = どれでもない） */
+    int weakSpotIndex (const std::vector<WeakSpot>&) const;
     /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。
         onlyIfMissing：まだ入っていない物が一覧にある時だけ出す（起動した時に勧める） */
     void requestSeparationModel (bool onlyIfMissing = false);
