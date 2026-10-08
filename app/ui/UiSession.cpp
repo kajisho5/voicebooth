@@ -1932,6 +1932,44 @@ int UiSession::weakSpotIndex (const std::vector<WeakSpot>& spots) const
     return -1;
 }
 
+std::vector<UiSession::HistoryEntry> UiSession::history() const
+{
+    std::vector<HistoryEntry> out;
+    for (auto& track : s.project.tracks)
+        for (auto& t : track.takes)
+        {
+            HistoryEntry e;
+            e.track = track.type;
+            e.takeId = t.id;
+            e.created = t.created;
+            e.recMode = t.recMode;
+            e.tempoPercent = t.tempoPercent;
+            e.keyShift = t.keyShift;
+            e.start = t.startSample;
+            e.end = t.endSample;
+            if (t.tempoPercent == 100 && t.keyShift == 0)
+                if (const auto it = s.takeStats.find (dummy::takeWaveKey (track.type, t.id)); it != s.takeStats.end())
+                    e.stats = it->second;
+            out.push_back (std::move (e));
+        }
+    // 新しい順（同じ時刻なら元の並び＝トラックの順・テイクの順。毎回同じ並びになる）
+    std::stable_sort (out.begin(), out.end(), [] (const HistoryEntry& a, const HistoryEntry& b) { return a.created > b.created; });
+    return out;
+}
+
+void UiSession::goToHistoryEntry (const HistoryEntry& e)
+{
+    if (s.isRecording)
+        return;
+    for (size_t i = 0; i < s.trackUi.size(); ++i)
+        if (s.trackUi[i].type == e.track && (int) i != s.selectedTrack)
+        {
+            selectTrack ((int) i);
+            break;
+        }
+    seek (juce::jlimit ((int64) 0, s.project.lengthSamples, e.start));
+}
+
 void UiSession::loopWeakSpot()
 {
     if (s.isRecording || s.mode == project::Mode::easy)

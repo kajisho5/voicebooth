@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "DummySession.h"
 #include "project/ProjectFile.h"
 #include "project/TakeCompare.h"
@@ -293,6 +295,21 @@ public:
     void loopWeakSpot();
     /** いまの範囲が weakSpots の何番目か（-1 = どれでもない） */
     int weakSpotIndex (const std::vector<WeakSpot>&) const;
+    // --- 練習の履歴（Phase C。DESIGN 4.2.1） --------------------------------------
+    struct HistoryEntry
+    {
+        project::TrackType track = project::TrackType::main;
+        juce::String takeId;
+        juce::Time created;
+        project::RecMode recMode = project::RecMode::delivery;
+        int tempoPercent = 100, keyShift = 0;
+        int64 start = 0, end = 0;
+        std::optional<dummy::Session::TakeStats> stats;   // 原速・原キーで解析の済んだテイクだけ（練習の速さ・キーはお手本と比べられない）
+    };
+    /** 録ったテイクを全部のトラックから、新しい順に */
+    std::vector<HistoryEntry> history() const;
+    /** そのテイクのトラックを選び、テイクの頭へ移る（録音中は何もしない） */
+    void goToHistoryEntry (const HistoryEntry&);
     /** 分離モデル（B16）：一覧を取りに行き（署名を確かめる）、ダウンロードの確認を出す。
         onlyIfMissing：まだ入っていない物が一覧にある時だけ出す（起動した時に勧める） */
     void requestSeparationModel (bool onlyIfMissing = false);

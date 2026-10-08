@@ -30,5 +30,6 @@ struct Actions
 
     // テイク比較（B18c。DESIGN 2 / 3）。from >= to なら IN / OUT（無ければ曲全体）、そうでなければその区間（採用区間のバーから）
     std::function<void (long long from, long long to)> openTakeCompare;
+    std::function<void()> openHistory;            // 練習の履歴（Phase C）
 };
 } // namespace vb

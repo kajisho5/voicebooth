@@ -15,6 +15,7 @@
 #include "screens/LyricsDialog.h"
 #include "screens/RangeDialog.h"
 #include "screens/TakeCompareDialog.h"
+#include "screens/HistoryDialog.h"
 #include "SongMarks.h"
 #include "system/AppCache.h"
 #include "project/ProjectFile.h"
@@ -56,6 +57,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.openLyrics   = [this] { openLyrics(); };
     actions.editSectionName = [this] (int i) { openSectionName (i); };
     actions.openTakeCompare = [this] (long long from, long long to) { openTakeCompare (from, to); };
+    actions.openHistory = [this] { openHistory(); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
@@ -194,7 +196,8 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
         });
     }
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
-    if (o.screen == "compare")      openTakeCompare (0, 0);   // テイク比較（B18c。見本は Main の IN / OUT）
+    if (o.screen == "compare")      openTakeCompare (0, 0);
+    if (o.screen == "history")      openHistory();            // 練習の履歴（Phase C）   // テイク比較（B18c。見本は Main の IN / OUT）
 
     // DESIGN 11.7 の見本（通信しない。バージョン・本文は見本、キーは本物のリリースのページを開く）
     if (o.screen.startsWith ("update"))
@@ -1391,6 +1394,16 @@ void MainComponent::openTakeCompare (int64 from, int64 to)
     dlg->onFinished = [this] { overlay.close(); };
     // 右に出す（背景を暗くしない：波形レーンの採用区間が差し替わるのを見ながら選ぶ）。外をクリックしても閉じない（試聴中の誤操作で消えない）
     overlay.show (std::move (dlg), false, OverlayHost::Placement::side);
+}
+
+void MainComponent::openHistory()
+{
+    // 練習の履歴（Phase C）：録ったテイクの一覧と PITCH の移り変わり。行を押すとそのテイクへ移って閉じる
+    if (state().isRecording)
+        return;
+    auto dlg = std::make_unique<HistoryDialog> (session);
+    dlg->onFinished = [this] { overlay.close(); };
+    overlay.show (std::move (dlg), true);
 }
 
 void MainComponent::openUpdate()
