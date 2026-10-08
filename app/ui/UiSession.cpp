@@ -2719,6 +2719,21 @@ juce::StringArray UiSession::unrecordedSummary (const std::vector<project::Track
     return lines;
 }
 
+exporter::PackOptions UiSession::mixOptions() const
+{
+    // 確認用ミックスは「いま聞いている音量」で（オフボのフェーダーと M、トラックの音量・M / S）
+    exporter::PackOptions o;
+    o.crossfadeMs = s.crossfadeMs;
+    if (s.songCurrent != nullptr && s.songCurrent->length() == s.project.lengthSamples)
+        o.backing = std::shared_ptr<const juce::AudioBuffer<float>> (s.songCurrent, &s.songCurrent->buffer);
+    o.backingGain = s.backingMuted ? 0.0f : audio::PlaybackCore::faderToGain (s.offVocalGain);
+    bool anySolo = false;
+    for (auto& t : s.trackUi) anySolo = anySolo || t.solo;
+    for (auto& t : s.trackUi)
+        o.vocalGains[t.type] = (! t.mute && (! anySolo || t.solo)) ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
+    return o;
+}
+
 void UiSession::exportPack (const std::vector<project::TrackType>& types, int bitDepth, bool refmix)
 {
     // 黙って戻らない（ダイアログは閉じるので、何も起きなかったように見えていた。バグチェック 2026-10-05）
@@ -2727,7 +2742,9 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     if (s.project.lengthSamples <= 0 || s.projectFolder == juce::File())
         return;
 
-    exporter::PackOptions o;
+    auto o = mixOptions();
+    if (! refmix)
+        o.backing = nullptr;
     o.songName = s.songName;
     o.tracks = types;
     o.bitDepth = bitDepth == 16 || bitDepth == 24 || bitDepth == 32 ? bitDepth : s.project.bitDepthExport;
@@ -2736,15 +2753,6 @@ void UiSession::exportPack (const std::vector<project::TrackType>& types, int bi
     o.crossfadeMs = s.crossfadeMs;
     if (s.project.key.known())   o.songKey = s.project.key.shortName();
     if (s.project.tempo.known()) o.bpm = s.project.tempo.bpm;
-
-    // 確認用ミックスは「いま聞いている音量」で（オフボのフェーダーと M、トラックの音量・M / S）
-    if (refmix && s.songCurrent != nullptr && s.songCurrent->length() == s.project.lengthSamples)
-        o.backing = std::shared_ptr<const juce::AudioBuffer<float>> (s.songCurrent, &s.songCurrent->buffer);
-    o.backingGain = s.backingMuted ? 0.0f : audio::PlaybackCore::faderToGain (s.offVocalGain);
-    bool anySolo = false;
-    for (auto& t : s.trackUi) anySolo = anySolo || t.solo;
-    for (auto& t : s.trackUi)
-        o.vocalGains[t.type] = (! t.mute && (! anySolo || t.solo)) ? audio::PlaybackCore::faderToGain (t.monitorGain) : 0.0f;
 
     // take_map の区間名（いまの言語で）。名前はここ（メッセージスレッド）で作っておく（書き出しのスレッドで訳すと、
     // その間に言語を変えたとき翻訳表を同時に読み書きしていた。バグチェック 2026-10-06）

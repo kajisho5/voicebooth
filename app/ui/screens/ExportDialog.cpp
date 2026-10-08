@@ -91,6 +91,8 @@ ExportDialog::ExportDialog (UiSession& u)
 
     addFooterKey (tr ("export.do"), KeyRole::primary, [this] { if (onExport) onExport(); });
     addFooterKey (tr ("common.cancel"), KeyRole::normal, [this] { if (onCloseRequest) onCloseRequest(); });
+    // 共有用の動画（DESIGN 9.1）は納品とは別物：別の画面で（左端に置く）
+    addFooterKey (tr ("export.share"), KeyRole::normal, [this] { if (onShareVideo) onShareVideo(); });
 
     setSize (1040, 520 + rowH * (int) rows.size());   // 行数（モードで変わる）に合わせる
 }

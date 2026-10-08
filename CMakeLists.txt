@@ -188,6 +188,15 @@ set(VOICEBOOTH_RECORD_SOURCES
     app/project/ProjectFile.cpp
     app/export/ExportService.cpp
     app/export/DeliveryPack.cpp)
+# 共有用の動画の MP4（DESIGN 9.1）。Windows は Media Foundation、Mac は AVFoundation（.mm が .cpp を Objective-C++ として読む）、
+# Linux は PATH の ffmpeg
+if(APPLE)
+    list(APPEND VOICEBOOTH_RECORD_SOURCES app/export/VideoEncoder.mm)
+    set(VB_VIDEO_FRAMEWORKS "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo" "-framework VideoToolbox")
+else()
+    list(APPEND VOICEBOOTH_RECORD_SOURCES app/export/VideoEncoder.cpp)
+    set(VB_VIDEO_FRAMEWORKS "")
+endif()
 
 # 曲の情報（DESIGN 7.5：歌詞の読み込み・テンポの手入力）。UI に依存しない。テストからも使う
 set(VOICEBOOTH_SONG_SOURCES
@@ -274,7 +283,10 @@ set(VOICEBOOTH_UI_SOURCES
     app/ui/screens/ReportDialog.cpp
     app/ui/screens/ShortcutsDialog.cpp
     app/ui/screens/TakeCompareDialog.cpp
-    app/ui/screens/HistoryDialog.cpp)
+    app/ui/screens/HistoryDialog.cpp
+    app/ui/screens/ShareVideoDialog.cpp
+    app/ui/ShareVideo.cpp
+    app/ui/UiSessionShare.cpp)
 # OS の「動きを減らす」設定（DESIGN 4.10）。Mac は NSWorkspace を使うので .mm（中身は ReducedMotion.cpp）
 if(APPLE)
     list(APPEND VOICEBOOTH_UI_SOURCES app/ui/ReducedMotion.mm)
@@ -334,10 +346,11 @@ if(NOT VOICEBOOTH_UI_MOCK)
 endif()
 
 
-# Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）
+# Windows：m4a は Media Foundation で読む（OS 標準。MSVC は #pragma comment でもリンクされる）。共有用の動画も書く
 if(WIN32)
     target_link_libraries(VoiceBooth PRIVATE mfplat mfreadwrite mfuuid ole32)
 endif()
+target_link_libraries(VoiceBooth PRIVATE ${VB_VIDEO_FRAMEWORKS})
 
 # ---------------------------------------------------------------------------
 # Mac のマイク許可の文を 12 言語に（#23）。翻訳表（resources/i18n/*.json）の system.microphonePermission から
@@ -587,6 +600,7 @@ if(VOICEBOOTH_TESTS)
         tests/TakeCompareTests.cpp
         tests/PitchShiftTests.cpp
         tests/BackgroundTests.cpp
+        tests/VideoEncoderTests.cpp
         ${VOICEBOOTH_AUDIO_SOURCES}
         ${VOICEBOOTH_RECORD_SOURCES}
         ${VOICEBOOTH_SONG_SOURCES}
@@ -614,6 +628,7 @@ if(VOICEBOOTH_TESTS)
     if(WIN32)
         target_link_libraries(VoiceBoothTests PRIVATE mfplat mfreadwrite mfuuid ole32)
     endif()
+    target_link_libraries(VoiceBoothTests PRIVATE ${VB_VIDEO_FRAMEWORKS})
     add_test(NAME VoiceBoothTests COMMAND VoiceBoothTests)
 
     # UiSession（状態・保存・開く）を音声の機器なしで動かすテスト（2026-10-04）。偽のエンジン（tests/session/FakeEngine.h）をつなぎ、
@@ -664,5 +679,6 @@ if(VOICEBOOTH_TESTS)
     if(WIN32)
         target_link_libraries(VoiceBoothSessionTests PRIVATE mfplat mfreadwrite mfuuid ole32)
     endif()
+    target_link_libraries(VoiceBoothSessionTests PRIVATE ${VB_VIDEO_FRAMEWORKS})
     add_test(NAME VoiceBoothSessionTests COMMAND VoiceBoothSessionTests)
 endif()

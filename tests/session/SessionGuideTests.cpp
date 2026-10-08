@@ -1,6 +1,7 @@
 #include "session/FakeEngine.h"
 #include "session/FakeSeparator.h"
 #include "session/SessionTestUtil.h"
+#include "export/VideoEncoder.h"
 
 /*  お手本の位置の手直し（#26）：キーを続けて押している間は線だけをずらし、音（声・原曲）は押し終わってから 1 回だけずらす。
     前は押すたびに全長の音を 3 本写していた（48 kHz の長い曲で数百 MB）。
@@ -359,6 +360,114 @@ public:
                 ui.seek (0);
                 ui.goToHistoryEntry (h[1]);
                 expectEquals (engine.playhead, h[1].start, "the row takes you to the start of the take");
+            }
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("share video: the range becomes a video with the guide notes, the sung line and the lyrics; stopping leaves no file");
+        {
+            UiSession::projectFolderFor (songName).deleteRecursively();
+            ToneEngine engine;
+            engine.sharpFrom = 6.0;   // 6〜8 秒だけ高く（線がお手本から離れる所）
+            engine.sharpTo = 8.0;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            expect (openSong (ui, karaoke));
+            ui.setMode (project::Mode::standard);
+            ui.setCountIn (0);
+            analyse (ui);
+            ui.tick (1.1);
+            const auto rate = (double) ui.get().sampleRate();
+            expect (! ui.canShareVideo(), "nothing recorded yet");
+            ui.seek (0);
+            ui.setRecording (true);
+            engine.playhead = ui.get().project.lengthSamples;
+            ui.setRecording (false);
+            expect (pumpUntil ([&] { return ui.latestTakeStats() != nullptr; }, 60000), "the take is analysed");
+            expect (ui.canShareVideo());
+
+            song::Lyrics lyrics;
+            lyrics.lines.push_back ({ juce::String::fromUTF8 ("ひかる まちの うた"), (juce::int64) (4.0 * rate) });
+            lyrics.lines.push_back ({ juce::String::fromUTF8 ("つぎの ぎょうへ"), (juce::int64) (8.0 * rate) });
+            lyrics.lines.push_back ({ juce::String::fromUTF8 ("さいごの ぎょう"), (juce::int64) (12.0 * rate) });
+            ui.setLyrics (lyrics);
+            ui.setRange ((juce::int64) (4.0 * rate), (juce::int64) (10.0 * rate));
+
+            UiSession::ShareRequest req;
+            req.useRange = true;
+            const auto scene = ui.shareScene (req);
+            expectEquals (scene.from, (juce::int64) (4.0 * rate));
+            expectEquals (scene.to, (juce::int64) (10.0 * rate));
+            expectEquals (scene.title, songName);
+            expect (! scene.guide.empty(), "the guide notes");
+            expectEquals ((int) scene.lyrics.size(), 2, "the lines in the range");
+            int voiced = 0;
+            for (auto& v : scene.voice)
+                if (v.midi > 0.0f)
+                {
+                    ++voiced;
+                    expect (v.sample >= scene.from && v.sample < scene.to);
+                }
+            expectGreaterThan (voiced, 100, "the sung line (10 ms points)");
+            expect (scene.lowMidi <= 69.0f && scene.highMidi >= 76.0f, "A4 to E5 fit");   // 440〜659 Hz
+
+            // 見本のコマ（VB_SHARE_FRAMES にフォルダを渡すと、3 つの形の 1 コマを PNG で残す。見た目の確認用）
+            for (auto shape : { share::Shape::portrait, share::Shape::square, share::Shape::landscape })
+            {
+                auto r = req;
+                r.shape = shape;
+                const auto sc = ui.shareScene (r);
+                const auto still = share::paintStatic (sc);
+                juce::Image frame (juce::Image::ARGB, still.getWidth(), still.getHeight(), false, juce::SoftwareImageType());
+                {
+                    juce::Graphics g (frame);
+                    share::paintFrame (g, sc, still, (juce::int64) (7.2 * rate));
+                }
+                expectEquals (frame.getWidth(), share::frameSize (shape).x);
+                expectEquals (frame.getHeight(), share::frameSize (shape).y);
+                const auto dir = juce::SystemStats::getEnvironmentVariable ("VB_SHARE_FRAMES", {});
+                if (dir.isNotEmpty())
+                {
+                    const auto f = juce::File (dir).getChildFile (share::fileName ("frame", shape).replace (".mp4", ".png"));
+                    f.deleteFile();
+                    juce::FileOutputStream out (f);
+                    juce::PNGImageFormat().writeImageToStream (frame, out);
+                }
+            }
+
+            const auto folder = UiSession::projectFolderFor (songName).getChildFile ("share");
+            if (! video::Encoder::available())
+            {
+                // 書けない環境（Linux で ffmpeg がない・仮想マシンの Mac で H.264 の符号化器がない）：理由を表示して、何も始めない
+                ui.exportShareVideo (req);
+                expect (! ui.get().share.running);
+                expect (ui.get().share.error.isNotEmpty(), "the reason is shown");
+                logMessage ("*** the share video isn't written on this machine: " + video::Encoder::problem() + " ***");
+            }
+            else
+            {
+                ui.exportShareVideo (req);
+                expect (ui.get().share.running);
+                expect (pumpUntil ([&] { return ! ui.get().share.running; }, 300000), "the video is written");
+                const auto file = ui.get().share.file;
+                expect (ui.get().share.error.isEmpty(), ui.get().share.error);
+                expect (file.existsAsFile(), "the video file");
+                expect (file.getParentDirectory() == folder);
+                expectEquals (file.getFileName(), songName + "_9x16.mp4");
+                int w = 0, h = 0;
+                std::vector<juce::uint32> px;
+                expect (video::readFrame (file, 5.5, w, h, px), "the video reads back");
+                expectEquals (w, 1080);
+                expectEquals (h, 1920);
+
+                // 中止：書きかけを残さない（同じ形でもう 1 本 → _2 になるはずのファイル）
+                const auto before = folder.findChildFiles (juce::File::findFiles, false, "*.mp4").size();
+                ui.exportShareVideo (req);
+                ui.cancelShareVideo();
+                expect (pumpUntil ([&] { return ! ui.get().share.running; }, 120000), "it stops");
+                expectEquals (folder.findChildFiles (juce::File::findFiles, false, "*.mp4").size(), before, "no half-written video");
+                expect (ui.get().share.file == juce::File(), "nothing is reported as written");
+                expect (ui.get().share.error.isEmpty(), "stopping is not an error");
             }
             ui.attachEngine (nullptr);
         }

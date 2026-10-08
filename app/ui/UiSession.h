@@ -9,6 +9,8 @@
 #include "models/ModelDownloader.h"
 #include "audio/SongLoader.h"
 #include "analysis/KeySuggest.h"
+#include "ShareVideo.h"
+#include "export/DeliveryPack.h"
 
 /*  画面の状態（Phase A）
     UI 部品はここから読み、ここを変更し、変更通知で描き直す。
@@ -38,6 +40,7 @@ namespace change
         latency   = 1 << 23,  // 往復の遅れ（実測・手入力・測定中）が変わった（B6）
         project   = 1 << 24,  // プロジェクトを保存した・最近の一覧が変わった（B14）
         prefs     = 1 << 25,  // アプリ設定：更新の確認・キャッシュの場所（DESIGN 11.7 / 8）
+        share     = 1 << 26,  // 共有用の動画の進み具合・結果（DESIGN 9.1）
         all       = 0xffffffff
     };
 }
@@ -412,8 +415,33 @@ public:
     void undoLyricTap();                       // 1 行戻す（その行の時刻を外す）
     void stepLyric (int delta);                // 今の行を手で送る（↑ ↓）
 
+    // --- 共有用の動画（DESIGN 9.1） ------------------------------------------
+    struct ShareRequest
+    {
+        share::Shape shape = share::Shape::portrait;
+        bool useRange = false;        // 範囲（IN–OUT）だけ。範囲がなければ曲全体
+        bool showPitch = true;        // 自分の音程の線とお手本の音符
+        juce::Image background;       // 背景の画像（無効ならスキンの色）
+    };
+    /** 動画にできる（曲を開いていて、録ったボーカルがある） */
+    bool canShareVideo() const;
+    /** 動画にする区間 [from, to)（範囲を選んでいない・範囲がないときは曲全体） */
+    std::pair<int64, int64> shareSpan (bool useRange) const;
+    /** 画の材料（見本の画用。波形は伴奏の概形から。書き出すときは確認用ミックスから作り直す） */
+    share::Scene shareScene (const ShareRequest&) const;
+    /** 書き出す（バックグラウンド）。プロジェクトフォルダの share/ に「曲名_9x16.mp4」など（同じ名前があれば _2 …）。
+        進み具合と結果は get().share（change::share） */
+    void exportShareVideo (const ShareRequest&);
+    void cancelShareVideo();
+    /** 投稿文の下書き（曲名と決まったタグ。使う人が直してからコピーする） */
+    juce::String sharePostText() const;
+
 private:
     void notify (juce::uint32 changes);
+    /** 確認用ミックスの音量（いま聞いている音量：オフボのフェーダーと M、トラックの音量・M / S）。納品パックと共有用の動画 */
+    exporter::PackOptions mixOptions() const;
+    std::shared_ptr<std::atomic<bool>> shareCancel;   // 共有用の動画を止める印（書いている間だけ）
+    int shareJob = 0;                                 // 書き始めるたびに増える（前の動画の遅れた知らせを使わない）
     void keepPlayheadInView();
     void followPlayhead (double seconds);
     void syncLoopToEngine();

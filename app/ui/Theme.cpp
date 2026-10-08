@@ -278,6 +278,11 @@ juce::Font sansFor (const juce::String& text, float height, Weight w)
     return containsKana (text) ? embeddedSans (sansHeight (height), w) : sans (height, w);
 }
 
+juce::Font sansForExact (const juce::String& text, float height, Weight w)
+{
+    return containsKana (text) ? embeddedSans (height, w) : sansExact (height, w);
+}
+
 juce::Font mono (float height, Weight w, float tracking)
 {
     return monoExact (uiTextHeight (height), w, tracking);

@@ -13,6 +13,7 @@ public:
     explicit ExportDialog (UiSession&);
 
     std::function<void()> onExport;
+    std::function<void()> onShareVideo;   // 共有用の動画（DESIGN 9.1）を開く
 
     /** 書き出すトラック（チェックが入っていて、録ってあるボーカル）。確認用ミックスは B15 */
     std::vector<project::TrackType> selectedTracks() const;

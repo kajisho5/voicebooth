@@ -160,6 +160,15 @@ struct Session
         std::vector<project::CompSegment> original;   // 比べ始めた時の採用区間（「採用中」の印・元に戻す形）
     } compare;
     bool exporting = false;
+    // 共有用の動画（DESIGN 9.1）：書いている間の進み具合と、最後に書いたファイル・失敗の理由
+    struct ShareJob
+    {
+        bool running = false;
+        float progress = 0.0f;        // 0..1
+        juce::File file;              // 書き終えた動画（まだなら空）
+        juce::String error;           // 失敗の理由（使う人の言語。成功・中止なら空）
+    };
+    ShareJob share;
 
     // 画面下に一度だけ出す知らせ（トースト）。noticeSerial が増えたら出す
     juce::String noticeText;

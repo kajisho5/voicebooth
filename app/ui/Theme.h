@@ -140,6 +140,8 @@ juce::Font sansForLanguageName (const juce::String& text, float height, Weight =
 
 /** データ（歌詞・曲名）用。かなを含む文字列は UI の言語に関係なく日本語の字形で描く */
 juce::Font sansFor (const juce::String& text, float height, Weight = Weight::regular);
+/** sansFor の実寸（換算しない。共有用の動画のコマなど、画面の大きさに関係なく決まった大きさで描くもの） */
+juce::Font sansForExact (const juce::String& text, float height, Weight = Weight::regular);
 
 /** 数値・時間・英字の小見出し（IBM Plex Mono。日本語は入れない） */
 juce::Font mono (float height, Weight = Weight::medium, float tracking = 0.0f);
