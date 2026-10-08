@@ -15,9 +15,9 @@ namespace
 
     // 見本（UI_MOCK）のダミー（曲名・日付はデータ。翻訳しない）
     const Recent dummyRecents[] = {
-        { "Demo_song",    "2026-09-30 21:30", "2:16", project::Mode::standard },
-        { "Practice_offvocal",   "2026-09-27 23:12", "3:48", project::Mode::pro },
-        { "Sample_inst","2026-09-21 19:05", "4:02", project::Mode::easy },
+        { "Demo_song",          "2026-09-30 21:30", "2:16", project::Mode::standard },
+        { "Practice_offvocal",  "2026-09-27 23:12", "3:48", project::Mode::pro },
+        { "Sample_inst",        "2026-09-21 19:05", "4:02", project::Mode::easy },
     };
 
     juce::String modeName (project::Mode m)
