@@ -32,6 +32,59 @@
 
 namespace vb::video
 {
+void bgraToNv12 (const juce::uint8* bgra, int lineStride, int width, int height,
+                 juce::uint8* yPlane, size_t yStride, juce::uint8* uvPlane, size_t uvStride)
+{
+    // BT.709・狭い範囲：Y = 16 + 0.1826 R + 0.6142 G + 0.0620 B、Cb = 128 - 0.1006 R - 0.3386 G + 0.4392 B、
+    // Cr = 128 + 0.4392 R - 0.3989 G - 0.0403 B（係数は 256 倍して整数で計算）。Cb Cr は 2×2 の平均から
+    auto lumaOf = [] (int r, int g, int b) { return juce::jlimit (16, 235, 16 + ((47 * r + 157 * g + 16 * b + 128) >> 8)); };
+    for (int y = 0; y < height; y += 2)
+    {
+        const auto* row0 = bgra + (size_t) lineStride * (size_t) y;
+        const auto* row1 = y + 1 < height ? row0 + lineStride : row0;
+        auto* y0 = yPlane + yStride * (size_t) y;
+        auto* y1 = y + 1 < height ? y0 + yStride : nullptr;
+        auto* uv = uvPlane + uvStride * (size_t) (y / 2);
+        for (int x = 0; x < width; x += 2)
+        {
+            int sr = 0, sg = 0, sb = 0;
+            for (int dy = 0; dy < 2; ++dy)
+                for (int dx = 0; dx < 2; ++dx)
+                {
+                    const auto px = juce::jmin (x + dx, width - 1);
+                    const auto* p = (dy == 0 ? row0 : row1) + (size_t) px * 4;
+                    const int b = p[0], g = p[1], r = p[2];
+                    sr += r; sg += g; sb += b;
+                    auto* dst = dy == 0 ? y0 : y1;
+                    if (dst != nullptr && x + dx < width)
+                        dst[x + dx] = (juce::uint8) lumaOf (r, g, b);
+                }
+            const int r = (sr + 2) / 4, g = (sg + 2) / 4, b = (sb + 2) / 4;
+            uv[x]     = (juce::uint8) juce::jlimit (16, 240, 128 + (int) std::lround ((-25.8 * r - 86.7 * g + 112.4 * b) / 256.0));
+            uv[x + 1] = (juce::uint8) juce::jlimit (16, 240, 128 + (int) std::lround ((112.4 * r - 102.1 * g - 10.3 * b) / 256.0));
+        }
+    }
+}
+
+void nv12ToArgb (const juce::uint8* yPlane, size_t yStride, const juce::uint8* uvPlane, size_t uvStride,
+                 int width, int height, bool fullRange, std::vector<juce::uint32>& argb)
+{
+    argb.assign ((size_t) juce::jmax (0, width) * (size_t) juce::jmax (0, height), 0);
+    for (int y = 0; y < height; ++y)
+        for (int x = 0; x < width; ++x)
+        {
+            const auto* uv = uvPlane + uvStride * (size_t) (y / 2) + (size_t) (x / 2) * 2;
+            const double luma = fullRange ? yPlane[yStride * (size_t) y + (size_t) x]
+                                          : (yPlane[yStride * (size_t) y + (size_t) x] - 16) * 255.0 / 219.0;
+            const double cb = (uv[0] - 128) * (fullRange ? 1.0 : 255.0 / 224.0);
+            const double cr = (uv[1] - 128) * (fullRange ? 1.0 : 255.0 / 224.0);
+            const auto r = juce::jlimit (0, 255, (int) std::lround (luma + 1.5748 * cr));
+            const auto g = juce::jlimit (0, 255, (int) std::lround (luma - 0.1873 * cb - 0.4681 * cr));
+            const auto b = juce::jlimit (0, 255, (int) std::lround (luma + 1.8556 * cb));
+            argb[(size_t) y * (size_t) width + (size_t) x] = 0xff000000u | ((juce::uint32) r << 16) | ((juce::uint32) g << 8) | (juce::uint32) b;
+        }
+}
+
 #if JUCE_WINDOWS || JUCE_MAC
 namespace
 {
@@ -417,9 +470,11 @@ namespace
 {
     NSString* toNS (const juce::String& s) { return [NSString stringWithUTF8String: s.toRawUTF8()]; }
 
-    /** H.264 で 1 コマ符号化できるか（できなければ理由）。仮想マシンの Mac（CI）には符号化器がなく、AVAssetWriter が
-        エラーにならないまま映像を受け取らなくなった（2026-10-08）。止まっても待ち続けないよう、5 秒で打ち切る
-        （打ち切ったときは、止まった符号化器の後始末をしない：解放すると、まだ動いている処理が使うため） */
+    /** H.264 で 1 コマ符号化できるか（できなければ理由）。渡すのは書き出しと同じ NV12（420v）。
+        止まっても待ち続けないよう、5 秒で打ち切る（打ち切ったときは、止まった符号化器の後始末をしない：解放すると、
+        まだ動いている処理が使うため）。
+        2026-10-08：CI の仮想マシンの Mac でも、これは通った（符号化器はある）。止まったのは AVAssetWriter に BGRA を渡したとき
+        （画像変換の部品 AppleM2ScalerParavirtDriver がない、とログに出る）。そこで NV12 に自分で変換して渡す */
     juce::String probeH264()
     {
         constexpr int w = 1280, h = 720;
@@ -431,14 +486,16 @@ namespace
         VTSessionSetProperty (session, kVTCompressionPropertyKey_RealTime, kCFBooleanTrue);
         VTSessionSetProperty (session, kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse);
         CVPixelBufferRef pb = nullptr;
-        if (CVPixelBufferCreate (kCFAllocatorDefault, w, h, kCVPixelFormatType_32BGRA, nullptr, &pb) != kCVReturnSuccess || pb == nullptr)
+        if (CVPixelBufferCreate (kCFAllocatorDefault, w, h, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, nullptr, &pb) != kCVReturnSuccess
+            || pb == nullptr)
         {
             VTCompressionSessionInvalidate (session);
             CFRelease (session);
             return "can't make a pixel buffer";
         }
         CVPixelBufferLockBaseAddress (pb, 0);
-        std::memset (CVPixelBufferGetBaseAddress (pb), 0, CVPixelBufferGetBytesPerRow (pb) * (size_t) h);
+        std::memset (CVPixelBufferGetBaseAddressOfPlane (pb, 0), 16, CVPixelBufferGetBytesPerRowOfPlane (pb, 0) * (size_t) h);
+        std::memset (CVPixelBufferGetBaseAddressOfPlane (pb, 1), 128, CVPixelBufferGetBytesPerRowOfPlane (pb, 1) * (size_t) (h / 2));
         CVPixelBufferUnlockBaseAddress (pb, 0);
 
         dispatch_semaphore_t encoded = dispatch_semaphore_create (0), completed = dispatch_semaphore_create (0);
@@ -504,15 +561,21 @@ namespace
                 NSDictionary* compression = @{ AVVideoAverageBitRateKey: @(spec.videoBitrate),
                                                AVVideoMaxKeyFrameIntervalKey: @(spec.fps * 2),
                                                AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel };
+                NSDictionary* colour = @{ AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                                          AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                                          AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2 };
                 NSDictionary* videoSettings = @{ AVVideoCodecKey: AVVideoCodecTypeH264,
                                                  AVVideoWidthKey: @(spec.width),
                                                  AVVideoHeightKey: @(spec.height),
+                                                 AVVideoColorPropertiesKey: colour,
                                                  AVVideoCompressionPropertiesKey: compression };
                 videoIn = [[AVAssetWriterInput alloc] initWithMediaType: AVMediaTypeVideo outputSettings: videoSettings];
                 videoIn.expectsMediaDataInRealTime = NO;
-                NSDictionary* pixels = @{ (id) kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA),
+                // NV12 で渡す（BGRA だと書く側が画像変換の部品を使い、それがない仮想マシンの Mac で止まった。上の probeH264）
+                NSDictionary* pixels = @{ (id) kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
                                           (id) kCVPixelBufferWidthKey: @(spec.width),
-                                          (id) kCVPixelBufferHeightKey: @(spec.height) };
+                                          (id) kCVPixelBufferHeightKey: @(spec.height),
+                                          (id) kCVPixelBufferIOSurfacePropertiesKey: @{} };
                 adaptor = [[AVAssetWriterInputPixelBufferAdaptor alloc] initWithAssetWriterInput: videoIn
                                                                      sourcePixelBufferAttributes: pixels];
                 if (! [writer canAddInput: videoIn])
@@ -561,22 +624,24 @@ namespace
             // 映像を受け取れるまで待つ。書く側は映像と音を交互に並べるので、音が足りないと映像を受け取らない。
             // 待つ間は音を先に渡す（1 コマごとに同じ時刻までの音しか渡さないと、CI の Mac で止まったまま進まなかった）
             if (auto e = waitWhileFeedingAudio (videoIn); e.isNotEmpty())
-                return fail ("video: " + e);
+                return fail ("video: " + e + " (frame " + juce::String (frames) + ")");
             @autoreleasepool
             {
                 CVPixelBufferRef pb = nullptr;
                 auto pool = adaptor.pixelBufferPool;
                 const auto made = pool != nullptr ? CVPixelBufferPoolCreatePixelBuffer (kCFAllocatorDefault, pool, &pb)
                                                   : CVPixelBufferCreate (kCFAllocatorDefault, (size_t) spec.width, (size_t) spec.height,
-                                                                         kCVPixelFormatType_32BGRA, nullptr, &pb);
+                                                                         kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, nullptr, &pb);
                 if (made != kCVReturnSuccess || pb == nullptr)
                     return fail ("can't make a pixel buffer");
                 CVPixelBufferLockBaseAddress (pb, 0);
-                auto* base = static_cast<juce::uint8*> (CVPixelBufferGetBaseAddress (pb));
-                const auto rowBytes = CVPixelBufferGetBytesPerRow (pb);
-                for (int y = 0; y < spec.height; ++y)
-                    std::memcpy (base + rowBytes * (size_t) y, bgra + (size_t) lineStride * (size_t) y, (size_t) spec.width * 4);
+                bgraToNv12 (bgra, lineStride, spec.width, spec.height,
+                            static_cast<juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (pb, 0)), CVPixelBufferGetBytesPerRowOfPlane (pb, 0),
+                            static_cast<juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (pb, 1)), CVPixelBufferGetBytesPerRowOfPlane (pb, 1));
                 CVPixelBufferUnlockBaseAddress (pb, 0);
+                CVBufferSetAttachment (pb, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+                CVBufferSetAttachment (pb, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+                CVBufferSetAttachment (pb, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
                 const BOOL ok = [adaptor appendPixelBuffer: pb withPresentationTime: CMTimeMake (frames, spec.fps)];
                 CVPixelBufferRelease (pb);
                 if (! ok)
@@ -764,7 +829,8 @@ bool readFrame (const juce::File& file, double seconds, int& width, int& height,
         AVAssetReader* reader = [[[AVAssetReader alloc] initWithAsset: asset error: &error] autorelease];
         if (reader == nil)
             return false;
-        NSDictionary* settings = @{ (id) kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) };
+        // 復号した画は NV12 のまま受け取り、こちらで RGB にする（書くときと同じく、画像変換の部品を使わない）
+        NSDictionary* settings = @{ (id) kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange) };
         AVAssetReaderTrackOutput* output = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack: tracks[0] outputSettings: settings];
         if (! [reader canAddOutput: output])
             return false;
@@ -779,19 +845,42 @@ bool readFrame (const juce::File& file, double seconds, int& width, int& height,
         if (CVImageBufferRef image = CMSampleBufferGetImageBuffer (sample))
         {
             CVPixelBufferLockBaseAddress (image, kCVPixelBufferLock_ReadOnly);
+            const auto format = CVPixelBufferGetPixelFormatType (image);
             width = (int) CVPixelBufferGetWidth (image);
             height = (int) CVPixelBufferGetHeight (image);
-            const auto rowBytes = CVPixelBufferGetBytesPerRow (image);
-            auto* base = static_cast<const juce::uint8*> (CVPixelBufferGetBaseAddress (image));
-            argb.assign ((size_t) width * (size_t) height, 0);
-            for (int y = 0; y < height; ++y)
+            // 見せる大きさ（H.264 の詰め物を除く）
+           #pragma clang diagnostic push
+           #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            const auto natural = ((AVAssetTrack*) tracks[0]).naturalSize;
+           #pragma clang diagnostic pop
+            if (natural.width > 0 && natural.height > 0)
             {
-                auto* row = reinterpret_cast<const juce::uint32*> (base + rowBytes * (size_t) y);
-                for (int x = 0; x < width; ++x)
-                    argb[(size_t) y * (size_t) width + (size_t) x] = row[x] | 0xff000000u;   // B G R A の並び = 0xAARRGGBB
+                width = juce::jmin (width, (int) std::lround (natural.width));
+                height = juce::jmin (height, (int) std::lround (natural.height));
+            }
+            if ((format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange || format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+                && CVPixelBufferGetPlaneCount (image) == 2)
+            {
+                nv12ToArgb (static_cast<const juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (image, 0)), CVPixelBufferGetBytesPerRowOfPlane (image, 0),
+                            static_cast<const juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (image, 1)), CVPixelBufferGetBytesPerRowOfPlane (image, 1),
+                            width, height, format == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, argb);
+                ok = true;
+            }
+            else if (format == kCVPixelFormatType_32BGRA)
+            {
+                const auto rowBytes = CVPixelBufferGetBytesPerRow (image);
+                auto* base = static_cast<const juce::uint8*> (CVPixelBufferGetBaseAddress (image));
+                argb.assign ((size_t) width * (size_t) height, 0);
+                for (int y = 0; y < height; ++y)
+                {
+                    auto* row = reinterpret_cast<const juce::uint32*> (base + rowBytes * (size_t) y);
+                    for (int x = 0; x < width; ++x)
+                        argb[(size_t) y * (size_t) width + (size_t) x] = row[x] | 0xff000000u;   // B G R A の並び = 0xAARRGGBB
+                }
+                ok = true;
             }
             CVPixelBufferUnlockBaseAddress (image, kCVPixelBufferLock_ReadOnly);
-            ok = width > 0 && height > 0;
+            ok = ok && width > 0 && height > 0;
         }
         CFRelease (sample);
         [reader cancelReading];

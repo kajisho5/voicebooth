@@ -45,6 +45,15 @@ public:
     virtual juce::String finish() = 0;
 };
 
+/** B G R A の画 → YUV 4:2:0（Y の面と、Cb Cr を交互に並べた面。NV12）。BT.709 の狭い範囲（Y 16〜235）。
+    幅・高さは偶数。Mac は自分で変換してから渡す（AVAssetWriter に BGRA を渡すと、画像変換の部品がない仮想マシンの Mac で止まった） */
+void bgraToNv12 (const juce::uint8* bgra, int lineStride, int width, int height,
+                 juce::uint8* yPlane, size_t yStride, juce::uint8* uvPlane, size_t uvStride);
+
+/** NV12（BT.709。fullRange なら Y 0〜255）→ 0xAARRGGBB（上の行から） */
+void nv12ToArgb (const juce::uint8* yPlane, size_t yStride, const juce::uint8* uvPlane, size_t uvStride,
+                 int width, int height, bool fullRange, std::vector<juce::uint32>& argb);
+
 /** dest の seconds 秒のあたりのコマを 1 枚読む（書いた動画の確認。テスト用）。argb は 0xAARRGGBB で上の行から。読めなければ false */
 bool readFrame (const juce::File&, double seconds, int& width, int& height, std::vector<juce::uint32>& argb);
 

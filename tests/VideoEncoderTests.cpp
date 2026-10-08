@@ -107,6 +107,38 @@ public:
             expectEquals ((int) audioSamplesUntilFrame (59, 30), 96000);   // 2 秒の終わり
         }
 
+        beginTest ("BGRA -> NV12 (BT.709) -> RGB keeps the colours");
+        {
+            constexpr int w = 6, h = 4;
+            const juce::uint32 colours[] = { 0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffffff, 0xff000000, 0xff808080 };
+            std::vector<juce::uint8> bgra ((size_t) w * h * 4);
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                {
+                    const auto c = colours[x / 2 + (y / 2) * 3 % 6];   // 2×2 ごとに同じ色（Cb Cr を 4 画素で分けるため）
+                    auto* p = bgra.data() + ((size_t) y * w + (size_t) x) * 4;
+                    p[0] = (juce::uint8) (c & 0xff);
+                    p[1] = (juce::uint8) ((c >> 8) & 0xff);
+                    p[2] = (juce::uint8) ((c >> 16) & 0xff);
+                    p[3] = 255;
+                }
+            std::vector<juce::uint8> yPlane ((size_t) w * h), uvPlane ((size_t) w * (h / 2));
+            bgraToNv12 (bgra.data(), w * 4, w, h, yPlane.data(), (size_t) w, uvPlane.data(), (size_t) w);
+            expectEquals ((int) yPlane[0], 63, "red Y (BT.709 limited)");     // 16 + 0.1826 * 255
+            expectEquals ((int) yPlane[6], 63);
+            std::vector<juce::uint32> back;
+            nv12ToArgb (yPlane.data(), (size_t) w, uvPlane.data(), (size_t) w, w, h, false, back);
+            for (size_t i = 0; i < back.size(); ++i)
+            {
+                const auto* p = bgra.data() + i * 4;
+                const int dr = std::abs ((int) ((back[i] >> 16) & 0xff) - p[2]);
+                const int dg = std::abs ((int) ((back[i] >> 8) & 0xff) - p[1]);
+                const int db = std::abs ((int) (back[i] & 0xff) - p[0]);
+                expect (dr <= 6 && dg <= 6 && db <= 6, "pixel " + juce::String ((int) i) + ": "
+                        + juce::String::toHexString ((int) back[i]) + " vs " + juce::String::toHexString ((int) (0xff000000u | (juce::uint32) p[2] << 16 | (juce::uint32) p[1] << 8 | p[0])));
+            }
+        }
+
         beginTest ("writes an MP4 that reads back (H.264 + AAC, colours, top row first)");
         {
             // 書けない環境（Linux で ffmpeg がない・仮想マシンの Mac で H.264 の符号化器がない）：理由を返して、何も書かない
