@@ -47,6 +47,21 @@ struct PitchAccuracy
 PitchAccuracy pitchAccuracy (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& take,
                              double sampleRate, juce::int64 from, juce::int64 to, float toleranceCents, bool foldOctave = true);
 
+/** 苦手な所（Phase C「苦手小節ループ」）：区切り barStarts（小節線。小さい順）で take を小節に分け、続いた spanBars 小節ずつ
+    （1 小節ずつずらす）の合う割合を数える（数え方は pitchAccuracy と同じ）。声のある点が minFrames 未満の所と、
+    合う割合が below 以上の所は外す。合う割合の低い順（10% 刻みで比べ、同じ刻みなら点の多い順、それも同じなら前から）に、重ならない所だけ残す */
+struct WeakSpan
+{
+    juce::int64 start = 0, end = 0;   // 曲のサンプル（小節線）
+    int firstBar = 0;                 // barStarts の添字
+    int frames = 0;
+    float inBand = 0.0f;
+};
+
+std::vector<WeakSpan> weakSpans (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& take,
+                                 double sampleRate, const std::vector<juce::int64>& barStarts, float toleranceCents,
+                                 bool foldOctave = true, int spanBars = 2, int minFrames = 50, float below = 0.8f);
+
 /** 黄（少しずれている）の上限。緑の幅（20 / 30 / 50 セント）より必ず広い：50 にしても黄が残る（#25） */
 inline float pitchWarnLimitCents (float toleranceCents) { return juce::jmax (50.0f, toleranceCents + 20.0f); }
 

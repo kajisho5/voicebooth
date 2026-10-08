@@ -150,6 +150,73 @@ public:
                 }
             }
         }
+
+        // 苦手な小節（Phase C）：1 小節 1 秒の線で 12 小節。お手本は 0〜12 秒ずっと 67
+        std::vector<juce::int64> barLines;
+        for (int b = 0; b <= 12; ++b)
+            barLines.push_back (ms (b * 1000.0));
+        const auto steady = frames ({ { 0, 12000, 67 } });
+
+        beginTest ("weak spots: the two bars sung 60 cents sharp come first, then the next one that doesn't overlap");
+        {
+            // 4〜6 秒（小節 4・5）と 8〜9 秒（小節 8）を 60 セント高く
+            const auto take = frames ({ { 0, 4000, 67 }, { 4000, 2000, 67.6f }, { 6000, 2000, 67 }, { 8000, 1000, 67.6f }, { 9000, 3000, 67 } });
+            const auto w = weakSpans (steady, take, rate, barLines, 30.0f);
+            expectEquals ((int) w.size(), 2);
+            if (w.size() == 2)
+            {
+                expectEquals (w[0].start, ms (4000));
+                expectEquals (w[0].end, ms (6000));
+                expectEquals (w[0].firstBar, 4);
+                expectWithinAbsoluteError (w[0].inBand, 0.0f, 0.01f);
+                // 小節 8 を含む 2 小節（7〜8 と 8〜9 は同じ 50%）：前のほう
+                expectEquals (w[1].start, ms (7000));
+                expectEquals (w[1].end, ms (9000));
+                expectWithinAbsoluteError (w[1].inBand, 0.5f, 0.02f);
+            }
+        }
+
+        beginTest ("weak spots: at the same share, the span with more singing comes first");
+        {
+            // 小節 3 は歌わず、小節 4・5 を高く：3〜4（歌は 1 小節）・4〜5（2 小節）・5〜6（1 小節。6 は歌わない）がどれも 0%
+            const auto take = frames ({ { 0, 3000, 67 }, { 4000, 2000, 67.6f } });
+            const auto w = weakSpans (steady, take, rate, barLines, 30.0f);
+            expect (! w.empty());
+            if (! w.empty())
+            {
+                expectEquals (w[0].start, ms (4000), "the two bars that were both sung sharp");
+                expectEquals (w[0].frames, 200);
+            }
+        }
+
+        beginTest ("weak spots: a span that is all sharp beats one that is half rest, even if a few points of it are in band");
+        {
+            // 小節 5 は休み。小節 6・7 は高く、ただし小節 7 の最初の 0.1 秒だけ合っている（5〜6 は 0%・6〜7 は 5%）
+            const auto take = frames ({ { 0, 5000, 67 }, { 6000, 1000, 67.6f }, { 7000, 100, 67 }, { 7100, 900, 67.6f } });
+            const auto w = weakSpans (steady, take, rate, barLines, 30.0f);
+            expect (! w.empty());
+            if (! w.empty())
+            {
+                expectEquals (w[0].start, ms (6000), "bars 6-7, where it was sung");
+                expectWithinAbsoluteError (w[0].inBand, 0.05f, 0.01f);
+            }
+        }
+
+        beginTest ("weak spots: none when every two bars are in band, too little singing, or the bar lines are missing");
+        {
+            expect (weakSpans (steady, frames ({ { 0, 12000, 67.1f } }), rate, barLines, 30.0f).empty(), "10 cents off is in a 30-cent band");
+            expect (weakSpans (steady, frames ({ { 5000, 300, 68 } }), rate, barLines, 30.0f).empty(), "300 ms of singing is too little to judge");
+            expect (weakSpans (steady, frames ({ { 0, 12000, 68 } }), rate, { ms (0) }, 30.0f).empty(), "no bars");
+            expect (weakSpans ({}, frames ({ { 0, 12000, 68 } }), rate, barLines, 30.0f).empty(), "no guide");
+        }
+
+        beginTest ("weak spots follow octave matching (#25)");
+        {
+            const auto octaveDown = frames ({ { 0, 12000, 55 } });
+            expect (weakSpans (steady, octaveDown, rate, barLines, 30.0f, true).empty(), "an octave down is the same note");
+            const auto w = weakSpans (steady, octaveDown, rate, barLines, 30.0f, false);
+            expectEquals ((int) w.size(), 6, "with matching off, every pair of bars is wrong; six that don't overlap");
+        }
     }
 };
 

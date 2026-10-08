@@ -189,6 +189,54 @@ PitchAccuracy pitchAccuracy (const std::vector<audio::PitchFrame>& guide, const 
     return out;
 }
 
+std::vector<WeakSpan> weakSpans (const std::vector<audio::PitchFrame>& guide, const std::vector<audio::PitchFrame>& take,
+                                 double sampleRate, const std::vector<int64>& barStarts, float toleranceCents,
+                                 bool foldOctave, int spanBars, int minFrames, float below)
+{
+    std::vector<WeakSpan> out;
+    const auto bars = (int) barStarts.size() - 1;
+    if (bars < 1 || spanBars < 1)
+        return out;
+
+    // 小節ごとの「両方に声のある点」と「その中で許容に入った点」（テイクを 1 回たどるだけ）
+    std::vector<int> frames ((size_t) bars, 0), inBand ((size_t) bars, 0);
+    const auto within = (int64) (0.006 * sampleRate);
+    for (auto& t : take)
+    {
+        if (! voiced (t) || t.songSample < barStarts.front() || t.songSample >= barStarts.back())
+            continue;
+        const auto* g = frameNear (guide, t.songSample, within);
+        if (g == nullptr || ! voiced (*g))
+            continue;
+        const auto bar = (int) (std::upper_bound (barStarts.begin(), barStarts.end(), t.songSample) - barStarts.begin()) - 1;
+        const auto c = std::abs (foldOctave ? centsApart (t.midi, g->midi) : (t.midi - g->midi) * 100.0f);
+        ++frames[(size_t) bar];
+        inBand[(size_t) bar] += c <= toleranceCents ? 1 : 0;
+    }
+
+    std::vector<WeakSpan> all;
+    const auto span = juce::jmin (spanBars, bars);
+    for (int b = 0; b + span <= bars; ++b)
+    {
+        int f = 0, in = 0;
+        for (int k = b; k < b + span; ++k) { f += frames[(size_t) k]; in += inBand[(size_t) k]; }
+        if (f < minFrames)
+            continue;
+        const auto ratio = (float) in / (float) f;
+        if (ratio < below)
+            all.push_back ({ barStarts[(size_t) b], barStarts[(size_t) (b + span)], b, f, ratio });
+    }
+    // 合う割合を 10% 刻みで比べ、低い順。同じ刻みなら点の多い（歌った長さの長い）ほうを先に。それも同じなら前から。
+    // 刻まずに比べると、半分が休みで外れた所だけ入った 2 小節（0%）が、全部外れた 2 小節（数 % 入る）より先になる
+    auto step = [] (const WeakSpan& w) { return (int) std::floor (w.inBand * 10.0f); };
+    std::stable_sort (all.begin(), all.end(), [&] (const WeakSpan& a, const WeakSpan& b)
+                      { return step (a) != step (b) ? step (a) < step (b) : a.frames > b.frames; });
+    for (auto& w : all)
+        if (std::none_of (out.begin(), out.end(), [&] (const WeakSpan& o) { return w.start < o.end && o.start < w.end; }))
+            out.push_back (w);
+    return out;
+}
+
 std::vector<Vibrato> vibratos (const std::vector<audio::PitchFrame>& take, double sampleRate)
 {
     std::vector<Vibrato> out;
