@@ -189,6 +189,19 @@ public:
             }
         }
 
+        beginTest ("weak spots: a span that is all sharp beats one that is half rest, even if a few points of it are in band");
+        {
+            // 小節 5 は休み。小節 6・7 は高く、ただし小節 7 の最初の 0.1 秒だけ合っている（5〜6 は 0%・6〜7 は 5%）
+            const auto take = frames ({ { 0, 5000, 67 }, { 6000, 1000, 67.6f }, { 7000, 100, 67 }, { 7100, 900, 67.6f } });
+            const auto w = weakSpans (steady, take, rate, barLines, 30.0f);
+            expect (! w.empty());
+            if (! w.empty())
+            {
+                expectEquals (w[0].start, ms (6000), "bars 6-7, where it was sung");
+                expectWithinAbsoluteError (w[0].inBand, 0.05f, 0.01f);
+            }
+        }
+
         beginTest ("weak spots: none when every two bars are in band, too little singing, or the bar lines are missing");
         {
             expect (weakSpans (steady, frames ({ { 0, 12000, 67.1f } }), rate, barLines, 30.0f).empty(), "10 cents off is in a 30-cent band");
