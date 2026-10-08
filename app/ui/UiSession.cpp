@@ -1884,6 +1884,74 @@ const dummy::Session::TakeStats* UiSession::latestTakeStats() const
     return &s.takeStats.at (dummy::takeWaveKey (track->type, newest->id));
 }
 
+std::vector<UiSession::WeakSpot> UiSession::weakSpots() const
+{
+    // latestTakeStats と同じテイク（いまのトラックのいちばん新しい、解析の済んだテイク）を、同じお手本・許容で比べる
+    std::vector<WeakSpot> out;
+    const auto* track = s.project.findTrack (s.currentTrack().type);
+    if (track == nullptr || s.refPitch.empty() || ! s.tempoKnown())
+        return out;
+    const project::Take* newest = nullptr;
+    for (auto& t : track->takes)
+        if (s.takeStats.count (dummy::takeWaveKey (track->type, t.id)) > 0 && (newest == nullptr || t.created > newest->created))
+            newest = &t;
+    if (newest == nullptr)
+        return out;
+    const auto it = s.takePitch.find (dummy::takeWaveKey (track->type, newest->id));
+    if (it == s.takePitch.end() || it->second == nullptr || it->second->empty())
+        return out;
+    const auto& frames = *it->second;
+
+    const bool harm = track->type == project::TrackType::harm1 || track->type == project::TrackType::harm2;
+    const auto guide = guideFrames (harm && ! s.refPitchHarm.empty() ? s.refPitchHarm : s.refPitch);
+    const auto rate = (double) s.sampleRate();
+
+    // テイクのある小節の線（曲の外は切る）
+    const auto& tempo = s.project.tempo;
+    const auto firstBar = song::barBeatAt (tempo, frames.front().songSample, rate).bar;
+    const auto lastBar = song::barBeatAt (tempo, frames.back().songSample, rate).bar;
+    std::vector<int64> lines;
+    for (auto b = firstBar; b <= lastBar + 1; ++b)
+    {
+        const auto at = juce::jlimit ((int64) 0, s.project.lengthSamples, song::barSample (tempo, b, rate));
+        if (lines.empty() || at > lines.back())
+            lines.push_back (at);
+    }
+
+    constexpr int spanBars = 2;
+    for (auto& w : analysis::weakSpans (guide, frames, rate, lines, s.pitchToleranceCents, s.octaveAlign, spanBars))
+        out.push_back ({ w.start, w.end, song::barBeatAt (tempo, w.start, rate).bar, spanBars, w.inBand });
+    return out;
+}
+
+int UiSession::weakSpotIndex (const std::vector<WeakSpot>& spots) const
+{
+    for (size_t i = 0; i < spots.size(); ++i)
+        if (spots[i].start == s.rangeIn && spots[i].end == s.rangeOut)
+            return (int) i;
+    return -1;
+}
+
+void UiSession::loopWeakSpot()
+{
+    if (s.isRecording || s.mode == project::Mode::easy)
+        return;
+    const auto spots = weakSpots();
+    if (spots.empty())
+    {
+        postNotice (tr ("pitch.weak.none"));
+        return;
+    }
+    const auto now = weakSpotIndex (spots);
+    const auto next = s.loopOn && now >= 0 ? (now + 1) % (int) spots.size() : juce::jmax (0, now);
+    const auto& w = spots[(size_t) next];
+    setRange (w.start, w.end);
+    setLoop (true);
+    seek (w.start);
+    postNotice (tr ("pitch.weak.looping", juce::String (w.firstBar), juce::String (w.firstBar + w.bars - 1),
+                    juce::roundToInt (w.inBand * 100.0f), next + 1, (int) spots.size()));
+}
+
 void UiSession::rejudgeAll()
 {
     if (! isEngineDriven())

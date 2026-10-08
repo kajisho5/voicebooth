@@ -8,6 +8,40 @@
 
 namespace vb::test
 {
+/** 録った声の代わりに、原曲の声と同じ旋律の正弦波を書く（sharpFrom〜sharpTo 秒は 60 セント高く。苦手な小節のテスト） */
+class ToneEngine final : public FakeEngine
+{
+public:
+    double sharpFrom = 0.0, sharpTo = 0.0;
+
+    audio::RecordedTake stopRecording() override
+    {
+        auto r = FakeEngine::stopRecording();   // 長さとファイル（無音）
+        if (r.length <= 0 || song == nullptr)
+            return r;
+        const auto rate = song->sampleRate;
+        const double voice[] = { 440.0, 523.25, 587.33, 659.25, 587.33, 523.25 };
+        juce::AudioBuffer<float> b (1, (int) r.length);
+        double phase = 0.0;
+        for (int i = 0; i < b.getNumSamples(); ++i)
+        {
+            const auto t = (double) (r.startSample + i) / rate;
+            auto hz = voice[(int) (t / 0.75) % 6];
+            if (t >= sharpFrom && t < sharpTo)
+                hz *= std::pow (2.0, 60.0 / 1200.0);
+            phase += juce::MathConstants<double>::twoPi * hz / rate;
+            const bool sing = ((t >= 4.0 && t < 8.0) || (t >= 12.0 && t < 16.0)) && std::fmod (t, 0.75) < 0.6;
+            b.setSample (0, i, sing ? 0.3f * (float) std::sin (phase) : 0.0f);
+        }
+        r.file.deleteFile();
+        std::unique_ptr<juce::OutputStream> out (r.file.createOutputStream().release());
+        juce::WavAudioFormat wav;
+        if (auto w = wav.createWriterFor (out, juce::AudioFormatWriterOptions{}.withSampleRate (rate).withNumChannels (1).withBitsPerSample (24)))
+            w->writeFromAudioSampleBuffer (b, 0, b.getNumSamples());
+        return r;
+    }
+};
+
 class SessionGuideTests : public juce::UnitTest
 {
 public:
@@ -223,6 +257,63 @@ public:
             pump (300);
             expectEquals (ui.get().leadOfferSerial, offers);
             expectEquals (st->starts, 0);
+            ui.attachEngine (nullptr);
+        }
+
+        beginTest ("the weak-spot loop puts the range on the bars sung sharp, loops them and starts there");
+        {
+            ToneEngine engine;
+            engine.sharpFrom = 12.0;   // 2 回目の歌（12〜16 秒）だけ 60 セント高く
+            engine.sharpTo = 16.0;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            expect (openSong (ui, karaoke));
+            ui.setMode (project::Mode::standard);
+            ui.setCountIn (0);
+            ui.setBpm (120.0);   // 4/4 で 1 小節 2 秒：12〜16 秒は 7・8 小節目
+            ui.setDownbeat (0);
+            analyse (ui);
+            UiSession::projectFolderFor (songName).getChildFile ("Audio/Takes").deleteRecursively();
+
+            ui.tick (1.1);
+            ui.seek (0);
+            ui.setRecording (true);
+            expect (ui.get().isRecording, "recording starts: " + ui.get().noticeText);
+            engine.playhead = ui.get().project.lengthSamples;
+            ui.setRecording (false);
+            expect (pumpUntil ([&] { return ui.latestTakeStats() != nullptr; }, 60000), "the take is analysed");
+
+            const auto rate = (double) ui.get().sampleRate();
+            const auto spots = ui.weakSpots();
+            expect (! spots.empty(), "a weak spot is found");
+            if (! spots.empty())
+            {
+                expectEquals (spots[0].firstBar, (juce::int64) 7, "bars 7-8");
+                expectWithinAbsoluteError ((double) spots[0].start / rate, 12.0, 0.01);
+                expectWithinAbsoluteError ((double) spots[0].end / rate, 16.0, 0.01);
+                expectLessThan (spots[0].inBand, 0.2f);
+                for (auto& w : spots)
+                    expect (w.end <= (juce::int64) (12.0 * rate) || w.start >= (juce::int64) (12.0 * rate), "the in-tune singing (4-8 s) is not taken as weak");
+
+                ui.loopWeakSpot();
+                expectEquals (ui.get().rangeIn, spots[0].start);
+                expectEquals (ui.get().rangeOut, spots[0].end);
+                expect (ui.get().loopOn && engine.loopEnabled, "it loops");
+                expectEquals (engine.playhead, spots[0].start, "and starts at the head of the bars");
+                expect (ui.get().noticeText.contains ("7"), ui.get().noticeText);
+                expectEquals (ui.weakSpotIndex (spots), 0);
+
+                // もう 1 回押すと次の所へ（1 つしかなければ同じ所のまま）
+                ui.loopWeakSpot();
+                const auto next = spots.size() > 1 ? spots[1] : spots[0];
+                expectEquals (ui.get().rangeIn, next.start);
+            }
+
+            // 簡単モード（範囲の録り直しがない）では何もしない
+            ui.clearRange();
+            ui.setMode (project::Mode::easy);
+            ui.loopWeakSpot();
+            expect (! ui.get().hasRange(), "easy mode has no range re-recording");
             ui.attachEngine (nullptr);
         }
 

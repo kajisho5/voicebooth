@@ -54,6 +54,8 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
         b->withLed().withToggle (false).withFont (sans (11.5f, Weight::medium));
         addAndMakeVisible (b);
     }
+    weakKey.withLed().withToggle (false).withIcon (Icon::loop).withFont (sans (11.5f, Weight::medium));
+    addChildComponent (weakKey);
     octaveAlign.setTooltip (tr ("pitch.octaveAlign.tooltip"));
     octaveUp.setTooltip (tr ("pitch.octaveUp.tooltip"));
     fullRange.setTooltip (tr ("pitch.fullRange.tooltip"));
@@ -67,8 +69,43 @@ PitchLane::PitchLane (UiSession& u, Actions& a)
     // 3 度ガイド（#30）：押すたびに 3 度上 → 3 度下 → なし
     thirdKey.setTooltip (tr ("pitch.third.tooltip"));
     thirdKey.onClick = [this] { session.setThirdGuide ((state().thirdGuide + 1) % 3); };
+    // 苦手な小節のループ（Phase C）：いちばん新しいテイクで合う割合の低い 2 小節を範囲にしてループ。押すたびに次の所へ
+    weakKey.onClick = [this] { session.loopWeakSpot(); };
 
     onSessionChanged (change::all);
+}
+
+void PitchLane::updateWeakKey()
+{
+    // 本物のアプリの標準・プロで、いまのトラックに解析の済んだテイクがある時だけ。押せない時は理由をツールチップに
+    const auto& s = state();
+    const bool show = s.engineAttached && s.mode != project::Mode::easy && session.latestTakeStats() != nullptr;
+    juce::String text = tr ("pitch.weak.loop"), tip;
+    bool enabled = false, active = false;
+    if (show)
+    {
+        const auto spots = session.weakSpots();
+        const auto at = session.weakSpotIndex (spots);
+        if (! s.tempoKnown())       tip = tr ("pitch.weak.noTempo");
+        else if (spots.empty())     tip = tr ("pitch.weak.none");
+        else
+        {
+            enabled = ! s.isRecording;
+            tip = tr ("pitch.weak.tooltip");
+            active = at >= 0 && s.loopOn;
+            if (active)
+                text = tr ("pitch.weak.index", at + 1, (int) spots.size());
+        }
+    }
+    weakKey.setEnabled (enabled);
+    weakKey.setTooltip (tip);
+    weakKey.setToggleState (active, juce::dontSendNotification);
+    if (weakKey.isVisible() != show || weakKey.getButtonText() != text)
+    {
+        weakKey.setButtonText (text);   // 文字の幅が変わるので並べ直す
+        weakKey.setVisible (show);
+        resized();
+    }
 }
 
 void PitchLane::onSessionChanged (juce::uint32 changes)
@@ -94,6 +131,9 @@ void PitchLane::onSessionChanged (juce::uint32 changes)
         thirdKey.setVisible (thirdShow);
         resized();
     }
+    if (changes & (change::takes | change::songInfo | change::tracks | change::mode | change::song | change::view
+                   | change::range | change::transport))
+        updateWeakKey();
 
     if (changes & change::mode)
         resized();
@@ -134,7 +174,7 @@ void PitchLane::resized()
     plotArea = r;
 
     auto f = footerArea.reduced (metrics::pad, 0);
-    for (auto* b : { &fullRange, &octaveUp, &octaveAlign, &listenOriginal, &thirdKey })
+    for (auto* b : { &fullRange, &octaveUp, &octaveAlign, &listenOriginal, &thirdKey, &weakKey })
     {
         if (! b->isVisible())
             continue;
