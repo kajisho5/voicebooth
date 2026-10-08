@@ -84,6 +84,50 @@ namespace
     }
 }
 
+bool RefMix::prepare (const project::Project& p, const juce::File& projectFolder, const PackOptions& o, juce::String& error)
+{
+    backing = o.backing;
+    backingGain = o.backingGain;
+    vocals.clear();
+    for (auto t : o.tracks)
+    {
+        const auto g = o.vocalGains.count (t) ? o.vocalGains.at (t) : 1.0f;
+        if (g <= 0.0f)
+            continue;
+        juce::AudioBuffer<float> b;
+        Options eo;
+        eo.crossfadeMs = o.crossfadeMs;
+        if (! ExportService::renderTrackDry (p, t, projectFolder, b, eo).ok)
+        {
+            error = "can't render " + trackLabel (t);
+            return false;
+        }
+        vocals.push_back ({ std::move (b), g });
+    }
+    return true;
+}
+
+float RefMix::peak (int64 from, int64 to) const
+{
+    float pk = 0.0f;
+    for (auto i = from; i < to; ++i)
+        for (int c = 0; c < 2; ++c)
+            pk = juce::jmax (pk, std::abs (at (c, i)));
+    return pk;
+}
+
+void RefMix::render (int64 from, int64 to, float scale, juce::AudioBuffer<float>& out) const
+{
+    const auto n = (int) juce::jmax<int64> (0, to - from);
+    out.setSize (2, n, false, false, true);
+    for (int c = 0; c < 2; ++c)
+    {
+        auto* w = out.getWritePointer (c);
+        for (int i = 0; i < n; ++i)
+            w[i] = at (c, from + i) * scale;
+    }
+}
+
 juce::String DeliveryPack::notesText (const project::Project& p, const PackOptions& o, const PackResult& r)
 {
     // DESIGN 9 の項目（title / sr / bit / key / tempo / peak_vocal_dbfs / normalized / latency_compensation_ms）＋ 補足
@@ -212,36 +256,15 @@ PackResult DeliveryPack::write (const project::Project& project, const juce::Fil
     // 2. 確認用ミックス（伴奏 + ボーカル。ステレオ）。-1 dBFS を超える時だけ全体を下げる
     if (o.backing != nullptr && o.backing->getNumSamples() > 0)
     {
-        std::vector<std::pair<juce::AudioBuffer<float>, float>> vocals;
-        for (auto t : o.tracks)
-        {
-            const auto g = o.vocalGains.count (t) ? o.vocalGains.at (t) : 1.0f;
-            if (g <= 0.0f)
-                continue;
-            juce::AudioBuffer<float> b;
-            Options eo;
-            eo.crossfadeMs = o.crossfadeMs;
-            if (! ExportService::renderTrackDry (p, t, projectFolder, b, eo).ok)
-                return fail ("refmix: can't render " + trackLabel (t));
-            vocals.push_back ({ std::move (b), g });
-        }
+        RefMix mix;
+        juce::String why;
+        if (! mix.prepare (p, projectFolder, o, why))
+            return fail ("refmix: " + why);
 
         const auto length = (int) juce::jmin<int64> (p.lengthSamples, std::numeric_limits<int>::max());
-        const auto& back = *o.backing;
-        const auto backCh = back.getNumChannels();
-        auto mixAt = [&] (int c, int i)
-        {
-            float v = i < back.getNumSamples() ? back.getSample (juce::jmin (c, backCh - 1), i) * o.backingGain : 0.0f;
-            for (auto& [b, g] : vocals)
-                if (i < b.getNumSamples())
-                    v += b.getSample (0, i) * g;
-            return v;
-        };
+        auto mixAt = [&] (int c, int i) { return mix.at (c, i); };
 
-        float peak = 0.0f;
-        for (int i = 0; i < length; ++i)
-            for (int c = 0; c < 2; ++c)
-                peak = juce::jmax (peak, std::abs (mixAt (c, i)));
+        const auto peak = mix.peak (0, length);
         const auto ceiling = juce::Decibels::decibelsToGain (-1.0f);
         const auto scale = peak > ceiling ? ceiling / peak : 1.0f;
         r.refmixGainDb = juce::Decibels::gainToDecibels (scale);

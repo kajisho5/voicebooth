@@ -479,10 +479,12 @@ namespace
         {
             if (writer == nil)
                 return "not open";
+            // 映像を受け取れるまで待つ。書く側は映像と音を交互に並べるので、音が足りないと映像を受け取らない。
+            // 待つ間は音を先に渡す（1 コマごとに同じ時刻までの音しか渡さないと、CI の Mac で止まったまま進まなかった）
+            if (auto e = waitWhileFeedingAudio (videoIn); e.isNotEmpty())
+                return fail ("video: " + e);
             @autoreleasepool
             {
-                if (! waitReady (videoIn))
-                    return fail ("video: " + writerError());
                 CVPixelBufferRef pb = nullptr;
                 auto pool = adaptor.pixelBufferPool;
                 const auto made = pool != nullptr ? CVPixelBufferPoolCreatePixelBuffer (kCFAllocatorDefault, pool, &pb)
@@ -502,20 +504,38 @@ namespace
                     return fail ("video: " + writerError());
             }
             ++frames;
-            return writeAudioUntil (audioSamplesUntilFrame (frames - 1, spec.fps));
+            // このコマの終わりまでの音を、受け取れる分だけ（残りは次のコマを待つ間か、最後に書く）
+            const auto until = audioSamplesUntilFrame (frames - 1, spec.fps);
+            for (;;)
+            {
+                juce::String e;
+                if (audioPos >= until || ! appendAudioChunk (e))
+                {
+                    if (e.isNotEmpty())
+                        return fail ("audio: " + e);
+                    break;
+                }
+            }
+            return {};
         }
 
         juce::String finish() override
         {
             if (writer == nil)
                 return "not open";
-            if (auto e = writeAudioUntil (std::numeric_limits<juce::int64>::max()); e.isNotEmpty())
-                return e;
             @autoreleasepool
             {
+                // 映像を閉じてから残りの音を書く（映像を待たずに音を受け取るように）
                 [videoIn markAsFinished];
                 if (audioIn != nil)
+                {
+                    while (audioPos < audio->getNumSamples())
+                        if (auto e = waitWhileFeedingAudio (audioIn); e.isNotEmpty())
+                            return fail ("audio: " + e);
+                        else if (juce::String err; ! appendAudioChunk (err) && err.isNotEmpty())
+                            return fail ("audio: " + err);
                     [audioIn markAsFinished];
+                }
                 dispatch_semaphore_t done = dispatch_semaphore_create (0);
                 [writer finishWritingWithCompletionHandler: ^{ dispatch_semaphore_signal (done); }];
                 dispatch_semaphore_wait (done, DISPATCH_TIME_FOREVER);
@@ -532,18 +552,27 @@ namespace
         }
 
     private:
-        bool waitReady (AVAssetWriterInput* input)
+        /** input が受け取れるまで待つ。待つ間、音が残っていて受け取れるなら先に渡す。
+            何も進まないまま 20 秒たったら、または書く側が失敗したら理由を返す */
+        juce::String waitWhileFeedingAudio (AVAssetWriterInput* input)
         {
-            // 書く側が受け取れるまで待つ（実時間ではないので、たいていすぐ。止まったままなら 20 秒であきらめる）
-            for (int i = 0; i < 20000; ++i)
+            auto lastProgress = juce::Time::getMillisecondCounter();
+            for (;;)
             {
                 if (input.readyForMoreMediaData)
-                    return true;
+                    return {};
                 if (writer.status == AVAssetWriterStatusFailed)
-                    return false;
-                juce::Thread::sleep (1);
+                    return writerError();
+                juce::String e;
+                if (input != audioIn && appendAudioChunk (e))
+                    lastProgress = juce::Time::getMillisecondCounter();
+                else if (e.isNotEmpty())
+                    return e;
+                else if (juce::Time::getMillisecondCounter() - lastProgress > 20000)
+                    return "not ready";
+                else
+                    juce::Thread::sleep (1);
             }
-            return false;
         }
 
         juce::String writerError() const
@@ -551,45 +580,46 @@ namespace
             return writer != nil && writer.error != nil ? fromNS (writer.error.localizedDescription) : juce::String ("not ready");
         }
 
-        juce::String writeAudioUntil (juce::int64 end)
+        /** 音を 0.1 秒書く（書いたら true）。音が残っていない・書く側が受け取れないときは書かずに false（error は空）。
+            書けなかったときは error に理由 */
+        bool appendAudioChunk (juce::String& error)
         {
-            if (audio == nullptr)
-                return {};
-            end = juce::jmin (end, (juce::int64) audio->getNumSamples());
-            std::vector<float> interleaved;
-            while (audioPos < end)
+            if (audio == nullptr || audioIn == nil || audioPos >= audio->getNumSamples() || ! audioIn.readyForMoreMediaData)
+                return false;
+            @autoreleasepool
             {
-                @autoreleasepool
+                const auto n = (int) juce::jmin<juce::int64> (audioChunk, audio->getNumSamples() - audioPos);
+                interleaved.resize ((size_t) n * 2);
+                for (int i = 0; i < n; ++i)
+                    for (int c = 0; c < 2; ++c)
+                        interleaved[(size_t) i * 2 + (size_t) c] = sampleAt (*audio, c, audioPos + i);
+                const auto bytes = interleaved.size() * sizeof (float);
+                CMBlockBufferRef block = nullptr;
+                auto st = CMBlockBufferCreateWithMemoryBlock (kCFAllocatorDefault, nullptr, bytes, kCFAllocatorDefault, nullptr,
+                                                              0, bytes, kCMBlockBufferAssureMemoryNowFlag, &block);
+                if (st == noErr)
+                    st = CMBlockBufferReplaceDataBytes (interleaved.data(), block, 0, bytes);
+                CMSampleBufferRef sample = nullptr;
+                if (st == noErr)
+                    st = CMAudioSampleBufferCreateReadyWithPacketDescriptions (kCFAllocatorDefault, block, audioFormat, (CMItemCount) n,
+                                                                               CMTimeMake (audioPos, audioRate), nullptr, &sample);
+                if (block != nullptr)
+                    CFRelease (block);
+                if (st != noErr || sample == nullptr)
                 {
-                    const auto n = (int) juce::jmin<juce::int64> (audioChunk, end - audioPos);
-                    if (! waitReady (audioIn))
-                        return fail ("audio: " + writerError());
-                    interleaved.resize ((size_t) n * 2);
-                    for (int i = 0; i < n; ++i)
-                        for (int c = 0; c < 2; ++c)
-                            interleaved[(size_t) i * 2 + (size_t) c] = sampleAt (*audio, c, audioPos + i);
-                    const auto bytes = interleaved.size() * sizeof (float);
-                    CMBlockBufferRef block = nullptr;
-                    auto st = CMBlockBufferCreateWithMemoryBlock (kCFAllocatorDefault, nullptr, bytes, kCFAllocatorDefault, nullptr,
-                                                                  0, bytes, kCMBlockBufferAssureMemoryNowFlag, &block);
-                    if (st == noErr)
-                        st = CMBlockBufferReplaceDataBytes (interleaved.data(), block, 0, bytes);
-                    CMSampleBufferRef sample = nullptr;
-                    if (st == noErr)
-                        st = CMAudioSampleBufferCreateReadyWithPacketDescriptions (kCFAllocatorDefault, block, audioFormat, (CMItemCount) n,
-                                                                                   CMTimeMake (audioPos, audioRate), nullptr, &sample);
-                    if (block != nullptr)
-                        CFRelease (block);
-                    if (st != noErr || sample == nullptr)
-                        return fail ("can't make an audio buffer");
-                    const BOOL ok = [audioIn appendSampleBuffer: sample];
-                    CFRelease (sample);
-                    if (! ok)
-                        return fail ("audio: " + writerError());
-                    audioPos += n;
+                    error = "can't make an audio buffer";
+                    return false;
                 }
+                const BOOL ok = [audioIn appendSampleBuffer: sample];
+                CFRelease (sample);
+                if (! ok)
+                {
+                    error = writerError();
+                    return false;
+                }
+                audioPos += n;
             }
-            return {};
+            return true;
         }
 
         juce::String fail (const juce::String& why)
@@ -626,6 +656,7 @@ namespace
         AVAssetWriterInputPixelBufferAdaptor* adaptor = nil;
         CMAudioFormatDescriptionRef audioFormat = nullptr;
         juce::int64 frames = 0, audioPos = 0;
+        std::vector<float> interleaved;
     };
 } // namespace
 

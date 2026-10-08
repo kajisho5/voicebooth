@@ -16,6 +16,7 @@
 #include "screens/RangeDialog.h"
 #include "screens/TakeCompareDialog.h"
 #include "screens/HistoryDialog.h"
+#include "screens/ShareVideoDialog.h"
 #include "SongMarks.h"
 #include "system/AppCache.h"
 #include "project/ProjectFile.h"
@@ -58,6 +59,7 @@ MainComponent::MainComponent (UiSession& u, AppHooks& h)
     actions.editSectionName = [this] (int i) { openSectionName (i); };
     actions.openTakeCompare = [this] (long long from, long long to) { openTakeCompare (from, to); };
     actions.openHistory = [this] { openHistory(); };
+    actions.openShareVideo = [this] { openShareVideo(); };
 
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &top, &transport, &pitch, &lyrics, &wave, &tracks, &rack, &status })
@@ -197,6 +199,7 @@ void MainComponent::applyLaunchOptions (const LaunchOptions& o)
     }
     if (o.screen == "confirm-rec")  { session.setTempo (75); toggleRecord(); }
     if (o.screen == "compare")      openTakeCompare (0, 0);
+    if (o.screen == "share")        openShareVideo();         // 共有用の動画（DESIGN 9.1）
     if (o.screen == "history")      openHistory();            // 練習の履歴（Phase C）   // テイク比較（B18c。見本は Main の IN / OUT）
 
     // DESIGN 11.7 の見本（通信しない。バージョン・本文は見本、キーは本物のリリースのページを開く）
@@ -991,6 +994,12 @@ void MainComponent::openExport (const ExportDialog::Choice& restore)
     if (! restore.tracks.empty())
         d->restore (restore);
     dlg->onCloseRequest = [this] { overlay.close(); };
+    dlg->onShareVideo = [this]
+    {
+        overlay.close();
+        juce::Component::SafePointer<MainComponent> safe (this);
+        juce::MessageManager::callAsync ([safe] { if (safe != nullptr) safe->openShareVideo(); });
+    };
     dlg->onExport = [this, d]
     {
         // 曲を開いていれば本当に書き出す（B5：個別のフル尺 Dry）。見本（UI_MOCK・デモ）は書かない
@@ -1402,6 +1411,16 @@ void MainComponent::openHistory()
     if (state().isRecording)
         return;
     auto dlg = std::make_unique<HistoryDialog> (session);
+    dlg->onFinished = [this] { overlay.close(); };
+    overlay.show (std::move (dlg), true);
+}
+
+void MainComponent::openShareVideo()
+{
+    // 共有用の動画（DESIGN 9.1）：書き出し中に閉じてもバックグラウンドで続く（開き直すと進み具合を表示する）
+    if (state().isRecording)
+        return;
+    auto dlg = std::make_unique<ShareVideoDialog> (session);
     dlg->onFinished = [this] { overlay.close(); };
     overlay.show (std::move (dlg), true);
 }

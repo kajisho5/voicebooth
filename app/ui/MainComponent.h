@@ -120,6 +120,7 @@ public:
     /** テイク比較（B18c）。from >= to なら IN / OUT（無ければ曲全体）、そうでなければその区間 */
     void openTakeCompare (int64 from, int64 to);
     void openHistory();
+    void openShareVideo();
 
     void showToast (const juce::String&);
     /** 押せるキー付きの知らせ（長めに出す。録り間違いの救済など） */

@@ -51,6 +51,9 @@ void UiSession::loadSong (const juce::File& file, int sampleRate, int64 lengthSa
     songHash = audio != nullptr && audio->buffer.getNumChannels() > 0
                  ? juce::String::toHexString ((juce::int64) analysis::cache::hashSamples (audio->buffer.getReadPointer (0), audio->buffer.getNumSamples()))
                  : juce::String();
+    // 前の曲の共有用の動画は止める（書きかけは消える）。遅れて届く知らせは新しい曲に使わない
+    cancelShareVideo();
+    ++shareJob;
     s = dummy::makeSongSession (s, file.getFileNameWithoutExtension(), file.getFullPathName(),
                                 sampleRate, lengthSamples, std::move (wave));
     s.songRate = sampleRate;
@@ -534,6 +537,8 @@ void UiSession::closeForQuit()
     // バグチェック 2026-10-05）
     endTakeCompare (false);
     flushSave();
+    // 共有用の動画は止める（書きかけは消える。止まるまで下で待つ）
+    cancelShareVideo();
     // 書き出しの途中なら終わるまで待つ（最長 2 分）。待たずに終わると、書きかけのパック・WAV が残っていた（監査 2026-10-06）
     for (const auto until = juce::Time::getMillisecondCounter() + 120000;
          exportJobs->load() > 0 && (juce::int32) (juce::Time::getMillisecondCounter() - until) < 0;)

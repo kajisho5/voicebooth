@@ -11,7 +11,8 @@
       --lang=ja|en|ko|zh-Hans|zh-Hant|es|pt-BR|id|vi|tr|de|fr  表示言語（保存された設定より優先）
       --skin=<id>            スキン（booth / studio-day / … / 自作の id。保存された設定より優先、保存はしない）
       --screen=<name>        start / setup / setup2 / setup3 / export / settings / skin-templates / skin-editor /
-                             skin-editor-borrow / confirm-rec / song-info / lyrics / compare（テイク比較。B18c）/ history（練習の履歴。Phase C）
+                             skin-editor-borrow / confirm-rec / song-info / lyrics / compare（テイク比較。B18c）/ history（練習の履歴。Phase C）/
+                             share（共有用の動画。DESIGN 9.1）
       --open=<path>          その曲を開く（起動画面で読み込み → 波形。B1）
       --lyrics=<path>        歌詞パッドをその .txt / .lrc で開く（B4b）
       --guide=<path>         --open の曲を開いたら、このお手本（声入りの原曲）を重ねる（B9）。--open が無ければ起動画面のお手本の枠に入れる

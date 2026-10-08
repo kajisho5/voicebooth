@@ -2,6 +2,7 @@
 
 #include "ExportService.h"
 #include <map>
+#include <memory>
 
 /*  納品パック（DESIGN 9 / 12「ピーク確認 → 未録音警告 → zip」/ B15）
     export_YYYYMMDD/（同じ日に 2 回目なら export_YYYYMMDD_2 …。前の納品を上書きしない）に
@@ -44,6 +45,37 @@ struct PackResult
     std::map<project::TrackType, float> peaks;  // ボーカルごとの最大振幅
     float refmixGainDb = 0.0f;                  // refmix を下げた量（0 = 下げていない）
     bool zipTooLarge = false;                   // 4 GiB を超えるので zip を作らなかった（フォルダだけ。#22）
+};
+
+/** 確認用ミックス：伴奏 + ボーカルをモニターの音量で足したステレオ（refmix.wav と、共有用の動画の音。DESIGN 9 / 9.1）。
+    ボーカルは書き出しと同じ計算（採用区間をつないだフル尺）。バックグラウンドのスレッドで作る */
+class RefMix
+{
+public:
+    /** o.backing・o.backingGain・o.vocalGains・o.tracks・o.crossfadeMs を使う。失敗したら false（error に英語の短い理由） */
+    bool prepare (const project::Project&, const juce::File& projectFolder, const PackOptions& o, juce::String& error);
+
+    float at (int channel, project::int64 sample) const
+    {
+        const auto i = (int) sample;
+        float v = backing != nullptr && i >= 0 && i < backing->getNumSamples()
+                      ? backing->getSample (juce::jmin (channel, backing->getNumChannels() - 1), i) * backingGain : 0.0f;
+        for (auto& [b, g] : vocals)
+            if (i >= 0 && i < b.getNumSamples())
+                v += b.getSample (0, i) * g;
+        return v;
+    }
+
+    /** [from, to) の最大振幅（両チャンネル） */
+    float peak (project::int64 from, project::int64 to) const;
+
+    /** [from, to) を scale 倍してステレオで out に（大きさは out に合わせて変える） */
+    void render (project::int64 from, project::int64 to, float scale, juce::AudioBuffer<float>& out) const;
+
+private:
+    std::shared_ptr<const juce::AudioBuffer<float>> backing;
+    float backingGain = 1.0f;
+    std::vector<std::pair<juce::AudioBuffer<float>, float>> vocals;
 };
 
 class DeliveryPack
