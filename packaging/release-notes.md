@@ -28,6 +28,19 @@ English follows Japanese.
 | 短い WAV を開いて録音する | まだ | まだ |
 | 書き出す | まだ | まだ |
 
+## beta.8 で増えたもの・直したもの（ループ録り・ヘルプ・3 度ガイド・見直し）
+
+- **範囲をループして何回も録る**：範囲（IN / OUT）とループを点けて REC を押すと、範囲の終わりでテイクを閉じ、少し前に戻って止めずに次のテイクを録ります。止めるまでくり返し、あとでテイク比較から選べます（標準・プロ）
+- **3 度ガイド**（標準・プロ）：ハモリのトラックで、お手本の音から曲のキーの音階で 3 度上・下の音を点線の音符で表示します。下の欄のキーで 3 度上 → 3 度下 → なし（最初は「なし」）
+- **ヘルプのメニュー**：上のバーの「?」（Mac はメニューバーにも）から、困ったとき（F1）・キーボードショートカット・使い方・不具合を報告・新しいバージョンを確認・リリースノート・このアプリについて。困ったときは、いまの状態に関係する項目を上に表示し、直す画面へ移れます
+- **不具合を報告**：アプリと機器の情報をまとめて表示し、コピーや GitHub の Issues を開くことができます（アプリからは何も送りません）
+- **1 文字のショートカットを変えられる**：設定 →「キーボードのショートカット」で、R・L・[・]・T・M・1〜4 を付け替え・なしにできます
+- **キーボードと画面読み上げ**：キー・切り替え・プルダウン・フェーダー・つまみに Tab で移れ、矢印キーや Enter で操作できます。アイコンだけのキーにも読み上げの名前を付けました
+- **ずれを色だけでなく線の形でも表示**：合う＝実線、少しずれ＝長い破線、大きくずれ＝短い破線。今の音の点に、直す向きの印（▲ / ▼）を添えます
+- **小さい字を読みやすく**：控えめな文字の色を、全部のスキンでコントラスト比 4.5:1 以上にしました
+- **分離の待ち時間を実測に合わせて幅で表示**（例：約 15〜30 分）。「原曲だけで始める」は見込みを表示してから始め、リードとハモリの分離も始める前に確認します（録音中は確認を表示しません）
+- **見直しで直した不具合（約 100 件）**：ループで戻った直後の REC で前の周回がテイクになる、0.5 秒を超える遅延で範囲の終わりが録れない、機器が外れて開き直したあとの SR と入力、1 ch の出力で L だけ鳴る、曲の頭の約 100 サンプルが消える、5.1ch の曲でセンターの歌が鳴らない、途中から読めない mp3 を成功にしていた、書き出しの途中で終了すると書きかけが残る、ダウンロードの再試行の待ちが短くなる・ディスクに書けないときに取り直し続ける、曲を開き直すとショートカットが既定に戻る、など
+
 ## beta.7 で直したもの（高い SR の曲・判定・動作の軽さ）
 
 - **192 / 384 kHz の機器で、練習のテンポ・キーを変えると音が途切れていた**：96 kHz を超えるときは軽い方式で伸び縮みさせます（手元の計測で、192 kHz の処理の重さが実時間の 117% → 34%）
@@ -151,6 +164,19 @@ For each release, the results of the steps below on the author's Windows and Mac
 | Microphone input (the meter moves) | not yet | not yet |
 | Open a short WAV and record | not yet | not yet |
 | Export | not yet | not yet |
+
+## New and fixed in beta 8 (loop takes, help, third guide, review fixes)
+
+- **Loop a range and record take after take**: with a range (IN / OUT) and loop on, REC closes the take at the end of the range, goes back a little and records the next take without stopping. It repeats until you stop, and you pick the take later in take comparison (Standard and Pro)
+- **Third guide** (Standard and Pro): on harmony tracks, dotted notes show a third above or below the guide in the song's key. The key in the bottom bar cycles third above → third below → off (off at first)
+- **Help menu**: from "?" in the top bar (and the menu bar on Mac): Troubleshooting (F1), keyboard shortcuts, how to use, report a problem, check for a new version, release notes and About. Troubleshooting lists the items related to the current state first and opens the screen that fixes them
+- **Report a problem**: shows the app and device information so you can copy it or open GitHub Issues (the app itself sends nothing)
+- **Change single-key shortcuts**: Settings → Keyboard shortcuts lets you reassign or turn off R, L, [, ], T, M and 1–4
+- **Keyboard and screen readers**: Tab moves through keys, switches, drop-downs, faders and knobs, which work with the arrow keys and Enter. Icon-only keys now have names for screen readers
+- **Pitch errors shown by line shape as well as colour**: in tune = solid, slightly off = long dashes, far off = short dashes. The current note gets an arrow (▲ / ▼) showing which way to go
+- **Easier-to-read small text**: muted text now has a contrast ratio of at least 4.5:1 in every skin
+- **Separation time shown as a measured range** (for example about 15–30 minutes). "Start from the original only" shows the estimate before it starts, and lead / harmony separation asks before it starts (never during recording)
+- **About 100 fixes from code reviews**: REC right after a loop jump could keep the previous pass; with more than 0.5 s of latency the end of the range was not recorded; sample rate and input after the device was unplugged and reopened; only L played on 1-channel outputs; about 100 samples were lost at the start of a song; the centre vocal of 5.1 songs was silent; mp3 files that stopped decoding partway counted as success; quitting during export left a half-written pack; download retries waited too briefly and a full disk caused endless re-downloads; reopening a song reset the shortcuts; and more
 
 ## Fixed in beta 7 (high sample rates, judging and lighter background work)
 
