@@ -29,8 +29,10 @@ class Encoder
 public:
     virtual ~Encoder() = default;
 
-    /** この OS で書けるか（Linux は ffmpeg があるか） */
-    static bool available();
+    /** この OS で書けるか（Linux は ffmpeg があるか。Mac は H.264 で 1 コマ符号化できるか） */
+    static bool available() { return problem().isEmpty(); }
+    /** 書けない理由（英語の短い文。書けるなら空）。初めて呼ぶときに確かめ、あとは覚えておく */
+    static juce::String problem();
     static std::unique_ptr<Encoder> create();
 
     /** audio は audioRate のステレオ。nullptr か空なら音なし。dest は上書きする。戻り値は失敗の理由（空なら成功。英語の短い文） */

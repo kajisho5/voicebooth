@@ -22,6 +22,7 @@
  #import <AVFoundation/AVFoundation.h>
  #import <CoreMedia/CoreMedia.h>
  #import <CoreVideo/CoreVideo.h>
+ #import <VideoToolbox/VideoToolbox.h>
 #else
  #include <cstdio>
  #include <csignal>
@@ -288,7 +289,7 @@ namespace
     };
 } // namespace
 
-bool Encoder::available() { return true; }   // Media Foundation が無い Windows（N エディション）は open で理由を返す
+juce::String Encoder::problem() { return {}; }   // Media Foundation が無い Windows（N エディション）は open で理由を返す
 std::unique_ptr<Encoder> Encoder::create() { return std::make_unique<MfEncoder>(); }
 
 bool readFrame (const juce::File& file, double seconds, int& width, int& height, std::vector<juce::uint32>& argb)
@@ -355,19 +356,35 @@ bool readFrame (const juce::File& file, double seconds, int& width, int& height,
     else if (FAILED (MFGetStrideForBitmapInfoHeader (MFVideoFormat_RGB32.Data1, w, &stride)))
         return false;
 
+    // H.264 は 16 の倍数に詰めて符号化するので、復号した画は大きいことがある（幅 1080 → 1088）。見せる範囲だけ切り出す
+    UINT32 cropX = 0, cropY = 0, outW = w, outH = h;
+    for (auto& key : { MF_MT_MINIMUM_DISPLAY_APERTURE, MF_MT_GEOMETRIC_APERTURE })
+    {
+        MFVideoArea area {};
+        if (SUCCEEDED (current->GetBlob (key, reinterpret_cast<UINT8*> (&area), sizeof (area), nullptr))
+            && area.Area.cx > 0 && area.Area.cy > 0)
+        {
+            cropX = (UINT32) juce::jmax (0, (int) area.OffsetX.value);
+            cropY = (UINT32) juce::jmax (0, (int) area.OffsetY.value);
+            outW = juce::jmin ((UINT32) area.Area.cx, w - juce::jmin (w, cropX));
+            outH = juce::jmin ((UINT32) area.Area.cy, h - juce::jmin (h, cropY));
+            break;
+        }
+    }
+
     Com<IMFMediaBuffer> buffer;
     if (FAILED (sample->ConvertToContiguousBuffer (buffer.put())))
         return false;
-    width = (int) w;
-    height = (int) h;
-    argb.assign ((size_t) w * h, 0);
+    width = (int) outW;
+    height = (int) outH;
+    argb.assign ((size_t) outW * outH, 0);
     auto copyRows = [&] (const BYTE* firstRow, LONG pitch)
     {
-        for (UINT32 y = 0; y < h; ++y)
+        for (UINT32 y = 0; y < outH; ++y)
         {
-            auto* row = reinterpret_cast<const juce::uint32*> (firstRow + (LONGLONG) pitch * y);
-            for (UINT32 x = 0; x < w; ++x)
-                argb[(size_t) y * w + x] = row[x] | 0xff000000u;
+            auto* row = reinterpret_cast<const juce::uint32*> (firstRow + (LONGLONG) pitch * (y + cropY));
+            for (UINT32 x = 0; x < outW; ++x)
+                argb[(size_t) y * outW + x] = row[x + cropX] | 0xff000000u;
         }
     };
     Com<IMF2DBuffer> buffer2d;
@@ -399,6 +416,66 @@ bool readFrame (const juce::File& file, double seconds, int& width, int& height,
 namespace
 {
     NSString* toNS (const juce::String& s) { return [NSString stringWithUTF8String: s.toRawUTF8()]; }
+
+    /** H.264 で 1 コマ符号化できるか（できなければ理由）。仮想マシンの Mac（CI）には符号化器がなく、AVAssetWriter が
+        エラーにならないまま映像を受け取らなくなった（2026-10-08）。止まっても待ち続けないよう、5 秒で打ち切る
+        （打ち切ったときは、止まった符号化器の後始末をしない：解放すると、まだ動いている処理が使うため） */
+    juce::String probeH264()
+    {
+        constexpr int w = 1280, h = 720;
+        VTCompressionSessionRef session = nullptr;
+        auto st = VTCompressionSessionCreate (kCFAllocatorDefault, w, h, kCMVideoCodecType_H264, nullptr, nullptr, nullptr,
+                                              nullptr, nullptr, &session);
+        if (st != noErr || session == nullptr)
+            return "H.264 encoder not available (" + juce::String ((int) st) + ")";
+        VTSessionSetProperty (session, kVTCompressionPropertyKey_RealTime, kCFBooleanTrue);
+        VTSessionSetProperty (session, kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse);
+        CVPixelBufferRef pb = nullptr;
+        if (CVPixelBufferCreate (kCFAllocatorDefault, w, h, kCVPixelFormatType_32BGRA, nullptr, &pb) != kCVReturnSuccess || pb == nullptr)
+        {
+            VTCompressionSessionInvalidate (session);
+            CFRelease (session);
+            return "can't make a pixel buffer";
+        }
+        CVPixelBufferLockBaseAddress (pb, 0);
+        std::memset (CVPixelBufferGetBaseAddress (pb), 0, CVPixelBufferGetBytesPerRow (pb) * (size_t) h);
+        CVPixelBufferUnlockBaseAddress (pb, 0);
+
+        dispatch_semaphore_t encoded = dispatch_semaphore_create (0), completed = dispatch_semaphore_create (0);
+        __block OSStatus result = -1;
+        __block bool gotSample = false;
+        st = VTCompressionSessionEncodeFrameWithOutputHandler (session, pb, CMTimeMake (0, 30), kCMTimeInvalid, nullptr, nullptr,
+                                                               ^(OSStatus s, VTEncodeInfoFlags, CMSampleBufferRef sb)
+                                                               {
+                                                                   result = s;
+                                                                   gotSample = sb != nullptr;
+                                                                   dispatch_semaphore_signal (encoded);
+                                                               });
+        if (st != noErr)
+        {
+            VTCompressionSessionInvalidate (session);
+            CFRelease (session);
+            CVPixelBufferRelease (pb);
+            return "H.264 encoder not available (" + juce::String ((int) st) + ")";
+        }
+        dispatch_async (dispatch_get_global_queue (QOS_CLASS_DEFAULT, 0), ^{
+            VTCompressionSessionCompleteFrames (session, kCMTimeInvalid);
+            dispatch_semaphore_signal (completed);
+        });
+        const auto wait5s = [] (dispatch_semaphore_t s) { return dispatch_semaphore_wait (s, dispatch_time (DISPATCH_TIME_NOW, 5 * (int64_t) NSEC_PER_SEC)) == 0; };
+        if (! wait5s (encoded) || ! wait5s (completed))
+            return "H.264 encoder not responding";   // 後始末はしない（上の説明）
+        VTCompressionSessionInvalidate (session);
+        CFRelease (session);
+        CVPixelBufferRelease (pb);
+       #if ! __has_feature(objc_arc)
+        dispatch_release (encoded);
+        dispatch_release (completed);
+       #endif
+        if (result != noErr || ! gotSample)
+            return "H.264 encoder failed (" + juce::String ((int) result) + ")";
+        return {};
+    }
     juce::String fromNS (NSString* s) { return s != nil ? juce::String::fromUTF8 ([s UTF8String]) : juce::String(); }
 
     class AvEncoder final : public Encoder
@@ -411,6 +488,8 @@ namespace
             dest = d;
             spec = s;
             audio = a != nullptr && a->getNumSamples() > 0 && a->getNumChannels() > 0 ? a : nullptr;
+            if (auto why = Encoder::problem(); why.isNotEmpty())
+                return why;
             dest.deleteFile();
 
             @autoreleasepool
@@ -660,7 +739,14 @@ namespace
     };
 } // namespace
 
-bool Encoder::available() { return true; }
+juce::String Encoder::problem()
+{
+    @autoreleasepool
+    {
+        static const juce::String reason = probeH264();
+        return reason;
+    }
+}
 std::unique_ptr<Encoder> Encoder::create() { return std::make_unique<AvEncoder>(); }
 
 bool readFrame (const juce::File& file, double seconds, int& width, int& height, std::vector<juce::uint32>& argb)
@@ -859,7 +945,7 @@ namespace
     }
 } // namespace
 
-bool Encoder::available() { return findOnPath ("ffmpeg") != juce::File(); }
+juce::String Encoder::problem() { return findOnPath ("ffmpeg") != juce::File() ? juce::String() : juce::String ("ffmpeg not found"); }
 std::unique_ptr<Encoder> Encoder::create() { return std::make_unique<FfmpegEncoder>(); }
 
 bool readFrame (const juce::File& file, double seconds, int& width, int& height, std::vector<juce::uint32>& argb)

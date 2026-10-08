@@ -192,7 +192,7 @@ set(VOICEBOOTH_RECORD_SOURCES
 # Linux は PATH の ffmpeg
 if(APPLE)
     list(APPEND VOICEBOOTH_RECORD_SOURCES app/export/VideoEncoder.mm)
-    set(VB_VIDEO_FRAMEWORKS "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+    set(VB_VIDEO_FRAMEWORKS "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo" "-framework VideoToolbox")
 else()
     list(APPEND VOICEBOOTH_RECORD_SOURCES app/export/VideoEncoder.cpp)
     set(VB_VIDEO_FRAMEWORKS "")

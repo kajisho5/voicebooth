@@ -438,11 +438,11 @@ public:
             const auto folder = UiSession::projectFolderFor (songName).getChildFile ("share");
             if (! video::Encoder::available())
             {
-                // Linux で ffmpeg がない：書けない理由を表示して、何も始めない
+                // 書けない環境（Linux で ffmpeg がない・仮想マシンの Mac で H.264 の符号化器がない）：理由を表示して、何も始めない
                 ui.exportShareVideo (req);
                 expect (! ui.get().share.running);
                 expect (ui.get().share.error.isNotEmpty(), "the reason is shown");
-                logMessage ("ffmpeg not found: the share video isn't written on this machine");
+                logMessage ("*** the share video isn't written on this machine: " + video::Encoder::problem() + " ***");
             }
             else
             {

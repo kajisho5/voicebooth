@@ -14,6 +14,7 @@ namespace
         juce::StringArray handlers;        // trak/mdia/hdlr の種類（vide / soun）
         juce::StringArray sampleEntries;   // stsd の中身（avc1 / mp4a）
         double movieSeconds = 0.0;
+        int width = 0, height = 0;         // 映像のトラックの tkhd の幅・高さ（音のトラックは 0）
 
         explicit Mp4 (const juce::File& f)
         {
@@ -59,6 +60,17 @@ namespace
                         e += es;
                     }
                 }
+                else if (t == "tkhd" && body + 1 <= end)
+                {
+                    // version/flags(4) のあと、v0 は 20 バイト・v1 は 32 バイトの時刻などがあり、続く 8+8+36 バイトの後に幅・高さ（16.16）
+                    const auto version = static_cast<const juce::uint8*> (data.getData())[body];
+                    const auto at16 = body + (version == 1 ? 88 : 76);
+                    if (at16 + 8 <= end)
+                    {
+                        width = juce::jmax (width, (int) (u32 (at16) >> 16));
+                        height = juce::jmax (height, (int) (u32 (at16 + 4) >> 16));
+                    }
+                }
                 else if (t == "mvhd" && body + 32 <= end)
                 {
                     const auto version = static_cast<const juce::uint8*> (data.getData())[body];
@@ -97,20 +109,23 @@ public:
 
         beginTest ("writes an MP4 that reads back (H.264 + AAC, colours, top row first)");
         {
-           #if JUCE_LINUX
+            // 書けない環境（Linux で ffmpeg がない・仮想マシンの Mac で H.264 の符号化器がない）：理由を返して、何も書かない
             if (! Encoder::available())
             {
-                logMessage ("ffmpeg not found: Linux can't write MP4 (DESIGN 9.1)");
+                logMessage ("*** this machine can't write MP4: " + Encoder::problem() + " (DESIGN 9.1) ***");
+               #if JUCE_WINDOWS
+                expect (false, "Windows always has Media Foundation");
+               #endif
+                const auto f = juce::File::createTempFile (".mp4");
                 auto enc = Encoder::create();
-                expect (enc->open (juce::File::createTempFile (".mp4"), {}, nullptr).isNotEmpty());
+                expect (enc->open (f, {}, nullptr).isNotEmpty());
+                expect (! f.exists());
                 return;
             }
-           #endif
-            expect (Encoder::available());
 
             Spec spec;
-            spec.width = 192;    // 16 の倍数（読み戻すときに詰め物の行が入らない）
-            spec.height = 320;
+            spec.width = 648;    // 16 の倍数ではない（H.264 は 656 に詰めて符号化する。読み戻すと 648 に戻るか。1080 も同じ）。
+            spec.height = 360;   // 小さすぎると Mac の符号化器が受け付けないことがある
             spec.fps = 30;
             spec.videoBitrate = 2000000;
             constexpr double seconds = 2.0;
@@ -160,6 +175,8 @@ public:
             expect (mp4.sampleEntries.contains ("avc1"), mp4.sampleEntries.joinIntoString (","));
             expect (mp4.sampleEntries.contains ("mp4a"), mp4.sampleEntries.joinIntoString (","));
             expect (std::abs (mp4.movieSeconds - seconds) < 0.15, juce::String (mp4.movieSeconds, 3));
+            expectEquals (mp4.width, spec.width, "tkhd width");
+            expectEquals (mp4.height, spec.height, "tkhd height");
 
             int w = 0, h = 0;
             std::vector<juce::uint32> px;
@@ -176,6 +193,10 @@ public:
                                 + " bottom " + juce::String (bottom.r) + "," + juce::String (bottom.g) + "," + juce::String (bottom.b));
                     expect (top.r > 180 && top.b < 80 && top.g < 80, "top should be red");
                     expect (bottom.b > 180 && bottom.r < 80 && bottom.g < 80, "bottom should be blue");
+                    // 右端（詰め物の列が混ざっていない）
+                    const auto edge = rgbAt (px, w, w - 2, h / 8);
+                    expect (edge.r > 180 && edge.b < 80 && edge.g < 80,
+                            "right edge should be red: " + juce::String (edge.r) + "," + juce::String (edge.g) + "," + juce::String (edge.b));
                 }
             }
             file.deleteFile();
@@ -183,10 +204,8 @@ public:
 
         beginTest ("a failed write leaves no file");
         {
-           #if JUCE_LINUX
             if (! Encoder::available())
                 return;
-           #endif
             const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
                                   .getChildFile ("VoiceBoothTests-video-abandon-" + juce::String (juce::Random::getSystemRandom().nextInt64()) + ".mp4");
             {
