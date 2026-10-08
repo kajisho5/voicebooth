@@ -55,5 +55,6 @@ private:
     Actions& actions;
     juce::OwnedArray<TrackCard> cards;
     KeyButton compare;   // テイク比較（B18c）：いまのトラックのテイクを並べて聴き比べるパネルを開く
+    KeyButton history;   // 練習の履歴（Phase C）：録ったテイクの一覧と PITCH の移り変わり
 };
 } // namespace vb

@@ -317,6 +317,52 @@ public:
             ui.attachEngine (nullptr);
         }
 
+        beginTest ("practice history lists the takes newest first with their scores, and a row takes you to its start");
+        {
+            UiSession::projectFolderFor (songName).deleteRecursively();
+            ToneEngine engine;
+            UiSession ui;
+            ui.attachEngine (&engine);
+            expect (openSong (ui, karaoke));
+            ui.setMode (project::Mode::standard);
+            ui.setRecMode (project::RecMode::delivery);
+            ui.setCountIn (0);
+            analyse (ui);
+            ui.tick (1.1);
+            const auto rate = (double) ui.get().sampleRate();
+            auto record = [&] (double from, double to)
+            {
+                ui.seek ((juce::int64) (from * rate));
+                ui.setRecording (true);
+                engine.playhead = (juce::int64) (to * rate);
+                ui.setRecording (false);
+            };
+            engine.sharpFrom = 0.0;   // 1 本目：全部 60 セント高く
+            engine.sharpTo = 20.0;
+            record (3.0, 9.0);
+            pump (30);                // 録った時刻が同じミリ秒にならないように
+            engine.sharpTo = 0.0;     // 2 本目：合っている
+            record (11.0, 17.0);
+            expect (pumpUntil ([&] { return ui.get().takeStats.size() >= 2; }, 60000), "both takes are analysed");
+
+            const auto h = ui.history();
+            expectEquals ((int) h.size(), 2);
+            if (h.size() == 2)
+            {
+                expectEquals (h[0].takeId, juce::String ("take2"), "newest first");
+                expect (h[0].created >= h[1].created);
+                expect (h[0].recMode == project::RecMode::delivery);
+                expect (h[0].stats.has_value() && h[1].stats.has_value(), "both have scores");
+                if (h[0].stats.has_value() && h[1].stats.has_value())
+                    expectGreaterThan (h[0].stats->inBand, h[1].stats->inBand + 0.3f, "the in-tune take scores higher");
+
+                ui.seek (0);
+                ui.goToHistoryEntry (h[1]);
+                expectEquals (engine.playhead, h[1].start, "the row takes you to the start of the take");
+            }
+            ui.attachEngine (nullptr);
+        }
+
         UiSession::projectFolderFor (songName).deleteRecursively();
         work.deleteRecursively();
     }
