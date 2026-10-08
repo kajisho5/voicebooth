@@ -7,7 +7,7 @@ namespace vb
 namespace
 {
     constexpr int chartH = 120, columnRowH = 20, maxVisibleRows = 8;
-    constexpr int whenW = 96, trackW = 92, kindW = 120, onsetW = 104, pitchW = 64;
+    constexpr int whenW = 116, trackW = 92, kindW = 120, onsetW = 150, pitchW = 64;
 
     juce::Colour pitchColour (int pct)
     {
@@ -94,14 +94,14 @@ void HistoryDialog::paintChart (juce::Graphics& g, juce::Rectangle<float> r)
     }
     r.removeFromTop (4.0f);
 
-    auto plot = r.withTrimmedLeft (34.0f).reduced (6.0f, 6.0f);
+    auto plot = r.withTrimmedLeft (42.0f).reduced (6.0f, 6.0f);
     paint::inset (g, r);
     g.setFont (mono (9.5f));
     for (int pct : { 0, 50, 100 })
     {
         const auto y = plot.getBottom() - plot.getHeight() * (float) pct / 100.0f;
         g.setColour (colours::textMute);
-        g.drawText (juce::String (pct) + "%", juce::Rectangle<float> (r.getX() + 4.0f, y - 6.0f, 28.0f, 12.0f), juce::Justification::centredRight, false);
+        g.drawText (juce::String (pct) + "%", juce::Rectangle<float> (r.getX() + 2.0f, y - 6.0f, 36.0f, 12.0f), juce::Justification::centredRight, false);
         g.setColour (colours::line.withAlpha (pct == 0 ? 0.0f : 0.5f));
         g.drawHorizontalLine (juce::roundToInt (y), plot.getX(), plot.getRight());
     }
