@@ -23,6 +23,8 @@
  #import <CoreMedia/CoreMedia.h>
  #import <CoreVideo/CoreVideo.h>
  #import <VideoToolbox/VideoToolbox.h>
+ #include <deque>
+ #include <mutex>
 #else
  #include <cstdio>
  #include <csignal>
@@ -535,6 +537,62 @@ namespace
     }
     juce::String fromNS (NSString* s) { return s != nil ? juce::String::fromUTF8 ([s UTF8String]) : juce::String(); }
 
+    /** VideoToolbox が返した符号化済みのコマ（別のスレッドから届く）。CFRetain して持つ */
+    struct EncodedFrames
+    {
+        std::mutex lock;
+        std::deque<CMSampleBufferRef> samples;
+        OSStatus error = noErr;
+
+        void push (OSStatus status, CMSampleBufferRef sample)
+        {
+            const std::lock_guard<std::mutex> l (lock);
+            if (status != noErr)
+                error = status;
+            else if (sample != nullptr)
+            {
+                CFRetain (sample);
+                samples.push_back (sample);
+            }
+        }
+        CMSampleBufferRef pop()   // 呼んだ側が CFRelease する
+        {
+            const std::lock_guard<std::mutex> l (lock);
+            if (samples.empty())
+                return nullptr;
+            auto* s = samples.front();
+            samples.pop_front();
+            return s;
+        }
+        CMSampleBufferRef peek()
+        {
+            const std::lock_guard<std::mutex> l (lock);
+            return samples.empty() ? nullptr : samples.front();
+        }
+        OSStatus failed()
+        {
+            const std::lock_guard<std::mutex> l (lock);
+            return error;
+        }
+        void clear()
+        {
+            const std::lock_guard<std::mutex> l (lock);
+            for (auto* s : samples)
+                CFRelease (s);
+            samples.clear();
+        }
+        ~EncodedFrames() { clear(); }
+    };
+
+    void encodedCallback (void* refCon, void*, OSStatus status, VTEncodeInfoFlags, CMSampleBufferRef sample)
+    {
+        static_cast<EncodedFrames*> (refCon)->push (status, sample);
+    }
+
+    /*  符号化は VideoToolbox を自分で使い（リアルタイム・並べ替えなし。probeH264 と同じ設定）、AVAssetWriter には
+        符号化済みのコマをそのまま渡して MP4 にまとめさせる。音（AAC）は AVAssetWriter が符号化する。
+        2026-10-08：AVAssetWriter に符号化も任せると、CI の仮想マシンの Mac で 40 コマ受け取ったところで止まった
+        （符号化した結果が返ってこない）。VideoToolbox を直接使う確認は同じ Mac で通っている */
     class AvEncoder final : public Encoder
     {
     public:
@@ -549,6 +607,27 @@ namespace
                 return why;
             dest.deleteFile();
 
+            auto st = VTCompressionSessionCreate (kCFAllocatorDefault, spec.width, spec.height, kCMVideoCodecType_H264, nullptr, nullptr, nullptr,
+                                                  encodedCallback, &encoded, &session);
+            if (st != noErr || session == nullptr)
+                return fail ("H.264 encoder not available (" + juce::String ((int) st) + ")");
+            auto setInt = [this] (CFStringRef key, int value)
+            {
+                const auto n = CFNumberCreate (kCFAllocatorDefault, kCFNumberIntType, &value);
+                VTSessionSetProperty (session, key, n);
+                CFRelease (n);
+            };
+            VTSessionSetProperty (session, kVTCompressionPropertyKey_RealTime, kCFBooleanTrue);
+            VTSessionSetProperty (session, kVTCompressionPropertyKey_AllowFrameReordering, kCFBooleanFalse);
+            VTSessionSetProperty (session, kVTCompressionPropertyKey_ProfileLevel, kVTProfileLevel_H264_Main_AutoLevel);
+            VTSessionSetProperty (session, kVTCompressionPropertyKey_ColorPrimaries, kCVImageBufferColorPrimaries_ITU_R_709_2);
+            VTSessionSetProperty (session, kVTCompressionPropertyKey_TransferFunction, kCVImageBufferTransferFunction_ITU_R_709_2);
+            VTSessionSetProperty (session, kVTCompressionPropertyKey_YCbCrMatrix, kCVImageBufferYCbCrMatrix_ITU_R_709_2);
+            setInt (kVTCompressionPropertyKey_AverageBitRate, spec.videoBitrate);
+            setInt (kVTCompressionPropertyKey_MaxKeyFrameInterval, spec.fps * 2);
+            setInt (kVTCompressionPropertyKey_ExpectedFrameRate, spec.fps);
+            VTCompressionSessionPrepareToEncodeFrames (session);
+
             @autoreleasepool
             {
                 NSError* error = nil;
@@ -556,98 +635,28 @@ namespace
                                                    fileType: AVFileTypeMPEG4
                                                       error: &error];
                 if (writer == nil)
-                    return "AVAssetWriter: " + fromNS (error.localizedDescription);
-
-                NSDictionary* compression = @{ AVVideoAverageBitRateKey: @(spec.videoBitrate),
-                                               AVVideoMaxKeyFrameIntervalKey: @(spec.fps * 2),
-                                               AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel };
-                NSDictionary* colour = @{ AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                                          AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                                          AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2 };
-                NSDictionary* videoSettings = @{ AVVideoCodecKey: AVVideoCodecTypeH264,
-                                                 AVVideoWidthKey: @(spec.width),
-                                                 AVVideoHeightKey: @(spec.height),
-                                                 AVVideoColorPropertiesKey: colour,
-                                                 AVVideoCompressionPropertiesKey: compression };
-                videoIn = [[AVAssetWriterInput alloc] initWithMediaType: AVMediaTypeVideo outputSettings: videoSettings];
-                videoIn.expectsMediaDataInRealTime = NO;
-                // NV12 で渡す（BGRA だと書く側が画像変換の部品を使い、それがない仮想マシンの Mac で止まった。上の probeH264）
-                NSDictionary* pixels = @{ (id) kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
-                                          (id) kCVPixelBufferWidthKey: @(spec.width),
-                                          (id) kCVPixelBufferHeightKey: @(spec.height),
-                                          (id) kCVPixelBufferIOSurfacePropertiesKey: @{} };
-                adaptor = [[AVAssetWriterInputPixelBufferAdaptor alloc] initWithAssetWriterInput: videoIn
-                                                                     sourcePixelBufferAttributes: pixels];
-                if (! [writer canAddInput: videoIn])
-                    return fail ("can't add the H.264 track");
-                [writer addInput: videoIn];
-
-                if (audio != nullptr)
-                {
-                    AudioChannelLayout layout {};
-                    layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo;
-                    NSDictionary* audioSettings = @{ AVFormatIDKey: @(kAudioFormatMPEG4AAC),
-                                                     AVSampleRateKey: @(audioRate),
-                                                     AVNumberOfChannelsKey: @2,
-                                                     AVEncoderBitRateKey: @(spec.audioBitrate),
-                                                     AVChannelLayoutKey: [NSData dataWithBytes: &layout length: sizeof (layout)] };
-                    audioIn = [[AVAssetWriterInput alloc] initWithMediaType: AVMediaTypeAudio outputSettings: audioSettings];
-                    audioIn.expectsMediaDataInRealTime = NO;
-                    if (! [writer canAddInput: audioIn])
-                        return fail ("can't add the AAC track");
-                    [writer addInput: audioIn];
-
-                    AudioStreamBasicDescription asbd {};
-                    asbd.mSampleRate = audioRate;
-                    asbd.mFormatID = kAudioFormatLinearPCM;
-                    asbd.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
-                    asbd.mBytesPerPacket = 8;
-                    asbd.mFramesPerPacket = 1;
-                    asbd.mBytesPerFrame = 8;
-                    asbd.mChannelsPerFrame = 2;
-                    asbd.mBitsPerChannel = 32;
-                    if (CMAudioFormatDescriptionCreate (kCFAllocatorDefault, &asbd, sizeof (layout), &layout, 0, nullptr, nullptr, &audioFormat) != noErr)
-                        return fail ("can't describe the audio");
-                }
-
-                if (! [writer startWriting])
-                    return fail ("startWriting: " + fromNS (writer.error.localizedDescription));
-                [writer startSessionAtSourceTime: kCMTimeZero];
+                    return fail ("AVAssetWriter: " + fromNS (error.localizedDescription));
             }
+            // 映像のトラックは、最初のコマが符号化されてから作る（形式の情報 SPS / PPS が要る）
             return {};
         }
 
         juce::String addFrame (const juce::uint8* bgra, int lineStride) override
         {
-            if (writer == nil)
+            if (session == nullptr || writer == nil)
                 return "not open";
-            // 映像を受け取れるまで待つ。書く側は映像と音を交互に並べるので、音が足りないと映像を受け取らない。
-            // 待つ間は音を先に渡す（1 コマごとに同じ時刻までの音しか渡さないと、CI の Mac で止まったまま進まなかった）
-            if (auto e = waitWhileFeedingAudio (videoIn); e.isNotEmpty())
-                return fail ("video: " + e + " (frame " + juce::String (frames) + ")");
-            @autoreleasepool
-            {
-                CVPixelBufferRef pb = nullptr;
-                auto pool = adaptor.pixelBufferPool;
-                const auto made = pool != nullptr ? CVPixelBufferPoolCreatePixelBuffer (kCFAllocatorDefault, pool, &pb)
-                                                  : CVPixelBufferCreate (kCFAllocatorDefault, (size_t) spec.width, (size_t) spec.height,
-                                                                         kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, nullptr, &pb);
-                if (made != kCVReturnSuccess || pb == nullptr)
-                    return fail ("can't make a pixel buffer");
-                CVPixelBufferLockBaseAddress (pb, 0);
-                bgraToNv12 (bgra, lineStride, spec.width, spec.height,
-                            static_cast<juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (pb, 0)), CVPixelBufferGetBytesPerRowOfPlane (pb, 0),
-                            static_cast<juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (pb, 1)), CVPixelBufferGetBytesPerRowOfPlane (pb, 1));
-                CVPixelBufferUnlockBaseAddress (pb, 0);
-                CVBufferSetAttachment (pb, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
-                CVBufferSetAttachment (pb, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
-                CVBufferSetAttachment (pb, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
-                const BOOL ok = [adaptor appendPixelBuffer: pb withPresentationTime: CMTimeMake (frames, spec.fps)];
-                CVPixelBufferRelease (pb);
-                if (! ok)
-                    return fail ("video: " + writerError());
-            }
+            if (auto e = encodeFrame (bgra, lineStride); e.isNotEmpty())
+                return fail (e);
             ++frames;
+            if (! started)
+            {
+                // 最初のコマは出てくるまで待つ
+                VTCompressionSessionCompleteFrames (session, kCMTimeInvalid);
+                if (auto e = start(); e.isNotEmpty())
+                    return fail (e);
+            }
+            if (auto e = drainVideo(); e.isNotEmpty())
+                return fail (e);
             // このコマの終わりまでの音を、受け取れる分だけ（残りは次のコマを待つ間か、最後に書く）
             const auto until = audioSamplesUntilFrame (frames - 1, spec.fps);
             for (;;)
@@ -665,8 +674,13 @@ namespace
 
         juce::String finish() override
         {
-            if (writer == nil)
+            if (session == nullptr || writer == nil)
                 return "not open";
+            VTCompressionSessionCompleteFrames (session, kCMTimeInvalid);
+            if (! started)
+                return fail ("no frames");
+            if (auto e = drainVideo(); e.isNotEmpty())
+                return fail (e);
             @autoreleasepool
             {
                 // 映像を閉じてから残りの音を書く（映像を待たずに音を受け取るように）
@@ -696,6 +710,116 @@ namespace
         }
 
     private:
+        juce::String encodeFrame (const juce::uint8* bgra, int lineStride)
+        {
+            CVPixelBufferRef pb = nullptr;
+            auto pool = VTCompressionSessionGetPixelBufferPool (session);
+            CVReturn made = kCVReturnError;
+            if (pool != nullptr)
+                made = CVPixelBufferPoolCreatePixelBuffer (kCFAllocatorDefault, pool, &pb);
+            if (made != kCVReturnSuccess || pb == nullptr)
+                made = CVPixelBufferCreate (kCFAllocatorDefault, (size_t) spec.width, (size_t) spec.height,
+                                            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, nullptr, &pb);
+            if (made != kCVReturnSuccess || pb == nullptr)
+                return "can't make a pixel buffer";
+            CVPixelBufferLockBaseAddress (pb, 0);
+            const auto format = CVPixelBufferGetPixelFormatType (pb);
+            if (format == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange && CVPixelBufferGetPlaneCount (pb) == 2)
+                bgraToNv12 (bgra, lineStride, spec.width, spec.height,
+                            static_cast<juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (pb, 0)), CVPixelBufferGetBytesPerRowOfPlane (pb, 0),
+                            static_cast<juce::uint8*> (CVPixelBufferGetBaseAddressOfPlane (pb, 1)), CVPixelBufferGetBytesPerRowOfPlane (pb, 1));
+            else
+            {
+                CVPixelBufferUnlockBaseAddress (pb, 0);
+                CVPixelBufferRelease (pb);
+                return "unexpected pixel format (" + juce::String ((int) format) + ")";
+            }
+            CVPixelBufferUnlockBaseAddress (pb, 0);
+            CVBufferSetAttachment (pb, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+            CVBufferSetAttachment (pb, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+            CVBufferSetAttachment (pb, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+            const auto st = VTCompressionSessionEncodeFrame (session, pb, CMTimeMake (frames, spec.fps), CMTimeMake (1, spec.fps),
+                                                             nullptr, nullptr, nullptr);
+            CVPixelBufferRelease (pb);
+            if (st != noErr)
+                return "H.264 encode failed (" + juce::String ((int) st) + ")";
+            return {};
+        }
+
+        /** 最初のコマの形式で映像のトラックを作り、音のトラックも足して書き始める */
+        juce::String start()
+        {
+            if (auto st = encoded.failed(); st != noErr)
+                return "H.264 encode failed (" + juce::String ((int) st) + ")";
+            auto first = encoded.peek();
+            if (first == nullptr)
+                return "H.264 encoder returned nothing";
+            @autoreleasepool
+            {
+                videoIn = [[AVAssetWriterInput alloc] initWithMediaType: AVMediaTypeVideo
+                                                         outputSettings: nil
+                                                       sourceFormatHint: CMSampleBufferGetFormatDescription (first)];
+                videoIn.expectsMediaDataInRealTime = NO;
+                if (! [writer canAddInput: videoIn])
+                    return "can't add the H.264 track";
+                [writer addInput: videoIn];
+
+                if (audio != nullptr)
+                {
+                    AudioChannelLayout layout {};
+                    layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo;
+                    NSDictionary* audioSettings = @{ AVFormatIDKey: @(kAudioFormatMPEG4AAC),
+                                                     AVSampleRateKey: @(audioRate),
+                                                     AVNumberOfChannelsKey: @2,
+                                                     AVEncoderBitRateKey: @(spec.audioBitrate),
+                                                     AVChannelLayoutKey: [NSData dataWithBytes: &layout length: sizeof (layout)] };
+                    audioIn = [[AVAssetWriterInput alloc] initWithMediaType: AVMediaTypeAudio outputSettings: audioSettings];
+                    audioIn.expectsMediaDataInRealTime = NO;
+                    if (! [writer canAddInput: audioIn])
+                        return "can't add the AAC track";
+                    [writer addInput: audioIn];
+
+                    AudioStreamBasicDescription asbd {};
+                    asbd.mSampleRate = audioRate;
+                    asbd.mFormatID = kAudioFormatLinearPCM;
+                    asbd.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
+                    asbd.mBytesPerPacket = 8;
+                    asbd.mFramesPerPacket = 1;
+                    asbd.mBytesPerFrame = 8;
+                    asbd.mChannelsPerFrame = 2;
+                    asbd.mBitsPerChannel = 32;
+                    if (CMAudioFormatDescriptionCreate (kCFAllocatorDefault, &asbd, sizeof (layout), &layout, 0, nullptr, nullptr, &audioFormat) != noErr)
+                        return "can't describe the audio";
+                }
+
+                if (! [writer startWriting])
+                    return "startWriting: " + writerError();
+                [writer startSessionAtSourceTime: kCMTimeZero];
+            }
+            started = true;
+            return {};
+        }
+
+        /** 符号化が済んだコマを書く */
+        juce::String drainVideo()
+        {
+            if (auto st = encoded.failed(); st != noErr)
+                return "H.264 encode failed (" + juce::String ((int) st) + ")";
+            while (auto* sample = encoded.peek())
+            {
+                if (auto e = waitWhileFeedingAudio (videoIn); e.isNotEmpty())
+                    return "video: " + e + " (frame " + juce::String (frames) + ")";
+                sample = encoded.pop();
+                if (sample == nullptr)
+                    break;
+                const BOOL ok = [videoIn appendSampleBuffer: sample];
+                CFRelease (sample);
+                if (! ok)
+                    return "video: " + writerError();
+            }
+            return {};
+        }
+
         /** input が受け取れるまで待つ。待つ間、音が残っていて受け取れるなら先に渡す。
             何も進まないまま 20 秒たったら、または書く側が失敗したら理由を返す */
         juce::String waitWhileFeedingAudio (AVAssetWriterInput* input)
@@ -774,8 +898,14 @@ namespace
 
         void release()
         {
+            if (session != nullptr)
+            {
+                VTCompressionSessionInvalidate (session);   // これ以降、コールバックは来ない
+                CFRelease (session);
+                session = nullptr;
+            }
+            encoded.clear();
             if (audioFormat != nullptr) { CFRelease (audioFormat); audioFormat = nullptr; }
-            [adaptor release];  adaptor = nil;
             [audioIn release];  audioIn = nil;
             [videoIn release];  videoIn = nil;
             [writer release];   writer = nil;
@@ -794,10 +924,12 @@ namespace
         juce::File dest;
         Spec spec;
         std::shared_ptr<const juce::AudioBuffer<float>> audio;
+        VTCompressionSessionRef session = nullptr;
+        EncodedFrames encoded;
+        bool started = false;
         AVAssetWriter* writer = nil;
         AVAssetWriterInput* videoIn = nil;
         AVAssetWriterInput* audioIn = nil;
-        AVAssetWriterInputPixelBufferAdaptor* adaptor = nil;
         CMAudioFormatDescriptionRef audioFormat = nullptr;
         juce::int64 frames = 0, audioPos = 0;
         std::vector<float> interleaved;
