@@ -210,6 +210,7 @@ set(VOICEBOOTH_SONG_SOURCES
     app/analysis/Decimate.cpp
     app/analysis/RefPitch.cpp
     app/analysis/MusicInfo.cpp
+    app/analysis/Structure.cpp
     app/analysis/Separation.cpp
     app/analysis/OffVocal.cpp
     app/analysis/TakeStats.cpp
@@ -584,6 +585,7 @@ if(VOICEBOOTH_TESTS)
         tests/PitchTests.cpp
         tests/RefPitchTests.cpp
         tests/MusicInfoTests.cpp
+        tests/StructureTests.cpp
         tests/ProjectFileTests.cpp
         tests/DeliveryPackTests.cpp
         tests/SeparationTests.cpp
